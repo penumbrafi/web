@@ -60,21 +60,63 @@ export const optimisticParallelBuild = async function* (
       ),
   );
 
-  yield {
-    status: {
-      case: 'buildProgress',
-      value: { progress: 0.1 },
-    },
+  // Track phases: auth -> build
+  let authComplete = false;
+  let authData: AuthorizationData | undefined;
+  let buildComplete = false;
+  let buildTransaction: Transaction | undefined;
+  let buildError: unknown;
+
+  // Start auth and track completion
+  Promise.race([cancel, authorizationRequest])
+    .then(data => {
+      authData = data;
+      authComplete = true;
+    })
+    .catch(() => {
+      // cancel will handle rejection
+    });
+
+  const startTime = Date.now();
+  const minAnimationMs = 500;
+
+  // Helper to calculate progress based on phase and elapsed time
+  // Phase 1 (auth): 0.05 -> 0.20 over ~2s
+  // Phase 2 (build): 0.20 -> 0.90 over ~4s (WASM init + key loading + proof)
+  const getProgress = (elapsed: number, phase: 'auth' | 'build'): number => {
+    if (phase === 'auth') {
+      // Slow rise from 5% to 20% - user is approving
+      return 0.05 + 0.15 * (1 - 1 / (1 + elapsed / 2000));
+    }
+    // Build phase: 20% to 90% with slower curve for init-heavy first build
+    // 3000ms time constant means ~50% at 3 seconds
+    return 0.2 + 0.7 * (1 - 1 / (1 + elapsed / 3000));
   };
 
-  // Wait for auth
-  const authData = await Promise.race([cancel, authorizationRequest]);
+  // Phase 1: Animate while waiting for auth
+  while (!authComplete) {
+    const elapsed = Date.now() - startTime;
+    yield {
+      status: {
+        case: 'buildProgress',
+        value: { progress: getProgress(elapsed, 'auth') },
+      },
+    };
+    await new Promise<void>(r => setTimeout(r, 50));
+  }
 
-  // Yield immediately after auth to show progress is starting
+  // Auth complete - start build
+  if (!authData) {
+    // Auth was cancelled/rejected
+    await Promise.race([cancel, authorizationRequest]); // will throw
+    return;
+  }
+
+  // Yield 20% to mark auth complete
   yield {
     status: {
       case: 'buildProgress',
-      value: { progress: 0.15 },
+      value: { progress: 0.2 },
     },
   };
 
@@ -87,44 +129,38 @@ export const optimisticParallelBuild = async function* (
     authData,
   );
 
-  // Smooth progress animation while build runs
-  // Most time is WASM init (~1-2s) + proving (~0.5-2s depending on actions)
-  const startTime = Date.now();
+  buildPromise
+    .then(tx => {
+      buildTransaction = tx;
+      buildComplete = true;
+    })
+    .catch(e => {
+      buildError = e;
+      buildComplete = true;
+    });
 
-  // Use a flag that only gets set after we check it
-  let done = false;
-  const buildResult = buildPromise.then(tx => {
-    done = true;
-    return tx;
-  });
-
-  // Always yield at least a few progress updates for smooth UX
-  while (!done) {
-    const elapsed = Date.now() - startTime;
-    // Logarithmic progress curve: starts at 0.2, approaches 0.9 asymptotically
-    const progress = 0.2 + 0.7 * (1 - 1 / (1 + elapsed / 500));
+  // Phase 2: Animate while building
+  const buildStartTime = Date.now();
+  while (!buildComplete || Date.now() - buildStartTime < minAnimationMs) {
+    const elapsed = Date.now() - buildStartTime;
+    const progress = buildComplete ? 0.95 : Math.min(0.9, getProgress(elapsed, 'build'));
 
     yield {
       status: {
         case: 'buildProgress',
-        value: { progress: Math.min(0.9, progress) },
+        value: { progress },
       },
     };
 
-    // Wait 60ms or until build completes
-    const timeout = new Promise<void>(r => setTimeout(r, 60));
-    await Promise.race([buildResult.then(() => {}), timeout]);
+    await new Promise<void>(r => setTimeout(r, 50));
   }
 
-  // Final progress before complete
-  yield {
-    status: {
-      case: 'buildProgress',
-      value: { progress: 0.95 },
-    },
-  };
+  // Check for build error
+  if (buildError) {
+    throw ConnectError.from(buildError);
+  }
 
-  const transaction = await Promise.race([cancel, buildResult]);
+  const transaction = buildTransaction ?? (await Promise.race([cancel, buildPromise]));
 
   yield {
     status: {
