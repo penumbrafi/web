@@ -31,10 +31,23 @@ import { FullViewingKey } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/ke
 import { offscreenClient } from '../../offscreen-client.js';
 
 /**
- * Check if parallel build is available (SharedArrayBuffer support).
- * The actual WASM initialization happens in the offscreen worker.
+ * Check if parallel build is available.
+ *
+ * In the extension context, SharedArrayBuffer is only available in the
+ * offscreen document (with cross-origin isolation), not in the service worker.
+ * We return true if we're in an extension context, since the offscreen worker
+ * will handle the actual SharedArrayBuffer check.
+ *
+ * For web contexts, we check for SharedArrayBuffer directly.
  */
 export const isParallelBuildAvailable = (): boolean => {
+  // In Chrome extension context, always return true - the offscreen document
+  // has cross-origin isolation and SharedArrayBuffer support
+  if (typeof chrome !== 'undefined' && chrome.runtime?.id) {
+    return true;
+  }
+
+  // In web contexts, check for SharedArrayBuffer directly
   return typeof SharedArrayBuffer !== 'undefined';
 };
 
