@@ -14,23 +14,33 @@ import {
   witness,
 } from '../wasm/index.js';
 import { FullViewingKey, SpendKey } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys_pb';
+import { initWasm } from './init.js';
 
-export const authorizePlan = (spendKey: SpendKey, txPlan: TransactionPlan): AuthorizationData => {
+export const authorizePlan = async (
+  spendKey: SpendKey,
+  txPlan: TransactionPlan,
+): Promise<AuthorizationData> => {
+  await initWasm();
   const result = authorize(spendKey.toBinary(), txPlan.toBinary());
   return AuthorizationData.fromBinary(result);
 };
 
-export const getWitness = (txPlan: TransactionPlan, sct: StateCommitmentTree): WitnessData => {
+export const getWitness = async (
+  txPlan: TransactionPlan,
+  sct: StateCommitmentTree,
+): Promise<WitnessData> => {
+  await initWasm();
   const result = witness(txPlan.toBinary(), sct);
   return WitnessData.fromBinary(result);
 };
 
-export const buildParallel = (
+export const buildParallel = async (
   batchActions: Action[],
   txPlan: TransactionPlan,
   witnessData: WitnessData,
   authData: AuthorizationData,
-): Transaction => {
+): Promise<Transaction> => {
+  await initWasm();
   const result = build_parallel(
     batchActions.map(action => action.toJson()),
     txPlan.toBinary(),
@@ -47,6 +57,8 @@ export const buildActionParallel = async (
   actionId: number,
   keyPath?: string,
 ): Promise<Action> => {
+  await initWasm();
+
   // Conditionally read proving keys from disk and load keys into WASM binary
   const actionPlan = txPlan.actions[actionId];
   if (!actionPlan?.action.case) {
@@ -75,7 +87,8 @@ export const buildActionParallel = async (
  * Load a proving key into the WASM module.
  * Must be called before building actions that require ZK proofs.
  */
-export const loadProvingKey = (key: Uint8Array, actionType: string): void => {
+export const loadProvingKey = async (key: Uint8Array, actionType: string): Promise<void> => {
+  await initWasm();
   load_proving_key_wasm(key, actionType);
 };
 
@@ -86,6 +99,7 @@ export const loadProvingKeyFromPath = async (
   actionType: Exclude<Action['action']['case'], undefined>,
   keyPath: string,
 ): Promise<void> => {
+  await initWasm();
   const key = new Uint8Array(await (await fetch(keyPath)).arrayBuffer());
   load_proving_key_wasm(key, actionType);
 };

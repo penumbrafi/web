@@ -2,7 +2,7 @@
  * WASM Module Initialization
  *
  * This module provides explicit initialization for the WASM module.
- * Required for rayon-enabled builds which need SharedArrayBuffer setup.
+ * Required for --target web builds which need explicit initialization.
  *
  * Usage:
  *   import { initWasm, initWasmWithParallel } from '@penumbra-zone/wasm/init';
@@ -29,12 +29,23 @@ export const isParallelSupported = (): boolean => {
 
 /**
  * Initialize the WASM module for standard (non-parallel) use.
- * The bundler target auto-initializes on import, so this is a no-op.
+ * With --target web, we need to explicitly call the init function.
  * Safe to call multiple times.
  */
 export const initWasm = async (): Promise<void> => {
-  // Bundler WASM auto-initializes on import - nothing to do
-  wasmInitialized = true;
+  if (wasmInitialized) return;
+  if (wasmInitPromise) return wasmInitPromise;
+
+  wasmInitPromise = (async () => {
+    // Import the wasm module's init function
+    const wasmModule = await import('../wasm/index.js');
+    // Call the default export (init function) to initialize the module
+    await wasmModule.default();
+    wasmInitialized = true;
+    console.log('[WASM] Initialized (standard mode)');
+  })();
+
+  return wasmInitPromise;
 };
 
 /**
