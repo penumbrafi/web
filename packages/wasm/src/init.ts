@@ -1,24 +1,22 @@
 /**
  * WASM Module Initialization
  *
- * This module provides explicit initialization for the WASM module.
- * Required for --target web builds which need explicit initialization.
+ * Standard wasm (wasm/) is built with --target bundler and auto-initializes on import.
+ * Parallel wasm (wasm-parallel/) is built with --target web and needs explicit init.
  *
  * Usage:
  *   import { initWasm, initWasmWithParallel } from '@penumbra-zone/wasm/init';
  *
- *   // For standard builds:
+ *   // For standard builds (no-op, wasm auto-initializes):
  *   await initWasm();
  *
  *   // For parallel builds with rayon (requires SharedArrayBuffer):
  *   await initWasmWithParallel(navigator.hardwareConcurrency);
  */
 
-// Note: wasm-parallel is loaded dynamically only when initWasmWithParallel is called
-// This avoids loading issues in contexts that don't support SharedArrayBuffer
-
-let wasmInitialized = false;
-let wasmInitPromise: Promise<void> | null = null;
+// Track parallel wasm initialization (standard wasm auto-inits with bundler target)
+let parallelWasmInitialized = false;
+let parallelWasmInitPromise: Promise<void> | null = null;
 
 /**
  * Check if SharedArrayBuffer is available (required for parallel builds).
@@ -29,23 +27,12 @@ export const isParallelSupported = (): boolean => {
 
 /**
  * Initialize the WASM module for standard (non-parallel) use.
- * With --target web, we need to explicitly call the init function.
- * Safe to call multiple times.
+ * With --target bundler, WASM auto-initializes on import - this is a no-op.
+ * Kept for backwards compatibility.
  */
 export const initWasm = async (): Promise<void> => {
-  if (wasmInitialized) return;
-  if (wasmInitPromise) return wasmInitPromise;
-
-  wasmInitPromise = (async () => {
-    // Import the wasm module's init function
-    const wasmModule = await import('../wasm/index.js');
-    // Call the default export (init function) to initialize the module
-    await wasmModule.default();
-    wasmInitialized = true;
-    console.log('[WASM] Initialized (standard mode)');
-  })();
-
-  return wasmInitPromise;
+  // No-op: bundler target auto-initializes WASM on import
+  return;
 };
 
 /**
@@ -57,8 +44,8 @@ export const initWasm = async (): Promise<void> => {
 export const initWasmWithParallel = async (
   numThreads: number = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 4 : 4,
 ): Promise<void> => {
-  if (wasmInitialized) return;
-  if (wasmInitPromise) return wasmInitPromise;
+  if (parallelWasmInitialized) return;
+  if (parallelWasmInitPromise) return parallelWasmInitPromise;
 
   if (!isParallelSupported()) {
     throw new Error(
@@ -66,7 +53,7 @@ export const initWasmWithParallel = async (
     );
   }
 
-  wasmInitPromise = (async () => {
+  parallelWasmInitPromise = (async () => {
     // Dynamically import parallel WASM module
     const parallelWasm = await import('../wasm-parallel/index.js');
 
@@ -85,30 +72,32 @@ export const initWasmWithParallel = async (
     // Initialize the rayon thread pool
     await parallelWasm.initThreadPool(numThreads);
 
-    wasmInitialized = true;
+    parallelWasmInitialized = true;
     console.log(`[WASM] Initialized with ${numThreads} parallel threads`);
   })();
 
-  return wasmInitPromise;
+  return parallelWasmInitPromise;
 };
 
 /**
- * Check if the WASM module has been initialized.
+ * Check if parallel WASM module has been initialized.
  */
-export const isWasmInitialized = (): boolean => wasmInitialized;
+export const isWasmInitialized = (): boolean => true; // Standard wasm always auto-inits
+
+/**
+ * Check if parallel WASM is initialized.
+ */
+export const isParallelWasmInitialized = (): boolean => parallelWasmInitialized;
 
 /**
  * Ensure WASM is initialized, initializing with parallel support if available.
  * This is a convenience function that auto-detects the best mode.
  */
 export const ensureWasmReady = async (): Promise<boolean> => {
-  if (wasmInitialized) return isParallelSupported();
-
-  if (isParallelSupported()) {
+  // Standard wasm auto-initializes with bundler target
+  if (isParallelSupported() && !parallelWasmInitialized) {
     await initWasmWithParallel();
     return true;
-  } else {
-    await initWasm();
-    return false;
   }
+  return false;
 };

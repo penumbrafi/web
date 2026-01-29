@@ -10,7 +10,7 @@
     "build": "tsc --build --verbose",
     "clean": "rm -rfv dist *.tsbuildinfo wasm wasm-parallel package penumbra-zone-*.tgz",
     "clean:rust": "cargo clean --manifest-path ./crate/Cargo.toml",
-    "compile": "cd crate && wasm-pack build --no-pack --target web --out-name index --out-dir ../wasm",
+    "compile": "cd crate && wasm-pack build --no-pack --target bundler --out-name index --out-dir ../wasm",
     "compile:parallel": "cd crate && RUSTFLAGS='-C target-feature=+atomics,+bulk-memory,+mutable-globals,+simd128 -C link-arg=--max-memory=4294967296' cargo +nightly build --lib --release --target wasm32-unknown-unknown --features parallel -Z build-std=panic_abort,std && wasm-bindgen --target web --out-dir ../wasm-parallel --out-name index ./target/wasm32-unknown-unknown/release/penumbra_wasm.wasm",
     "compile:all": "pnpm compile && pnpm compile:parallel",
     "compile:bundler": "cd crate && wasm-pack build --no-pack --target bundler --out-name index --out-dir ../wasm",
