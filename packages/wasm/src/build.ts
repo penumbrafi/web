@@ -10,6 +10,7 @@ import {
   authorize,
   build_action,
   build_parallel,
+  compute_effect_hash,
   load_proving_key as load_proving_key_wasm,
   witness,
 } from '../wasm/index.js';
@@ -23,6 +24,20 @@ export const authorizePlan = async (
   await initWasm();
   const result = authorize(spendKey.toBinary(), txPlan.toBinary());
   return AuthorizationData.fromBinary(result);
+};
+
+/**
+ * Compute the effect hash for a transaction plan using the full viewing key.
+ * Does NOT require the spend key — used for airgap signing where the spend key
+ * lives on a separate device (Zigner).
+ * Returns the raw 64-byte effect hash.
+ */
+export const computeEffectHash = async (
+  fullViewingKey: FullViewingKey,
+  txPlan: TransactionPlan,
+): Promise<Uint8Array> => {
+  await initWasm();
+  return new Uint8Array(compute_effect_hash(fullViewingKey.toBinary(), txPlan.toBinary()));
 };
 
 export const getWitness = async (
