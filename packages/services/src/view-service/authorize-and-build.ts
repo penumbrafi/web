@@ -2,7 +2,7 @@ import type { Impl } from './index.js';
 import { servicesCtx } from '../ctx/prax.js';
 import { buildTransaction } from './util/build-tx.js';
 import { custodyAuthorize } from './util/custody-authorize.js';
-import { getWitness } from '@penumbra-zone/wasm/build';
+import { getWitness } from '@rotko/penumbra-wasm/build';
 import { Code, ConnectError } from '@connectrpc/connect';
 import { fvkCtx } from '../ctx/full-viewing-key.js';
 

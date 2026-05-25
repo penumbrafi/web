@@ -4,7 +4,7 @@ import {
   TransactionPlan,
   WitnessData,
 } from '@penumbra-zone/protobuf/penumbra/core/transaction/v1/transaction_pb';
-import { buildParallel } from '@penumbra-zone/wasm/build';
+import { buildParallel } from '@rotko/penumbra-wasm/build';
 import { offscreenClient } from '../../offscreen-client.js';
 import {
   AuthorizeAndBuildResponse,

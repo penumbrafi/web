@@ -1,7 +1,7 @@
 import type { Impl } from './index.js';
 import { servicesCtx } from '../ctx/prax.js';
 import { buildTransaction } from './util/build-tx.js';
-import { getWitness } from '@penumbra-zone/wasm/build';
+import { getWitness } from '@rotko/penumbra-wasm/build';
 import { Code, ConnectError } from '@connectrpc/connect';
 import { AuthorizationData } from '@penumbra-zone/protobuf/penumbra/core/transaction/v1/transaction_pb';
 import { fvkCtx } from '../ctx/full-viewing-key.js';
