@@ -272,7 +272,7 @@ export const MarketOrderForm = observer(({ parentStore }: { parentStore: OrderFo
         ) : (
           <ConnectButton actionType='default' />
         )}
-        {connected && <FormIssueNotice issue={parentStore.blockingIssue} />}
+        {connected && <FormIssueNotice issue={parentStore.formNotice} />}
       </div>
       <ConfirmOrderModal
         isOpen={confirmOpen}
