@@ -246,6 +246,30 @@ export const getPositionWeights = (
   });
 };
 
+/**
+ * True when a built position provisions a non-zero amount of at least one asset,
+ * measured in *base* units — i.e. exactly what the chain checks.
+ *
+ * `Position::check_stateless` in pd rejects the whole transaction with
+ * "initial reserves must provision some amount of either asset" if r1 and r2
+ * are both zero. Because reserves are quantised to base units by
+ * `pnum(x, exponent).toAmount()`, a display-unit amount that is merely *small*
+ * (a thin outer rung of a PYRAMID split, or the empty side of a one-sided
+ * range) truncates to zero and poisons an otherwise valid batch. Filtering
+ * those rungs out here is what lets a small or one-sided LP land on the first
+ * try instead of being rejected wholesale.
+ */
+export const positionHasReserves = ({ reserves }: Position): boolean => {
+  const r1 = reserves?.r1;
+  const r2 = reserves?.r2;
+  const nonZero = (a?: { lo?: bigint; hi?: bigint }): boolean =>
+    a !== undefined && ((a.lo ?? 0n) !== 0n || (a.hi ?? 0n) !== 0n);
+  return nonZero(r1) || nonZero(r2);
+};
+
+const withReserves = (positions: PositionedLiquidity[]): PositionedLiquidity[] =>
+  positions.filter(p => positionHasReserves(p.position));
+
 /** Given a plan for providing range liquidity, create all the necessary positions to accomplish the plan. */
 export const rangeLiquidityPositions = (plan: RangeLiquidityPlan): PositionedLiquidity[] => {
   // The step width is positions-1 because it's between the endpoints
@@ -253,35 +277,37 @@ export const rangeLiquidityPositions = (plan: RangeLiquidityPlan): PositionedLiq
   // 0   1   2   3   4
   //   0   1   2   3
   const stepWidth = (plan.upperPrice - plan.lowerPrice) / plan.positions;
-  return Array.from({ length: plan.positions }, (_, i) => {
-    const price = plan.lowerPrice + i * stepWidth;
+  return withReserves(
+    Array.from({ length: plan.positions }, (_, i) => {
+      const price = plan.lowerPrice + i * stepWidth;
 
-    let baseReserves: number;
-    let quoteReserves: number;
-    if (price < plan.marketPrice) {
-      // If the price is < market price, then people *paying* that price are getting a good deal,
-      // and receiving the base asset in exchange, so we don't want to offer them any of that.
-      baseReserves = 0;
-      quoteReserves = plan.targetLiquidity / plan.positions;
-    } else {
-      // Conversely, when price > market price, then the people that are selling the base asset,
-      // receiving the quote asset in exchange are getting a good deal, so we don't want to offer that.
-      baseReserves = plan.targetLiquidity / plan.positions / price;
-      quoteReserves = 0;
-    }
+      let baseReserves: number;
+      let quoteReserves: number;
+      if (price < plan.marketPrice) {
+        // If the price is < market price, then people *paying* that price are getting a good deal,
+        // and receiving the base asset in exchange, so we don't want to offer them any of that.
+        baseReserves = 0;
+        quoteReserves = plan.targetLiquidity / plan.positions;
+      } else {
+        // Conversely, when price > market price, then the people that are selling the base asset,
+        // receiving the quote asset in exchange are getting a good deal, so we don't want to offer that.
+        baseReserves = plan.targetLiquidity / plan.positions / price;
+        quoteReserves = 0;
+      }
 
-    return planToPosition(
-      {
-        baseAsset: plan.baseAsset,
-        quoteAsset: plan.quoteAsset,
-        feeBps: plan.feeBps,
-        price,
-        baseReserves,
-        quoteReserves,
-      },
-      plan.distributionShape,
-    );
-  });
+      return planToPosition(
+        {
+          baseAsset: plan.baseAsset,
+          quoteAsset: plan.quoteAsset,
+          feeBps: plan.feeBps,
+          price,
+          baseReserves,
+          quoteReserves,
+        },
+        plan.distributionShape,
+      );
+    }),
+  );
 };
 
 /** Given a plan for providing simple liquidity, create all the necessary positions to accomplish the plan. */
@@ -290,13 +316,30 @@ export const simpleLiquidityPositions = (plan: SimpleLiquidityPlan): PositionedL
   const totalRange = plan.upperPrice - plan.lowerPrice;
   const marketPosition = (plan.marketPrice - plan.lowerPrice) / totalRange;
 
-  // Calculate number of positions for each range
-  const lowerPositionsAmount = Math.max(0, Math.floor(plan.positions * marketPosition));
-  const upperPositionsAmount = Math.max(0, plan.positions - lowerPositionsAmount);
+  // Calculate number of positions for each range.
+  //
+  // `marketPosition` is only in [0, 1] when mid actually sits inside the range.
+  // For a deliberately one-sided range (mid above the upper bound, or below the
+  // lower bound) it goes out of bounds, and the old unclamped
+  // `floor(positions * marketPosition)` could exceed `plan.positions` — opening
+  // *more* rungs than the form advertised and charging gas for them. Clamp so
+  // the split always sums to exactly `plan.positions`.
+  const lowerPositionsAmount = Math.min(
+    plan.positions,
+    Math.max(0, Math.floor(plan.positions * marketPosition)),
+  );
+  const upperPositionsAmount = plan.positions - lowerPositionsAmount;
 
-  // Calculate step widths for each range
-  const lowerStepWidth = (plan.marketPrice - plan.lowerPrice) / lowerPositionsAmount;
-  const upperStepWidth = (plan.upperPrice - plan.marketPrice) / upperPositionsAmount;
+  // Calculate step widths for each range. Guard the zero-count side: a fully
+  // one-sided range leaves one of these at 0 and the division would yield
+  // Infinity/NaN prices. The corresponding `Array.from({ length: 0 })` never
+  // reads the value, but keeping it finite means a stray NaN can never reach
+  // `priceToPQ` and silently produce p=q=0 coefficients the chain rejects with
+  // "trading function coefficients must be nonzero".
+  const lowerStepWidth =
+    lowerPositionsAmount > 0 ? (plan.marketPrice - plan.lowerPrice) / lowerPositionsAmount : 0;
+  const upperStepWidth =
+    upperPositionsAmount > 0 ? (plan.upperPrice - plan.marketPrice) / upperPositionsAmount : 0;
 
   // Calculate weights for ALL positions together to maintain the distribution shape
   const weights = getPositionWeights(
@@ -346,7 +389,7 @@ export const simpleLiquidityPositions = (plan: SimpleLiquidityPlan): PositionedL
     );
   });
 
-  return [...lowerPositions, ...upperPositions];
+  return withReserves([...lowerPositions, ...upperPositions]);
 };
 
 /** A limit order plan attempts to buy or sell the baseAsset at a given price.
