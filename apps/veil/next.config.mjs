@@ -46,6 +46,20 @@ To fix this in production containers, ensure:
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   env: getCommitInfo(),
+  // The standalone staking page is gone — staking is part of the Explore
+  // validators view, where the validator list already lives. A routing-layer
+  // redirect (rather than a stub page calling `redirect()`) gives a real 308
+  // and forwards the query string automatically, so existing links carrying
+  // `?delegate=<bech32 identity>` still open the delegate dialog on arrival.
+  async redirects() {
+    return [
+      {
+        source: '/portfolio/staking',
+        destination: '/explore/validators',
+        permanent: true,
+      },
+    ];
+  },
   serverExternalPackages: ['pino-pretty'],
   experimental: {
     optimizePackageImports: [

@@ -105,8 +105,8 @@ const DelegationRow = ({ delegation, umPrice, umQuoteSymbol, isLast }: RowProps)
 
   const valueInQuote = umPrice ? umEquivalent * umPrice : 0;
   const stakeHref = identityKey
-    ? `${PagePath.PortfolioStaking}?delegate=${encodeURIComponent(identityKey)}`
-    : PagePath.PortfolioStaking;
+    ? `${PagePath.ExploreValidators}?delegate=${encodeURIComponent(identityKey)}`
+    : PagePath.ExploreValidators;
   const borderClass = isLast ? '' : 'border-b border-b-other-tonal-stroke';
 
   return (

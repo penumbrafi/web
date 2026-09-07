@@ -55,7 +55,7 @@ const PortfolioBody = observer(() => {
 
           {isPenumbraConnected && (
             <div className='flex justify-end'>
-              <Link href={PagePath.PortfolioStaking}>
+              <Link href={PagePath.ExploreValidators}>
                 <Button actionType='accent' priority='secondary' icon={Coins} density='compact'>
                   Stake UM
                 </Button>

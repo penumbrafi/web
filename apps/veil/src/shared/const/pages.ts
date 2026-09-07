@@ -6,9 +6,11 @@ export enum PagePath {
   // top-level chain-explorer namespace. The market-overview/landing page
   // that used to live at '/explore' is now the root `Home`.
   Explore = '/explore',
+  // Staking lives here: the validator list and the delegate/undelegate
+  // actions are the same page.
+  ExploreValidators = '/explore/validators',
   Trade = '/trade',
   Portfolio = '/portfolio',
-  PortfolioStaking = '/portfolio/staking',
   Tournament = '/tournament',
   Tokenomics = '/learn/tokenomics',
   TournamentRound = '/tournament/:epoch',
@@ -22,7 +24,7 @@ export enum PagePath {
 
 const basePath: Partial<Record<PagePath, PagePath>> = {
   [PagePath.TradePair]: PagePath.Trade,
-  [PagePath.PortfolioStaking]: PagePath.Portfolio,
+  [PagePath.ExploreValidators]: PagePath.Explore,
   '/explore/lp/:id': PagePath.Explore,
   '/tournament/:epoch': PagePath.Tournament,
 };
