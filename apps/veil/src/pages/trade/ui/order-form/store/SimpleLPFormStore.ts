@@ -173,8 +173,8 @@ export class SimpleLPFormStore {
       if (this.quoteInput !== '') {
         openToast({
           type: 'warning',
-          message: `Range is entirely above mid — this is now a one-sided ${this._baseAsset?.symbol} (ask) position.`,
-          description: `${this._quoteAsset?.symbol} can only be quoted below the mid price, so that side has been cleared. You will start earning fees once the market trades up into your range.`,
+          message: `Range is entirely above mid — asks only.`,
+          description: `${this._quoteAsset?.symbol} can only be quoted below the mid price, so that side has been cleared. Enter a ${this._baseAsset?.symbol} amount to quote asks; it will start earning once the market trades up into your range.`,
         });
       }
 
@@ -199,8 +199,8 @@ export class SimpleLPFormStore {
       if (this.baseInput !== '') {
         openToast({
           type: 'warning',
-          message: `Range is entirely below mid — this is now a one-sided ${this._quoteAsset?.symbol} (bid) position.`,
-          description: `${this._baseAsset?.symbol} can only be quoted above the mid price, so that side has been cleared. You will start earning fees once the market trades down into your range.`,
+          message: `Range is entirely below mid — bids only.`,
+          description: `${this._baseAsset?.symbol} can only be quoted above the mid price, so that side has been cleared. Enter a ${this._quoteAsset?.symbol} amount to quote bids; it will start earning once the market trades down into your range.`,
         });
       }
 
