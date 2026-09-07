@@ -328,9 +328,9 @@ export const simpleLiquidityPositions = (plan: SimpleLiquidityPlan): PositionedL
   const hasBase = plan.baseLiquidity > 0;
   const hasQuote = plan.quoteLiquidity > 0;
 
-  // One-sided: use every position on the funded side across [mid, upper]
-  // (base only, ask ladder) or [lower, mid] (quote only, bid ladder),
-  // instead of splitting `positions` in two and leaving half as
+  // One-sided funding: use every position on the funded side across
+  // [mid, upper] (base only, ask ladder) or [lower, mid] (quote only, bid
+  // ladder), instead of splitting positions in two and leaving half as
   // zero-reserve dead rungs. Weights are computed across the full n so
   // PYRAMID reads as a monotonic stair heavy near mid, and
   // INVERTED_PYRAMID as a stair heavy at the edge.
@@ -341,9 +341,16 @@ export const simpleLiquidityPositions = (plan: SimpleLiquidityPlan): PositionedL
     return oneSidedPositions(plan, 'quote');
   }
 
-  // Two-sided path (existing behavior).
+  // Two-sided path. The split is anchored at mid *clamped into the range*,
+  // not at raw mid. Raw mid is only inside [lower, upper] when the range
+  // straddles it; for a deliberately one-sided range (with both sides funded
+  // but the range set entirely above or below mid) it sits outside, and
+  // using it as the start of the upper rungs (or the end of the lower
+  // rungs) laid positions clean outside the range the user chose. With the
+  // range straddling mid the anchor IS mid, so nothing changes.
   const totalRange = plan.upperPrice - plan.lowerPrice;
-  const marketPosition = (plan.marketPrice - plan.lowerPrice) / totalRange;
+  const anchorPrice = Math.min(Math.max(plan.marketPrice, plan.lowerPrice), plan.upperPrice);
+  const marketPosition = (anchorPrice - plan.lowerPrice) / totalRange;
 
   // Position-count split. `marketPosition` is only in [0, 1] when mid sits
   // inside the range; for a one-sided range it drifts out of bounds, and the
@@ -363,9 +370,9 @@ export const simpleLiquidityPositions = (plan: SimpleLiquidityPlan): PositionedL
   // coefficients the chain rejects ("trading function coefficients must be
   // nonzero").
   const lowerStepWidth =
-    lowerPositionsAmount > 0 ? (plan.marketPrice - plan.lowerPrice) / lowerPositionsAmount : 0;
+    lowerPositionsAmount > 0 ? (anchorPrice - plan.lowerPrice) / lowerPositionsAmount : 0;
   const upperStepWidth =
-    upperPositionsAmount > 0 ? (plan.upperPrice - plan.marketPrice) / upperPositionsAmount : 0;
+    upperPositionsAmount > 0 ? (plan.upperPrice - anchorPrice) / upperPositionsAmount : 0;
 
   // CUSTOM uses the user-supplied per-rung weights verbatim; every other
   // shape derives them from the shape formula. Length is padded/truncated
@@ -401,7 +408,7 @@ export const simpleLiquidityPositions = (plan: SimpleLiquidityPlan): PositionedL
   });
 
   const upperPositions = Array.from({ length: upperPositionsAmount }, (_, i) => {
-    const price = plan.marketPrice + i * upperStepWidth;
+    const price = anchorPrice + i * upperStepWidth;
     const weight = (weights[i + lowerPositionsAmount] ?? 0) / (upperRangeTotalWeight || 1);
     return planToPosition(
       {
