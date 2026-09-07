@@ -24,6 +24,7 @@ import {
 } from './store/RangeOrderFormStore';
 import { LiquidityDistributionShape } from '@/shared/math/position';
 import { ConfirmInfoRow, ConfirmOrderModal, ConfirmWarning } from './confirm-order-modal';
+import { FormIssueNotice } from './form-issue';
 
 const UPPER_BOUND_OPTIONS = Object.values(UpperBoundOptions);
 const LOWER_BOUND_OPTIONS = Object.values(LowerBoundOptions);
@@ -192,9 +193,7 @@ export const RangeLiquidityOrderForm = observer(
               // OrderInput only ever passes the first arg at runtime, so
               // fromOption defaults to false (same behaviour as the old
               // `price => setUpperPriceInput(price)` wrapper).
-              onChange={
-                store.setUpperPriceInput as (amount: string, ...args: unknown[]) => void
-              }
+              onChange={store.setUpperPriceInput as (amount: string, ...args: unknown[]) => void}
               denominator={store.quoteAsset?.symbol}
             />
           </div>
@@ -212,9 +211,7 @@ export const RangeLiquidityOrderForm = observer(
               value={store.lowerPriceInput}
               placeholder={midText}
               decimals={store.quoteAsset?.exponent ?? defaultDecimals}
-              onChange={
-                store.setLowerPriceInput as (amount: string, ...args: unknown[]) => void
-              }
+              onChange={store.setLowerPriceInput as (amount: string, ...args: unknown[]) => void}
               denominator={store.quoteAsset?.symbol}
             />
           </div>
@@ -308,8 +305,8 @@ export const RangeLiquidityOrderForm = observer(
                 valueColor='error'
                 value={
                   aboveMid
-                    ? 'Mid above range — fully ASK side, won\'t fill bids until price drops in'
-                    : 'Mid below range — fully BID side, won\'t fill asks until price rises in'
+                    ? "Mid above range — fully ASK side, won't fill bids until price drops in"
+                    : "Mid below range — fully BID side, won't fill asks until price rises in"
                 }
                 toolTip='Your range does not include the live chain mid. A one-sided LP earns nothing in fees until the market moves into your range. Either widen the range to include mid, or accept that this is a directional bet on the market crossing your range.'
               />
@@ -344,16 +341,13 @@ export const RangeLiquidityOrderForm = observer(
         </div>
         <div className='mb-4'>
           {connected ? (
-            <Button
-              actionType='accent'
-              disabled={!parentStore.canSubmit}
-              onClick={openConfirm}
-            >
+            <Button actionType='accent' disabled={!parentStore.canSubmit} onClick={openConfirm}>
               Open {store.positionCount ?? 'Several'} Positions
             </Button>
           ) : (
             <ConnectButton actionType='default' />
           )}
+          {connected && <FormIssueNotice issue={parentStore.formNotice} />}
         </div>
         <ConfirmOrderModal
           isOpen={confirmOpen}

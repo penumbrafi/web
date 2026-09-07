@@ -13,7 +13,12 @@ import { useTickDirection } from '../../model/use-tick-direction';
 import { InfoRow } from './info-row';
 import { InfoRowGasFee } from './info-row-gas-fee';
 import { OrderFormStore } from './store/OrderFormStore';
-import { DEFAULT_PRICE_RANGE, DEFAULT_PRICE_SPREAD } from './store/SimpleLPFormStore';
+import {
+  DEFAULT_PRICE_RANGE,
+  DEFAULT_PRICE_SPREAD,
+  SimpleFeeTierOptions,
+} from './store/SimpleLPFormStore';
+import { SelectGroup } from './select-group';
 import { PriceSlider, roundToDecimals } from './price-slider';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Icon } from '@penumbra-zone/ui/Icon';
@@ -22,11 +27,13 @@ import { useIsLqtEligible, LQT_ENABLED } from '@/shared/utils/is-lqt-eligible';
 import { LiquidityDistributionShape } from '@/shared/math/position';
 import { LiquidityShape } from './liquidity-shape';
 import { ConfirmInfoRow, ConfirmOrderModal, ConfirmWarning } from './confirm-order-modal';
+import { FormIssueNotice } from './form-issue';
 
 // Hoist Object.values(EnumX) to module scope — it allocates a fresh array
 // per call, and the LP form re-renders every block-tick via marketPrice.
 // Same idiom we use in the limit / range / form-tabs hoists.
 const LIQUIDITY_SHAPES = Object.values(LiquidityDistributionShape);
+const FEE_TIER_OPTIONS = Object.values(SimpleFeeTierOptions);
 
 export const SimpleLiquidityOrderForm = observer(
   ({ parentStore }: { parentStore: OrderFormStore }) => {
@@ -95,6 +102,14 @@ export const SimpleLiquidityOrderForm = observer(
     const rangeCoversMid =
       mid != null && lo !== undefined && hi !== undefined && mid >= lo && mid <= hi;
 
+    // The number of positions that will actually be opened, which is not
+    // necessarily the number requested: rungs whose reserves round to zero
+    // base units are dropped, because the chain rejects the whole transaction
+    // over a single empty position. Before that filter these were always
+    // equal; now they diverge exactly when the amount is marginal — which is
+    // precisely when the user needs the honest number.
+    const actualPositions = store.plan?.length ?? store.positions;
+
     const confirmRows = useMemo<ConfirmInfoRow[]>(() => {
       const rows: ConfirmInfoRow[] = [];
       if (mid != null) {
@@ -120,7 +135,7 @@ export const SimpleLiquidityOrderForm = observer(
           });
         }
       }
-      rows.push({ label: 'Positions', value: String(store.positions) });
+      rows.push({ label: 'Positions', value: String(actualPositions) });
       rows.push({
         label: `${baseSym || 'Base'} amount`,
         value: store.baseInput || '—',
@@ -135,6 +150,10 @@ export const SimpleLiquidityOrderForm = observer(
         valueColor: isLQTEligible ? 'success' : undefined,
       });
       rows.push({
+        label: 'Position fee',
+        value: `${store.feeTierPercentInput}%`,
+      });
+      rows.push({
         label: 'Gas fee',
         value: `${parentStore.gasFee.display} ${parentStore.gasFee.symbol}`,
       });
@@ -146,9 +165,10 @@ export const SimpleLiquidityOrderForm = observer(
       decimals,
       baseSym,
       quoteSym,
-      store.positions,
+      actualPositions,
       store.baseInput,
       store.quoteInput,
+      store.feeTierPercentInput,
       isLQTEligible,
       parentStore.gasFee.display,
       parentStore.gasFee.symbol,
@@ -168,15 +188,57 @@ export const SimpleLiquidityOrderForm = observer(
       ];
     }, [mid, lo, hi, rangeCoversMid]);
 
+    // Say what the user gives and what they get back, in a sentence, before
+    // they sign. "Open 10 LP positions between X and Y" describes the
+    // mechanism but never mentions the amounts leaving the wallet, the fee
+    // being charged, or the condition under which any of it earns anything.
     const actionLabel = useMemo(() => {
-      if (lo === undefined || hi === undefined) {
-        return `Open ${store.positions} LP positions`;
+      // Gate on the amount *before* formatting. `baseAssetAmount` returns a
+      // formatted "0 UM" — a truthy string — whenever a plan exists, so a
+      // `??` fallback never fires and a one-sided position would read
+      // "You provide 0 UM and 100 USDC".
+      const provided = [
+        store.baseLiquidity > 0 ? (store.baseAssetAmount ?? `${store.baseInput} ${baseSym}`) : null,
+        store.quoteLiquidity > 0
+          ? (store.quoteAssetAmount ?? `${store.quoteInput} ${quoteSym}`)
+          : null,
+      ].filter(Boolean);
+
+      if (provided.length === 0) {
+        return `Open ${actualPositions} liquidity positions`;
       }
-      return `Open ${store.positions} LP positions between ${roundToDecimals(
-        lo,
-        decimals,
-      )} and ${roundToDecimals(hi, decimals)} ${quoteSym}`;
-    }, [lo, hi, decimals, quoteSym, store.positions]);
+      return `You provide ${provided.join(' and ')}`;
+    }, [
+      store.baseAssetAmount,
+      store.quoteAssetAmount,
+      store.baseLiquidity,
+      store.quoteLiquidity,
+      store.baseInput,
+      store.quoteInput,
+      actualPositions,
+      baseSym,
+      quoteSym,
+    ]);
+
+    const subLabel = useMemo(() => {
+      const where =
+        lo !== undefined && hi !== undefined
+          ? ` between ${roundToDecimals(lo, decimals)} and ${roundToDecimals(hi, decimals)} ${quoteSym} per ${baseSym}`
+          : '';
+      const earn = store.isOneSided
+        ? 'Because only one side is funded, it fills — and starts earning — once the market trades into your range.'
+        : 'You earn that fee whenever someone trades against your positions inside the range.';
+      return `Split across ${actualPositions} positions${where}, each charging ${store.feeTierPercentInput}%. ${earn} You can close them at any time to take your funds back.`;
+    }, [
+      lo,
+      hi,
+      decimals,
+      quoteSym,
+      baseSym,
+      actualPositions,
+      store.feeTierPercentInput,
+      store.isOneSided,
+    ]);
 
     const openConfirm = useCallback(() => setConfirmOpen(true), []);
     const closeConfirm = useCallback(() => setConfirmOpen(false), []);
@@ -338,6 +400,21 @@ export const SimpleLiquidityOrderForm = observer(
           </div>
         </div>
         <div className='mb-4'>
+          <div className='mb-2 flex items-center gap-1'>
+            <Text small color='text.secondary'>
+              Position Fee
+            </Text>
+            <Tooltip message='The fee your positions charge takers, and therefore what you earn on every trade that crosses them. Stable pairs are conventionally 0.05%, most pairs 0.1–0.3%, and thin or volatile pairs higher to cover inventory risk.'>
+              <Icon IconComponent={InfoIcon} size='sm' color='text.secondary' />
+            </Tooltip>
+          </div>
+          <SelectGroup
+            options={FEE_TIER_OPTIONS}
+            value={store.feeTierOption}
+            onChange={store.setFeeTierOption}
+          />
+        </div>
+        <div className='mb-4'>
           <div className='mb-4 flex justify-between leading-6'>
             <div className='flex items-center gap-1'>
               <Text small color='text.secondary'>
@@ -478,7 +555,7 @@ export const SimpleLiquidityOrderForm = observer(
                 {lo !== undefined && hi !== undefined && (
                   <InfoRow
                     label='Orders'
-                    value={`${store.positions} between ${roundToDecimals(lo, decimals)} → ${roundToDecimals(hi, decimals)}`}
+                    value={`${actualPositions} between ${roundToDecimals(lo, decimals)} → ${roundToDecimals(hi, decimals)}`}
                     toolTip='How many positions will be opened across the range, and the price endpoints. Each position is a single concentrated-liquidity slot the chain matches against.'
                   />
                 )}
@@ -542,6 +619,11 @@ export const SimpleLiquidityOrderForm = observer(
               }
             />
           )}
+          <InfoRow
+            label='Position fee'
+            value={`${store.feeTierPercentInput}%`}
+            toolTip='What your positions charge takers. This is what you earn when someone trades against you — it is part of the position, not a protocol fee. Higher tiers compensate for the inventory risk of volatile pairs, but quote less competitively.'
+          />
           <InfoRowGasFee
             gasFee={parentStore.gasFee.display}
             symbol={parentStore.gasFee.symbol}
@@ -550,20 +632,18 @@ export const SimpleLiquidityOrderForm = observer(
         </div>
         <div className='mb-4'>
           {connected ? (
-            <Button
-              actionType='accent'
-              disabled={!parentStore.canSubmit}
-              onClick={openConfirm}
-            >
+            <Button actionType='accent' disabled={!parentStore.canSubmit} onClick={openConfirm}>
               Add Liquidity
             </Button>
           ) : (
             <ConnectButton actionType='default' />
           )}
+          {connected && <FormIssueNotice issue={parentStore.formNotice} />}
         </div>
         <ConfirmOrderModal
           isOpen={confirmOpen}
           actionLabel={actionLabel}
+          subLabel={subLabel}
           rows={confirmRows}
           warnings={confirmWarnings}
           confirmDisabled={!parentStore.canSubmit}

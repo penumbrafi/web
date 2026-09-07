@@ -34,6 +34,30 @@ export const DEFAULT_PRICE_RANGE = 0.3;
 export const STABLE_PRICE_RANGE = 0.1;
 const DEFAULT_FEE_TIER_PERCENT = 0.1;
 
+/**
+ * The fee a position charges takers, as a percentage.
+ *
+ * A position's fee is part of its trading function, not a protocol setting —
+ * it is what the LP earns when someone trades against them. The form has
+ * always had a `feeTierPercent`, defaulted to 0.1%, but never rendered it
+ * anywhere, so LPs could neither see nor choose what they were charging.
+ * These four are the conventional tiers: stable pairs at the bottom, volatile
+ * and exotic pairs higher up, to compensate for inventory risk.
+ */
+export enum SimpleFeeTierOptions {
+  Stable = '0.05%',
+  Standard = '0.1%',
+  Volatile = '0.3%',
+  Exotic = '1%',
+}
+
+export const SIMPLE_FEE_TIER_PERCENTS: Record<SimpleFeeTierOptions, string> = {
+  [SimpleFeeTierOptions.Stable]: '0.05',
+  [SimpleFeeTierOptions.Standard]: '0.1',
+  [SimpleFeeTierOptions.Volatile]: '0.3',
+  [SimpleFeeTierOptions.Exotic]: '1',
+};
+
 export class SimpleLPFormStore {
   private _baseAsset?: AssetInfo;
   private _quoteAsset?: AssetInfo;
@@ -149,7 +173,8 @@ export class SimpleLPFormStore {
       if (this.quoteInput !== '') {
         openToast({
           type: 'warning',
-          message: `You cannot provide ${this._quoteAsset?.symbol} when the price range is higher than the market price.`,
+          message: `Range is entirely above mid — asks only.`,
+          description: `${this._quoteAsset?.symbol} can only be quoted below the mid price, so that side has been cleared. Enter a ${this._baseAsset?.symbol} amount to quote asks; it will start earning once the market trades up into your range.`,
         });
       }
 
@@ -174,7 +199,8 @@ export class SimpleLPFormStore {
       if (this.baseInput !== '') {
         openToast({
           type: 'warning',
-          message: `You cannot provide ${this._baseAsset?.symbol} when the price range is lower than the market price.`,
+          message: `Range is entirely below mid — bids only.`,
+          description: `${this._baseAsset?.symbol} can only be quoted above the mid price, so that side has been cleared. Enter a ${this._quoteAsset?.symbol} amount to quote bids; it will start earning once the market trades down into your range.`,
         });
       }
 
@@ -189,16 +215,61 @@ export class SimpleLPFormStore {
     return Math.max(0, Math.min(parseNumber(this.feeTierPercentInput) ?? 0, 50));
   }
 
+  feeTierOption: SimpleFeeTierOptions | undefined = SimpleFeeTierOptions.Standard;
+
   setFeeTierPercentInput = (x: string) => {
     this.feeTierPercentInput = x;
+    this.feeTierOption = Object.values(SimpleFeeTierOptions).find(
+      option => SIMPLE_FEE_TIER_PERCENTS[option] === x,
+    );
   };
+
+  setFeeTierOption = (option: SimpleFeeTierOptions) => {
+    this.setFeeTierPercentInput(SIMPLE_FEE_TIER_PERCENTS[option]);
+  };
+
+  /** The base amount actually being provisioned, treating a blank field as zero. */
+  get baseLiquidity(): number {
+    return parseNumber(this.baseInput) ?? 0;
+  }
+
+  /** The quote amount actually being provisioned, treating a blank field as zero. */
+  get quoteLiquidity(): number {
+    return parseNumber(this.quoteInput) ?? 0;
+  }
+
+  /** True when only one of the two assets is being provisioned. */
+  get isOneSided(): boolean {
+    return this.baseLiquidity > 0 !== this.quoteLiquidity > 0;
+  }
+
+  /**
+   * Which side has been funded that cannot be quoted in the chosen range.
+   *
+   * A range entirely above mid can only quote asks, which are paid for in the
+   * base asset; a range entirely below mid can only quote bids, paid for in
+   * the quote asset. Funding the other one produces a ladder where every rung
+   * has zero reserves — so the plan comes back empty and the user, who has
+   * plainly entered an amount, would otherwise be told it is "too small".
+   */
+  get wrongSideFunded(): 'base' | 'quote' | undefined {
+    const mid = this.marketPrice;
+    if (mid === null || this.lowerPriceInput === null || this.upperPriceInput === null) {
+      return undefined;
+    }
+    if (this.lowerPriceInput >= mid && this.quoteLiquidity > 0 && this.baseLiquidity === 0) {
+      return 'quote';
+    }
+    if (this.upperPriceInput <= mid && this.baseLiquidity > 0 && this.quoteLiquidity === 0) {
+      return 'base';
+    }
+    return undefined;
+  }
 
   get plan(): PositionedLiquidity[] | undefined {
     if (
       !this._baseAsset ||
       !this._quoteAsset ||
-      this.quoteInput === '' ||
-      this.baseInput === '' ||
       this.upperPrice === null ||
       this.lowerPrice === null ||
       this.marketPrice === null
@@ -206,11 +277,22 @@ export class SimpleLPFormStore {
       return undefined;
     }
 
+    // A one-sided LP — all bids or all asks — is a legitimate and common
+    // strategy, and is what a range that sits entirely to one side of mid
+    // *means*. Requiring both fields to be non-empty made it unreachable:
+    // dragging the range off mid clears the opposite input (see
+    // set{Lower,Upper}PriceInput), which then left `plan` undefined and the
+    // submit button permanently, silently dead. See penumbra-zone/web#2551.
+    // Only a genuinely empty form has nothing to plan.
+    if (this.baseLiquidity <= 0 && this.quoteLiquidity <= 0) {
+      return undefined;
+    }
+
     return simpleLiquidityPositions({
       baseAsset: this._baseAsset,
       quoteAsset: this._quoteAsset,
-      baseLiquidity: Number(this.baseInput),
-      quoteLiquidity: Number(this.quoteInput),
+      baseLiquidity: this.baseLiquidity,
+      quoteLiquidity: this.quoteLiquidity,
       upperPrice: this.upperPrice,
       lowerPrice: this.lowerPrice,
       marketPrice: this.marketPrice,

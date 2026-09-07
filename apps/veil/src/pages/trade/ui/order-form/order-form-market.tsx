@@ -15,6 +15,7 @@ import { InfoRowTradingFee } from './info-row-trading-fee';
 import { OrderFormStore } from './store/OrderFormStore';
 import { InfoRow } from './info-row';
 import { ConfirmInfoRow, ConfirmOrderModal } from './confirm-order-modal';
+import { FormIssueNotice } from './form-issue';
 
 interface SliderProps {
   inputValue: string;
@@ -86,8 +87,7 @@ export const MarketOrderForm = observer(({ parentStore }: { parentStore: OrderFo
     const rows: ConfirmInfoRow[] = [];
     if (baseAmt && quoteAmt && baseAmt > 0 && quoteAmt > 0) {
       const fillPrice = quoteAmt / baseAmt;
-      const decimals =
-        fillPrice >= 1 ? 4 : fillPrice >= 0.01 ? 5 : fillPrice >= 0.0001 ? 6 : 8;
+      const decimals = fillPrice >= 1 ? 4 : fillPrice >= 0.01 ? 5 : fillPrice >= 0.0001 ? 6 : 8;
       rows.push({
         label: 'Avg fill price',
         value: `${fillPrice.toFixed(decimals)} ${quoteSym}`,
@@ -221,8 +221,7 @@ export const MarketOrderForm = observer(({ parentStore }: { parentStore: OrderFo
           const quote = store.quoteInputAmount;
           if (!base || !quote || base <= 0 || quote <= 0) return null;
           const fillPrice = quote / base;
-          const decimals =
-            fillPrice >= 1 ? 4 : fillPrice >= 0.01 ? 5 : fillPrice >= 0.0001 ? 6 : 8;
+          const decimals = fillPrice >= 1 ? 4 : fillPrice >= 0.01 ? 5 : fillPrice >= 0.0001 ? 6 : 8;
           return (
             <InfoRow
               label='Avg fill price'
@@ -245,9 +244,7 @@ export const MarketOrderForm = observer(({ parentStore }: { parentStore: OrderFo
             // longer 'small market move noise' but a chunk of the
             // trader's expected fill they'll lose. Mirrors how every
             // pro DEX warns at the same threshold.
-            valueColor={
-              (store.priceImpactPercent ?? 0) > 1 ? 'error' : undefined
-            }
+            valueColor={(store.priceImpactPercent ?? 0) > 1 ? 'error' : undefined}
             toolTip={
               (store.priceImpactPercent ?? 0) > 1
                 ? 'High price impact — your trade is large enough relative to the book that the executed price will move noticeably from the current mid. Consider splitting the order or using Limit form.'
@@ -269,16 +266,13 @@ export const MarketOrderForm = observer(({ parentStore }: { parentStore: OrderFo
       </div>
       <div className='mb-4'>
         {connected ? (
-          <Button
-            actionType='accent'
-            disabled={!parentStore.canSubmit}
-            onClick={openConfirm}
-          >
+          <Button actionType='accent' disabled={!parentStore.canSubmit} onClick={openConfirm}>
             {isBuy ? 'Buy' : 'Sell'} {store.baseAsset?.symbol}
           </Button>
         ) : (
           <ConnectButton actionType='default' />
         )}
+        {connected && <FormIssueNotice issue={parentStore.formNotice} />}
       </div>
       <ConfirmOrderModal
         isOpen={confirmOpen}

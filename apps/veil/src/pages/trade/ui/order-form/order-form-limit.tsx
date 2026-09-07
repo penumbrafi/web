@@ -15,6 +15,7 @@ import { SelectGroup } from './select-group';
 import { OrderFormStore } from './store/OrderFormStore';
 import { BuyLimitOrderOptions, SellLimitOrderOptions } from './store/LimitOrderFormStore';
 import { ConfirmInfoRow, ConfirmOrderModal, ConfirmWarning } from './confirm-order-modal';
+import { FormIssueNotice } from './form-issue';
 
 // Module-scoped — Object.values() of an enum allocates a fresh array on
 // every call, defeating any prop-identity-based skipping in SelectGroup.
@@ -108,6 +109,25 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
       decimals: 6,
     })} ${quoteSym}`;
   }, [isBuy, baseSym, quoteSym, limitPrice, store.baseInput]);
+
+  // A limit order on Penumbra is a one-sided liquidity position that closes
+  // when filled — not an order sitting in a matching engine. Saying so, along
+  // with what is spent and what comes back, is the difference between the
+  // user trusting the form and hoping it does the right thing. (Requested
+  // upstream in penumbra-zone/web#2551: "would be also great addition to have
+  // a humanreadable tab to understand what the actual tx impact is".)
+  const subLabel = useMemo(() => {
+    if (!Number.isFinite(limitPrice) || limitPrice <= 0) {
+      return undefined;
+    }
+    const spend = isBuy
+      ? `${store.quoteInput || '—'} ${quoteSym}`
+      : `${store.baseInput || '—'} ${baseSym}`;
+    const receive = isBuy
+      ? `${store.baseInput || '—'} ${baseSym}`
+      : `${store.quoteInput || '—'} ${quoteSym}`;
+    return `You commit ${spend} and receive ${receive} once the market reaches your price. This opens a single one-sided liquidity position that closes automatically when filled; until then you can close it and take the ${spend} back.`;
+  }, [isBuy, baseSym, quoteSym, limitPrice, store.baseInput, store.quoteInput]);
 
   const openConfirm = useCallback(() => setConfirmOpen(true), []);
   const closeConfirm = useCallback(() => setConfirmOpen(false), []);
@@ -209,9 +229,7 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
         {(() => {
           const mid = parentStore.marketPrice;
           if (!mid || mid <= 0) return null;
-          const balanceNum = isBuy
-            ? store.quoteAsset?.balance
-            : store.baseAsset?.balance;
+          const balanceNum = isBuy ? store.quoteAsset?.balance : store.baseAsset?.balance;
           if (balanceNum === undefined || !Number.isFinite(balanceNum) || balanceNum <= 0) {
             return null;
           }
@@ -268,20 +286,18 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
       </div>
       <div className='mb-4'>
         {connected ? (
-          <Button
-            actionType='accent'
-            disabled={!parentStore.canSubmit}
-            onClick={openConfirm}
-          >
+          <Button actionType='accent' disabled={!parentStore.canSubmit} onClick={openConfirm}>
             {isBuy ? 'Buy' : 'Sell'} {store.baseAsset?.symbol}
           </Button>
         ) : (
           <ConnectButton actionType='default' />
         )}
+        {connected && <FormIssueNotice issue={parentStore.formNotice} />}
       </div>
       <ConfirmOrderModal
         isOpen={confirmOpen}
         actionLabel={actionLabel}
+        subLabel={subLabel}
         rows={confirmRows}
         warnings={confirmWarnings}
         confirmDisabled={!parentStore.canSubmit}
