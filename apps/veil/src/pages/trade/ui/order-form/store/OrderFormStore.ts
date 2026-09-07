@@ -171,9 +171,15 @@ export class OrderFormStore {
       const described = describeTxError(e);
       const isWalletState =
         described.cancelled === true ||
-        ['Wallet is locked', 'No wallet detected', 'Wallet not connected'].includes(
-          described.title,
-        );
+        [
+          'Wallet is locked',
+          'No wallet detected',
+          'Wallet not connected',
+          // A transient RPC blip is not a verdict on the order. Pinning it as
+          // a blocker would wedge the button until the user edits the form,
+          // since the dry-run only re-fires on an input change.
+          'Network problem',
+        ].includes(described.title);
 
       runInAction(() => {
         // Clear the stale estimate inline rather than via `resetGasFee`,
@@ -401,6 +407,9 @@ export class OrderFormStore {
       ? (this._whichForm === 'RangeLP' ? this._range : this._simpleLP).plan
       : undefined;
 
+    const wrongSideFunded =
+      this._whichForm === 'SimpleLP' ? this._simpleLP.wrongSideFunded : undefined;
+
     return validateOrder({
       requirements: this.requirements,
       feeAsset: this._feeAsset,
@@ -412,6 +421,13 @@ export class OrderFormStore {
       requiresMarketPrice: this._whichForm === 'SimpleLP',
       positionCount: lpPlan?.length,
       isOneSided: this._whichForm === 'SimpleLP' ? this._simpleLP.isOneSided : undefined,
+      wrongSide: wrongSideFunded
+        ? {
+            funded: wrongSideFunded,
+            baseSymbol: this._simpleLP.baseAsset?.symbol ?? 'the base asset',
+            quoteSymbol: this._simpleLP.quoteAsset?.symbol ?? 'the quote asset',
+          }
+        : undefined,
     });
   }
 
