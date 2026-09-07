@@ -1,0 +1,48 @@
+# /etc/systemd/system/penumbra-veil.service
+#
+# Serves Veil (https://penumbra.fi, alias https://dex.rotko.net) on :3001 from
+# the Next.js `output: 'standalone'` bundle deployed by
+# .github/workflows/deploy-veil.yml.
+#
+# Layout on the host:
+#   /opt/penumbra-veil/releases/<sha>/   unpacked standalone tree
+#   /opt/penumbra-veil/current           symlink -> releases/<sha>
+#   /opt/penumbra-veil/shared/           host-owned secrets, never touched by CI
+[Unit]
+Description=Penumbra Veil DEX
+After=network-online.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=web
+Group=web
+WorkingDirectory=/opt/penumbra-veil/current/apps/veil
+Environment=NODE_ENV=production
+Environment=PORT=3001
+# nginx in CT1102 proxies to 10.6.78.85:3001, so do not bind to loopback only.
+Environment=HOSTNAME=0.0.0.0
+# Prefer the /etc/hosts IPv4 mapping to CT1102 over the public AAAA
+# (the v6 VIP is not reachable from vmbr1). Previously a drop-in; folded in
+# here so it is not a hidden host-side dependency.
+Environment=NODE_OPTIONS=--dns-result-order=ipv4first
+# Both files are optional (leading '-') and are managed by hand on the host.
+EnvironmentFile=-/opt/penumbra-veil/shared/.env.production
+EnvironmentFile=-/opt/penumbra-veil/shared/.env.production.local
+ExecStart=/usr/bin/node /opt/penumbra-veil/current/apps/veil/server.js
+Restart=always
+RestartSec=10
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+# Next.js writes its image-optimization cache under .next/cache at runtime.
+ReadWritePaths=/opt/penumbra-veil/releases
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

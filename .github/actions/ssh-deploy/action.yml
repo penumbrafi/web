@@ -1,0 +1,67 @@
+name: 'Configure deploy SSH'
+description: >
+  Writes the deploy key, pinned host keys and an ssh config that reaches the
+  application container (CT1105) through the bkk06 jump host. After this action
+  runs, `ssh target` and `rsync -e ssh ... target:` work.
+inputs:
+  ssh-key:
+    description: 'ed25519 private key (secrets.DEPLOY_SSH_KEY)'
+    required: true
+  known-hosts:
+    description: 'known_hosts entries for the jump host and the container (secrets.DEPLOY_KNOWN_HOSTS)'
+    required: true
+  jump-host:
+    description: 'public address of the jump host (secrets.DEPLOY_HOST)'
+    required: true
+  jump-user:
+    description: 'user on the jump host'
+    required: false
+    default: deploy-jump
+  target-host:
+    description: 'address of the container inside the jump host network (secrets.DEPLOY_CT)'
+    required: true
+  target-user:
+    description: 'user inside the container that owns /opt/<app>'
+    required: false
+    default: web
+
+runs:
+  using: composite
+  steps:
+    - name: write ssh key and config
+      shell: bash
+      env:
+        SSH_KEY: ${{ inputs.ssh-key }}
+        KNOWN_HOSTS: ${{ inputs.known-hosts }}
+        JUMP_HOST: ${{ inputs.jump-host }}
+        JUMP_USER: ${{ inputs.jump-user }}
+        TARGET_HOST: ${{ inputs.target-host }}
+        TARGET_USER: ${{ inputs.target-user }}
+      run: |
+        set -euo pipefail
+        install -m 700 -d ~/.ssh
+        printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+        chmod 600 ~/.ssh/id_deploy
+        printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+        chmod 644 ~/.ssh/known_hosts
+        cat > ~/.ssh/config <<CFG
+        Host jump
+          HostName $JUMP_HOST
+          User $JUMP_USER
+          IdentityFile ~/.ssh/id_deploy
+          IdentitiesOnly yes
+          StrictHostKeyChecking yes
+
+        Host target
+          HostName $TARGET_HOST
+          User $TARGET_USER
+          ProxyJump jump
+          IdentityFile ~/.ssh/id_deploy
+          IdentitiesOnly yes
+          StrictHostKeyChecking yes
+        CFG
+        chmod 600 ~/.ssh/config
+
+    - name: verify connectivity
+      shell: bash
+      run: ssh -o BatchMode=yes target 'echo "connected to $(hostname) as $(id -un)"'

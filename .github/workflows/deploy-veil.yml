@@ -1,0 +1,146 @@
+# Build and deploy Veil (the DEX explorer, https://penumbra.fi) to CT1105.
+#
+# Build happens here, never on the host: `next build` with output: 'standalone'
+# produces a self-contained tree that is tarred as veil-<sha>.tar.zst, uploaded
+# as a workflow artifact, attached to the GitHub release on tags, and rsynced
+# into /opt/penumbra-veil/releases/<sha> by the deploy job.
+name: deploy veil
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+concurrency:
+  group: deploy-veil
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build veil
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # next.config.mjs reads git metadata for the version footer
+          fetch-depth: 0
+
+      - name: setup nix
+        uses: ./.github/actions/setup-nix
+
+      - name: setup turbo
+        uses: ./.github/actions/setup-turbo
+
+      - name: build veil
+        env:
+          # NEXT_PUBLIC_* is inlined at build time, so it has to come from the
+          # repository/environment variables rather than the host .env files.
+          NEXT_PUBLIC_GRAPHQL_HOST: ${{ vars.NEXT_PUBLIC_GRAPHQL_HOST }}
+          NEXT_PUBLIC_COMETBFT_WS_URL: ${{ vars.NEXT_PUBLIC_COMETBFT_WS_URL }}
+        run: nix develop --command pnpm turbo build --filter=penumbra-veil...
+
+      - name: assemble standalone tree
+        run: |
+          set -euo pipefail
+          cd apps/veil
+          test -f .next/standalone/apps/veil/server.js
+          cp -r public .next/standalone/apps/veil/public
+          mkdir -p .next/standalone/apps/veil/.next
+          cp -r .next/static .next/standalone/apps/veil/.next/static
+          cat > .next/standalone/BUILD_INFO <<INFO
+          app=veil
+          sha=${{ github.sha }}
+          ref=${{ github.ref }}
+          run_id=${{ github.run_id }}
+          built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          INFO
+
+      - name: pack artifact
+        run: |
+          set -euo pipefail
+          tar --zstd -C apps/veil/.next/standalone -cf "veil-${{ github.sha }}.tar.zst" .
+          ls -lh "veil-${{ github.sha }}.tar.zst"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: veil-${{ github.sha }}
+          path: veil-${{ github.sha }}.tar.zst
+          retention-days: 30
+          if-no-files-found: error
+
+  release:
+    name: attach to release
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: veil-${{ github.sha }}
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: veil-${{ github.sha }}.tar.zst
+          fail_on_unmatched_files: true
+
+  deploy:
+    name: deploy veil to CT1105
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      APP_DIR: /opt/penumbra-veil
+      SERVICE: penumbra-veil.service
+      SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: veil-${{ github.sha }}
+
+      - name: unpack
+        run: |
+          set -euo pipefail
+          mkdir -p payload
+          tar --zstd -C payload -xf "veil-${SHA}.tar.zst"
+
+      - name: configure ssh
+        uses: ./.github/actions/ssh-deploy
+        with:
+          ssh-key: ${{ secrets.DEPLOY_SSH_KEY }}
+          known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          jump-host: ${{ secrets.DEPLOY_HOST }}
+          target-host: ${{ secrets.DEPLOY_CT }}
+
+      - name: ship release
+        run: |
+          set -euo pipefail
+          ssh target "mkdir -p '${APP_DIR}/releases/${SHA}' '${APP_DIR}/shared'"
+          rsync -a --delete -e ssh payload/ "target:${APP_DIR}/releases/${SHA}/"
+
+      - name: activate
+        run: |
+          set -euo pipefail
+          ssh target "APP_DIR='${APP_DIR}' SERVICE='${SERVICE}' SHA='${SHA}' bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd "$APP_DIR"
+          ln -sfn "releases/$SHA" current.tmp
+          mv -Tf current.tmp current
+          # keep the five most recent releases
+          ls -1dt releases/*/ | tail -n +6 | xargs -r rm -rf
+          sudo /usr/bin/systemctl restart "$SERVICE"
+          for _ in $(seq 1 20); do
+            systemctl is-active --quiet "$SERVICE" && break
+            sleep 2
+          done
+          systemctl is-active "$SERVICE"
+          REMOTE
+
+      - name: smoke test
+        run: ssh target 'curl -fsS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3001/'

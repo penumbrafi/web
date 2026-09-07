@@ -1,0 +1,119 @@
+# Build and deploy the node-status app (https://status.penumbra.fi) to CT1105.
+#
+# node-status is a Vite SPA, so the artifact is just the static `dist/` tree.
+# It is served by the nginx that already runs inside CT1105 on port 3002
+# (see deploy/nginx-ct1105-static.conf.example); there is no systemd unit.
+name: deploy node-status
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+concurrency:
+  group: deploy-node-status
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build node-status
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: setup nix
+        uses: ./.github/actions/setup-nix
+
+      - name: setup turbo
+        uses: ./.github/actions/setup-turbo
+
+      - name: build node-status
+        run: nix develop --command pnpm turbo build --filter=node-status...
+
+      - name: pack artifact
+        run: |
+          set -euo pipefail
+          cat > apps/node-status/dist/BUILD_INFO <<INFO
+          app=node-status
+          sha=${{ github.sha }}
+          ref=${{ github.ref }}
+          run_id=${{ github.run_id }}
+          built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          INFO
+          tar --zstd -C apps/node-status/dist -cf "node-status-${{ github.sha }}.tar.zst" .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: node-status-${{ github.sha }}
+          path: node-status-${{ github.sha }}.tar.zst
+          retention-days: 30
+          if-no-files-found: error
+
+  release:
+    name: attach to release
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: node-status-${{ github.sha }}
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: node-status-${{ github.sha }}.tar.zst
+          fail_on_unmatched_files: true
+
+  deploy:
+    name: deploy node-status to CT1105
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      APP_DIR: /opt/penumbra-node-status
+      SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: node-status-${{ github.sha }}
+
+      - name: unpack
+        run: |
+          set -euo pipefail
+          mkdir -p payload
+          tar --zstd -C payload -xf "node-status-${SHA}.tar.zst"
+
+      - name: configure ssh
+        uses: ./.github/actions/ssh-deploy
+        with:
+          ssh-key: ${{ secrets.DEPLOY_SSH_KEY }}
+          known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          jump-host: ${{ secrets.DEPLOY_HOST }}
+          target-host: ${{ secrets.DEPLOY_CT }}
+
+      - name: ship release
+        run: |
+          set -euo pipefail
+          ssh target "mkdir -p '${APP_DIR}/releases/${SHA}'"
+          rsync -a --delete -e ssh payload/ "target:${APP_DIR}/releases/${SHA}/"
+
+      - name: activate
+        run: |
+          set -euo pipefail
+          ssh target "APP_DIR='${APP_DIR}' SHA='${SHA}' bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd "$APP_DIR"
+          ln -sfn "releases/$SHA" current.tmp
+          mv -Tf current.tmp current
+          ls -1dt releases/*/ | tail -n +6 | xargs -r rm -rf
+          REMOTE
+
+      - name: smoke test
+        run: ssh target 'curl -fsS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3002/'
