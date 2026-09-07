@@ -23,6 +23,7 @@ import { pnum } from '@penumbra-zone/types/pnum';
 import debounce from 'lodash/debounce';
 import { useStakingTokenMetadata } from '@/shared/api/registry';
 import { planTransaction, planBuildBroadcast } from '@/entities/transaction';
+import { describeTxError } from '@/entities/transaction/model/describe-error';
 import { openToast } from '@penumbra-zone/ui/Toast';
 import {
   getMetadataFromBalancesResponse,
@@ -395,28 +396,21 @@ export class OrderFormStore {
       await planBuildBroadcast('swapClaim', req, { skipAuth: true });
       await updatePositionsQuery();
     } catch (e) {
-      if (e instanceof Error && e.message.includes('insufficient funds')) {
-        openToast({
-          type: 'error',
-          message: 'Transaction failed',
-          description: 'The amount exceeds your balance',
-        });
-      }
-      if (
-        e instanceof Error &&
-        ![
-          'ConnectError',
-          'PenumbraNotInstalledError',
-          'PenumbraProviderNotAvailableError',
-          'PenumbraProviderNotConnectedError',
-        ].includes(e.name)
-      ) {
-        openToast({
-          type: 'error',
-          message: e.name,
-          description: e.message,
-        });
-      }
+      // `planBuildBroadcast` already reports every planner/build/broadcast
+      // failure through `describeTxError`, so anything landing here is from
+      // the surrounding bookkeeping (e.g. refreshing the positions query).
+      // The old handler re-reported those with `message: e.name,
+      // description: e.message` — which is precisely the raw
+      // "ConnectError: [invalid_argument] …" text we are trying to stop
+      // showing — and double-toasted the insufficient-funds case. It also
+      // matched on "insufficient funds", a string the view service never
+      // emits; the real one is "ran out of notes to spend while planning
+      // transaction", now mapped centrally.
+      //
+      // Form state is deliberately left untouched so the user can adjust
+      // and retry without re-entering everything.
+      const { title, description } = describeTxError(e);
+      openToast({ type: 'error', message: title, description });
       throw e;
     } finally {
       runInAction(() => {

@@ -21,7 +21,7 @@ import { getFormattedAmtFromValueView } from '@penumbra-zone/types/value-view';
 import { getMetadata as getMetadataFromValueView } from '@penumbra-zone/getters/value-view';
 import { txToId } from '../model/tx-to-id';
 import { getBroadcastStatusMessage, getBuildStatusDescription } from '../model/status';
-import { userDeniedTransaction, unauthenticated } from '../model/validations';
+import { describeTxError } from '../model/describe-error';
 import { planTransaction } from './plan';
 import { broadcastTransaction } from './broadcast';
 import { buildTransaction } from './build';
@@ -210,31 +210,19 @@ export const planBuildBroadcast = async (
     return transaction;
   } catch (e) {
     console.error(e);
-    if (userDeniedTransaction(e)) {
-      toast.update({
-        type: 'error',
-        message: 'Transaction canceled',
-        description: undefined,
-        dismissible: true,
-        persistent: false,
-      });
-    } else if (unauthenticated(e)) {
-      toast.update({
-        type: 'warning',
-        message: 'Not logged in',
-        description: 'Please log into the extension to continue.',
-        dismissible: true,
-        persistent: false,
-      });
-    } else {
-      toast.update({
-        type: 'error',
-        message: 'Transaction failed',
-        description: String(e),
-        dismissible: true,
-        persistent: false,
-      });
-    }
+    // Every failure path funnels through one mapper, so a planner rejection,
+    // a pd stateless check and a locked extension all arrive as a sentence
+    // the user can act on rather than as `String(e)` — which used to surface
+    // raw Connect/anyhow text like "[invalid_argument] initial reserves must
+    // provision some amount of either asset".
+    const { title, description, cancelled } = describeTxError(e);
+    toast.update({
+      type: cancelled ? 'warning' : 'error',
+      message: title,
+      description,
+      dismissible: true,
+      persistent: false,
+    });
   }
 
   return undefined;
