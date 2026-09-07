@@ -557,7 +557,7 @@ export const SimpleLiquidityOrderForm = observer(
           ) : (
             <ConnectButton actionType='default' />
           )}
-          {connected && <FormIssueNotice issue={parentStore.blockingIssue} />}
+          {connected && <FormIssueNotice issue={parentStore.formNotice} />}
         </div>
         <ConfirmOrderModal
           isOpen={confirmOpen}
