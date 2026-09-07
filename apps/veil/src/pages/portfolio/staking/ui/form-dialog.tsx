@@ -88,8 +88,7 @@ export const StakingFormDialog = observer(
             </div>
 
             <Text small color='text.secondary'>
-              Verify the identity key above is the one you expect — validator names can be
-              spoofed.
+              Verify the identity key above is the one you expect — validator names can be spoofed.
             </Text>
 
             <div className='flex flex-col gap-2'>
@@ -118,14 +117,22 @@ export const StakingFormDialog = observer(
               )}
             </div>
 
+            {stakingStore.lastError && (
+              <div className='flex items-start gap-2 rounded-sm border border-destructive-light bg-destructive-light/5 p-3'>
+                <CircleAlert size={20} className='shrink-0 text-destructive-light' />
+                <Text small color='destructive.light'>
+                  {stakingStore.lastError}
+                </Text>
+              </div>
+            )}
+
             {showVotingPowerWarning ? (
               <div className='flex flex-col gap-3 rounded-sm border border-destructive-light bg-destructive-light/5 p-3'>
                 <div className='flex items-start gap-2'>
                   <CircleAlert size={20} className='shrink-0 text-destructive-light' />
                   <Text small color='destructive.light'>
-                    This validator already controls more than{' '}
-                    {VOTING_POWER_WARNING_THRESHOLD}% of voting power. Consider a smaller
-                    validator to promote decentralization.
+                    This validator already controls more than {VOTING_POWER_WARNING_THRESHOLD}% of
+                    voting power. Consider a smaller validator to promote decentralization.
                   </Text>
                 </div>
                 <div className='flex gap-2'>

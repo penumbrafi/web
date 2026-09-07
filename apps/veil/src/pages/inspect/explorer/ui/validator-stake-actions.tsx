@@ -13,6 +13,7 @@ import { useBalances } from '@/shared/api/balances';
 import { useValidatorInfos } from '@/pages/portfolio/staking/api/use-validator-infos';
 import { useDelegations } from '@/pages/portfolio/staking/api/use-delegations';
 import { useStakingTokenBalance } from '@/pages/portfolio/staking/api/use-staking-token-balance';
+import { useStakingInvalidator } from '@/pages/portfolio/staking/model/use-staking-invalidator';
 import { StakingActions } from '@/pages/portfolio/staking/ui/staking-actions';
 import { StakingFormDialog } from '@/pages/portfolio/staking/ui/form-dialog';
 import {
@@ -50,6 +51,7 @@ const Shell: FC<{ className?: string; children: React.ReactNode }> = ({ classNam
  */
 export const ValidatorStakeActions = observer(({ className, validatorId }: Props) => {
   const { connected, connectedLoading, subaccount } = connectionStore;
+  useStakingInvalidator();
 
   const { data: stakingTokenMetadata } = useStakingTokenMetadata();
   const { data: balances } = useBalances(subaccount);

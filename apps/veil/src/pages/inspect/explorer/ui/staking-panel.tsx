@@ -3,7 +3,6 @@
 import { useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { observer } from 'mobx-react-lite';
-import { useQueryClient } from '@tanstack/react-query';
 import { Text } from '@penumbra-zone/ui/Text';
 import { getIdentityKeyFromValidatorInfo } from '@penumbra-zone/getters/validator-info';
 import { bech32mIdentityKey } from '@penumbra-zone/bech32m/penumbravalid';
@@ -16,6 +15,7 @@ import { useDelegations } from '@/pages/portfolio/staking/api/use-delegations';
 import { useUnbondingTokens } from '@/pages/portfolio/staking/api/use-unbonding-tokens';
 import { useStakingTokenBalance } from '@/pages/portfolio/staking/api/use-staking-token-balance';
 import { stakingStore } from '@/pages/portfolio/staking/model/staking-store';
+import { useStakingInvalidator } from '@/pages/portfolio/staking/model/use-staking-invalidator';
 import { StakingHeader } from '@/pages/portfolio/staking/ui/header';
 import { DelegationsList } from '@/pages/portfolio/staking/ui/delegations-list';
 import { Surface } from '@/pages/inspect/explorer/components';
@@ -37,8 +37,8 @@ interface Props {
  * painting.
  */
 export const StakingPanel = observer(({ className }: Props) => {
-  const queryClient = useQueryClient();
   const { connected, connectedLoading, subaccount } = connectionStore;
+  useStakingInvalidator();
 
   const { data: stakingTokenMetadata } = useStakingTokenMetadata();
   const { data: balances } = useBalances(subaccount);
@@ -46,15 +46,6 @@ export const StakingPanel = observer(({ className }: Props) => {
   const { data: delegations = [], isLoading: delegationsLoading } = useDelegations(balances);
   const { data: unbondingTokens } = useUnbondingTokens();
   const { data: validatorInfosResult } = useValidatorInfos();
-
-  // Refresh the read side after a delegate / undelegate lands.
-  useEffect(() => {
-    stakingStore.setInvalidator(() => {
-      void queryClient.invalidateQueries({ queryKey: ['view-service-balances'] });
-      void queryClient.invalidateQueries({ queryKey: ['view-service-delegations'] });
-      void queryClient.invalidateQueries({ queryKey: ['view-service-unbonding-tokens'] });
-    });
-  }, [queryClient]);
 
   // Deep link from a validator detail page: ?delegate=<bech32 identity> opens
   // the delegate dialog for that validator once the wallet and the validator

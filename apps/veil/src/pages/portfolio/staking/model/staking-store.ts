@@ -28,6 +28,25 @@ import { openToast } from '@penumbra-zone/ui/Toast';
 import { connectionStore } from '@/shared/model/connection';
 import { planBuildBroadcast } from '@/entities/transaction';
 import { penumbra } from '@/shared/const/penumbra';
+import { describeTxError } from '@/entities/transaction/model/describe-error';
+import { bech32mIdentityKey } from '@penumbra-zone/bech32m/penumbravalid';
+import { getIdentityKeyFromValidatorInfo } from '@penumbra-zone/getters/validator-info';
+
+/** Non-throwing bech32m identity key, for tagging the row a tx belongs to. */
+const identityKeyOfValidatorInfo = (info?: ValidatorInfo): string | undefined => {
+  if (!info) {
+    return undefined;
+  }
+  const key = getIdentityKeyFromValidatorInfo.optional(info);
+  if (!key) {
+    return undefined;
+  }
+  try {
+    return bech32mIdentityKey(key);
+  } catch {
+    return undefined;
+  }
+};
 
 export type StakingAction = 'delegate' | 'undelegate';
 
@@ -49,6 +68,24 @@ export class StakingStore {
   amount = '';
   /** True while a tx is in-flight (so we can disable buttons). */
   submitting = false;
+  /**
+   * Identity key of the validator a tx is currently in-flight for, so the
+   * row that was acted on can show a pending state instead of the whole
+   * table going quiet.
+   */
+  pendingValidatorId?: string = undefined;
+  /**
+   * Why the last submit failed, in words, shown inline in the dialog. The
+   * dialog stays open on failure with the amount intact, so this is what
+   * tells the user whether to change something or just retry.
+   */
+  lastError?: string = undefined;
+  /**
+   * Identity key the user asked to delegate to *before* connecting a wallet.
+   * The connect flow resolves it once the validator list arrives, opening the
+   * dialog on the row they clicked rather than dropping them somewhere else.
+   */
+  pendingDelegate?: string = undefined;
   /** Latest queryClient invalidator passed in from the page. */
   private invalidate?: () => void;
 
@@ -64,12 +101,19 @@ export class StakingStore {
     this.action = action;
     this.validatorInfo = validatorInfo;
     this.amount = '';
+    this.lastError = undefined;
   };
 
   closeDialog = () => {
     this.action = undefined;
     this.validatorInfo = undefined;
     this.amount = '';
+    this.lastError = undefined;
+  };
+
+  /** Remember a delegate intent across the connect-wallet round trip. */
+  setPendingDelegate = (identityKey: string | undefined) => {
+    this.pendingDelegate = identityKey;
   };
 
   setAmount = (amount: string) => {
@@ -114,26 +158,43 @@ export class StakingStore {
               delegations,
             });
 
-      // Reset dialog state before broadcasting so the user sees the toast
-      // and can keep navigating while the tx confirms.
       const action = this.action;
+      runInAction(() => {
+        this.lastError = undefined;
+        this.pendingValidatorId = identityKeyOfValidatorInfo(this.validatorInfo);
+      });
+
+      // Keep the dialog open — and the amount in it — until we know the
+      // transaction was actually built and broadcast. `planBuildBroadcast`
+      // reports its own failures and resolves to `undefined` rather than
+      // throwing, so closing the form before awaiting it (as this did) threw
+      // away everything the user had typed on every failure, with nothing in
+      // the form to say what went wrong.
+      const tx = await planBuildBroadcast(action, req);
+      if (!tx) {
+        runInAction(() => {
+          this.lastError =
+            'The transaction did not go through. Your amount has been kept — adjust it or try again.';
+        });
+        return;
+      }
+
       runInAction(() => {
         this.action = undefined;
         this.validatorInfo = undefined;
         this.amount = '';
       });
-
-      await planBuildBroadcast(action, req);
       this.invalidate?.();
     } catch (e) {
-      openToast({
-        type: 'error',
-        message: 'Staking transaction failed',
-        description: String(e),
+      const { title, description } = describeTxError(e);
+      runInAction(() => {
+        this.lastError = description;
       });
+      openToast({ type: 'error', message: title, description });
     } finally {
       runInAction(() => {
         this.submitting = false;
+        this.pendingValidatorId = undefined;
       });
     }
   };
@@ -157,10 +218,11 @@ export class StakingStore {
       await planBuildBroadcast('undelegateClaim', req);
       this.invalidate?.();
     } catch (e) {
+      const { description } = describeTxError(e);
       openToast({
         type: 'error',
         message: 'Failed to claim unbonded tokens',
-        description: String(e),
+        description,
       });
     } finally {
       runInAction(() => {
