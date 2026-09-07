@@ -35,6 +35,14 @@ import { getAssetMetadataById } from '@/shared/api/metadata';
 import { updatePositionsQuery } from '@/entities/position';
 import { SimpleLPFormStore } from './SimpleLPFormStore';
 import { encodeLiquidityShape } from '@/shared/math/position';
+import {
+  blockingIssue,
+  positionRequirements,
+  validateOrder,
+  type FormIssue,
+  type Requirement,
+} from './validate';
+import { parseNumber } from '@/shared/utils/num';
 
 export type WhichForm = 'Market' | 'Limit' | 'RangeLP' | 'SimpleLP';
 
@@ -289,8 +297,74 @@ export class OrderFormStore {
     return LpPlan;
   }
 
+  /**
+   * What the currently-configured order will actually spend, per asset.
+   *
+   * For the LP forms this is read off the built positions rather than the raw
+   * inputs, so it reflects rounding and any rungs the planner dropped.
+   */
+  get requirements(): Requirement[] {
+    if (this._whichForm === 'Market') {
+      const form = this._market;
+      const asset = form.direction === 'buy' ? form.quoteAsset : form.baseAsset;
+      const amount = form.direction === 'buy' ? form.quoteInputAmount : form.baseInputAmount;
+      return asset && amount ? [{ asset, amount }] : [];
+    }
+
+    if (this._whichForm === 'Limit') {
+      const form = this._limit;
+      const asset = form.direction === 'buy' ? form.quoteAsset : form.baseAsset;
+      const amount = parseNumber(form.direction === 'buy' ? form.quoteInput : form.baseInput);
+      return asset && amount ? [{ asset, amount }] : [];
+    }
+
+    const form = this._whichForm === 'RangeLP' ? this._range : this._simpleLP;
+    const { baseAsset, quoteAsset } = form;
+    const plan = form.plan;
+    if (!plan || !baseAsset || !quoteAsset) {
+      return [];
+    }
+    return positionRequirements(
+      plan.map(p => p.position),
+      baseAsset,
+      quoteAsset,
+    );
+  }
+
+  /**
+   * Everything wrong with the form right now, in plain language.
+   *
+   * The point is to say it *before* the user signs: historically the first
+   * signal that an order was unaffordable, too small, or unanchored was a
+   * failed transaction and a raw error string.
+   */
+  get issues(): FormIssue[] {
+    const isLP = this._whichForm === 'RangeLP' || this._whichForm === 'SimpleLP';
+    const lpPlan = isLP
+      ? (this._whichForm === 'RangeLP' ? this._range : this._simpleLP).plan
+      : undefined;
+
+    return validateOrder({
+      requirements: this.requirements,
+      feeAsset: this._feeAsset,
+      gasFee: parseNumber(this._gasFee.display),
+      hasPlan: this.plan !== undefined,
+      marketPrice: this._marketPrice,
+      // Only SimpleLP lays positions out around the live mid; RangeLP takes
+      // explicit bounds and Market/Limit don't need one at all.
+      requiresMarketPrice: this._whichForm === 'SimpleLP',
+      positionCount: lpPlan?.length,
+      isOneSided: this._whichForm === 'SimpleLP' ? this._simpleLP.isOneSided : undefined,
+    });
+  }
+
+  /** The one thing to show under the submit button, if submit is disabled. */
+  get blockingIssue(): FormIssue | undefined {
+    return blockingIssue(this.issues);
+  }
+
   get canSubmit(): boolean {
-    return !this._submitting && this.plan !== undefined;
+    return !this._submitting && this.plan !== undefined && !this.blockingIssue;
   }
 
   async submit() {

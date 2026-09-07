@@ -207,7 +207,7 @@ export class SimpleLPFormStore {
 
   /** True when only one of the two assets is being provisioned. */
   get isOneSided(): boolean {
-    return (this.baseLiquidity > 0) !== (this.quoteLiquidity > 0);
+    return this.baseLiquidity > 0 !== this.quoteLiquidity > 0;
   }
 
   get plan(): PositionedLiquidity[] | undefined {
