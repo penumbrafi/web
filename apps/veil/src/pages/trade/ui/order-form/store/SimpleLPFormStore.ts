@@ -243,6 +243,29 @@ export class SimpleLPFormStore {
     return this.baseLiquidity > 0 !== this.quoteLiquidity > 0;
   }
 
+  /**
+   * Which side has been funded that cannot be quoted in the chosen range.
+   *
+   * A range entirely above mid can only quote asks, which are paid for in the
+   * base asset; a range entirely below mid can only quote bids, paid for in
+   * the quote asset. Funding the other one produces a ladder where every rung
+   * has zero reserves — so the plan comes back empty and the user, who has
+   * plainly entered an amount, would otherwise be told it is "too small".
+   */
+  get wrongSideFunded(): 'base' | 'quote' | undefined {
+    const mid = this.marketPrice;
+    if (mid === null || this.lowerPriceInput === null || this.upperPriceInput === null) {
+      return undefined;
+    }
+    if (this.lowerPriceInput >= mid && this.quoteLiquidity > 0 && this.baseLiquidity === 0) {
+      return 'quote';
+    }
+    if (this.upperPriceInput <= mid && this.baseLiquidity > 0 && this.quoteLiquidity === 0) {
+      return 'base';
+    }
+    return undefined;
+  }
+
   get plan(): PositionedLiquidity[] | undefined {
     if (
       !this._baseAsset ||

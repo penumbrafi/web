@@ -78,6 +78,11 @@ export interface ValidationInput {
   positionCount?: number;
   /** True when the LP plan funds only one side of the book. */
   isOneSided?: boolean;
+  /**
+   * For SimpleLP: the side that was funded but cannot be quoted in the
+   * chosen range, along with the symbols needed to explain it.
+   */
+  wrongSide?: { funded: 'base' | 'quote'; baseSymbol: string; quoteSymbol: string };
 }
 
 const formatAmount = (asset: AssetInfo, amount: number): string =>
@@ -96,6 +101,23 @@ export const validateOrder = (input: ValidationInput): FormIssue[] => {
       severity: 'blocking',
       message:
         'No live market price for this pair yet, so the price range has nothing to anchor to. Pick a pair with an active route book, or use the Limit tab to name your own price.',
+    });
+    return issues;
+  }
+
+  // Checked before `positionCount === 0`, which it would otherwise be
+  // reported as. Funding the side that cannot be quoted in the chosen range
+  // produces a ladder of all-zero rungs, so the plan comes back empty and the
+  // user — who has plainly entered an amount — would be told it is "too
+  // small". Newly reachable now that one-sided ranges are possible at all.
+  if (input.wrongSide) {
+    const { funded, baseSymbol, quoteSymbol } = input.wrongSide;
+    issues.push({
+      severity: 'blocking',
+      message:
+        funded === 'quote'
+          ? `Your range is entirely above the mid price, so only ${baseSymbol} can be quoted there. Enter a ${baseSymbol} amount, or move the range below mid to quote ${quoteSymbol}.`
+          : `Your range is entirely below the mid price, so only ${quoteSymbol} can be quoted there. Enter a ${quoteSymbol} amount, or move the range above mid to quote ${baseSymbol}.`,
     });
     return issues;
   }

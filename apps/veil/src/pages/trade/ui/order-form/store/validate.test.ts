@@ -93,6 +93,36 @@ describe('validateOrder', () => {
     expect(issue?.message).not.toMatch(/Enter an amount/);
   });
 
+  it('names the funded-but-unquotable side instead of blaming the amount', () => {
+    // Range dragged entirely above mid, then a USDC amount typed. Only UM can
+    // be quoted up there, so every rung is empty and the plan is []. Without
+    // this check the user is told 100 USDC is "too small".
+    const issue = blockingIssue(
+      validateOrder({
+        requirements: [],
+        hasPlan: true,
+        positionCount: 0,
+        wrongSide: { funded: 'quote', baseSymbol: 'UM', quoteSymbol: 'USDC' },
+      }),
+    );
+    expect(issue?.message).toMatch(/entirely above the mid price/);
+    expect(issue?.message).toContain('Enter a UM amount');
+    expect(issue?.message).not.toMatch(/too small/);
+  });
+
+  it('names the mirror case when the range sits below mid', () => {
+    const issue = blockingIssue(
+      validateOrder({
+        requirements: [],
+        hasPlan: true,
+        positionCount: 0,
+        wrongSide: { funded: 'base', baseSymbol: 'UM', quoteSymbol: 'USDC' },
+      }),
+    );
+    expect(issue?.message).toMatch(/entirely below the mid price/);
+    expect(issue?.message).toContain('Enter a USDC amount');
+  });
+
   it('flags a one-sided position as a warning, not a blocker', () => {
     const issues = validateOrder({
       requirements: [{ asset: USDC, amount: 10 }],
