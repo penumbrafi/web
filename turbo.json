@@ -20,6 +20,7 @@
     },
     "build": {
       "dependsOn": ["compile", "proto", "^build", "^keys"],
+      "env": ["NEXT_PUBLIC_*"],
       "outputs": ["dist/**", "keys/*.bin", "*.tsbuildinfo", ".next/**"]
     },
     "keys": {

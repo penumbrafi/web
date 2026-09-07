@@ -1,0 +1,109 @@
+# nginx vhosts to add in CT1102 for the penumbra.fi rollout.
+#
+# Documentation only: this repo never edits nginx or haproxy. Apply by hand
+# once penumbra.fi is delegated to Cloudflare and certificates exist.
+#
+# Site map (2026-09-07):
+#   penumbra.fi, www.penumbra.fi  -> veil          10.6.78.85:3001  (www 301s to apex)
+#   status.penumbra.fi            -> node-status   10.6.78.85:3002  (static, local nginx)
+#   explorer.penumbra.fi          -> handled in the penumbra-explorer repo
+#   api.explorer.penumbra.fi      -> handled in the penumbra-explorer-backend repo
+#   snapshot.penumbra.fi          -> not built yet, see the stub at the bottom
+#
+# The existing rotko.net names stay as aliases and keep their own certificates.
+
+# --- ACME + http->https --------------------------------------------------
+server {
+    listen 80;
+    listen [::]:80;
+    server_name penumbra.fi www.penumbra.fi status.penumbra.fi snapshot.penumbra.fi;
+
+    location /.well-known/acme-challenge/ { root /var/www/html; }
+    location / { return 301 https://$host$request_uri; }
+}
+
+# --- apex: veil ----------------------------------------------------------
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name penumbra.fi dex.rotko.net;
+
+    ssl_certificate     /etc/letsencrypt/live/penumbra.fi/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/penumbra.fi/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    client_max_body_size 50M;
+
+    location / {
+        proxy_pass http://10.6.78.85:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 300s;
+    }
+}
+
+# --- www -> apex ---------------------------------------------------------
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name www.penumbra.fi;
+
+    ssl_certificate     /etc/letsencrypt/live/penumbra.fi/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/penumbra.fi/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    return 301 https://penumbra.fi$request_uri;
+}
+
+# --- status --------------------------------------------------------------
+# node-status talks gRPC-web to *its own origin* in a production build
+# (apps/node-status/src/constants.ts: prodBaseUrl = '/'), so this vhost has to
+# serve both the static app and the TendermintProxyService it queries. The
+# gRPC-web paths are fully-qualified service names, all starting `/penumbra.`.
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name status.penumbra.fi;
+
+    ssl_certificate     /etc/letsencrypt/live/penumbra.fi/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/penumbra.fi/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    # gRPC-web calls -> the penumbra node
+    location ~ ^/penumbra\. {
+        proxy_pass https://penumbra.rotko.net;
+        proxy_http_version 1.1;
+        proxy_set_header Host penumbra.rotko.net;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 300s;
+    }
+
+    # the static app
+    location / {
+        proxy_pass http://10.6.78.85:3002;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+# --- snapshot (STUB) -----------------------------------------------------
+# No snapshot service exists in CT1105 or CT1102 today (verified 2026-09-07:
+# nothing in /etc/nginx and no haproxy backend). Pick a backend before
+# enabling this block; left here so the name is not forgotten.
+#
+# server {
+#     listen 443 ssl http2;
+#     server_name snapshot.penumbra.fi;
+#     ssl_certificate     /etc/letsencrypt/live/penumbra.fi/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/penumbra.fi/privkey.pem;
+#     root /srv/penumbra-snapshots;
+#     autoindex on;
+# }

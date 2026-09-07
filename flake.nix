@@ -75,10 +75,11 @@
         ];
 
         # CI and deployment tooling
+        # (penumbrafi deploys over ssh/rsync to CT1105; no DigitalOcean/fly.io)
         deploymentTools = with pkgs; [
-          doctl
-          flyctl
-          kubectl
+          rsync
+          openssh
+          zstd
         ];
 
       in with pkgs; with pkgs.lib; let

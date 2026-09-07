@@ -1,0 +1,25 @@
+# /etc/nginx/sites-available/penumbra-static  (inside CT1105, symlink into sites-enabled)
+#
+# node-status is a static Vite SPA. CI drops it at
+# /opt/penumbra-node-status/current; the local nginx serves it on :3002 and
+# nginx in CT1102 proxies status.penumbra.fi to 10.6.78.85:3002.
+#
+# This file is documentation only — apply it by hand, CI never touches nginx.
+server {
+    listen 3002;
+    listen [::]:3002;
+    server_name _;
+
+    root /opt/penumbra-node-status/current;
+    index index.html;
+
+    # SPA: unknown paths fall back to the app shell.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+}

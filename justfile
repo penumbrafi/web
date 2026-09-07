@@ -41,18 +41,9 @@ lint-turbo:
 lint-rust:
   pnpm turbo lint:rust
 
-# Build top-level debug container
-container:
-  @just veil-container
-  podman image ls | rg veil
-
 # Run dev-env for Veil DEX explorer app
 veil:
   cd ./apps/veil && just dev
-
-# Build container for Veil app
-veil-container:
-  cd ./apps/veil && just container
 
 # Configure Playwright for current nix devshell
 playwright-setup:
@@ -77,7 +68,3 @@ test-rust: playwright-setup
 # Run test suites locally and gather timing information
 benchmark-tests:
   ./scripts/benchmark-tests
-
-# Deploy Veil from current branch to fly.io
-deploy:
-  ./ci/fly-deploy-branch
