@@ -41,8 +41,12 @@ jobs:
         env:
           # NEXT_PUBLIC_* is inlined at build time, so it has to come from the
           # repository/environment variables rather than the host .env files.
-          NEXT_PUBLIC_GRAPHQL_HOST: ${{ vars.NEXT_PUBLIC_GRAPHQL_HOST }}
-          NEXT_PUBLIC_COMETBFT_WS_URL: ${{ vars.NEXT_PUBLIC_COMETBFT_WS_URL }}
+          # An unset repository variable expands to "", which Next inlines in
+          # preference to the value in apps/veil/.env.production. Spell the
+          # fallback out here so a missing variable cannot ship an empty
+          # endpoint into the bundle.
+          NEXT_PUBLIC_GRAPHQL_HOST: ${{ vars.NEXT_PUBLIC_GRAPHQL_HOST || 'api.explorer.rotko.net' }}
+          NEXT_PUBLIC_COMETBFT_WS_URL: ${{ vars.NEXT_PUBLIC_COMETBFT_WS_URL || 'wss://penumbra.rotko.net/websocket' }}
         run: nix develop --command pnpm turbo build --filter=penumbra-veil...
 
       - name: assemble standalone tree
@@ -53,6 +57,18 @@ jobs:
           cp -r public .next/standalone/apps/veil/public
           mkdir -p .next/standalone/apps/veil/.next
           cp -r .next/static .next/standalone/apps/veil/.next/static
+          # Never ship a build-time .env into a public release asset.
+          find .next/standalone -maxdepth 3 -name '.env*' -print -delete
+          # pnpm inside the nix devshell can compile native modules against
+          # /nix/store libraries that do not exist on the Debian host.
+          if find .next/standalone -name '*.node' | read -r _; then
+            find .next/standalone -name '*.node' -exec ldd {} + > /tmp/nativedeps.txt 2>&1 || true
+            if grep -Eq '/nix/store|not found' /tmp/nativedeps.txt; then
+              echo 'native module linked against paths absent on the deploy host:'
+              grep -E '/nix/store|not found' /tmp/nativedeps.txt
+              exit 1
+            fi
+          fi
           cat > .next/standalone/BUILD_INFO <<INFO
           app=veil
           sha=${{ github.sha }}

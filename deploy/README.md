@@ -50,7 +50,9 @@ before anything is copied.
 
 Create a GitHub **Environment** named `production` in
 `penumbrafi/web` (Settings -> Environments -> New environment) and add these as
-*environment* secrets:
+*environment* secrets. The same four are needed by `penumbra-explorer` and
+`penumbra-explorer-backend` — as an org admin you can instead create them once
+as **organization** secrets scoped to those three repositories:
 
 | secret | value |
 | --- | --- |
@@ -75,7 +77,13 @@ secret:
 | `NEXT_PUBLIC_GRAPHQL_HOST` | hostname only, no scheme — `api.explorer.penumbra.fi` (currently `api.explorer.rotko.net`) |
 | `NEXT_PUBLIC_COMETBFT_WS_URL` | `wss://penumbra.rotko.net/websocket` |
 
-Changing either one requires a rebuild, not just a host edit.
+Changing either one requires a rebuild, not just a host edit. Both have an
+explicit fallback in the workflow, so leaving them unset keeps the current
+rotko.net endpoints rather than baking an empty string into the bundle.
+
+`PENUMBRA_INDEXER_CA_CERT` is empty on the host today, so no certificate has to
+be carried into `shared/`; if it is ever set, put the file in `shared/` and
+point the variable at that path.
 
 `BASE_URL`, `PENUMBRA_GRPC_ENDPOINT`, `PENUMBRA_CHAIN_ID`,
 `PENUMBRA_CUILOA_URL`, `PENUMBRA_INDEXER_ENDPOINT`,
@@ -162,6 +170,10 @@ touches nginx or haproxy automatically.
 * GitHub-hosted runners reaching bkk06 on `:22` — the nftables ruleset accepts
   `tcp dport 22` from `0.0.0.0/0`, but this has not been exercised from a
   runner IP.
+* `node-status` served at `status.penumbra.fi` uses same-origin gRPC-web
+  (`prodBaseUrl = '/'`), so the vhost must proxy `/penumbra.*` to the node —
+  included in the nginx example but not yet exercised. If the restart board is
+  wanted at that name instead, drop `deploy-node-status.yml`.
 * Whether veil's native dependency `canvas` loads on the host. The build runs
   on `ubuntu-latest` (glibc 2.39) while CT1105 is Debian bookworm (glibc 2.36).
   If `server.js` fails on the first deploy with a `GLIBC_` or `.node` loader
