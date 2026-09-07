@@ -11,7 +11,10 @@ import {
   BondingState,
   BondingState_BondingStateEnum,
 } from '@penumbra-zone/protobuf/penumbra/core/component/stake/v1/stake_pb';
-import { getRateData } from '@penumbra-zone/getters/validator-info';
+import {
+  getIdentityKeyFromValidatorInfo,
+  getRateData,
+} from '@penumbra-zone/getters/validator-info';
 import { getBondingState } from '@penumbra-zone/getters/validator-status';
 import {
   getAmount,
@@ -30,7 +33,6 @@ import { planBuildBroadcast } from '@/entities/transaction';
 import { penumbra } from '@/shared/const/penumbra';
 import { describeTxError } from '@/entities/transaction/model/describe-error';
 import { bech32mIdentityKey } from '@penumbra-zone/bech32m/penumbravalid';
-import { getIdentityKeyFromValidatorInfo } from '@penumbra-zone/getters/validator-info';
 
 /** Non-throwing bech32m identity key, for tagging the row a tx belongs to. */
 const identityKeyOfValidatorInfo = (info?: ValidatorInfo): string | undefined => {

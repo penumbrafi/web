@@ -1,7 +1,11 @@
 import { ValidatorInfo } from '@penumbra-zone/protobuf/penumbra/core/component/stake/v1/stake_pb';
 import { ValueView } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { getIdentityKeyFromValidatorInfo } from '@penumbra-zone/getters/validator-info';
-import { getValidatorInfoFromValueView } from '@penumbra-zone/getters/value-view';
+import {
+  getDisplayDenomFromView,
+  getValidatorInfoFromValueView,
+} from '@penumbra-zone/getters/value-view';
+import { assetPatterns } from '@penumbra-zone/types/assets';
 import { bech32mIdentityKey } from '@penumbra-zone/bech32m/penumbravalid';
 
 /**
@@ -98,4 +102,28 @@ export const stakeGate = ({
     return { kind: 'loading' };
   }
   return { kind: 'ready', canUndelegate: hasDelegation };
+};
+
+/**
+ * The user's claimable unbonding tokens that belong to one validator.
+ *
+ * An unbonding token's display denom encodes the validator it came from
+ * (`unbonding_start_at_<height>_<identity key>`), which is the only way to
+ * attribute a claim to a row. Anything unparseable is skipped rather than
+ * thrown on — the row must still render.
+ */
+export const claimableForValidator = (
+  claimable: ValueView[] | undefined,
+  identityKey: string | undefined,
+): ValueView[] => {
+  if (!claimable?.length || !identityKey) {
+    return [];
+  }
+  return claimable.filter(token => {
+    const denom = getDisplayDenomFromView.optional(token);
+    if (!denom) {
+      return false;
+    }
+    return assetPatterns.unbondingToken.capture(denom)?.idKey === identityKey;
+  });
 };

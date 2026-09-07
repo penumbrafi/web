@@ -5,6 +5,7 @@ import { ValidatorsQuery } from '@/pages/inspect/explorer/lib/graphql/generated/
 import { penumbraImage, placeholderAvatarImage } from '@/pages/inspect/explorer/lib/images'
 import { classNames, formatNumber, shortenHash } from '@/pages/inspect/explorer/lib/utils'
 import { validatorImages } from '@/pages/inspect/explorer/lib/validators'
+import { RowStakeActions } from '@/pages/inspect/explorer/ui/row-stake-actions'
 import Avatar from '../../avatar'
 import EmptyState from '../../emptyState'
 import SortableHeader from '../../sortableHeader'
@@ -143,6 +144,7 @@ const ValidatorTable: FC<Props> = ({
                             Commission
                         </SortableHeader>
                     </TableCell>
+                    <TableCell header>Your stake</TableCell>
                     {showDeltaCol && (
                         <TableCell header>
                             <SortableHeader
@@ -244,6 +246,15 @@ const ValidatorTable: FC<Props> = ({
                             <TableCell className="h-15">
                                 {validator.commission}%
                             </TableCell>
+                            {/* Wallet-gated leaf inside a server-rendered
+                                row. Delegating from the list is the whole
+                                point of folding staking into Explore. */}
+                            <TableCell className="h-15">
+                                <RowStakeActions
+                                    active={!inactive}
+                                    validatorId={validator.id}
+                                />
+                            </TableCell>
                             {showDeltaCol && (
                                 <TableCell className="h-15">
                                     <DeltaCell
@@ -257,7 +268,7 @@ const ValidatorTable: FC<Props> = ({
                     <TableRow>
                         <TableCell
                             className="h-15"
-                            colSpan={showDeltaCol ? 7 : 6}
+                            colSpan={showDeltaCol ? 8 : 7}
                         >
                             <EmptyState>No validators found</EmptyState>
                         </TableCell>

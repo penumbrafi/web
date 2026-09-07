@@ -1,11 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { observer } from 'mobx-react-lite';
 import { Text } from '@penumbra-zone/ui/Text';
-import { getIdentityKeyFromValidatorInfo } from '@penumbra-zone/getters/validator-info';
-import { bech32mIdentityKey } from '@penumbra-zone/bech32m/penumbravalid';
 import { connectionStore } from '@/shared/model/connection';
 import { ConnectButton } from '@/features/connect/connect-button';
 import { useStakingTokenMetadata } from '@/shared/api/registry';
@@ -14,8 +10,8 @@ import { useValidatorInfos } from '@/pages/portfolio/staking/api/use-validator-i
 import { useDelegations } from '@/pages/portfolio/staking/api/use-delegations';
 import { useUnbondingTokens } from '@/pages/portfolio/staking/api/use-unbonding-tokens';
 import { useStakingTokenBalance } from '@/pages/portfolio/staking/api/use-staking-token-balance';
-import { stakingStore } from '@/pages/portfolio/staking/model/staking-store';
 import { useStakingInvalidator } from '@/pages/portfolio/staking/model/use-staking-invalidator';
+import { usePendingDelegate } from '@/pages/inspect/explorer/lib/staking/use-pending-delegate';
 import { StakingHeader } from '@/pages/portfolio/staking/ui/header';
 import { DelegationsList } from '@/pages/portfolio/staking/ui/delegations-list';
 import { Surface } from '@/pages/inspect/explorer/components';
@@ -47,37 +43,9 @@ export const StakingPanel = observer(({ className }: Props) => {
   const { data: unbondingTokens } = useUnbondingTokens();
   const { data: validatorInfosResult } = useValidatorInfos();
 
-  // Deep link from a validator detail page: ?delegate=<bech32 identity> opens
-  // the delegate dialog for that validator once the wallet and the validator
-  // infos are both ready. Preserved from the standalone staking page this
-  // panel replaces, so existing links keep working.
-  const searchParams = useSearchParams();
-  const delegateTarget = searchParams?.get('delegate') ?? null;
-  const autoOpenedRef = useRef(false);
-  useEffect(() => {
-    if (autoOpenedRef.current || !connected || !delegateTarget) {
-      return;
-    }
-    const validatorInfos = validatorInfosResult?.validatorInfos;
-    if (!validatorInfos?.length) {
-      return;
-    }
-    const match = validatorInfos.find(vi => {
-      const ik = getIdentityKeyFromValidatorInfo.optional(vi);
-      if (!ik) {
-        return false;
-      }
-      try {
-        return bech32mIdentityKey(ik) === delegateTarget;
-      } catch {
-        return false;
-      }
-    });
-    if (match) {
-      stakingStore.openDialog('delegate', match);
-      autoOpenedRef.current = true;
-    }
-  }, [connected, delegateTarget, validatorInfosResult]);
+  // Resolves both ?delegate=<id> and a row Delegate click made before
+  // connecting, opening the dialog on the validator the user chose.
+  usePendingDelegate(validatorInfosResult?.validatorInfos);
 
   // While the provider handshake is in flight, say so rather than flashing a
   // connect prompt at a user who is already connected.
