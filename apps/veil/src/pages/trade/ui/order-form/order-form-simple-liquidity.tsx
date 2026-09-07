@@ -13,7 +13,12 @@ import { useTickDirection } from '../../model/use-tick-direction';
 import { InfoRow } from './info-row';
 import { InfoRowGasFee } from './info-row-gas-fee';
 import { OrderFormStore } from './store/OrderFormStore';
-import { DEFAULT_PRICE_RANGE, DEFAULT_PRICE_SPREAD } from './store/SimpleLPFormStore';
+import {
+  DEFAULT_PRICE_RANGE,
+  DEFAULT_PRICE_SPREAD,
+  SimpleFeeTierOptions,
+} from './store/SimpleLPFormStore';
+import { SelectGroup } from './select-group';
 import { PriceSlider, roundToDecimals } from './price-slider';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Icon } from '@penumbra-zone/ui/Icon';
@@ -28,6 +33,7 @@ import { FormIssueNotice } from './form-issue';
 // per call, and the LP form re-renders every block-tick via marketPrice.
 // Same idiom we use in the limit / range / form-tabs hoists.
 const LIQUIDITY_SHAPES = Object.values(LiquidityDistributionShape);
+const FEE_TIER_OPTIONS = Object.values(SimpleFeeTierOptions);
 
 export const SimpleLiquidityOrderForm = observer(
   ({ parentStore }: { parentStore: OrderFormStore }) => {
@@ -136,6 +142,10 @@ export const SimpleLiquidityOrderForm = observer(
         valueColor: isLQTEligible ? 'success' : undefined,
       });
       rows.push({
+        label: 'Position fee',
+        value: `${store.feeTierPercentInput}%`,
+      });
+      rows.push({
         label: 'Gas fee',
         value: `${parentStore.gasFee.display} ${parentStore.gasFee.symbol}`,
       });
@@ -150,6 +160,7 @@ export const SimpleLiquidityOrderForm = observer(
       store.positions,
       store.baseInput,
       store.quoteInput,
+      store.feeTierPercentInput,
       isLQTEligible,
       parentStore.gasFee.display,
       parentStore.gasFee.symbol,
@@ -169,15 +180,52 @@ export const SimpleLiquidityOrderForm = observer(
       ];
     }, [mid, lo, hi, rangeCoversMid]);
 
+    // Say what the user gives and what they get back, in a sentence, before
+    // they sign. "Open 10 LP positions between X and Y" describes the
+    // mechanism but never mentions the amounts leaving the wallet, the fee
+    // being charged, or the condition under which any of it earns anything.
     const actionLabel = useMemo(() => {
-      if (lo === undefined || hi === undefined) {
-        return `Open ${store.positions} LP positions`;
+      const provided = [
+        store.baseAssetAmount ?? (store.baseLiquidity > 0 ? `${store.baseInput} ${baseSym}` : null),
+        store.quoteAssetAmount ??
+          (store.quoteLiquidity > 0 ? `${store.quoteInput} ${quoteSym}` : null),
+      ].filter(Boolean);
+
+      if (provided.length === 0) {
+        return `Open ${store.positions} liquidity positions`;
       }
-      return `Open ${store.positions} LP positions between ${roundToDecimals(
-        lo,
-        decimals,
-      )} and ${roundToDecimals(hi, decimals)} ${quoteSym}`;
-    }, [lo, hi, decimals, quoteSym, store.positions]);
+      return `You provide ${provided.join(' and ')}`;
+    }, [
+      store.baseAssetAmount,
+      store.quoteAssetAmount,
+      store.baseLiquidity,
+      store.quoteLiquidity,
+      store.baseInput,
+      store.quoteInput,
+      store.positions,
+      baseSym,
+      quoteSym,
+    ]);
+
+    const subLabel = useMemo(() => {
+      const where =
+        lo !== undefined && hi !== undefined
+          ? ` between ${roundToDecimals(lo, decimals)} and ${roundToDecimals(hi, decimals)} ${quoteSym} per ${baseSym}`
+          : '';
+      const earn = store.isOneSided
+        ? 'Because only one side is funded, it fills — and starts earning — once the market trades into your range.'
+        : 'You earn that fee whenever someone trades against your positions inside the range.';
+      return `Split across ${store.positions} positions${where}, each charging ${store.feeTierPercentInput}%. ${earn} You can close them at any time to take your funds back.`;
+    }, [
+      lo,
+      hi,
+      decimals,
+      quoteSym,
+      baseSym,
+      store.positions,
+      store.feeTierPercentInput,
+      store.isOneSided,
+    ]);
 
     const openConfirm = useCallback(() => setConfirmOpen(true), []);
     const closeConfirm = useCallback(() => setConfirmOpen(false), []);
@@ -337,6 +385,21 @@ export const SimpleLiquidityOrderForm = observer(
               />
             ))}
           </div>
+        </div>
+        <div className='mb-4'>
+          <div className='mb-2 flex items-center gap-1'>
+            <Text small color='text.secondary'>
+              Position Fee
+            </Text>
+            <Tooltip message='The fee your positions charge takers, and therefore what you earn on every trade that crosses them. Stable pairs are conventionally 0.05%, most pairs 0.1–0.3%, and thin or volatile pairs higher to cover inventory risk.'>
+              <Icon IconComponent={InfoIcon} size='sm' color='text.secondary' />
+            </Tooltip>
+          </div>
+          <SelectGroup
+            options={FEE_TIER_OPTIONS}
+            value={store.feeTierOption}
+            onChange={store.setFeeTierOption}
+          />
         </div>
         <div className='mb-4'>
           <div className='mb-4 flex justify-between leading-6'>
@@ -543,6 +606,11 @@ export const SimpleLiquidityOrderForm = observer(
               }
             />
           )}
+          <InfoRow
+            label='Position fee'
+            value={`${store.feeTierPercentInput}%`}
+            toolTip='What your positions charge takers. This is what you earn when someone trades against you — it is part of the position, not a protocol fee. Higher tiers compensate for the inventory risk of volatile pairs, but quote less competitively.'
+          />
           <InfoRowGasFee
             gasFee={parentStore.gasFee.display}
             symbol={parentStore.gasFee.symbol}
@@ -562,6 +630,7 @@ export const SimpleLiquidityOrderForm = observer(
         <ConfirmOrderModal
           isOpen={confirmOpen}
           actionLabel={actionLabel}
+          subLabel={subLabel}
           rows={confirmRows}
           warnings={confirmWarnings}
           confirmDisabled={!parentStore.canSubmit}
