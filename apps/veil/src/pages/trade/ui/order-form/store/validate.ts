@@ -100,20 +100,24 @@ export const validateOrder = (input: ValidationInput): FormIssue[] => {
     return issues;
   }
 
-  if (!input.hasPlan || input.requirements.length === 0) {
-    issues.push({ severity: 'blocking', message: 'Enter an amount to continue.' });
-    return issues;
-  }
-
-  // The LP planners drop rungs whose reserves round to zero base units,
-  // because the chain rejects the whole transaction over a single empty
-  // position. If that leaves nothing, the amount is simply too small.
+  // Checked before the empty-requirements case, which it would otherwise be
+  // shadowed by: the LP planners drop rungs whose reserves round to zero base
+  // units (the chain rejects the whole transaction over a single empty
+  // position), so when *every* rung is dropped the plan is an empty array and
+  // there are no requirements to report. The user has plainly entered
+  // amounts, so "Enter an amount to continue" would be nonsense — the real
+  // problem is that the amounts are too small to survive the split.
   if (input.positionCount === 0) {
     issues.push({
       severity: 'blocking',
       message:
         'These amounts are too small to open a position — after splitting across the range, every position would round to zero. Increase the amount or reduce the number of positions.',
     });
+    return issues;
+  }
+
+  if (!input.hasPlan || input.requirements.length === 0) {
+    issues.push({ severity: 'blocking', message: 'Enter an amount to continue.' });
     return issues;
   }
 

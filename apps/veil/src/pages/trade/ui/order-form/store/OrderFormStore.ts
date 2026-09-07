@@ -176,9 +176,12 @@ export class OrderFormStore {
         );
 
       runInAction(() => {
+        // Clear the stale estimate inline rather than via `resetGasFee`,
+        // which also clears `_planError` — calling it here would wipe the
+        // verdict we just recorded.
+        this._gasFee = { symbol: 'UM', display: '--' };
         this._planError = isWalletState ? undefined : described.description;
       });
-      this.resetGasFee();
       return undefined;
     } finally {
       runInAction(() => {
@@ -191,12 +194,11 @@ export class OrderFormStore {
     runInAction(() => {
       this._gasFee = { symbol: 'UM', display: '--' };
       this._gasFeeLoading = false;
+      // The planner's verdict belongs to the plan that produced it. Clearing
+      // the estimate without clearing the rejection would leave a stale
+      // blocking message pinned under the submit button.
+      this._planError = undefined;
     });
-  }
-
-  /** True while the planner dry-run is in flight — submit waits for it. */
-  get validating(): boolean {
-    return this._gasFeeLoading;
   }
 
   setFeeAsset = (x: AssetInfo) => {

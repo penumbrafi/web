@@ -83,14 +83,14 @@ describe('validateOrder', () => {
   });
 
   it('explains an amount too small to survive the split across positions', () => {
+    // The realistic shape: every rung rounded to zero, so the plan is an
+    // empty array and there are therefore no requirements to report. This
+    // must not be reported as "Enter an amount" — the user entered one.
     const issue = blockingIssue(
-      validateOrder({
-        requirements: [{ asset: USDC, amount: 0.000001 }],
-        hasPlan: true,
-        positionCount: 0,
-      }),
+      validateOrder({ requirements: [], hasPlan: true, positionCount: 0 }),
     );
     expect(issue?.message).toMatch(/too small/);
+    expect(issue?.message).not.toMatch(/Enter an amount/);
   });
 
   it('flags a one-sided position as a warning, not a blocker', () => {

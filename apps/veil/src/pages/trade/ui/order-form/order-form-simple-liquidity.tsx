@@ -102,6 +102,14 @@ export const SimpleLiquidityOrderForm = observer(
     const rangeCoversMid =
       mid != null && lo !== undefined && hi !== undefined && mid >= lo && mid <= hi;
 
+    // The number of positions that will actually be opened, which is not
+    // necessarily the number requested: rungs whose reserves round to zero
+    // base units are dropped, because the chain rejects the whole transaction
+    // over a single empty position. Before that filter these were always
+    // equal; now they diverge exactly when the amount is marginal — which is
+    // precisely when the user needs the honest number.
+    const actualPositions = store.plan?.length ?? store.positions;
+
     const confirmRows = useMemo<ConfirmInfoRow[]>(() => {
       const rows: ConfirmInfoRow[] = [];
       if (mid != null) {
@@ -127,7 +135,7 @@ export const SimpleLiquidityOrderForm = observer(
           });
         }
       }
-      rows.push({ label: 'Positions', value: String(store.positions) });
+      rows.push({ label: 'Positions', value: String(actualPositions) });
       rows.push({
         label: `${baseSym || 'Base'} amount`,
         value: store.baseInput || '—',
@@ -157,7 +165,7 @@ export const SimpleLiquidityOrderForm = observer(
       decimals,
       baseSym,
       quoteSym,
-      store.positions,
+      actualPositions,
       store.baseInput,
       store.quoteInput,
       store.feeTierPercentInput,
@@ -185,14 +193,19 @@ export const SimpleLiquidityOrderForm = observer(
     // mechanism but never mentions the amounts leaving the wallet, the fee
     // being charged, or the condition under which any of it earns anything.
     const actionLabel = useMemo(() => {
+      // Gate on the amount *before* formatting. `baseAssetAmount` returns a
+      // formatted "0 UM" — a truthy string — whenever a plan exists, so a
+      // `??` fallback never fires and a one-sided position would read
+      // "You provide 0 UM and 100 USDC".
       const provided = [
-        store.baseAssetAmount ?? (store.baseLiquidity > 0 ? `${store.baseInput} ${baseSym}` : null),
-        store.quoteAssetAmount ??
-          (store.quoteLiquidity > 0 ? `${store.quoteInput} ${quoteSym}` : null),
+        store.baseLiquidity > 0 ? (store.baseAssetAmount ?? `${store.baseInput} ${baseSym}`) : null,
+        store.quoteLiquidity > 0
+          ? (store.quoteAssetAmount ?? `${store.quoteInput} ${quoteSym}`)
+          : null,
       ].filter(Boolean);
 
       if (provided.length === 0) {
-        return `Open ${store.positions} liquidity positions`;
+        return `Open ${actualPositions} liquidity positions`;
       }
       return `You provide ${provided.join(' and ')}`;
     }, [
@@ -202,7 +215,7 @@ export const SimpleLiquidityOrderForm = observer(
       store.quoteLiquidity,
       store.baseInput,
       store.quoteInput,
-      store.positions,
+      actualPositions,
       baseSym,
       quoteSym,
     ]);
@@ -215,14 +228,14 @@ export const SimpleLiquidityOrderForm = observer(
       const earn = store.isOneSided
         ? 'Because only one side is funded, it fills — and starts earning — once the market trades into your range.'
         : 'You earn that fee whenever someone trades against your positions inside the range.';
-      return `Split across ${store.positions} positions${where}, each charging ${store.feeTierPercentInput}%. ${earn} You can close them at any time to take your funds back.`;
+      return `Split across ${actualPositions} positions${where}, each charging ${store.feeTierPercentInput}%. ${earn} You can close them at any time to take your funds back.`;
     }, [
       lo,
       hi,
       decimals,
       quoteSym,
       baseSym,
-      store.positions,
+      actualPositions,
       store.feeTierPercentInput,
       store.isOneSided,
     ]);
@@ -542,7 +555,7 @@ export const SimpleLiquidityOrderForm = observer(
                 {lo !== undefined && hi !== undefined && (
                   <InfoRow
                     label='Orders'
-                    value={`${store.positions} between ${roundToDecimals(lo, decimals)} → ${roundToDecimals(hi, decimals)}`}
+                    value={`${actualPositions} between ${roundToDecimals(lo, decimals)} → ${roundToDecimals(hi, decimals)}`}
                     toolTip='How many positions will be opened across the range, and the price endpoints. Each position is a single concentrated-liquidity slot the chain matches against.'
                   />
                 )}
