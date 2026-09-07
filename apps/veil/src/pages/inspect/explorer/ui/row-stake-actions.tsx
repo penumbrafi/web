@@ -16,7 +16,6 @@ import { useDelegations } from '@/pages/portfolio/staking/api/use-delegations';
 import { useUnbondingTokens } from '@/pages/portfolio/staking/api/use-unbonding-tokens';
 import { useStakingTokenBalance } from '@/pages/portfolio/staking/api/use-staking-token-balance';
 import { stakingStore } from '@/pages/portfolio/staking/model/staking-store';
-import { useStakingInvalidator } from '@/pages/portfolio/staking/model/use-staking-invalidator';
 import { StakingFormDialog } from '@/pages/portfolio/staking/ui/form-dialog';
 import {
   claimableForValidator,
@@ -54,7 +53,6 @@ interface Props {
  */
 export const RowStakeActions = observer(({ validatorId, active }: Props) => {
   const { connected, connectedLoading, subaccount } = connectionStore;
-  useStakingInvalidator();
 
   // `getProviders()` reads `window`, so it can only run after mount — doing it
   // during render would desync server and client HTML.

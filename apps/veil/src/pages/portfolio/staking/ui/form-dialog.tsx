@@ -109,14 +109,17 @@ export const StakingFormDialog = observer(
             </Text>
 
             {/* Plain numbers for what this action costs and when it takes
-                effect. Commission is what the validator keeps from the
-                rewards this delegation earns; the timing is the part people
-                are most often surprised by. */}
+                effect. `calculateCommissionAsPercentage` sums *every*
+                funding stream, not only the validator's own — a validator
+                routing part of its take to the community pool shows the
+                combined rate here — so the label says "Commission", not
+                "Validator commission". The timing is the part people are
+                most often surprised by. */}
             <div className='flex flex-col gap-1 rounded-sm border border-other-tonal-stroke px-3 py-2'>
               {commission !== undefined && (
                 <div className='flex items-center justify-between'>
                   <Text detail color='text.secondary'>
-                    Validator commission
+                    Commission
                   </Text>
                   <Text detail color='text.primary'>
                     {commission}%

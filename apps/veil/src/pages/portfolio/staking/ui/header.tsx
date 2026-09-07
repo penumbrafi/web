@@ -55,7 +55,7 @@ export const StakingHeader = observer(
           label='Delegated'
           helpText={
             totalDelegated?.unconverted
-              ? 'At least this much — some validators’ exchange rates are still loading.'
+              ? 'At least this much — some delegations could not be valued.'
               : 'Your delegation tokens valued in UM at each validator’s current exchange rate.'
           }
         >

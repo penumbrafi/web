@@ -144,8 +144,11 @@ export const claimableForValidator = (
  * validator's rate before being added.
  *
  * Returns the total in display UM, and how many delegations could not be
- * converted because their rate data has not loaded — so the UI can say
- * "at least X" rather than quietly under-reporting.
+ * valued at all — so the UI can say "at least X" rather than quietly
+ * under-reporting. In practice the view service returns each delegation's
+ * rate data inline with the value view, so this counter stays at zero unless
+ * a view arrives malformed; it exists so that case degrades to an honest
+ * lower bound instead of a wrong total.
  */
 export const totalDelegatedUm = (delegations: ValueView[]): { um: number; unconverted: number } => {
   let um = 0;
