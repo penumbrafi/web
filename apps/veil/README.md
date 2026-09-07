@@ -41,7 +41,8 @@ See context in #55. After configuring that information, run `just dev` again in 
 
 ## Deployment
 
-Merges to main will automatically build a container, hosted at `ghcr.io/penumbra-zone/web/apps/veil`.
+Merges to main build veil in GitHub Actions and deploy it to https://penumbra.fi.
+See `deploy/README.md` at the repository root.
 In order to run the veil, you'll need to [deploy a Penumbra fullnode](https://guide.penumbra.zone/node/pd/running-node),
 with [ABCI event indexing enabled](https://guide.penumbra.zone/node/pd/indexing-events). The relevant env vars
 you'll want to set are:
