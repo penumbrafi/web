@@ -1,10 +1,16 @@
 import { ValidatorInfo } from '@penumbra-zone/protobuf/penumbra/core/component/stake/v1/stake_pb';
 import { ValueView } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { getIdentityKeyFromValidatorInfo } from '@penumbra-zone/getters/validator-info';
 import {
+  getAmount,
+  getDisplayDenomExponentFromValueView,
   getDisplayDenomFromView,
   getValidatorInfoFromValueView,
 } from '@penumbra-zone/getters/value-view';
+import {
+  getIdentityKeyFromValidatorInfo,
+  getRateData,
+} from '@penumbra-zone/getters/validator-info';
+import { joinLoHiAmount, toDecimalExchangeRate } from '@penumbra-zone/types/amount';
 import { assetPatterns } from '@penumbra-zone/types/assets';
 import { bech32mIdentityKey } from '@penumbra-zone/bech32m/penumbravalid';
 
@@ -126,4 +132,43 @@ export const claimableForValidator = (
     }
     return assetPatterns.unbondingToken.capture(denom)?.idKey === identityKey;
   });
+};
+
+/**
+ * Total UM currently delegated across all of the user's delegations.
+ *
+ * Delegation tokens are *not* UM and are not comparable across validators:
+ * each validator has its own exchange rate, which grows as it earns rewards.
+ * Summing the raw token amounts would produce a number that looks like a
+ * balance and is not one. Each delegation is converted through its own
+ * validator's rate before being added.
+ *
+ * Returns the total in display UM, and how many delegations could not be
+ * converted because their rate data has not loaded — so the UI can say
+ * "at least X" rather than quietly under-reporting.
+ */
+export const totalDelegatedUm = (delegations: ValueView[]): { um: number; unconverted: number } => {
+  let um = 0;
+  let unconverted = 0;
+
+  for (const delegation of delegations) {
+    try {
+      const info = getValidatorInfoFromValueView(delegation);
+      const rate = getRateData.optional(info)?.validatorExchangeRate;
+      const amount = getAmount.optional(delegation);
+      if (!rate || !amount) {
+        unconverted += 1;
+        continue;
+      }
+      // Each delegation token carries its own denom exponent; read it from
+      // the view rather than assuming UM's.
+      const exponent = getDisplayDenomExponentFromValueView.optional(delegation) ?? 6;
+      const tokens = Number(joinLoHiAmount(amount)) / 10 ** exponent;
+      um += tokens * toDecimalExchangeRate(rate);
+    } catch {
+      unconverted += 1;
+    }
+  }
+
+  return { um, unconverted };
 };

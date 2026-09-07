@@ -12,6 +12,7 @@ import { useUnbondingTokens } from '@/pages/portfolio/staking/api/use-unbonding-
 import { useStakingTokenBalance } from '@/pages/portfolio/staking/api/use-staking-token-balance';
 import { useStakingInvalidator } from '@/pages/portfolio/staking/model/use-staking-invalidator';
 import { usePendingDelegate } from '@/pages/inspect/explorer/lib/staking/use-pending-delegate';
+import { totalDelegatedUm } from '@/pages/inspect/explorer/lib/staking/match-validator';
 import { StakingHeader } from '@/pages/portfolio/staking/ui/header';
 import { DelegationsList } from '@/pages/portfolio/staking/ui/delegations-list';
 import { Surface } from '@/pages/inspect/explorer/components';
@@ -42,6 +43,10 @@ export const StakingPanel = observer(({ className }: Props) => {
   const { data: delegations = [], isLoading: delegationsLoading } = useDelegations(balances);
   const { data: unbondingTokens } = useUnbondingTokens();
   const { data: validatorInfosResult } = useValidatorInfos();
+
+  // Delegation tokens are not UM and are not comparable across validators —
+  // each carries its own exchange rate. Converted per validator, not summed raw.
+  const totalDelegated = totalDelegatedUm(delegations);
 
   // Resolves both ?delegate=<id> and a row Delegate click made before
   // connecting, opening the dialog on the validator the user chose.
@@ -96,7 +101,11 @@ export const StakingPanel = observer(({ className }: Props) => {
         </Text>
       </div>
 
-      <StakingHeader stakingTokens={stakingTokens} unbondingTokens={unbondingTokens} />
+      <StakingHeader
+        stakingTokens={stakingTokens}
+        unbondingTokens={unbondingTokens}
+        totalDelegated={delegationsLoading ? undefined : totalDelegated}
+      />
 
       <div className='flex flex-col gap-2'>
         <Text as='h3' color='text.secondary'>
