@@ -22,6 +22,7 @@ import { useIsLqtEligible, LQT_ENABLED } from '@/shared/utils/is-lqt-eligible';
 import { LiquidityDistributionShape } from '@/shared/math/position';
 import { LiquidityShape } from './liquidity-shape';
 import { ConfirmInfoRow, ConfirmOrderModal, ConfirmWarning } from './confirm-order-modal';
+import { FormIssueNotice } from './form-issue';
 
 // Hoist Object.values(EnumX) to module scope — it allocates a fresh array
 // per call, and the LP form re-renders every block-tick via marketPrice.
@@ -550,16 +551,13 @@ export const SimpleLiquidityOrderForm = observer(
         </div>
         <div className='mb-4'>
           {connected ? (
-            <Button
-              actionType='accent'
-              disabled={!parentStore.canSubmit}
-              onClick={openConfirm}
-            >
+            <Button actionType='accent' disabled={!parentStore.canSubmit} onClick={openConfirm}>
               Add Liquidity
             </Button>
           ) : (
             <ConnectButton actionType='default' />
           )}
+          {connected && <FormIssueNotice issue={parentStore.blockingIssue} />}
         </div>
         <ConfirmOrderModal
           isOpen={confirmOpen}

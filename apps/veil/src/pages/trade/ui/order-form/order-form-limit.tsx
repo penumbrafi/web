@@ -15,6 +15,7 @@ import { SelectGroup } from './select-group';
 import { OrderFormStore } from './store/OrderFormStore';
 import { BuyLimitOrderOptions, SellLimitOrderOptions } from './store/LimitOrderFormStore';
 import { ConfirmInfoRow, ConfirmOrderModal, ConfirmWarning } from './confirm-order-modal';
+import { FormIssueNotice } from './form-issue';
 
 // Module-scoped — Object.values() of an enum allocates a fresh array on
 // every call, defeating any prop-identity-based skipping in SelectGroup.
@@ -209,9 +210,7 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
         {(() => {
           const mid = parentStore.marketPrice;
           if (!mid || mid <= 0) return null;
-          const balanceNum = isBuy
-            ? store.quoteAsset?.balance
-            : store.baseAsset?.balance;
+          const balanceNum = isBuy ? store.quoteAsset?.balance : store.baseAsset?.balance;
           if (balanceNum === undefined || !Number.isFinite(balanceNum) || balanceNum <= 0) {
             return null;
           }
@@ -268,16 +267,13 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
       </div>
       <div className='mb-4'>
         {connected ? (
-          <Button
-            actionType='accent'
-            disabled={!parentStore.canSubmit}
-            onClick={openConfirm}
-          >
+          <Button actionType='accent' disabled={!parentStore.canSubmit} onClick={openConfirm}>
             {isBuy ? 'Buy' : 'Sell'} {store.baseAsset?.symbol}
           </Button>
         ) : (
           <ConnectButton actionType='default' />
         )}
+        {connected && <FormIssueNotice issue={parentStore.blockingIssue} />}
       </div>
       <ConfirmOrderModal
         isOpen={confirmOpen}
