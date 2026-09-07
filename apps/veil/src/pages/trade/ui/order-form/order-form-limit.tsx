@@ -110,6 +110,25 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
     })} ${quoteSym}`;
   }, [isBuy, baseSym, quoteSym, limitPrice, store.baseInput]);
 
+  // A limit order on Penumbra is a one-sided liquidity position that closes
+  // when filled — not an order sitting in a matching engine. Saying so, along
+  // with what is spent and what comes back, is the difference between the
+  // user trusting the form and hoping it does the right thing. (Requested
+  // upstream in penumbra-zone/web#2551: "would be also great addition to have
+  // a humanreadable tab to understand what the actual tx impact is".)
+  const subLabel = useMemo(() => {
+    if (!Number.isFinite(limitPrice) || limitPrice <= 0) {
+      return undefined;
+    }
+    const spend = isBuy
+      ? `${store.quoteInput || '—'} ${quoteSym}`
+      : `${store.baseInput || '—'} ${baseSym}`;
+    const receive = isBuy
+      ? `${store.baseInput || '—'} ${baseSym}`
+      : `${store.quoteInput || '—'} ${quoteSym}`;
+    return `You commit ${spend} and receive ${receive} once the market reaches your price. This opens a single one-sided liquidity position that closes automatically when filled; until then you can close it and take the ${spend} back.`;
+  }, [isBuy, baseSym, quoteSym, limitPrice, store.baseInput, store.quoteInput]);
+
   const openConfirm = useCallback(() => setConfirmOpen(true), []);
   const closeConfirm = useCallback(() => setConfirmOpen(false), []);
   const handleConfirm = useCallback(() => {
@@ -278,6 +297,7 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
       <ConfirmOrderModal
         isOpen={confirmOpen}
         actionLabel={actionLabel}
+        subLabel={subLabel}
         rows={confirmRows}
         warnings={confirmWarnings}
         confirmDisabled={!parentStore.canSubmit}

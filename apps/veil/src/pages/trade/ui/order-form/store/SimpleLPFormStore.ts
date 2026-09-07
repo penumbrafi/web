@@ -34,6 +34,30 @@ export const DEFAULT_PRICE_RANGE = 0.3;
 export const STABLE_PRICE_RANGE = 0.1;
 const DEFAULT_FEE_TIER_PERCENT = 0.1;
 
+/**
+ * The fee a position charges takers, as a percentage.
+ *
+ * A position's fee is part of its trading function, not a protocol setting —
+ * it is what the LP earns when someone trades against them. The form has
+ * always had a `feeTierPercent`, defaulted to 0.1%, but never rendered it
+ * anywhere, so LPs could neither see nor choose what they were charging.
+ * These four are the conventional tiers: stable pairs at the bottom, volatile
+ * and exotic pairs higher up, to compensate for inventory risk.
+ */
+export enum SimpleFeeTierOptions {
+  Stable = '0.05%',
+  Standard = '0.1%',
+  Volatile = '0.3%',
+  Exotic = '1%',
+}
+
+export const SIMPLE_FEE_TIER_PERCENTS: Record<SimpleFeeTierOptions, string> = {
+  [SimpleFeeTierOptions.Stable]: '0.05',
+  [SimpleFeeTierOptions.Standard]: '0.1',
+  [SimpleFeeTierOptions.Volatile]: '0.3',
+  [SimpleFeeTierOptions.Exotic]: '1',
+};
+
 export class SimpleLPFormStore {
   private _baseAsset?: AssetInfo;
   private _quoteAsset?: AssetInfo;
@@ -191,8 +215,17 @@ export class SimpleLPFormStore {
     return Math.max(0, Math.min(parseNumber(this.feeTierPercentInput) ?? 0, 50));
   }
 
+  feeTierOption: SimpleFeeTierOptions | undefined = SimpleFeeTierOptions.Standard;
+
   setFeeTierPercentInput = (x: string) => {
     this.feeTierPercentInput = x;
+    this.feeTierOption = Object.values(SimpleFeeTierOptions).find(
+      option => SIMPLE_FEE_TIER_PERCENTS[option] === x,
+    );
+  };
+
+  setFeeTierOption = (option: SimpleFeeTierOptions) => {
+    this.setFeeTierPercentInput(SIMPLE_FEE_TIER_PERCENTS[option]);
   };
 
   /** The base amount actually being provisioned, treating a blank field as zero. */
