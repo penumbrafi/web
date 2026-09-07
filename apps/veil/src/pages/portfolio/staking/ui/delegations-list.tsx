@@ -6,7 +6,10 @@ import { ValueViewComponent } from '@penumbra-zone/ui/ValueView';
 import { Table } from '@penumbra-zone/ui/Table';
 import { ValueView, Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { getValidatorInfoFromValueView } from '@penumbra-zone/getters/value-view';
-import { getIdentityKeyFromValidatorInfo, getValidator } from '@penumbra-zone/getters/validator-info';
+import {
+  getIdentityKeyFromValidatorInfo,
+  getValidator,
+} from '@penumbra-zone/getters/validator-info';
 import { bech32mIdentityKey } from '@penumbra-zone/bech32m/penumbravalid';
 import { VotingPowerAsIntegerPercentage } from '@penumbra-zone/types/staking';
 import { ValidatorInfoCell } from './validator-info-cell';
@@ -51,18 +54,13 @@ export const DelegationsList = observer(
           {delegations.map(delegation => {
             const validatorInfo = getValidatorInfoFromValueView(delegation);
             const validator = getValidator(validatorInfo);
-            const identityKey = bech32mIdentityKey(
-              getIdentityKeyFromValidatorInfo(validatorInfo),
-            );
+            const identityKey = bech32mIdentityKey(getIdentityKeyFromValidatorInfo(validatorInfo));
             const vp = votingPowerByIdentityKey[identityKey];
 
             return (
               <Table.Tr key={identityKey}>
                 <Table.Td>
-                  <ValidatorInfoCell
-                    validatorInfo={validatorInfo}
-                    votingPowerPercentage={vp}
-                  />
+                  <ValidatorInfoCell validatorInfo={validatorInfo} votingPowerPercentage={vp} />
                 </Table.Td>
                 <Table.Td hAlign='right'>
                   <ValueViewComponent valueView={delegation} priority='primary' />

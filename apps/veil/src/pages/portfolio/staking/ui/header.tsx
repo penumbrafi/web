@@ -11,6 +11,11 @@ import { UnbondingTokensForAccount } from '../api/use-unbonding-tokens';
 export interface StakingHeaderProps {
   stakingTokens?: ValueView;
   unbondingTokens?: UnbondingTokensForAccount;
+  /**
+   * Total currently delegated, in display UM, already converted through each
+   * validator's own exchange rate. Undefined while delegations are loading.
+   */
+  totalDelegated?: { um: number; unconverted: number };
 }
 
 const Stat = ({
@@ -36,7 +41,7 @@ const Stat = ({
 );
 
 export const StakingHeader = observer(
-  ({ stakingTokens, unbondingTokens }: StakingHeaderProps) => {
+  ({ stakingTokens, unbondingTokens, totalDelegated }: StakingHeaderProps) => {
     const claimableTokens = unbondingTokens?.claimable.tokens ?? [];
     const canClaim = claimableTokens.length > 0;
 
@@ -44,6 +49,22 @@ export const StakingHeader = observer(
       <div className='flex flex-col gap-4 rounded-xl bg-other-tonal-fill5 p-6 backdrop-blur-md md:flex-row md:items-start md:gap-8'>
         <Stat label='Available to delegate'>
           {stakingTokens && <ValueViewComponent valueView={stakingTokens} priority='primary' />}
+        </Stat>
+
+        <Stat
+          label='Delegated'
+          helpText={
+            totalDelegated?.unconverted
+              ? 'At least this much — some delegations could not be valued.'
+              : 'Your delegation tokens valued in UM at each validator’s current exchange rate.'
+          }
+        >
+          {totalDelegated && (
+            <Text large color='text.primary'>
+              {totalDelegated.unconverted ? '≥ ' : ''}
+              {totalDelegated.um.toLocaleString(undefined, { maximumFractionDigits: 4 })} UM
+            </Text>
+          )}
         </Stat>
 
         <Stat
@@ -63,10 +84,7 @@ export const StakingHeader = observer(
           helpText='Unbonded tokens you can claim now to receive UM back into your wallet.'
         >
           {unbondingTokens?.claimable.total && (
-            <ValueViewComponent
-              valueView={unbondingTokens.claimable.total}
-              priority='primary'
-            />
+            <ValueViewComponent valueView={unbondingTokens.claimable.total} priority='primary' />
           )}
           {canClaim && (
             <div className='mt-2'>

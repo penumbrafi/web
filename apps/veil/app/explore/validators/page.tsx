@@ -20,6 +20,7 @@ import {
 import { classNames } from '@/pages/inspect/explorer/lib/utils';
 import { ValidatorStateFilter } from '@/pages/inspect/explorer/lib/graphql/generated/types';
 import { ProgressiveActiveStakeChart } from '@/pages/inspect/explorer/ui/active-stake-chart';
+import { StakingPanel } from '@/pages/inspect/explorer/ui/staking-panel';
 import { fetchActiveStakeHistory } from '@/pages/inspect/explorer/server/active-stake-history';
 import {
   parseStakeRange,
@@ -96,6 +97,15 @@ const ValidatorsPage: FC<Props> = async props => {
         <Breadcrumb>Validators</Breadcrumb>
       </Breadcrumbs>
 
+      {/* Wallet-gated stake panel. Client-side and self-contained: it
+          renders a connect prompt when there is no wallet and never blocks
+          the server-rendered validator data below it from painting. */}
+      {/* Suspense because StakingPanel reads useSearchParams for the
+          ?delegate=<id> deep link. */}
+      <Suspense fallback={<Skeleton className='mb-6 h-40' />}>
+        <StakingPanel className='mb-6' />
+      </Suspense>
+
       {/* Streaming boundary: the rest of the page paints right away;
           the chart fills in when its (cached) fetch resolves. Keyed by
           stakeRange so switching ranges shows the skeleton again
@@ -141,8 +151,12 @@ const ValidatorsPage: FC<Props> = async props => {
               >
                 <h1 className='text-2xl font-medium'>Validator performance</h1>
                 <div className='flex flex-wrap gap-2'>
-                  <Button density='compact' href='/portfolio/staking'>
-                    Delegate to a validator
+                  <Button
+                    density='compact'
+                    href='https://guide.penumbra.zone/web/wallet'
+                    priority='secondary'
+                  >
+                    How staking works
                   </Button>
                   <Button
                     density='compact'

@@ -13,6 +13,8 @@ import { getIdentityKey } from '@penumbra-zone/getters/validator';
 import { getIdentityKeyFromValidatorInfo } from '@penumbra-zone/getters/validator-info';
 import { bech32mIdentityKey } from '@penumbra-zone/bech32m/penumbravalid';
 import { getFormattedAmtFromValueView } from '@penumbra-zone/types/value-view';
+import { calculateCommissionAsPercentage } from '@penumbra-zone/types/staking';
+import { useStakeParams } from '../api/use-stake-params';
 import { stakingStore } from '../model/staking-store';
 import { shorten } from '@penumbra-zone/types/string';
 
@@ -40,6 +42,7 @@ export const StakingFormDialog = observer(
     stakingTokenMetadata,
     allDelegations,
   }: StakingFormDialogProps) => {
+    const { data: stakeParams } = useStakeParams();
     const action = stakingStore.action;
     // Only render the dialog when *this* validator is the active one.
     const targetIdentityKey = stakingStore.validatorInfo
@@ -56,6 +59,20 @@ export const StakingFormDialog = observer(
       action === 'delegate' && votingPowerPercentage > VOTING_POWER_WARNING_THRESHOLD;
 
     const balanceView = action === 'delegate' ? stakingTokens : delegationTokens;
+    const activeInfo = stakingStore.validatorInfo;
+    const commission = activeInfo ? calculateCommissionAsPercentage(activeInfo) : undefined;
+
+    // When the action takes effect. Delegations activate at the next epoch
+    // boundary; undelegations only become claimable after the chain's
+    // unbonding delay, which is the part people are most often surprised by.
+    let timingText: string;
+    if (action === 'delegate') {
+      timingText = 'from the next epoch';
+    } else if (stakeParams) {
+      timingText = `after ${stakeParams.unbondingDelay.toString()} blocks of unbonding`;
+    } else {
+      timingText = 'after the unbonding period';
+    }
 
     const setMax = () => {
       if (balanceView) {
@@ -88,9 +105,36 @@ export const StakingFormDialog = observer(
             </div>
 
             <Text small color='text.secondary'>
-              Verify the identity key above is the one you expect — validator names can be
-              spoofed.
+              Verify the identity key above is the one you expect — validator names can be spoofed.
             </Text>
+
+            {/* Plain numbers for what this action costs and when it takes
+                effect. `calculateCommissionAsPercentage` sums *every*
+                funding stream, not only the validator's own — a validator
+                routing part of its take to the community pool shows the
+                combined rate here — so the label says "Commission", not
+                "Validator commission". The timing is the part people are
+                most often surprised by. */}
+            <div className='flex flex-col gap-1 rounded-sm border border-other-tonal-stroke px-3 py-2'>
+              {commission !== undefined && (
+                <div className='flex items-center justify-between'>
+                  <Text detail color='text.secondary'>
+                    Commission
+                  </Text>
+                  <Text detail color='text.primary'>
+                    {commission}%
+                  </Text>
+                </div>
+              )}
+              <div className='flex items-center justify-between gap-4'>
+                <Text detail color='text.secondary'>
+                  {action === 'delegate' ? 'Starts earning' : 'Claimable'}
+                </Text>
+                <Text detail color='text.primary'>
+                  {timingText}
+                </Text>
+              </div>
+            </div>
 
             <div className='flex flex-col gap-2'>
               <Text small color='text.secondary'>
@@ -118,14 +162,22 @@ export const StakingFormDialog = observer(
               )}
             </div>
 
+            {stakingStore.lastError && (
+              <div className='flex items-start gap-2 rounded-sm border border-destructive-light bg-destructive-light/5 p-3'>
+                <CircleAlert size={20} className='shrink-0 text-destructive-light' />
+                <Text small color='destructive.light'>
+                  {stakingStore.lastError}
+                </Text>
+              </div>
+            )}
+
             {showVotingPowerWarning ? (
               <div className='flex flex-col gap-3 rounded-sm border border-destructive-light bg-destructive-light/5 p-3'>
                 <div className='flex items-start gap-2'>
                   <CircleAlert size={20} className='shrink-0 text-destructive-light' />
                   <Text small color='destructive.light'>
-                    This validator already controls more than{' '}
-                    {VOTING_POWER_WARNING_THRESHOLD}% of voting power. Consider a smaller
-                    validator to promote decentralization.
+                    This validator already controls more than {VOTING_POWER_WARNING_THRESHOLD}% of
+                    voting power. Consider a smaller validator to promote decentralization.
                   </Text>
                 </div>
                 <div className='flex gap-2'>

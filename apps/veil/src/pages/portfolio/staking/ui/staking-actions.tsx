@@ -18,8 +18,7 @@ export interface StakingActionsProps {
   delegateOnly?: boolean;
 }
 
-const isNonzero = (view?: ValueView) =>
-  !!view && joinLoHiAmount(getAmount(view)) > 0n;
+const isNonzero = (view?: ValueView) => !!view && joinLoHiAmount(getAmount(view)) > 0n;
 
 export const StakingActions = observer(
   ({ validatorInfo, stakingTokens, delegationTokens, delegateOnly }: StakingActionsProps) => {
