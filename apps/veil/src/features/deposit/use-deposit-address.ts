@@ -8,7 +8,7 @@ import { connectionStore } from '@/shared/model/connection';
  * Resolves a fresh ephemeral Penumbra address for inbound deposits.
  *
  * `ephemeralAddress` (vs `addressByIndex`) is critical: each deposit lands at
- * a one-shot bech32 the source chain has never seen, so Coinbase / Noble /
+ * a one-shot bech32 the source chain has never seen, so Noble /
  * Skip route partners can't link two deposits to the same sub-account. We
  * pre-fill this into the Skip widget's `connectedAddresses` so the user
  * never has to copy or paste an address.

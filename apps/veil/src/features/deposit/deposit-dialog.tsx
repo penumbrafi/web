@@ -36,7 +36,7 @@ const SkeletonFallback = () => (
  * Two-step deposit modal:
  *
  *  1. DepositMethodPicker — quick chips for the user's likely source
- *     (Coinbase, Binance, Cosmos Hub, Osmosis, Ethereum, …). Picking a
+ *     chain (Cosmos Hub, Osmosis, Noble, Ethereum, …). Picking a
  *     chip pre-fills Skip's defaultRoute so the user lands on the right
  *     source chain + asset without scrolling Skip's chain list.
  *  2. Skip widget — embedded, with `connectedAddresses['penumbra-1']`

@@ -1,7 +1,7 @@
 'use client';
 
 import { Text } from '@penumbra-zone/ui/Text';
-import { ArrowLeft, Building2, Wallet, ChevronRight, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Wallet, ChevronRight, ExternalLink } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 export interface DepositRoute {
@@ -14,41 +14,8 @@ export interface DepositRoute {
 }
 
 /** Per-source presets. Skip's defaultRoute only takes srcChain + srcAsset; the
- *  user can still tweak everything inside the widget.
- *
- *  Off-chain routing reality:
- *    - Coinbase is the only major CEX that supports USDC→Noble withdrawals.
- *    - Binance / Kraken / Bybit / OKX / KuCoin / MEXC don't list Noble as a
- *      withdrawal network for USDC, but they all support buying and
- *      withdrawing native Cosmos tokens (ATOM, OSMO, TIA). Buy one of those,
- *      withdraw to its native chain, and bridge over IBC from there. */
-const OFFCHAIN: DepositRoute[] = [
-  {
-    label: 'Coinbase — USDC',
-    hint: 'Only CEX that withdraws USDC directly to Noble',
-    srcChainId: 'noble-1',
-    srcAssetDenom: 'uusdc',
-  },
-  {
-    label: 'Binance / Kraken / Coinbase — ATOM',
-    hint: 'Buy ATOM, withdraw to Cosmos Hub, bridge over IBC',
-    srcChainId: 'cosmoshub-4',
-    srcAssetDenom: 'uatom',
-  },
-  {
-    label: 'Binance / OKX / KuCoin — OSMO',
-    hint: 'Buy OSMO, withdraw to Osmosis, bridge over IBC',
-    srcChainId: 'osmosis-1',
-    srcAssetDenom: 'uosmo',
-  },
-  {
-    label: 'Binance / OKX / Bybit — TIA',
-    hint: 'Buy TIA, withdraw to Celestia, bridge over IBC',
-    srcChainId: 'celestia',
-    srcAssetDenom: 'utia',
-  },
-];
-
+ *  user can still tweak everything inside the widget. Exchange on-ramps are
+ *  handled by the wallet (Zafu), not here. */
 const ONCHAIN: DepositRoute[] = [
   {
     label: 'Cosmos Hub',
@@ -88,13 +55,8 @@ interface PickerProps {
 }
 
 /**
- * Top-level "where are your funds?" picker. Renders two groups:
- *
- *   - Off-chain: pick the CEX you're withdrawing from. Most CEXes route to
- *     Noble, so the preset opens Skip on Noble→Penumbra USDC; the user can
- *     still change every leg inside the Skip widget.
- *   - On-chain: pick the chain that already holds your funds. This skips
- *     the Coinbase → Noble hop entirely.
+ * Top-level "where are your funds?" picker: pick the chain that already
+ * holds your funds and Skip opens on that source.
  *
  * Inside Skip, the user can change the asset, source chain, and amount —
  * the picker just sets the most likely starting point.
@@ -111,8 +73,7 @@ export const DepositMethodPicker = ({ onPick }: PickerProps) => (
       </Text>
     </div>
 
-    <Group label='Off-chain (centralised exchange)' icon={Building2} routes={OFFCHAIN} onPick={onPick} />
-    <Group label='On-chain (another wallet or chain)' icon={Wallet} routes={ONCHAIN} onPick={onPick} />
+    <Group label='From another chain' icon={Wallet} routes={ONCHAIN} onPick={onPick} />
 
     <div className='flex items-center justify-between border-t border-t-other-tonal-stroke pt-4'>
       <Text detail color='text.secondary'>
