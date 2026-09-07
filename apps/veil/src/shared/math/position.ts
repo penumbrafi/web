@@ -312,9 +312,21 @@ export const rangeLiquidityPositions = (plan: RangeLiquidityPlan): PositionedLiq
 
 /** Given a plan for providing simple liquidity, create all the necessary positions to accomplish the plan. */
 export const simpleLiquidityPositions = (plan: SimpleLiquidityPlan): PositionedLiquidity[] => {
-  // Calculate how many positions should be in each range based on market price position
+  // Calculate how many positions should be in each range based on market price position.
+  //
+  // The split is anchored at mid *clamped into the range*, not at raw mid.
+  // Raw mid is only inside [lower, upper] when the range straddles it; for a
+  // deliberately one-sided range it sits outside, and using it as the start of
+  // the upper rungs (or the end of the lower rungs) laid positions clean
+  // outside the range the user chose. Concretely, with lower=1.2 upper=1.4 and
+  // mid=1.0, the ten "upper" rungs came out at 1.00, 1.04 … 1.36 — half of
+  // them below the lower bound, and one selling *at mid*, filling instantly at
+  // exactly the price the range was drawn to avoid.
+  //
+  // When the range straddles mid the anchor is mid, so nothing changes.
   const totalRange = plan.upperPrice - plan.lowerPrice;
-  const marketPosition = (plan.marketPrice - plan.lowerPrice) / totalRange;
+  const anchorPrice = Math.min(Math.max(plan.marketPrice, plan.lowerPrice), plan.upperPrice);
+  const marketPosition = (anchorPrice - plan.lowerPrice) / totalRange;
 
   // Calculate number of positions for each range.
   //
@@ -337,9 +349,9 @@ export const simpleLiquidityPositions = (plan: SimpleLiquidityPlan): PositionedL
   // `priceToPQ` and silently produce p=q=0 coefficients the chain rejects with
   // "trading function coefficients must be nonzero".
   const lowerStepWidth =
-    lowerPositionsAmount > 0 ? (plan.marketPrice - plan.lowerPrice) / lowerPositionsAmount : 0;
+    lowerPositionsAmount > 0 ? (anchorPrice - plan.lowerPrice) / lowerPositionsAmount : 0;
   const upperStepWidth =
-    upperPositionsAmount > 0 ? (plan.upperPrice - plan.marketPrice) / upperPositionsAmount : 0;
+    upperPositionsAmount > 0 ? (plan.upperPrice - anchorPrice) / upperPositionsAmount : 0;
 
   // Calculate weights for ALL positions together to maintain the distribution shape
   const weights = getPositionWeights(
@@ -373,7 +385,7 @@ export const simpleLiquidityPositions = (plan: SimpleLiquidityPlan): PositionedL
 
   // Generate positions for upper range (base liquidity)
   const upperPositions = Array.from({ length: upperPositionsAmount }, (_, i) => {
-    const price = plan.marketPrice + i * upperStepWidth;
+    const price = anchorPrice + i * upperStepWidth;
     // Scale the weight by the range's total weight to maintain proper liquidity distribution
     const weight = (weights[i + lowerPositionsAmount] ?? 0) / (upperRangeTotalWeight || 1);
     return planToPosition(

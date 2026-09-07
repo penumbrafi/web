@@ -389,6 +389,19 @@ describe('simpleLiquidityPositions — every emitted position is chain-acceptabl
   const hasReserves = ({ position }: { position: Position }) =>
     pnum(position.reserves?.r1).toNumber() > 0 || pnum(position.reserves?.r2).toNumber() > 0;
 
+  /** Every rung must sit inside the range the user actually chose. */
+  const expectWithinRange = (
+    positions: { position: Position }[],
+    lowerPrice: number,
+    upperPrice: number,
+  ) => {
+    positions.forEach(({ position }) => {
+      const price = getPrice(position);
+      expect(price).toBeGreaterThanOrEqual(lowerPrice - 1e-9);
+      expect(price).toBeLessThanOrEqual(upperPrice + 1e-9);
+    });
+  };
+
   it('drops rungs whose reserves truncate to zero base units', () => {
     // A dust-sized two-sided LP: 10 PYRAMID rungs over 0.000004 of each asset
     // rounds several rungs to 0 uUM / 0 uUSD once quantised to base units.
@@ -406,6 +419,8 @@ describe('simpleLiquidityPositions — every emitted position is chain-acceptabl
     });
 
     expect(positions.every(hasReserves)).toBe(true);
+    // Prove rungs were actually dropped, rather than the filter being a no-op.
+    expect(positions.length).toBeLessThan(10);
   });
 
   it('supports a one-sided range entirely above mid without empty rungs', () => {
@@ -426,6 +441,11 @@ describe('simpleLiquidityPositions — every emitted position is chain-acceptabl
     expect(positions.every(hasReserves)).toBe(true);
     // Never open more rungs than the form advertised.
     expect(positions.length).toBeLessThanOrEqual(10);
+    // Regression: rungs used to start at raw mid (1.0) and march up to 1.36,
+    // putting half the ladder below the user's lower bound and selling one
+    // rung *at mid* — an instant fill at the price the range was drawn to
+    // avoid.
+    expectWithinRange(positions, 1.2, 1.4);
   });
 
   it('supports a one-sided range entirely below mid without empty rungs', () => {
@@ -445,6 +465,9 @@ describe('simpleLiquidityPositions — every emitted position is chain-acceptabl
     expect(positions.length).toBeGreaterThan(0);
     expect(positions.every(hasReserves)).toBe(true);
     expect(positions.length).toBeLessThanOrEqual(10);
+    // Regression: the mirror case — bids used to run up to 0.96, well above
+    // the user's 0.8 upper bound.
+    expectWithinRange(positions, 0.6, 0.8);
   });
 
   it('produces no positions at all when neither side funds anything', () => {
@@ -482,6 +505,38 @@ describe('simpleLiquidityPositions — every emitted position is chain-acceptabl
     positions.forEach(({ position }) => {
       expect(pnum(position.phi?.component?.p).toNumber()).toBeGreaterThan(0);
       expect(pnum(position.phi?.component?.q).toNumber()).toBeGreaterThan(0);
+    });
+    expectWithinRange(positions, 1.5, 2);
+  });
+
+  it('still centres a two-sided range on the live mid', () => {
+    const positions = simpleLiquidityPositions({
+      baseAsset,
+      quoteAsset,
+      baseLiquidity: 100,
+      quoteLiquidity: 100,
+      upperPrice: 1.1,
+      lowerPrice: 0.9,
+      marketPrice: 1,
+      feeBps: 10,
+      positions: 10,
+      distributionShape: LiquidityDistributionShape.FLAT,
+    });
+
+    // The anchor clamp must be a no-op when mid is inside the range: bids
+    // below mid, asks above it, nothing crossing.
+    expect(positions).toHaveLength(10);
+    expectWithinRange(positions, 0.9, 1.1);
+    positions.forEach(({ position }) => {
+      const price = getPrice(position);
+      const sellsBase = pnum(position.reserves?.r1).toNumber() > 0;
+      const baseIsAsset1 = position.phi?.pair?.asset1?.equals(ASSET_A) ?? false;
+      const offersBase = baseIsAsset1 ? sellsBase : !sellsBase;
+      if (offersBase) {
+        expect(price).toBeGreaterThanOrEqual(1 - 1e-9);
+      } else {
+        expect(price).toBeLessThanOrEqual(1 + 1e-9);
+      }
     });
   });
 });
