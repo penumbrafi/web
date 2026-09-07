@@ -356,11 +356,12 @@ export const simpleLiquidityPositions = (plan: SimpleLiquidityPlan): PositionedL
   );
   const upperPositionsAmount = plan.positions - lowerPositionsAmount;
 
-  // Guard the zero-count side. A fully one-sided range leaves one of these
+  // Guard the zero-count side: a fully one-sided range leaves one of these
   // at 0 and the division would yield Infinity/NaN prices. The corresponding
   // Array.from({length: 0}) never reads the value, but keeping it finite
   // means a stray NaN can never reach priceToPQ and silently produce p=q=0
-  // coefficients the chain rejects.
+  // coefficients the chain rejects ("trading function coefficients must be
+  // nonzero").
   const lowerStepWidth =
     lowerPositionsAmount > 0 ? (plan.marketPrice - plan.lowerPrice) / lowerPositionsAmount : 0;
   const upperStepWidth =
@@ -463,7 +464,7 @@ const oneSidedPositions = (
   const totalLiq = side === 'base' ? plan.baseLiquidity : plan.quoteLiquidity;
   const step = span / n;
 
-  return Array.from({ length: n }, (_, i) => {
+  const built = Array.from({ length: n }, (_, i) => {
     const price = from + i * step;
     const share = totalLiq * ((weights[i] ?? 0) / total);
     return planToPosition(
@@ -478,6 +479,9 @@ const oneSidedPositions = (
       plan.distributionShape,
     );
   });
+  // Same zero-reserve filter as the two-sided path — a thin outer PYRAMID
+  // rung on a small size can truncate to zero and the chain rejects the tx.
+  return withReserves(built);
 };
 
 /** A limit order plan attempts to buy or sell the baseAsset at a given price.
