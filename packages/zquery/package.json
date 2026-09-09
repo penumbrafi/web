@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "react": "^19.0.0",
-    "zustand": "^4.5.2"
+    "zustand": "^5"
   },
   "devDependencies": {
     "@types/react": "19.0.12",

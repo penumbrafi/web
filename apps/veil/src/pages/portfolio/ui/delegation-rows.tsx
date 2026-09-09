@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { observer } from 'mobx-react-lite';
 import { Density } from '@penumbra-zone/ui/Density';
 import { TableCell } from '@penumbra-zone/ui/TableCell';
@@ -20,7 +19,7 @@ import { ChevronRight } from 'lucide-react';
 import { connectionStore } from '@/shared/model/connection';
 import { useBalances } from '@/shared/api/balances';
 import { useDelegations } from '@/pages/portfolio/staking/api/use-delegations';
-import { PagePath } from '@/shared/const/pages';
+import { stakingStore } from '@/pages/portfolio/staking/model/staking-store';
 
 interface Props {
   /** Price of UM in the assets-table numeraire (typically USDC). */
@@ -36,9 +35,10 @@ interface Props {
  *
  * Reuses the shielded-balance column for the staked delUM amount and the
  * shielded-value column for the UM-denominated value (delUM × validator
- * exchange rate × UM price). Each row is a click-through to
- * /portfolio/staking?delegate=<bech32-identity> which auto-opens the
- * delegate/undelegate dialog for that validator.
+ * exchange rate × UM price). Clicking a row sets a pending undelegate on
+ * `stakingStore`; the `<StakingDialogHost>` mounted on the same page
+ * resolves it to a real dialog in-place, so the user never leaves the
+ * portfolio.
  */
 export const DelegationRows = observer(({ umPrice, umQuoteSymbol = '-' }: Props) => {
   const subaccount = connectionStore.subaccount;
@@ -104,15 +104,18 @@ const DelegationRow = ({ delegation, umPrice, umQuoteSymbol, isLast }: RowProps)
   }
 
   const valueInQuote = umPrice ? umEquivalent * umPrice : 0;
-  const stakeHref = identityKey
-    ? `${PagePath.PortfolioStaking}?delegate=${encodeURIComponent(identityKey)}`
-    : PagePath.PortfolioStaking;
   const borderClass = isLast ? '' : 'border-b border-b-other-tonal-stroke';
+  const onClick = () => {
+    if (!identityKey) return;
+    stakingStore.setPending({ action: 'undelegate', identityKey });
+  };
 
   return (
-    <Link
-      href={stakeHref}
-      className={`group col-span-7 grid grid-cols-subgrid hover:bg-action-hover-overlay ${borderClass}`}
+    <button
+      type='button'
+      onClick={onClick}
+      disabled={!identityKey}
+      className={`group col-span-7 grid grid-cols-subgrid text-left hover:bg-action-hover-overlay ${borderClass}`}
     >
       <TableCell variant='cell'>
         <div className='flex flex-col gap-0.5'>
@@ -180,6 +183,6 @@ const DelegationRow = ({ delegation, umPrice, umQuoteSymbol, isLast }: RowProps)
       <TableCell variant='cell'>
         <ChevronRight className='h-4 w-4 text-text-secondary transition-transform group-hover:translate-x-0.5' />
       </TableCell>
-    </Link>
+    </button>
   );
 };

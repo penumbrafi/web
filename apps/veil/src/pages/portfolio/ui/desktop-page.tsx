@@ -9,7 +9,8 @@ import { useRegistry } from '@/shared/api/registry';
 import { IbcChainProvider } from '@/features/cosmos/chain-provider';
 import { PenumbraWaves } from '@/pages/explore/ui/waves';
 import { ShieldingTicker } from '@/widgets/shielding-ticker';
-import { PagePath } from '@/shared/const/pages';
+import { StakingSummary } from './staking-summary';
+import { StakingDialogHost } from '@/pages/portfolio/staking/ui/staking-dialog-host';
 import { AssetsTable, AssetsTableLayout } from './assets-table';
 import { WalletConnect } from './wallet-connect';
 import { PortfolioPositionTabs } from './position-tabs';
@@ -54,13 +55,19 @@ const PortfolioBody = observer(() => {
           <WalletConnect />
 
           {isPenumbraConnected && (
-            <div className='flex justify-end'>
-              <Link href={PagePath.PortfolioStaking}>
-                <Button actionType='accent' priority='secondary' icon={Coins} density='compact'>
-                  Stake UM
-                </Button>
-              </Link>
-            </div>
+            <>
+              <StakingSummary />
+              <div className='flex justify-end'>
+                {/* Staking choice now lives in explore, where all the validator
+                    data is — /portfolio just shows the position and lets the
+                    user act on it in place via <StakingDialogHost>. */}
+                <Link href='/explore/validators'>
+                  <Button actionType='accent' priority='secondary' icon={Coins} density='compact'>
+                    Find validators to stake
+                  </Button>
+                </Link>
+              </div>
+            </>
           )}
 
           {/* Asset Allocation Bars */}
@@ -79,6 +86,7 @@ const PortfolioBody = observer(() => {
           <PortfolioPositionTabs />
         </div>
       )}
+      {isPenumbraConnected && <StakingDialogHost />}
     </>
   );
 });

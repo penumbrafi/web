@@ -9,6 +9,7 @@ overrides:
   cosmos-kit: ^2.21.1
   '@hexxagon/feather.js': npm:@terra-money/feather.js@1.0.9
   '@amplitude/analytics-browser': ./packages/stubs
+  '@penumbra-labs/registry': github:penumbrafi/registry#rotko-release
 
 importers:
 
@@ -91,7 +92,7 @@ importers:
         version: 3.4.0(eslint@9.27.0(jiti@2.4.2))(tailwindcss@4.1.10)
       eslint-plugin-import:
         specifier: ^2.29.1
-        version: 2.31.0(eslint-import-resolver-typescript@3.10.1)(eslint@9.27.0(jiti@2.4.2))
+        version: 2.31.0(@typescript-eslint/parser@8.32.1(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.27.0(jiti@2.4.2))
       eslint-plugin-import-x:
         specifier: ^0.5.3
         version: 0.5.3(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3)
@@ -112,7 +113,7 @@ importers:
         version: 2.5.3(eslint@9.27.0(jiti@2.4.2))(turbo@2.5.3)
       eslint-plugin-vitest:
         specifier: ^0.5.4
-        version: 0.5.4(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3)(vitest@1.6.1(@types/node@22.15.21)(@vitest/browser@1.6.1)(jsdom@24.1.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(lightningcss@1.30.1)(terser@5.39.2))
+        version: 0.5.4(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3)(vitest@1.6.1(@types/node@22.15.21)(@vitest/browser@1.6.1)(jsdom@24.1.3(bufferutil@4.0.9)(canvas@3.1.0)(utf-8-validate@5.0.10))(lightningcss@1.30.1)(terser@5.39.2))
       jsdom:
         specifier: ^24.0.0
         version: 24.1.3(bufferutil@4.0.9)(canvas@3.1.0)(utf-8-validate@5.0.10)
@@ -178,13 +179,13 @@ importers:
         version: 2.16.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
       '@cosmos-kit/react':
         specifier: ^2.20.1
-        version: 2.22.0(@cosmjs/amino@0.33.1)(@cosmjs/proto-signing@0.32.4)(@interchain-ui/react@1.26.3(@types/react@19.0.12)(babel-plugin-macros@3.1.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(@types/react-dom@19.0.4(@types/react@19.0.12))(@types/react@19.0.12)(bufferutil@4.0.9)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(utf-8-validate@5.0.10)
+        version: 2.22.0(@cosmjs/amino@0.34.0)(@cosmjs/proto-signing@0.32.4)(@interchain-ui/react@1.26.3(@types/react@19.0.12)(babel-plugin-macros@3.1.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(@types/react-dom@19.0.4(@types/react@19.0.12))(@types/react@19.0.12)(bufferutil@4.0.9)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(utf-8-validate@5.0.10)
       '@interchain-ui/react':
         specifier: ^1.26.1
         version: 1.26.3(@types/react@19.0.12)(babel-plugin-macros@3.1.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@penumbra-labs/registry':
-        specifier: ^12.8.0
-        version: 12.8.0
+        specifier: github:penumbrafi/registry#rotko-release
+        version: https://codeload.github.com/penumbrafi/registry/tar.gz/341fae63e36130d7ca1ea76af3efa28a4f703a37
       '@penumbra-zone/bech32m':
         specifier: workspace:*
         version: link:../../packages/bech32m
@@ -253,7 +254,7 @@ importers:
         version: 0.9.0
       cosmos-kit:
         specifier: ^2.21.1
-        version: 2.24.0(@cosmjs/amino@0.33.1)(@cosmjs/crypto@0.34.0)(@cosmjs/encoding@0.33.1)(@cosmjs/proto-signing@0.32.4)(@walletconnect/sign-client@2.20.3(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10)(zod@3.25.17))(@walletconnect/types@2.20.3)(axios@1.9.0)(bufferutil@4.0.9)(cosmjs-types@0.9.0)(react@19.1.0)(starknet@6.24.1)(typescript@5.5.3)(utf-8-validate@5.0.10)(zod@3.25.17)
+        version: 2.24.0(@cosmjs/crypto@0.34.0)(@cosmjs/encoding@0.34.0)(@cosmjs/proto-signing@0.32.4)(@walletconnect/sign-client@2.20.3(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10)(zod@3.25.17))(@walletconnect/types@2.20.3)(axios@1.9.0)(bufferutil@4.0.9)(cosmjs-types@0.9.0)(react@19.1.0)(starknet@6.24.1)(typescript@5.5.3)(utf-8-validate@5.0.10)(zod@3.25.17)
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
@@ -262,7 +263,7 @@ importers:
         version: 11.18.2(@emotion/is-prop-valid@1.3.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       graz:
         specifier: ^0.1.31
-        version: 0.1.31(@cosmjs/amino@0.33.1)(@cosmjs/cosmwasm-stargate@0.33.1(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@cosmjs/launchpad@0.27.1)(@cosmjs/proto-signing@0.32.4)(@cosmjs/stargate@0.32.4(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@cosmjs/tendermint-rpc@0.34.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@leapwallet/cosmos-social-login-capsule-provider@0.0.41(@cosmjs/encoding@0.33.1)(@cosmjs/proto-signing@0.32.4)(fp-ts@2.1.1))(@terra-money/feather.js@1.0.9)(@types/react@19.0.12)(axios@1.9.0)(bufferutil@4.0.9)(immer@10.1.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(starknet@6.24.1)(utf-8-validate@5.0.10)
+        version: 0.1.31(@cosmjs/cosmwasm-stargate@0.34.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@cosmjs/launchpad@0.27.1)(@cosmjs/proto-signing@0.32.4)(@cosmjs/stargate@0.32.4(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@cosmjs/tendermint-rpc@0.34.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@leapwallet/cosmos-social-login-capsule-provider@0.0.41(@cosmjs/encoding@0.34.0)(@cosmjs/proto-signing@0.32.4)(fp-ts@2.1.1))(@terra-money/feather.js@1.0.9)(@types/react@19.0.12)(axios@1.9.0)(bufferutil@4.0.9)(immer@10.1.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(starknet@6.24.1)(utf-8-validate@5.0.10)
       immer:
         specifier: ^10.1.1
         version: 10.1.1
@@ -303,8 +304,8 @@ importers:
         specifier: ^2.14.0
         version: 2.15.4(@tanstack/query-core@5.76.0)(@tanstack/react-query@5.62.7(react@19.1.0))(@types/react@19.0.12)(bufferutil@4.0.9)(immer@10.1.1)(react@19.1.0)(typescript@5.5.3)(utf-8-validate@5.0.10)(viem@2.30.0(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10)(zod@3.25.17))(zod@3.25.17)
       zustand:
-        specifier: ^4.5.2
-        version: 4.5.7(@types/react@19.0.12)(immer@10.1.1)(react@19.1.0)
+        specifier: ^5
+        version: 5.0.4(@types/react@19.0.12)(immer@10.1.1)(react@19.1.0)(use-sync-external-store@1.4.0(react@19.1.0))
     devDependencies:
       '@chain-registry/types':
         specifier: ^0.50.93
@@ -368,13 +369,13 @@ importers:
         version: 2.16.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
       '@cosmos-kit/react':
         specifier: ^2.20.1
-        version: 2.22.0(@cosmjs/amino@0.34.0)(@cosmjs/proto-signing@0.32.4)(@interchain-ui/react@1.26.3(@types/react@19.0.12)(babel-plugin-macros@3.1.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(@types/react-dom@19.0.4(@types/react@19.0.12))(@types/react@19.0.12)(bufferutil@4.0.9)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(utf-8-validate@5.0.10)
+        version: 2.22.0(@cosmjs/amino@0.33.1)(@cosmjs/proto-signing@0.32.4)(@interchain-ui/react@1.26.3(@types/react@19.0.12)(babel-plugin-macros@3.1.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(@types/react-dom@19.0.4(@types/react@19.0.12))(@types/react@19.0.12)(bufferutil@4.0.9)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(utf-8-validate@5.0.10)
       '@interchain-ui/react':
         specifier: ^1.26.1
         version: 1.26.3(@types/react@19.0.12)(babel-plugin-macros@3.1.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@penumbra-labs/registry':
-        specifier: ^12.8.0
-        version: 12.8.0
+        specifier: github:penumbrafi/registry#rotko-release
+        version: https://codeload.github.com/penumbrafi/registry/tar.gz/341fae63e36130d7ca1ea76af3efa28a4f703a37
       '@penumbra-zone/bech32m':
         specifier: workspace:*
         version: link:../../packages/bech32m
@@ -410,7 +411,7 @@ importers:
         version: link:../../packages/zquery
       '@skip-go/widget':
         specifier: ^3.4.1
-        version: 3.10.2(qlt6myc2il7fw2m5fabb6y3moa)
+        version: 3.10.2(ujflgua4hy37rnlnmfv6kek3aa)
       '@tailwindcss/vite':
         specifier: ^4.1.10
         version: 4.1.10(vite@5.4.19(@types/node@22.15.21)(lightningcss@1.30.1)(terser@5.39.2))
@@ -431,7 +432,7 @@ importers:
         version: 0.9.0
       cosmos-kit:
         specifier: ^2.21.1
-        version: 2.24.0(@cosmjs/crypto@0.34.0)(@cosmjs/encoding@0.34.0)(@cosmjs/proto-signing@0.32.4)(@walletconnect/sign-client@2.20.3(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10)(zod@3.25.17))(@walletconnect/types@2.20.3)(axios@1.9.0)(bufferutil@4.0.9)(cosmjs-types@0.9.0)(react@19.1.0)(starknet@6.24.1)(typescript@5.5.3)(utf-8-validate@5.0.10)(zod@3.25.17)
+        version: 2.24.0(@cosmjs/amino@0.33.1)(@cosmjs/crypto@0.34.0)(@cosmjs/encoding@0.33.1)(@cosmjs/proto-signing@0.32.4)(@walletconnect/sign-client@2.20.3(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10)(zod@3.25.17))(@walletconnect/types@2.20.3)(axios@1.9.0)(bufferutil@4.0.9)(cosmjs-types@0.9.0)(react@19.1.0)(starknet@6.24.1)(typescript@5.5.3)(utf-8-validate@5.0.10)(zod@3.25.17)
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
@@ -440,7 +441,7 @@ importers:
         version: 11.18.2(@emotion/is-prop-valid@1.3.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       graz:
         specifier: ^0.1.31
-        version: 0.1.31(@cosmjs/cosmwasm-stargate@0.34.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@cosmjs/launchpad@0.27.1)(@cosmjs/proto-signing@0.32.4)(@cosmjs/stargate@0.32.4(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@cosmjs/tendermint-rpc@0.34.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@leapwallet/cosmos-social-login-capsule-provider@0.0.41(@cosmjs/encoding@0.34.0)(@cosmjs/proto-signing@0.32.4)(fp-ts@2.1.1))(@terra-money/feather.js@1.0.9)(@types/react@19.0.12)(axios@1.9.0)(bufferutil@4.0.9)(immer@11.1.8)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(starknet@6.24.1)(utf-8-validate@5.0.10)
+        version: 0.1.31(@cosmjs/amino@0.33.1)(@cosmjs/cosmwasm-stargate@0.34.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@cosmjs/launchpad@0.27.1)(@cosmjs/proto-signing@0.32.4)(@cosmjs/stargate@0.32.4(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@cosmjs/tendermint-rpc@0.34.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@leapwallet/cosmos-social-login-capsule-provider@0.0.41(@cosmjs/encoding@0.33.1)(@cosmjs/proto-signing@0.32.4)(fp-ts@2.1.1))(@terra-money/feather.js@1.0.9)(@types/react@19.0.12)(axios@1.9.0)(bufferutil@4.0.9)(immer@10.1.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(starknet@6.24.1)(utf-8-validate@5.0.10)
       lodash:
         specifier: ^4.17.21
         version: 4.17.21
@@ -612,8 +613,8 @@ importers:
         specifier: ^1.1.0
         version: 1.26.2(@types/react@19.0.12)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@penumbra-labs/registry':
-        specifier: ^12.8.0
-        version: 12.8.0
+        specifier: github:penumbrafi/registry#rotko-release
+        version: https://codeload.github.com/penumbrafi/registry/tar.gz/341fae63e36130d7ca1ea76af3efa28a4f703a37
       '@penumbra-zone/bech32m':
         specifier: workspace:*
         version: link:../../packages/bech32m
@@ -624,8 +625,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/getters
       '@penumbra-zone/perspective':
-        specifier: ^61.1.1
-        version: 61.1.1(@bufbuild/protobuf@1.10.1)(@penumbra-zone/bech32m@packages+bech32m)(@penumbra-zone/getters@packages+getters)(@penumbra-zone/protobuf@packages+protobuf)(@penumbra-zone/types@packages+types)
+        specifier: workspace:*
+        version: link:../../packages/perspective
       '@penumbra-zone/protobuf':
         specifier: workspace:*
         version: link:../../packages/protobuf
@@ -711,8 +712,8 @@ importers:
         specifier: ^12
         version: 12.40.0(@emotion/is-prop-valid@1.3.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       next:
-        specifier: 15.5.18
-        version: 15.5.18(@babel/core@7.27.1)(babel-plugin-macros@3.1.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+        specifier: 15.5.25
+        version: 15.5.25(@babel/core@7.27.1)(babel-plugin-macros@3.1.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       osmo-query:
         specifier: ^16.14.0
         version: 16.14.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
@@ -747,7 +748,7 @@ importers:
         specifier: ^3
         version: 3.8.1(@types/react@19.0.12)(react-dom@19.1.0(react@19.1.0))(react-is@19.1.0)(react@19.1.0)(redux@5.0.1)
       tailwind-merge:
-        specifier: ^2
+        specifier: ^2.4.0
         version: 2.6.0
       urql:
         specifier: ^5
@@ -773,8 +774,8 @@ importers:
         specifier: ^9.16.0
         version: 9.27.0
       '@next/bundle-analyzer':
-        specifier: 15.5.18
-        version: 15.5.18(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+        specifier: 15.5.25
+        version: 15.5.25(bufferutil@4.0.9)(utf-8-validate@5.0.10)
       '@repo/stubs':
         specifier: workspace:*
         version: link:../../packages/stubs
@@ -809,8 +810,8 @@ importers:
         specifier: ^9.6.0
         version: 9.27.0(jiti@2.4.2)
       eslint-config-next:
-        specifier: 15.5.18
-        version: 15.5.18(eslint-plugin-import-x@0.5.3(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3))(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3)
+        specifier: 15.5.25
+        version: 15.5.25(eslint-plugin-import-x@0.5.3(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3))(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3)
       eslint-plugin-react:
         specifier: ^7.37.2
         version: 7.37.5(eslint@9.27.0(jiti@2.4.2))
@@ -892,7 +893,7 @@ importers:
         version: 3.10.1(eslint-plugin-import-x@0.5.3(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3))(eslint-plugin-import@2.31.0)(eslint@9.27.0(jiti@2.4.2))
       eslint-plugin-import:
         specifier: ^2.29.1
-        version: 2.31.0(eslint-import-resolver-typescript@3.10.1)(eslint@9.27.0(jiti@2.4.2))
+        version: 2.31.0(@typescript-eslint/parser@8.32.1(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.27.0(jiti@2.4.2))
       eslint-plugin-import-x:
         specifier: ^0.5.3
         version: 0.5.3(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3)
@@ -913,7 +914,7 @@ importers:
         version: 2.5.3(eslint@9.27.0(jiti@2.4.2))(turbo@2.5.3)
       eslint-plugin-vitest:
         specifier: ^0.5.4
-        version: 0.5.4(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3)(vitest@1.6.1(@types/node@22.15.21)(@vitest/browser@1.6.1)(jsdom@24.1.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(lightningcss@1.30.1)(terser@5.39.2))
+        version: 0.5.4(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3)(vitest@1.6.1(@types/node@22.15.21)(@vitest/browser@1.6.1)(jsdom@24.1.3(bufferutil@4.0.9)(canvas@3.1.0)(utf-8-validate@5.0.10))(lightningcss@1.30.1)(terser@5.39.2))
     devDependencies:
       prettier:
         specifier: ^3.4.2
@@ -1053,8 +1054,8 @@ importers:
         version: 8.0.3
     devDependencies:
       '@penumbra-labs/registry':
-        specifier: ^12.8.0
-        version: 12.8.0
+        specifier: github:penumbrafi/registry#rotko-release
+        version: https://codeload.github.com/penumbrafi/registry/tar.gz/341fae63e36130d7ca1ea76af3efa28a4f703a37
       '@penumbra-zone/protobuf':
         specifier: workspace:*
         version: link:../protobuf
@@ -1563,8 +1564,8 @@ importers:
         specifier: ^19.0.0
         version: 19.1.0
       zustand:
-        specifier: ^4.5.2
-        version: 4.5.7(@types/react@19.0.12)(immer@11.1.8)(react@19.1.0)
+        specifier: ^5
+        version: 5.0.4(@types/react@19.0.12)(immer@11.1.8)(react@19.1.0)(use-sync-external-store@1.5.0(react@19.1.0))
     devDependencies:
       '@types/react':
         specifier: 19.0.12
@@ -4094,59 +4095,59 @@ packages:
   '@napi-rs/wasm-runtime@0.2.10':
     resolution: {integrity: sha512-bCsCyeZEwVErsGmyPNSzwfwFn4OdxBj0mmv6hOFucB/k81Ojdu68RbZdxYsRQUPc9l6SU5F/cG+bXgWs3oUgsQ==}
 
-  '@next/bundle-analyzer@15.5.18':
-    resolution: {integrity: sha512-v5/UNFwYbBlRQg/Bt+wU65XuxCxPu1AeCOI6s4s6Cludsj7FdVO9E9uzr7GIj8OykSrYtGuEQAUX0Ulje8W2yw==}
+  '@next/bundle-analyzer@15.5.25':
+    resolution: {integrity: sha512-wqcwkM1tfxPRashw5slNgqbD25hBkDoTtFCfE+HWtMEuRGhU/8fGf7STALpZ31Ov4NUGq9YYnWbEhe7Xa2BRgg==}
 
-  '@next/env@15.5.18':
-    resolution: {integrity: sha512-hAV85Ckd9QR6RvH04MEKwsfLTksvFpO47j9xwtoIuvuPnlwecpSi+uZTtm8HirVbtlI2Fnz//xpcSTjFdyJk+g==}
+  '@next/env@15.5.25':
+    resolution: {integrity: sha512-42h1lLr07vl4gawALP1hsgRZjHB1xYa58JfUfHwr0f7jG/zhPakh5GHkADHXOC9ZxUvlQFOPIrp7s6qX4DezPQ==}
 
-  '@next/eslint-plugin-next@15.5.18':
-    resolution: {integrity: sha512-w4MYq8M26a8PNrfto0JosLf5/3ssln1rsyP96g2DkC8uFVymStM5DLSz5ElxxrPRg2XnTMnFo3kREFlhYvxhWw==}
+  '@next/eslint-plugin-next@15.5.25':
+    resolution: {integrity: sha512-dAzOqZQCAOgIq5yQpsuMBZcwxK0AtzGqHMQpxNWYLQlvf79rsP3SDwdGPNQC4ySaMSihOQXMO/VXubQ3JWW+3A==}
 
-  '@next/swc-darwin-arm64@15.5.18':
-    resolution: {integrity: sha512-w0WvQf1n+txiwns/9pwIQteCJpZTbxzO2SE0FLcwuD4v0WEh1JPOjdyxWL21XwJsdpx8cFRjyzxzCS/siP7HcQ==}
+  '@next/swc-darwin-arm64@15.5.25':
+    resolution: {integrity: sha512-w+RR0v/QuApnWEjRGm1z6gcObKwGMb5YPA7V3bzBEVSBpMFUXprer0tS27UxjUcEnqbhL7Zuzohej79B6rYmBg==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [darwin]
 
-  '@next/swc-darwin-x64@15.5.18':
-    resolution: {integrity: sha512-znn71QmDuxm+BOaglihMZfvyySMnNljkVIY5Z2TCssBmm+WqL6c19VhtH5ktFkHa8EZ2bnTUpcNcmNSQsg67og==}
+  '@next/swc-darwin-x64@15.5.25':
+    resolution: {integrity: sha512-QiGGBUSakt8S1H4Lt9Ehsh6Ja87axiBnQQgysOObvCbI7iUfJnRGntF1P64S4/ijuHFnSB8KLsEddkY3nN26uw==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [darwin]
 
-  '@next/swc-linux-arm64-gnu@15.5.18':
-    resolution: {integrity: sha512-yPPe5MNL+igZUa+OsqQJisqSfh6oarIuA1Q0BDxljGJhRQyZeP+WRHh7rs/jZUGMh5aY0YdIjXZG0VohkKkUdw==}
+  '@next/swc-linux-arm64-gnu@15.5.25':
+    resolution: {integrity: sha512-ehLos/66zo0d/mJCU5u96a/VDcr01aaUrX0o/i16UdInxz8qPTCDSxGtjk/Lps1sIr1RJFdiX3hxc0fxJo+cPA==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
 
-  '@next/swc-linux-arm64-musl@15.5.18':
-    resolution: {integrity: sha512-glaCczEWIrHsokFZ3pP08U4BpKxwIdnT+txdOM32OBgpL9Yw4aqx8NejmgtZQZOdstQ5f0L3CasIZudzCuD+nw==}
+  '@next/swc-linux-arm64-musl@15.5.25':
+    resolution: {integrity: sha512-ZVMrqLiJ7DiChgmbkQwFtdhAnUkSH/4p7tB29QY+giATb0Q/XGHNRSKAb/B8XGDHRUaA67NepOW5W8u3ZRJBAA==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
 
-  '@next/swc-linux-x64-gnu@15.5.18':
-    resolution: {integrity: sha512-oUfg2EgJmU3R0OCOWiokGFUTvZiPfXtriXiuF3YNxRoROCdgvTedHIzYoeKH34gsZxS/V7mHbfq2hpAHwhH1/A==}
+  '@next/swc-linux-x64-gnu@15.5.25':
+    resolution: {integrity: sha512-UOewtDGkTMJTiODrEdeLZ50yGb59xCZSriNpXkfPMxRRgwDkGc7i8mLWqV5076wEdb+Ca/XN7MhJyM3CupyNyQ==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
 
-  '@next/swc-linux-x64-musl@15.5.18':
-    resolution: {integrity: sha512-JLxSP3KTd9iu/bvUMQxH7RJo9xKSHf55/6RPE4a6FTSZygGn7uvZbCej0AHXydwkggQGSD9UddSjwv6Xz5ESfA==}
+  '@next/swc-linux-x64-musl@15.5.25':
+    resolution: {integrity: sha512-UBHwA8AhkCZgtRfU1aJpunuAJe/6gZv6jDESQe4p5MjTb5V0YEeJBWCdNqx15Vj3x+5jmauRfeMJSjfQj9HGFQ==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
 
-  '@next/swc-win32-arm64-msvc@15.5.18':
-    resolution: {integrity: sha512-ir1v7enP52K2HNz3tQQvwF+x7VNxBk1ciiZ18WBPvxf4C59IqdfmHPJYK3vH7rSxpuCVw/8C712wTXNAtEp+NA==}
+  '@next/swc-win32-arm64-msvc@15.5.25':
+    resolution: {integrity: sha512-QcFcPRr16djk5IqK5+e8O80eZfgWzIvVBXfitIq0tQ/uc+eyfdoZ0NmKc0cnbIJyfVwREapKuG97YcxWA9gcpA==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [win32]
 
-  '@next/swc-win32-x64-msvc@15.5.18':
-    resolution: {integrity: sha512-LIu5me6QTANCd25E7I5uIEfvgQ06RK7tvHAbYo3zCb3VpxQEPvMcSpd87NwUABDT6MbGPdEGR5VRiK4PPTJhQg==}
+  '@next/swc-win32-x64-msvc@15.5.25':
+    resolution: {integrity: sha512-zREeykps3ndWr9egJgvJKqVkkDuaw6Zrrg23cYBos0ygydFkAWYU4+PaPVwXzP1eAYQJe53ShSK45iDM529BOg==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [win32]
@@ -4243,8 +4244,9 @@ packages:
     resolution: {integrity: sha512-IHnV6A+zxU7XwmKFinmYjUcwlyK9+xkG3/s9KcQhI9BjQKycrJ1JRO+FbNYPwZiPKW3je/DR0k7w8/gLa5eaxQ==}
     deprecated: 'The package is now available as "qr": npm install qr'
 
-  '@penumbra-labs/registry@12.8.0':
-    resolution: {integrity: sha512-M5RIjyJr8pKTaqJRYSTdVFXu4gwi+C5M1WT08jNVExe+yOuLlq1YavkUEfxVvsgo0uCobjNPAEjrhR7BRS0onQ==}
+  '@penumbra-labs/registry@https://codeload.github.com/penumbrafi/registry/tar.gz/341fae63e36130d7ca1ea76af3efa28a4f703a37':
+    resolution: {tarball: https://codeload.github.com/penumbrafi/registry/tar.gz/341fae63e36130d7ca1ea76af3efa28a4f703a37}
+    version: 12.8.0-rotko.0
 
   '@penumbra-zone/bech32m@13.0.0':
     resolution: {integrity: sha512-d89AM78hoeqK2xtHku2jjbjJaMxpimo0qVXuOMM4doa7G31x61WktMAjWmsi1mjK9o9IXgzTRaaFkI1QpT0Vag==}
@@ -4259,17 +4261,6 @@ packages:
       '@penumbra-zone/protobuf': 7.2.0
       '@penumbra-zone/transport-dom': 7.5.0
 
-  '@penumbra-zone/keys@4.2.3':
-    resolution: {integrity: sha512-K3ZslpTjmsOjGm5EvJyPn4J9y0iMYFOWmjqDF1qbb/WoT8zdN+/bZ34YxL8I2cHUK8geRnWBqQhfmK8XX9M3yQ==}
-
-  '@penumbra-zone/perspective@61.1.1':
-    resolution: {integrity: sha512-xOe1Vrg3JnMycnS7RGjTMHUwZQc6O3fFJoi9FigvXtprwvRjm+vyKZ4+QwD6C3iF01LB34yD1zif7E0+bKfKNA==}
-    peerDependencies:
-      '@bufbuild/protobuf': ^1.10.0
-      '@penumbra-zone/bech32m': 18.0.0
-      '@penumbra-zone/getters': 28.0.0
-      '@penumbra-zone/protobuf': 11.0.0
-
   '@penumbra-zone/protobuf@7.2.0':
     resolution: {integrity: sha512-04o85rT1cE0kQ6NF6iScNNviI1Gn/i1zM1jyC6nYDG45WuNvx2L+ZCcpWXOSsS4G2zFNZaW5eeEXv9GLq46Imw==}
     peerDependencies:
@@ -4277,14 +4268,6 @@ packages:
 
   '@penumbra-zone/transport-dom@7.5.1':
     resolution: {integrity: sha512-KHenVdfhm2BJgLl6ll83Q2Lmb5zY3XFijgn+k3fxEK5Ecgzdt1PSSvwKQXZ5WmOMwF8usyCFkcMExH1n3DlVIw==}
-
-  '@penumbra-zone/wasm@53.0.0':
-    resolution: {integrity: sha512-9TUsJUxD2ZuRZEWj1yAuqR0H1opbhJ5k9mi2vUbRAeuRFPlzo01ptzDGOKmkENlDaJ1WGx6vhO6RvAwZRt4tDw==}
-    peerDependencies:
-      '@bufbuild/protobuf': ^1.10.0
-      '@penumbra-zone/bech32m': 18.0.0
-      '@penumbra-zone/protobuf': 11.0.0
-      '@penumbra-zone/types': 36.0.0
 
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
@@ -8953,8 +8936,8 @@ packages:
     engines: {node: '>=6.0'}
     hasBin: true
 
-  eslint-config-next@15.5.18:
-    resolution: {integrity: sha512-HuoJU6uUPD00eyiud78IBnT4HLhztFj2V+ild2Uon5ZUrYZKe0Olu2QRD99e9IgL4/H1eg5Onka3BsfRW2U0Xw==}
+  eslint-config-next@15.5.25:
+    resolution: {integrity: sha512-hB1oClZzRO3vMAeMmBMch0FHNJ4irH74LvQWDEMHkJtG/Us9+SAsg1f5Pvcw9jz4tc8wSGnvbmF050BRAAIbBg==}
     peerDependencies:
       eslint: ^7.23.0 || ^8.0.0 || ^9.0.0
       typescript: 5.5.3
@@ -10831,8 +10814,8 @@ packages:
     resolution: {integrity: sha512-dBpDMdxv9Irdq66304OLfEmQ9tbNRFnFTuZiLo+bD+r332bBmMJ8GBLXklIXXgxd3+v9+KUnZaUR5PJMa75Gsg==}
     engines: {node: '>= 0.4.0'}
 
-  next@15.5.18:
-    resolution: {integrity: sha512-eKL8zUJkX9Y5lE+RX/2YJoItVdGlIscyVyboeD9wSpp0PaGqjoA4tTpT2qPqz9ax+5IzGESyLSeZ/RCwbSZ2uQ==}
+  next@15.5.25:
+    resolution: {integrity: sha512-OMWNulIIqKM2ykvC2qMjIt0IoavB4UB2SCs4iXJ6z6847FvyH8jBmBWcvrF5iuhTu8Przh20Fo/aoszIdqx4PA==}
     engines: {node: ^18.18.0 || ^19.8.0 || >= 20.0.0}
     hasBin: true
     peerDependencies:
@@ -13815,7 +13798,7 @@ snapshots:
       '@jridgewell/gen-mapping': 0.3.8
       '@jridgewell/trace-mapping': 0.3.25
 
-  '@apollo/client@3.13.8(@types/react@19.0.12)(graphql-ws@6.0.8(crossws@0.3.5)(graphql@16.11.0)(ws@7.5.10(bufferutil@4.0.9)(utf-8-validate@5.0.10)))(graphql@16.11.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
+  '@apollo/client@3.13.8(@types/react@19.0.12)(graphql-ws@6.0.8(crossws@0.3.5)(graphql@16.11.0)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)))(graphql@16.11.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
     dependencies:
       '@graphql-typed-document-node/core': 3.2.0(graphql@16.11.0)
       '@wry/caches': 1.0.1
@@ -13832,7 +13815,7 @@ snapshots:
       tslib: 2.8.1
       zen-observable-ts: 1.2.5
     optionalDependencies:
-      graphql-ws: 6.0.8(crossws@0.3.5)(graphql@16.11.0)(ws@7.5.10(bufferutil@4.0.9)(utf-8-validate@5.0.10))
+      graphql-ws: 6.0.8(crossws@0.3.5)(graphql@16.11.0)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
     transitivePeerDependencies:
@@ -17992,9 +17975,9 @@ snapshots:
       protobufjs: 7.4.0
       rxjs: 7.8.2
 
-  '@injectivelabs/sdk-ts@1.15.3(@types/react@19.0.12)(bufferutil@4.0.9)(graphql-ws@6.0.8(crossws@0.3.5)(graphql@16.11.0)(ws@7.5.10(bufferutil@4.0.9)(utf-8-validate@5.0.10)))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(utf-8-validate@5.0.10)':
+  '@injectivelabs/sdk-ts@1.15.3(@types/react@19.0.12)(bufferutil@4.0.9)(graphql-ws@6.0.8(crossws@0.3.5)(graphql@16.11.0)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(utf-8-validate@5.0.10)':
     dependencies:
-      '@apollo/client': 3.13.8(@types/react@19.0.12)(graphql-ws@6.0.8(crossws@0.3.5)(graphql@16.11.0)(ws@7.5.10(bufferutil@4.0.9)(utf-8-validate@5.0.10)))(graphql@16.11.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@apollo/client': 3.13.8(@types/react@19.0.12)(graphql-ws@6.0.8(crossws@0.3.5)(graphql@16.11.0)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)))(graphql@16.11.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@cosmjs/amino': 0.33.1
       '@cosmjs/proto-signing': 0.33.1
       '@cosmjs/stargate': 0.33.1(bufferutil@4.0.9)(utf-8-validate@5.0.10)
@@ -18920,41 +18903,41 @@ snapshots:
       '@tybys/wasm-util': 0.9.0
     optional: true
 
-  '@next/bundle-analyzer@15.5.18(bufferutil@4.0.9)(utf-8-validate@5.0.10)':
+  '@next/bundle-analyzer@15.5.25(bufferutil@4.0.9)(utf-8-validate@5.0.10)':
     dependencies:
       webpack-bundle-analyzer: 4.10.1(bufferutil@4.0.9)(utf-8-validate@5.0.10)
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
 
-  '@next/env@15.5.18': {}
+  '@next/env@15.5.25': {}
 
-  '@next/eslint-plugin-next@15.5.18':
+  '@next/eslint-plugin-next@15.5.25':
     dependencies:
       fast-glob: 3.3.1
 
-  '@next/swc-darwin-arm64@15.5.18':
+  '@next/swc-darwin-arm64@15.5.25':
     optional: true
 
-  '@next/swc-darwin-x64@15.5.18':
+  '@next/swc-darwin-x64@15.5.25':
     optional: true
 
-  '@next/swc-linux-arm64-gnu@15.5.18':
+  '@next/swc-linux-arm64-gnu@15.5.25':
     optional: true
 
-  '@next/swc-linux-arm64-musl@15.5.18':
+  '@next/swc-linux-arm64-musl@15.5.25':
     optional: true
 
-  '@next/swc-linux-x64-gnu@15.5.18':
+  '@next/swc-linux-x64-gnu@15.5.25':
     optional: true
 
-  '@next/swc-linux-x64-musl@15.5.18':
+  '@next/swc-linux-x64-musl@15.5.25':
     optional: true
 
-  '@next/swc-win32-arm64-msvc@15.5.18':
+  '@next/swc-win32-arm64-msvc@15.5.25':
     optional: true
 
-  '@next/swc-win32-x64-msvc@15.5.18':
+  '@next/swc-win32-x64-msvc@15.5.25':
     optional: true
 
   '@noble/ciphers@1.2.1': {}
@@ -19027,7 +19010,7 @@ snapshots:
 
   '@paulmillr/qr@0.2.1': {}
 
-  '@penumbra-labs/registry@12.8.0': {}
+  '@penumbra-labs/registry@https://codeload.github.com/penumbrafi/registry/tar.gz/341fae63e36130d7ca1ea76af3efa28a4f703a37': {}
 
   '@penumbra-zone/bech32m@13.0.0(@penumbra-zone/protobuf@7.2.0(@bufbuild/protobuf@1.10.1))':
     dependencies:
@@ -19041,20 +19024,6 @@ snapshots:
       '@penumbra-zone/protobuf': 7.2.0(@bufbuild/protobuf@1.10.1)
       '@penumbra-zone/transport-dom': 7.5.1
 
-  '@penumbra-zone/keys@4.2.3':
-    optional: true
-
-  '@penumbra-zone/perspective@61.1.1(@bufbuild/protobuf@1.10.1)(@penumbra-zone/bech32m@packages+bech32m)(@penumbra-zone/getters@packages+getters)(@penumbra-zone/protobuf@packages+protobuf)(@penumbra-zone/types@packages+types)':
-    dependencies:
-      '@bufbuild/protobuf': 1.10.1
-      '@penumbra-zone/bech32m': link:packages/bech32m
-      '@penumbra-zone/getters': link:packages/getters
-      '@penumbra-zone/protobuf': link:packages/protobuf
-    optionalDependencies:
-      '@penumbra-zone/wasm': 53.0.0(@bufbuild/protobuf@1.10.1)(@penumbra-zone/bech32m@packages+bech32m)(@penumbra-zone/protobuf@packages+protobuf)(@penumbra-zone/types@packages+types)
-    transitivePeerDependencies:
-      - '@penumbra-zone/types'
-
   '@penumbra-zone/protobuf@7.2.0(@bufbuild/protobuf@1.10.1)':
     dependencies:
       '@bufbuild/protobuf': 1.10.1
@@ -19063,16 +19032,6 @@ snapshots:
     dependencies:
       '@bufbuild/protobuf': 1.10.1
       '@connectrpc/connect': 1.6.1(@bufbuild/protobuf@1.10.1)
-
-  '@penumbra-zone/wasm@53.0.0(@bufbuild/protobuf@1.10.1)(@penumbra-zone/bech32m@packages+bech32m)(@penumbra-zone/protobuf@packages+protobuf)(@penumbra-zone/types@packages+types)':
-    dependencies:
-      '@bufbuild/protobuf': 1.10.1
-      '@penumbra-zone/bech32m': link:packages/bech32m
-      '@penumbra-zone/protobuf': link:packages/protobuf
-      '@penumbra-zone/types': link:packages/types
-    optionalDependencies:
-      '@penumbra-zone/keys': 4.2.3
-    optional: true
 
   '@pkgjs/parseargs@0.11.0':
     optional: true
@@ -21175,7 +21134,7 @@ snapshots:
 
   '@sindresorhus/merge-streams@4.0.0': {}
 
-  '@skip-go/client@1.1.1(@solana/web3.js@1.98.2(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10))(@types/react@19.0.12)(bufferutil@4.0.9)(graphql-ws@6.0.8(crossws@0.3.5)(graphql@16.11.0)(ws@7.5.10(bufferutil@4.0.9)(utf-8-validate@5.0.10)))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(starknet@6.24.1)(utf-8-validate@5.0.10)(viem@2.30.0(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10)(zod@3.25.17))':
+  '@skip-go/client@1.1.1(@solana/web3.js@1.98.2(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10))(@types/react@19.0.12)(bufferutil@4.0.9)(graphql-ws@6.0.8(crossws@0.3.5)(graphql@16.11.0)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(starknet@6.24.1)(utf-8-validate@5.0.10)(viem@2.30.0(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10)(zod@3.25.17))':
     dependencies:
       '@cosmjs/amino': 0.33.1
       '@cosmjs/cosmwasm-stargate': 0.33.1(bufferutil@4.0.9)(utf-8-validate@5.0.10)
@@ -21183,7 +21142,7 @@ snapshots:
       '@cosmjs/math': 0.33.1
       '@cosmjs/proto-signing': 0.33.1
       '@cosmjs/stargate': 0.33.1(bufferutil@4.0.9)(utf-8-validate@5.0.10)
-      '@injectivelabs/sdk-ts': 1.15.3(@types/react@19.0.12)(bufferutil@4.0.9)(graphql-ws@6.0.8(crossws@0.3.5)(graphql@16.11.0)(ws@7.5.10(bufferutil@4.0.9)(utf-8-validate@5.0.10)))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(utf-8-validate@5.0.10)
+      '@injectivelabs/sdk-ts': 1.15.3(@types/react@19.0.12)(bufferutil@4.0.9)(graphql-ws@6.0.8(crossws@0.3.5)(graphql@16.11.0)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(utf-8-validate@5.0.10)
       '@keplr-wallet/unit': 0.12.235(starknet@6.24.1)
       '@solana/wallet-adapter-base': 0.9.26(@solana/web3.js@1.98.2(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10))
       '@solana/web3.js': 1.98.2(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10)
@@ -21347,7 +21306,7 @@ snapshots:
       - use-sync-external-store
       - utf-8-validate
 
-  '@skip-go/widget@3.10.2(qlt6myc2il7fw2m5fabb6y3moa)':
+  '@skip-go/widget@3.10.2(smxcbc32bf33rnxkxivv7qbhma)':
     dependencies:
       '@amplitude/analytics-browser': link:packages/stubs
       '@amplitude/plugin-session-replay-browser': 1.16.9(rollup@4.41.0)
@@ -21365,7 +21324,7 @@ snapshots:
       '@penumbra-zone/transport-dom': 7.5.1
       '@r2wc/react-to-web-component': 2.0.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@sentry/react': 8.55.0(react@19.1.0)
-      '@skip-go/client': 1.1.1(@solana/web3.js@1.98.2(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10))(@types/react@19.0.12)(bufferutil@4.0.9)(graphql-ws@6.0.8(crossws@0.3.5)(graphql@16.11.0)(ws@7.5.10(bufferutil@4.0.9)(utf-8-validate@5.0.10)))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(starknet@6.24.1)(utf-8-validate@5.0.10)(viem@2.30.0(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10)(zod@3.25.17))
+      '@skip-go/client': 1.1.1(@solana/web3.js@1.98.2(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10))(@types/react@19.0.12)(bufferutil@4.0.9)(graphql-ws@6.0.8(crossws@0.3.5)(graphql@16.11.0)(ws@8.18.2(bufferutil@4.0.9)(utf-8-validate@5.0.10)))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(starknet@6.24.1)(utf-8-validate@5.0.10)(viem@2.30.0(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10)(zod@3.25.17))
       '@solana/spl-token': 0.4.13(@solana/web3.js@1.98.2(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10))(bufferutil@4.0.9)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.5.3)(utf-8-validate@5.0.10)
       '@solana/wallet-adapter-backpack': 0.1.14(@solana/web3.js@1.98.2(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10))
       '@solana/wallet-adapter-coinbase': 0.1.22(@solana/web3.js@1.98.2(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10))
@@ -21435,7 +21394,7 @@ snapshots:
       - use-sync-external-store
       - utf-8-validate
 
-  '@skip-go/widget@3.10.2(smxcbc32bf33rnxkxivv7qbhma)':
+  '@skip-go/widget@3.10.2(ujflgua4hy37rnlnmfv6kek3aa)':
     dependencies:
       '@amplitude/analytics-browser': link:packages/stubs
       '@amplitude/plugin-session-replay-browser': 1.16.9(rollup@4.41.0)
@@ -21453,7 +21412,7 @@ snapshots:
       '@penumbra-zone/transport-dom': 7.5.1
       '@r2wc/react-to-web-component': 2.0.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@sentry/react': 8.55.0(react@19.1.0)
-      '@skip-go/client': 1.1.1(@solana/web3.js@1.98.2(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10))(@types/react@19.0.12)(bufferutil@4.0.9)(graphql-ws@6.0.8(crossws@0.3.5)(graphql@16.11.0)(ws@8.18.2(bufferutil@4.0.9)(utf-8-validate@5.0.10)))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(starknet@6.24.1)(utf-8-validate@5.0.10)(viem@2.30.0(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10)(zod@3.25.17))
+      '@skip-go/client': 1.1.1(@solana/web3.js@1.98.2(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10))(@types/react@19.0.12)(bufferutil@4.0.9)(graphql-ws@6.0.8(crossws@0.3.5)(graphql@16.11.0)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(starknet@6.24.1)(utf-8-validate@5.0.10)(viem@2.30.0(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10)(zod@3.25.17))
       '@solana/spl-token': 0.4.13(@solana/web3.js@1.98.2(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10))(bufferutil@4.0.9)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.5.3)(utf-8-validate@5.0.10)
       '@solana/wallet-adapter-backpack': 0.1.14(@solana/web3.js@1.98.2(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10))
       '@solana/wallet-adapter-coinbase': 0.1.22(@solana/web3.js@1.98.2(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10))
@@ -21469,7 +21428,7 @@ snapshots:
       '@walletconnect/solana-adapter': 0.0.6(@solana/wallet-adapter-base@0.9.26(@solana/web3.js@1.98.2(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10)))(@solana/web3.js@1.98.2(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10))(@types/react@19.0.12)(bufferutil@4.0.9)(react@19.1.0)(utf-8-validate@5.0.10)
       add: 2.0.6
       bech32: 2.0.0
-      graz: 0.3.2(@cosmjs/amino@0.33.1)(@cosmjs/cosmwasm-stargate@0.33.1(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@cosmjs/encoding@0.33.1)(@cosmjs/proto-signing@0.33.1)(@cosmjs/stargate@0.33.1(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@tanstack/react-query@5.62.7(react@19.1.0))(@types/react@19.0.12)(bufferutil@4.0.9)(immer@11.1.8)(react@19.1.0)(starknet@6.24.1)(typescript@5.5.3)(use-sync-external-store@1.5.0(react@19.1.0))(utf-8-validate@5.0.10)(zod@3.25.17)
+      graz: 0.3.2(@cosmjs/amino@0.33.1)(@cosmjs/cosmwasm-stargate@0.33.1(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@cosmjs/encoding@0.33.1)(@cosmjs/proto-signing@0.33.1)(@cosmjs/stargate@0.33.1(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@tanstack/react-query@5.62.7(react@19.1.0))(@types/react@19.0.12)(bufferutil@4.0.9)(immer@10.1.1)(react@19.1.0)(starknet@6.24.1)(typescript@5.5.3)(use-sync-external-store@1.5.0(react@19.1.0))(utf-8-validate@5.0.10)(zod@3.25.17)
       jotai: 2.12.4(@types/react@19.0.12)(react@19.1.0)
       jotai-effect: 1.1.6(jotai@2.12.4(@types/react@19.0.12)(react@19.1.0))
       jotai-tanstack-query: 0.8.8(@tanstack/query-core@5.76.0)(jotai@2.12.4(@types/react@19.0.12)(react@19.1.0))
@@ -21482,7 +21441,7 @@ snapshots:
       react-shadow-scope: 1.0.13(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       styled-components: 6.1.18(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       viem: 2.30.0(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10)(zod@3.25.17)
-      wagmi: 2.15.4(@tanstack/query-core@5.76.0)(@tanstack/react-query@5.62.7(react@19.1.0))(@types/react@19.0.12)(bufferutil@4.0.9)(immer@11.1.8)(react@19.1.0)(typescript@5.5.3)(utf-8-validate@5.0.10)(viem@2.30.0(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10)(zod@3.25.17))(zod@3.25.17)
+      wagmi: 2.15.4(@tanstack/query-core@5.76.0)(@tanstack/react-query@5.62.7(react@19.1.0))(@types/react@19.0.12)(bufferutil@4.0.9)(immer@10.1.1)(react@19.1.0)(typescript@5.5.3)(utf-8-validate@5.0.10)(viem@2.30.0(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10)(zod@3.25.17))(zod@3.25.17)
       yarn: 1.22.22
       zod: 3.25.17
     transitivePeerDependencies:
@@ -26535,9 +26494,9 @@ snapshots:
     optionalDependencies:
       source-map: 0.6.1
 
-  eslint-config-next@15.5.18(eslint-plugin-import-x@0.5.3(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3))(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3):
+  eslint-config-next@15.5.25(eslint-plugin-import-x@0.5.3(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3))(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3):
     dependencies:
-      '@next/eslint-plugin-next': 15.5.18
+      '@next/eslint-plugin-next': 15.5.25
       '@rushstack/eslint-patch': 1.11.0
       '@typescript-eslint/eslint-plugin': 8.32.1(@typescript-eslint/parser@8.32.1(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3))(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3)
       '@typescript-eslint/parser': 8.32.1(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3)
@@ -26578,7 +26537,7 @@ snapshots:
       tinyglobby: 0.2.13
       unrs-resolver: 1.7.2
     optionalDependencies:
-      eslint-plugin-import: 2.31.0(eslint-import-resolver-typescript@3.10.1)(eslint@9.27.0(jiti@2.4.2))
+      eslint-plugin-import: 2.31.0(@typescript-eslint/parser@8.32.1(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.27.0(jiti@2.4.2))
       eslint-plugin-import-x: 0.5.3(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3)
     transitivePeerDependencies:
       - supports-color
@@ -26692,33 +26651,6 @@ snapshots:
       - eslint-import-resolver-webpack
       - supports-color
 
-  eslint-plugin-import@2.31.0(eslint-import-resolver-typescript@3.10.1)(eslint@9.27.0(jiti@2.4.2)):
-    dependencies:
-      '@rtsao/scc': 1.1.0
-      array-includes: 3.1.8
-      array.prototype.findlastindex: 1.2.6
-      array.prototype.flat: 1.3.3
-      array.prototype.flatmap: 1.3.3
-      debug: 3.2.7
-      doctrine: 2.1.0
-      eslint: 9.27.0(jiti@2.4.2)
-      eslint-import-resolver-node: 0.3.9
-      eslint-module-utils: 2.12.0(@typescript-eslint/parser@7.18.0(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import-x@0.5.3(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3))(eslint-plugin-import@2.31.0)(eslint@9.27.0(jiti@2.4.2)))(eslint@9.27.0(jiti@2.4.2))
-      hasown: 2.0.2
-      is-core-module: 2.16.1
-      is-glob: 4.0.3
-      minimatch: 3.1.2
-      object.fromentries: 2.0.8
-      object.groupby: 1.0.3
-      object.values: 1.2.1
-      semver: 6.3.1
-      string.prototype.trimend: 1.0.9
-      tsconfig-paths: 3.15.0
-    transitivePeerDependencies:
-      - eslint-import-resolver-typescript
-      - eslint-import-resolver-webpack
-      - supports-color
-
   eslint-plugin-jsx-a11y@6.10.2(eslint@9.27.0(jiti@2.4.2)):
     dependencies:
       aria-query: 5.3.2
@@ -26804,7 +26736,7 @@ snapshots:
       eslint: 9.27.0(jiti@2.4.2)
       turbo: 2.5.3
 
-  eslint-plugin-vitest@0.5.4(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3)(vitest@1.6.1(@types/node@22.15.21)(@vitest/browser@1.6.1)(jsdom@24.1.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(lightningcss@1.30.1)(terser@5.39.2)):
+  eslint-plugin-vitest@0.5.4(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3)(vitest@1.6.1(@types/node@22.15.21)(@vitest/browser@1.6.1)(jsdom@24.1.3(bufferutil@4.0.9)(canvas@3.1.0)(utf-8-validate@5.0.10))(lightningcss@1.30.1)(terser@5.39.2)):
     dependencies:
       '@typescript-eslint/utils': 7.18.0(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3)
       eslint: 9.27.0(jiti@2.4.2)
@@ -27467,12 +27399,12 @@ snapshots:
       graphql: 16.11.0
       tslib: 2.8.1
 
-  graphql-ws@6.0.8(crossws@0.3.5)(graphql@16.11.0)(ws@7.5.10(bufferutil@4.0.9)(utf-8-validate@5.0.10)):
+  graphql-ws@6.0.8(crossws@0.3.5)(graphql@16.11.0)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)):
     dependencies:
       graphql: 16.11.0
     optionalDependencies:
       crossws: 0.3.5
-      ws: 7.5.10(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+      ws: 8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
     optional: true
 
   graphql-ws@6.0.8(crossws@0.3.5)(graphql@16.11.0)(ws@8.18.1(bufferutil@4.0.9)(utf-8-validate@5.0.10)):
@@ -27492,10 +27424,10 @@ snapshots:
 
   graphql@16.11.0: {}
 
-  graz@0.1.31(@cosmjs/amino@0.33.1)(@cosmjs/cosmwasm-stargate@0.33.1(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@cosmjs/launchpad@0.27.1)(@cosmjs/proto-signing@0.32.4)(@cosmjs/stargate@0.32.4(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@cosmjs/tendermint-rpc@0.34.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@leapwallet/cosmos-social-login-capsule-provider@0.0.41(@cosmjs/encoding@0.33.1)(@cosmjs/proto-signing@0.32.4)(fp-ts@2.1.1))(@terra-money/feather.js@1.0.9)(@types/react@19.0.12)(axios@1.9.0)(bufferutil@4.0.9)(immer@10.1.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(starknet@6.24.1)(utf-8-validate@5.0.10):
+  graz@0.1.31(@cosmjs/amino@0.33.1)(@cosmjs/cosmwasm-stargate@0.34.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@cosmjs/launchpad@0.27.1)(@cosmjs/proto-signing@0.32.4)(@cosmjs/stargate@0.32.4(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@cosmjs/tendermint-rpc@0.34.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@leapwallet/cosmos-social-login-capsule-provider@0.0.41(@cosmjs/encoding@0.33.1)(@cosmjs/proto-signing@0.32.4)(fp-ts@2.1.1))(@terra-money/feather.js@1.0.9)(@types/react@19.0.12)(axios@1.9.0)(bufferutil@4.0.9)(immer@10.1.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(starknet@6.24.1)(utf-8-validate@5.0.10):
     dependencies:
       '@cosmjs/amino': 0.33.1
-      '@cosmjs/cosmwasm-stargate': 0.33.1(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+      '@cosmjs/cosmwasm-stargate': 0.34.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
       '@cosmjs/launchpad': 0.27.1
       '@cosmjs/proto-signing': 0.32.4
       '@cosmjs/stargate': 0.32.4(bufferutil@4.0.9)(utf-8-validate@5.0.10)
@@ -27547,7 +27479,7 @@ snapshots:
       - uploadthing
       - utf-8-validate
 
-  graz@0.1.31(@cosmjs/cosmwasm-stargate@0.34.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@cosmjs/launchpad@0.27.1)(@cosmjs/proto-signing@0.32.4)(@cosmjs/stargate@0.32.4(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@cosmjs/tendermint-rpc@0.34.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@leapwallet/cosmos-social-login-capsule-provider@0.0.41(@cosmjs/encoding@0.34.0)(@cosmjs/proto-signing@0.32.4)(fp-ts@2.1.1))(@terra-money/feather.js@1.0.9)(@types/react@19.0.12)(axios@1.9.0)(bufferutil@4.0.9)(immer@11.1.8)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(starknet@6.24.1)(utf-8-validate@5.0.10):
+  graz@0.1.31(@cosmjs/cosmwasm-stargate@0.34.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@cosmjs/launchpad@0.27.1)(@cosmjs/proto-signing@0.32.4)(@cosmjs/stargate@0.32.4(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@cosmjs/tendermint-rpc@0.34.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@leapwallet/cosmos-social-login-capsule-provider@0.0.41(@cosmjs/encoding@0.34.0)(@cosmjs/proto-signing@0.32.4)(fp-ts@2.1.1))(@terra-money/feather.js@1.0.9)(@types/react@19.0.12)(axios@1.9.0)(bufferutil@4.0.9)(immer@10.1.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(starknet@6.24.1)(utf-8-validate@5.0.10):
     dependencies:
       '@cosmjs/cosmwasm-stargate': 0.34.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
       '@cosmjs/launchpad': 0.27.1
@@ -27570,7 +27502,7 @@ snapshots:
       cosmos-directory-client: 0.0.6
       long: 4.0.0
       react: 19.1.0
-      zustand: 4.5.2(@types/react@19.0.12)(immer@11.1.8)(react@19.1.0)
+      zustand: 4.5.2(@types/react@19.0.12)(immer@10.1.1)(react@19.1.0)
     transitivePeerDependencies:
       - '@azure/app-configuration'
       - '@azure/cosmos'
@@ -27623,6 +27555,58 @@ snapshots:
       long: 4.0.0
       react: 19.1.0
       zustand: 5.0.4(@types/react@19.0.12)(immer@10.1.1)(react@19.1.0)(use-sync-external-store@1.4.0(react@19.1.0))
+    transitivePeerDependencies:
+      - '@azure/app-configuration'
+      - '@azure/cosmos'
+      - '@azure/data-tables'
+      - '@azure/identity'
+      - '@azure/keyvault-secrets'
+      - '@azure/storage-blob'
+      - '@capacitor/preferences'
+      - '@deno/kv'
+      - '@netlify/blobs'
+      - '@planetscale/database'
+      - '@react-native-async-storage/async-storage'
+      - '@types/react'
+      - '@upstash/redis'
+      - '@vercel/blob'
+      - '@vercel/kv'
+      - aws4fetch
+      - bufferutil
+      - db0
+      - encoding
+      - immer
+      - ioredis
+      - starknet
+      - supports-color
+      - typescript
+      - uploadthing
+      - use-sync-external-store
+      - utf-8-validate
+      - zod
+
+  graz@0.3.2(@cosmjs/amino@0.33.1)(@cosmjs/cosmwasm-stargate@0.33.1(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@cosmjs/encoding@0.33.1)(@cosmjs/proto-signing@0.33.1)(@cosmjs/stargate@0.33.1(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@tanstack/react-query@5.62.7(react@19.1.0))(@types/react@19.0.12)(bufferutil@4.0.9)(immer@10.1.1)(react@19.1.0)(starknet@6.24.1)(typescript@5.5.3)(use-sync-external-store@1.5.0(react@19.1.0))(utf-8-validate@5.0.10)(zod@3.25.17):
+    dependencies:
+      '@cosmjs/amino': 0.33.1
+      '@cosmjs/cosmwasm-stargate': 0.33.1(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+      '@cosmjs/encoding': 0.33.1
+      '@cosmjs/proto-signing': 0.33.1
+      '@cosmjs/stargate': 0.33.1(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+      '@cosmsnap/snapper': 0.2.7
+      '@dao-dao/cosmiframe': 1.0.0(@cosmjs/amino@0.33.1)(@cosmjs/proto-signing@0.33.1)
+      '@keplr-wallet/cosmos': 0.12.156(starknet@6.24.1)
+      '@keplr-wallet/types': 0.12.156(starknet@6.24.1)
+      '@metamask/providers': 12.0.0
+      '@tanstack/react-query': 5.62.7(react@19.1.0)
+      '@vectis/extension-client': 0.7.2
+      '@walletconnect/modal': 2.7.0(@types/react@19.0.12)(react@19.1.0)
+      '@walletconnect/sign-client': 2.20.2(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10)(zod@3.25.17)
+      '@walletconnect/types': 2.20.2
+      '@walletconnect/utils': 2.20.2(bufferutil@4.0.9)(typescript@5.5.3)(utf-8-validate@5.0.10)(zod@3.25.17)
+      cosmos-directory-client: 0.0.6
+      long: 4.0.0
+      react: 19.1.0
+      zustand: 5.0.4(@types/react@19.0.12)(immer@10.1.1)(react@19.1.0)(use-sync-external-store@1.5.0(react@19.1.0))
     transitivePeerDependencies:
       - '@azure/app-configuration'
       - '@azure/cosmos'
@@ -28780,9 +28764,9 @@ snapshots:
 
   netmask@2.0.2: {}
 
-  next@15.5.18(@babel/core@7.27.1)(babel-plugin-macros@3.1.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0):
+  next@15.5.25(@babel/core@7.27.1)(babel-plugin-macros@3.1.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0):
     dependencies:
-      '@next/env': 15.5.18
+      '@next/env': 15.5.25
       '@swc/helpers': 0.5.15
       caniuse-lite: 1.0.30001718
       postcss: 8.4.31
@@ -28790,14 +28774,14 @@ snapshots:
       react-dom: 19.1.0(react@19.1.0)
       styled-jsx: 5.1.6(@babel/core@7.27.1)(babel-plugin-macros@3.1.0)(react@19.1.0)
     optionalDependencies:
-      '@next/swc-darwin-arm64': 15.5.18
-      '@next/swc-darwin-x64': 15.5.18
-      '@next/swc-linux-arm64-gnu': 15.5.18
-      '@next/swc-linux-arm64-musl': 15.5.18
-      '@next/swc-linux-x64-gnu': 15.5.18
-      '@next/swc-linux-x64-musl': 15.5.18
-      '@next/swc-win32-arm64-msvc': 15.5.18
-      '@next/swc-win32-x64-msvc': 15.5.18
+      '@next/swc-darwin-arm64': 15.5.25
+      '@next/swc-darwin-x64': 15.5.25
+      '@next/swc-linux-arm64-gnu': 15.5.25
+      '@next/swc-linux-arm64-musl': 15.5.25
+      '@next/swc-linux-x64-gnu': 15.5.25
+      '@next/swc-linux-x64-musl': 15.5.25
+      '@next/swc-win32-arm64-msvc': 15.5.25
+      '@next/swc-win32-x64-msvc': 15.5.25
       sharp: 0.34.5
     transitivePeerDependencies:
       - '@babel/core'
@@ -29542,7 +29526,7 @@ snapshots:
       eslint-plugin-storybook: 0.9.0--canary.156.ed236ca.0(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3)
       eslint-plugin-tailwindcss: 3.18.0(tailwindcss@4.1.10)
       eslint-plugin-turbo: 2.5.3(eslint@9.27.0(jiti@2.4.2))(turbo@2.5.3)
-      eslint-plugin-vitest: 0.5.4(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3)(vitest@1.6.1(@types/node@22.15.21)(@vitest/browser@1.6.1)(jsdom@24.1.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))(lightningcss@1.30.1)(terser@5.39.2))
+      eslint-plugin-vitest: 0.5.4(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3)(vitest@1.6.1(@types/node@22.15.21)(@vitest/browser@1.6.1)(jsdom@24.1.3(bufferutil@4.0.9)(canvas@3.1.0)(utf-8-validate@5.0.10))(lightningcss@1.30.1)(terser@5.39.2))
       typescript-eslint: 7.18.0(eslint@9.27.0(jiti@2.4.2))(typescript@5.5.3)
     transitivePeerDependencies:
       - '@types/eslint'
@@ -32123,14 +32107,6 @@ snapshots:
       immer: 10.1.1
       react: 19.1.0
 
-  zustand@4.5.2(@types/react@19.0.12)(immer@11.1.8)(react@19.1.0):
-    dependencies:
-      use-sync-external-store: 1.2.0(react@19.1.0)
-    optionalDependencies:
-      '@types/react': 19.0.12
-      immer: 11.1.8
-      react: 19.1.0
-
   zustand@4.5.7(@types/react@19.0.12)(immer@10.1.1)(react@19.1.0):
     dependencies:
       use-sync-external-store: 1.5.0(react@19.1.0)
@@ -32167,6 +32143,13 @@ snapshots:
       immer: 10.1.1
       react: 19.1.0
       use-sync-external-store: 1.4.0(react@19.1.0)
+
+  zustand@5.0.4(@types/react@19.0.12)(immer@10.1.1)(react@19.1.0)(use-sync-external-store@1.5.0(react@19.1.0)):
+    optionalDependencies:
+      '@types/react': 19.0.12
+      immer: 10.1.1
+      react: 19.1.0
+      use-sync-external-store: 1.5.0(react@19.1.0)
 
   zustand@5.0.4(@types/react@19.0.12)(immer@11.1.8)(react@19.1.0)(use-sync-external-store@1.5.0(react@19.1.0)):
     optionalDependencies:
