@@ -22,7 +22,7 @@
     "@cosmos-kit/core": "^2.15.0",
     "@cosmos-kit/react": "^2.20.1",
     "@interchain-ui/react": "^1.26.1",
-    "@penumbra-labs/registry": "^12.8.0",
+    "@penumbra-labs/registry": "github:penumbrafi/registry#rotko-release",
     "@penumbra-zone/bech32m": "workspace:*",
     "@penumbra-zone/client": "workspace:*",
     "@penumbra-zone/crypto-web": "workspace:*",
@@ -62,7 +62,7 @@
     "tailwindcss": "3.4.17",
     "viem": "^2.21.54",
     "wagmi": "^2.14.0",
-    "zustand": "^4.5.2"
+    "zustand": "^5"
   },
   "devDependencies": {
     "@chain-registry/types": "^0.50.93",

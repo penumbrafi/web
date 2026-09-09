@@ -48,11 +48,11 @@ export const Earn = () => (
     </div>
     <div className='grid grid-cols-1 gap-3 tablet:grid-cols-3'>
       <EarnLink
-        href={PagePath.PortfolioStaking}
+        href='/explore/validators'
         icon={Coins}
         label='Stake to validators'
         description='Delegate UM to active validators and earn issuance + chain fees. Unbonding period applies. Slashing risk if your validator misbehaves.'
-        cta='Open staking'
+        cta='Browse validators'
       />
       <EarnLink
         href={PagePath.Trade}

@@ -32,6 +32,19 @@ import { penumbra } from '@/shared/const/penumbra';
 export type StakingAction = 'delegate' | 'undelegate';
 
 /**
+ * A delegate/undelegate the user has requested but that can't open the dialog
+ * yet — usually because the wallet isn't connected, or the validator list
+ * hasn't loaded. `useResolvePendingAction` watches for both and calls
+ * `openDialog` as soon as the matching `ValidatorInfo` becomes available.
+ * Cleared when the dialog opens or the user cancels.
+ */
+export interface PendingStakingAction {
+  action: StakingAction;
+  /** bech32m validator identity key. */
+  identityKey: string;
+}
+
+/**
  * MobX store for the staking page.
  *
  * Mirrors the slice in `apps/minifront/src/state/staking/index.ts` but adapted
@@ -49,6 +62,12 @@ export class StakingStore {
   amount = '';
   /** True while a tx is in-flight (so we can disable buttons). */
   submitting = false;
+  /**
+   * A stake action the user asked for that we couldn't open yet (wallet not
+   * connected, validator infos still loading, etc). Resolved by
+   * `useResolvePendingAction` into a real `openDialog` call.
+   */
+  pending: PendingStakingAction | null = null;
   /** Latest queryClient invalidator passed in from the page. */
   private invalidate?: () => void;
 
@@ -64,12 +83,26 @@ export class StakingStore {
     this.action = action;
     this.validatorInfo = validatorInfo;
     this.amount = '';
+    // A concrete open supersedes any pending request for the same flow.
+    this.pending = null;
   };
 
   closeDialog = () => {
     this.action = undefined;
     this.validatorInfo = undefined;
     this.amount = '';
+  };
+
+  /**
+   * Record that the user wants to act on this validator once the store can
+   * actually open the dialog (validator infos loaded, wallet connected).
+   */
+  setPending = (pending: PendingStakingAction | null) => {
+    this.pending = pending;
+  };
+
+  clearPending = () => {
+    this.pending = null;
   };
 
   setAmount = (amount: string) => {

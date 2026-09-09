@@ -62,8 +62,8 @@ export const WalletConnect = observer(() => {
               {!isConnected && (
                 <div className='space-y-2 text-3xl'>
                   <Text h4 color='text.primary'>
-                    Connect your <span className='text-primary-light'>Prax Wallet</span> to access
-                    shielded assets and liquidity positions
+                    Connect your <span className='text-primary-light'>Penumbra wallet</span> to
+                    access shielded assets and liquidity positions
                   </Text>
                 </div>
               )}

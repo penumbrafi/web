@@ -17,6 +17,7 @@ import { ValidatorStakeHistoryChart } from '@/pages/inspect/explorer/ui/validato
 import { ValidatorSlashingsPanel } from '@/pages/inspect/explorer/ui/validator-slashings-panel';
 import { ValidatorStakeActions } from '@/pages/inspect/explorer/ui/validator-stake-actions';
 import { classNames } from '@/pages/inspect/explorer/lib/utils';
+import { StakingDialogHostClient } from './staking-dialog-host-client';
 
 interface Props {
   params: Promise<{ identityKey: string }>;
@@ -70,6 +71,7 @@ const ValidatorDetailPage: FC<Props> = async props => {
           validatorId={identityKey}
         />
         <ValidatorStakeActions
+          validatorId={identityKey}
           className={classNames(
             'col-span-12 md:col-span-7 md:col-start-6',
             'lg:col-span-8! lg:col-start-5!',
@@ -124,6 +126,7 @@ const ValidatorDetailPage: FC<Props> = async props => {
           time
         />
       </div>
+      <StakingDialogHostClient />
     </Container>
   );
 };

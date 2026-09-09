@@ -1,3 +1,13 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+
+# pnpm 10+ reads overrides here. package.json's `pnpm.overrides` is still
+# consulted on this pnpm 9.7 but prints a deprecation warning; duplicating
+# the entries here keeps them working after a pnpm major bump.
+overrides:
+  typescript: 5.5.3
+  cosmos-kit: ^2.21.1
+  '@hexxagon/feather.js': npm:@terra-money/feather.js@1.0.9
+  '@amplitude/analytics-browser': ./packages/stubs
+  '@penumbra-labs/registry': github:penumbrafi/registry#rotko-release
