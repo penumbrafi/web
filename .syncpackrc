@@ -54,6 +54,13 @@
       "pinVersion": "workspace:*"
     },
     {
+      "label": "Use the penumbrafi/registry fork (community-maintained, updatable)",
+      "dependencies": [
+        "@penumbra-labs/registry"
+      ],
+      "pinVersion": "github:penumbrafi/registry#rotko-release"
+    },
+    {
       "label": "@types packages should only be under devDependencies",
       "dependencies": [
         "@types/**"

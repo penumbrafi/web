@@ -36,7 +36,8 @@
       "typescript": "5.5.3",
       "cosmos-kit": "^2.21.1",
       "@hexxagon/feather.js": "npm:@terra-money/feather.js@1.0.9",
-      "@amplitude/analytics-browser": "./packages/stubs"
+      "@amplitude/analytics-browser": "./packages/stubs",
+      "@penumbra-labs/registry": "github:penumbrafi/registry#rotko-release"
     }
   },
   "devDependencies": {

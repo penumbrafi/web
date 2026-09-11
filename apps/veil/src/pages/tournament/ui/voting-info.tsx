@@ -13,7 +13,7 @@ import { VoteDialogueSelector } from './vote-dialog';
 import { useVotingInfo } from '../api/use-voting-info';
 import { ValueView } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 
-const STAKING_LINK = PagePath.PortfolioStaking;
+const STAKING_LINK = '/explore/validators';
 
 export interface VotingInfoProps {
   epoch?: number;
@@ -71,7 +71,8 @@ export const VotingInfo = observer(({ epoch, identifier }: VotingInfoProps) => {
             <Wallet2 className='h-full w-full' />
           </div>
           <Text variant='small' color='text.secondary'>
-            Connect Prax Wallet to vote in this epoch and see your rewards from participating.
+            Connect your Penumbra wallet to vote in this epoch and see your rewards from
+            participating.
           </Text>
         </div>
         <div className='flex gap-2'>

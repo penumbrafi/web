@@ -22,6 +22,7 @@ const ConnectButtonInner = observer(
     children?: React.ReactNode;
   }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const [isInstallOpen, setIsInstallOpen] = useState(false);
     const { data: providerManifests } = useProviderManifests();
 
     const providerOrigins = useMemo(() => Object.keys(PenumbraClient.getProviders()), []);
@@ -33,6 +34,22 @@ const ConnectButtonInner = observer(
         connect(providerOrigins[0]);
       }
     };
+
+    // Ordered by our recommendation: Zafu first (actively maintained fork,
+    // Rotko-supported), Prax second (upstream, currently receiving fewer
+    // updates). Users who already know Prax can still pick it.
+    const installOptions = [
+      {
+        name: 'Zafu',
+        url: 'https://zafu.pro/',
+        description: 'Recommended — maintained Penumbra wallet',
+      },
+      {
+        name: 'Prax',
+        url: 'https://praxwallet.com/',
+        description: 'Original Penumbra wallet by Penumbra Labs',
+      },
+    ];
 
     const connect = (provider: string) => {
       // Wrap so a broken provider entry — typically an orphaned content
@@ -59,9 +76,7 @@ const ConnectButtonInner = observer(
               icon={Wallet2}
               actionType={actionType}
               iconOnly={variant === 'mobile'}
-              onClick={() =>
-                window.open('https://praxwallet.com/', '_blank', 'noopener,noreferrer')
-              }
+              onClick={() => setIsInstallOpen(true)}
             >
               Get Wallet
             </Button>
@@ -76,6 +91,31 @@ const ConnectButtonInner = observer(
             </Button>
           )}
         </Density>
+
+        <Dialog isOpen={isInstallOpen} onClose={() => setIsInstallOpen(false)}>
+          <Dialog.Content title='Install a Penumbra wallet'>
+            <Dialog.RadioGroup>
+              <div className='flex flex-col gap-2 pt-1'>
+                {installOptions.map(opt => (
+                  <Dialog.RadioItem
+                    key={opt.url}
+                    value={opt.url}
+                    title={<Text color='text.primary'>{opt.name}</Text>}
+                    description={
+                      <Text detail color='text.secondary'>
+                        {opt.description}
+                      </Text>
+                    }
+                    onSelect={() => {
+                      window.open(opt.url, '_blank', 'noopener,noreferrer');
+                      setIsInstallOpen(false);
+                    }}
+                  />
+                ))}
+              </div>
+            </Dialog.RadioGroup>
+          </Dialog.Content>
+        </Dialog>
 
         <Dialog isOpen={isOpen} onClose={() => setIsOpen(false)}>
           <Dialog.Content title='Choose wallet'>

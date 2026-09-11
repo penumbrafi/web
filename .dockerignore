@@ -24,10 +24,22 @@
 !apps/veil/*.ts
 !apps/veil/*.mjs
 !apps/veil/*.json
+!apps/veil/.env*
 !apps/veil/src/
 !apps/veil/public/
 !apps/veil/app/
 !apps/veil/pages/
+
+# allow minifront-v2 source
+!apps/minifront-v2/*.js
+!apps/minifront-v2/*.ts
+!apps/minifront-v2/*.mjs
+!apps/minifront-v2/*.json
+!apps/minifront-v2/*.html
+!apps/minifront-v2/*.d.ts
+!apps/minifront-v2/src/
+!apps/minifront-v2/app/
+!apps/minifront-v2/pages/
 
 # re-ignore node_modules within packages and apps
 /**/target/

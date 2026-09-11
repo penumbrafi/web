@@ -73,7 +73,7 @@ export const DepositButton = observer(
         {connected ? (
           button
         ) : (
-          <Tooltip message='Connect your Prax wallet to deposit funds into Penumbra'>
+          <Tooltip message='Connect your Penumbra wallet to deposit funds'>
             {button}
           </Tooltip>
         )}

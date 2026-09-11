@@ -1,0 +1,54 @@
+FROM node:22-bookworm AS builder
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y \
+    build-essential libcairo2-dev libpango1.0-dev \
+    libjpeg-dev libgif-dev librsvg2-dev git-lfs curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN npm install -g pnpm@9.7.0 turbo
+
+# package files first for cache
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml turbo.json ./
+COPY apps/minifront-v2/package.json apps/minifront-v2/
+COPY packages/*/package.json packages/
+
+RUN pnpm install --frozen-lockfile --ignore-scripts
+
+# git dir for any build-time info
+COPY .git .git
+COPY apps/minifront-v2 apps/minifront-v2/
+COPY packages packages/
+
+RUN pnpm install --prefer-offline --ignore-scripts
+RUN pnpm exec turbo run proto
+RUN pnpm exec turbo run compile --filter=minifront-v2... || true
+RUN pnpm exec turbo run build --filter='./packages/*' || true
+
+ENV NODE_OPTIONS=--max-old-space-size=8192
+# minifront-v2 has no `build` script in package.json; vite build is the standard.
+WORKDIR /app/apps/minifront-v2
+RUN pnpm exec vite build
+
+FROM nginx:alpine AS runner
+COPY --from=builder /app/apps/minifront-v2/dist /usr/share/nginx/html
+
+# SPA fallback so client-side routing works.
+RUN cat > /etc/nginx/conf.d/default.conf <<'EOF'
+server {
+  listen 80;
+  server_name _;
+  root /usr/share/nginx/html;
+  index index.html;
+  location / {
+    try_files $uri $uri/ /index.html;
+  }
+  # cache hashed assets aggressively
+  location /assets/ {
+    expires 1y;
+    add_header Cache-Control "public, immutable";
+  }
+}
+EOF
+
+EXPOSE 80
