@@ -1,0 +1,62 @@
+# /etc/systemd/system/penumbra-veil-preview@.service
+#
+# Templated unit for per-PR preview builds of Veil. `%i` is the PR number.
+# Serves each preview on port 30000 + <pr>, so:
+#
+#   systemctl start penumbra-veil-preview@42  ->  http://127.0.0.1:30042/
+#
+# Each preview reads its release tree from /opt/penumbra-veil-previews/<pr>/current,
+# which .github/workflows/preview-veil.yml maintains atomically the same way
+# the prod workflow maintains /opt/penumbra-veil/current.
+#
+# A wildcard nginx vhost for *.dev.penumbra.fi (see nginx-veil-previews.conf.example)
+# routes <pr>.dev.penumbra.fi to the matching port.
+[Unit]
+Description=Penumbra Veil PR preview #%i
+After=network-online.target
+# The wildcard nginx vhost does not care whether an unrelated preview is up,
+# so PRs run fully independently — no PartOf/BindsTo across them.
+
+[Service]
+Type=simple
+User=web
+Group=web
+WorkingDirectory=/opt/penumbra-veil-previews/%i/current/apps/veil
+Environment=NODE_ENV=production
+Environment=HOSTNAME=127.0.0.1
+# Compute PORT from %i without escaping systemd's %-substitution rules: the
+# shell inside `bash -c` sees `PR=<pr>` and computes 30000 + PR. Anything
+# reading PORT (Next.js, nginx health check, the workflow's smoke test) sees
+# the arithmetic result.
+Environment=PR=%i
+# Prefer the /etc/hosts IPv4 mapping to CT1102 over the public AAAA; keeps
+# preview builds honest about how prod resolves upstreams.
+Environment=NODE_OPTIONS=--dns-result-order=ipv4first
+# Preview-specific env, host-owned. Optional; a missing file is fine.
+EnvironmentFile=-/opt/penumbra-veil-previews/%i/shared/.env.preview
+EnvironmentFile=-/opt/penumbra-veil-previews/shared/.env.preview
+ExecStart=/bin/bash -c 'exec env PORT=$((30000 + %i)) /usr/bin/node /opt/penumbra-veil-previews/%i/current/apps/veil/server.js'
+Restart=always
+RestartSec=10
+NoNewPrivileges=true
+ProtectSystem=strict
+# The unit writes nothing under /opt itself — the workflow does that as the
+# `web` user over ssh — so we can keep ProtectSystem=strict without a
+# ReadWritePaths=.
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+# Contain a compromised preview: no ability to talk to abstract sockets or
+# unusual address families. Prod uses the same set.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=false
+# Keep the process count in check so a runaway preview cannot fork-bomb the
+# container out from under the other previews.
+LimitNPROC=256
+TasksMax=256
+
+[Install]
+WantedBy=multi-user.target

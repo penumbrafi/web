@@ -1,0 +1,94 @@
+# /etc/nginx/sites-available/veil-previews.penumbra.fi
+#
+# Wildcard vhost for per-PR previews of Veil. Routes
+#   <pr>.dev.penumbra.fi   ->  http://127.0.0.1:$((30000 + pr))
+# and lets clean up be "stop the systemd unit for that PR"; no nginx reload,
+# no per-PR vhost.
+#
+# The upstream port is derived arithmetically from the hostname via lua,
+# so a new PR needs no nginx change at all.
+#
+# Prereqs on the host (Debian/Ubuntu names shown):
+#   apt install libnginx-mod-http-lua
+#   # then in /etc/nginx/nginx.conf, top-level (not inside http {}):
+#   #   load_module modules/ndk_http_module.so;
+#   #   load_module modules/ngx_http_lua_module.so;
+#
+# Setup (once):
+#   1. DNS: create A/AAAA `*.dev.penumbra.fi` pointing at the anycast IP
+#      that already fronts *.penumbra.fi (Cloudflare, proxied is fine).
+#   2. Certificate: certbot with the cloudflare DNS-01 plugin —
+#        certbot certonly --dns-cloudflare \
+#          --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini \
+#          -d '*.dev.penumbra.fi' -d dev.penumbra.fi
+#      That is the *only* moment where a Cloudflare API token is needed;
+#      certbot renews it on its systemd timer thereafter. The token wants
+#      only "Zone.DNS:Edit" on the penumbra.fi zone.
+#   3. Copy this file into place, ln -s into sites-enabled, `nginx -t`,
+#      `systemctl reload nginx`.
+
+# HTTP -> HTTPS, plus ACME challenge.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name *.dev.penumbra.fi dev.penumbra.fi;
+    location /.well-known/acme-challenge/ { root /var/www/letsencrypt; }
+    location / { return 301 https://$host$request_uri; }
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name *.dev.penumbra.fi;
+
+    ssl_certificate     /etc/letsencrypt/live/dev.penumbra.fi/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/dev.penumbra.fi/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    # The whole *.dev zone is off-limits to search engines.
+    add_header X-Robots-Tag "noindex, nofollow" always;
+
+    # Derive the upstream port from the hostname. Anything that does not
+    # parse as `<1..9999>.dev.penumbra.fi` yields the empty string and
+    # returns 404 below, so a malformed host cannot proxy_pass to
+    # http://127.0.0.1: which nginx would resolve to the current default.
+    set_by_lua_block $preview_port {
+        local host = ngx.var.host or ""
+        local pr = host:match("^(%d+)%.dev%.penumbra%.fi$")
+        if not pr then return "" end
+        local n = tonumber(pr)
+        if not n or n < 1 or n > 9999 then return "" end
+        return tostring(30000 + n)
+    }
+
+    if ($preview_port = "") {
+        return 404;
+    }
+
+    # WebSocket upgrade for Next's HMR fallback and any in-app websockets.
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade         $http_upgrade;
+    proxy_set_header Connection      "upgrade";
+    proxy_set_header Host            $host;
+    proxy_set_header X-Real-IP       $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Proto https;
+
+    # A closed PR stops the systemd unit, so the port drops. Return a
+    # readable body instead of nginx' default 502 page.
+    proxy_intercept_errors on;
+    error_page 502 504 = @preview_down;
+
+    location / {
+        proxy_pass http://127.0.0.1:$preview_port;
+        proxy_connect_timeout 3s;
+        proxy_read_timeout    30s;
+    }
+
+    location @preview_down {
+        add_header Content-Type "text/plain; charset=utf-8" always;
+        return 502 "Preview for this PR is not running. It may have been closed or is still building.\n";
+    }
+}

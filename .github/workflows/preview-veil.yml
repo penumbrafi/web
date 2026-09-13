@@ -1,0 +1,276 @@
+# Per-PR preview builds of Veil.
+#
+# Every push to an open PR builds the standalone artifact once (same shape as
+# deploy-veil.yml) and ships it to a per-PR release directory on the same
+# container that hosts production. A systemd template unit
+# `penumbra-veil-preview@<pr>.service` runs each preview on port `30000 + <pr>`,
+# and a wildcard nginx vhost for `*.dev.penumbra.fi` routes `<pr>.dev.penumbra.fi`
+# to that port.
+#
+# When the PR is closed (merged or not), the same workflow tears the preview
+# down: stops + disables the unit, and removes the release tree.
+#
+# The workflow file is public. Nothing about the target host, container, jump
+# host, DNS zone or path layout is written here — every specific value comes
+# from GitHub `secrets` scoped to the `preview` Environment.
+
+name: preview veil
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+# One in-flight run per PR. A new push cancels the previous build so we don't
+# race two artifacts into the same release directory.
+concurrency:
+  group: preview-veil-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write # for the "preview is live at ..." sticky comment
+
+jobs:
+  # PR number goes into a URL and a systemd instance name, so we range-check it
+  # once at the top and reuse the sanitized value. `30000 + pr` gives us
+  # ports 30001..39999 for PRs 1..9999, which is enough headroom for any
+  # sensible project.
+  guard:
+    name: guard PR number
+    if: github.event.pull_request.number > 0 && github.event.pull_request.number <= 9999
+    runs-on: ubuntu-latest
+    outputs:
+      pr: ${{ steps.pr.outputs.pr }}
+      port: ${{ steps.pr.outputs.port }}
+    steps:
+      - id: pr
+        run: |
+          set -euo pipefail
+          pr='${{ github.event.pull_request.number }}'
+          [[ "$pr" =~ ^[0-9]+$ ]] || { echo "pr not numeric: $pr" >&2; exit 1; }
+          (( pr >= 1 && pr <= 9999 )) || { echo "pr out of range: $pr" >&2; exit 1; }
+          echo "pr=$pr"                    >> "$GITHUB_OUTPUT"
+          echo "port=$((30000 + pr))"      >> "$GITHUB_OUTPUT"
+
+  build:
+    name: build preview
+    if: github.event.action != 'closed'
+    needs: guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # next.config.mjs reads git metadata for the version footer.
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-nix
+      - uses: ./.github/actions/setup-turbo
+
+      - name: build veil
+        env:
+          # NEXT_PUBLIC_* is inlined at build time. Same fallback story as the
+          # prod deploy workflow — an unset repo variable expands to "", which
+          # Next would inline in preference to apps/veil/.env.production, so
+          # spell out a safe endpoint here.
+          NEXT_PUBLIC_GRAPHQL_HOST: ${{ vars.NEXT_PUBLIC_GRAPHQL_HOST || 'api.explorer.rotko.net' }}
+          NEXT_PUBLIC_COMETBFT_WS_URL: ${{ vars.NEXT_PUBLIC_COMETBFT_WS_URL || 'wss://penumbra.rotko.net/websocket' }}
+          # Client bundle uses this to render a "PREVIEW" banner and to point
+          # analytics/telemetry (if any) at a non-prod bucket. Same value is
+          # exposed as `NEXT_PUBLIC_PREVIEW_PR` for anything that wants the
+          # number.
+          NEXT_PUBLIC_ENV: preview
+          NEXT_PUBLIC_PREVIEW_PR: ${{ needs.guard.outputs.pr }}
+        run: nix develop --command pnpm turbo build --filter=penumbra-veil...
+
+      - name: assemble standalone tree
+        env:
+          SHA: ${{ github.event.pull_request.head.sha }}
+          PR: ${{ needs.guard.outputs.pr }}
+        run: |
+          set -euo pipefail
+          cd apps/veil
+          test -f .next/standalone/apps/veil/server.js
+          cp -r public .next/standalone/apps/veil/public
+          mkdir -p .next/standalone/apps/veil/.next
+          cp -r .next/static .next/standalone/apps/veil/.next/static
+          # Never ship a build-time .env into a release asset.
+          find .next/standalone -maxdepth 3 -name '.env*' -print -delete
+          if find .next/standalone -name '*.node' | read -r _; then
+            find .next/standalone -name '*.node' -exec ldd {} + > /tmp/nativedeps.txt 2>&1 || true
+            if grep -Eq '/nix/store|not found' /tmp/nativedeps.txt; then
+              echo 'native module linked against paths absent on the deploy host:' >&2
+              grep -E '/nix/store|not found' /tmp/nativedeps.txt >&2
+              exit 1
+            fi
+          fi
+          cat > .next/standalone/BUILD_INFO <<INFO
+          app=veil-preview
+          pr=$PR
+          sha=$SHA
+          ref=${{ github.ref }}
+          run_id=${{ github.run_id }}
+          built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          INFO
+
+      - name: pack artifact
+        env:
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          tar --zstd -C apps/veil/.next/standalone -cf "veil-preview-${SHA}.tar.zst" .
+          ls -lh "veil-preview-${SHA}.tar.zst"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: veil-preview-${{ github.event.pull_request.head.sha }}
+          path: veil-preview-${{ github.event.pull_request.head.sha }}.tar.zst
+          # Short retention — the artifact only exists to hand to `deploy`.
+          # The deployed copy on the host is the durable one, kept until PR
+          # close (or evicted by the 5-release cap).
+          retention-days: 7
+          if-no-files-found: error
+
+  deploy:
+    name: deploy preview
+    if: github.event.action != 'closed'
+    needs: [guard, build]
+    runs-on: ubuntu-latest
+    environment: preview
+    env:
+      APP_ROOT: /opt/penumbra-veil-previews
+      SERVICE: penumbra-veil-preview@${{ needs.guard.outputs.pr }}.service
+      PR: ${{ needs.guard.outputs.pr }}
+      PORT: ${{ needs.guard.outputs.port }}
+      SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: veil-preview-${{ github.event.pull_request.head.sha }}
+
+      - name: unpack
+        run: |
+          set -euo pipefail
+          mkdir -p payload
+          tar --zstd -C payload -xf "veil-preview-${SHA}.tar.zst"
+
+      - name: configure ssh
+        uses: ./.github/actions/ssh-deploy
+        with:
+          ssh-key: ${{ secrets.DEPLOY_SSH_KEY }}
+          known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          jump-host: ${{ secrets.DEPLOY_HOST }}
+          target-host: ${{ secrets.DEPLOY_CT }}
+
+      - name: ship release
+        run: |
+          set -euo pipefail
+          ssh target "mkdir -p '${APP_ROOT}/${PR}/releases/${SHA}' '${APP_ROOT}/${PR}/shared'"
+          rsync -a --delete -e ssh payload/ "target:${APP_ROOT}/${PR}/releases/${SHA}/"
+
+      - name: activate
+        run: |
+          set -euo pipefail
+          ssh target "APP_ROOT='${APP_ROOT}' SERVICE='${SERVICE}' PR='${PR}' SHA='${SHA}' bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd "$APP_ROOT/$PR"
+          ln -sfn "releases/$SHA" current.tmp
+          mv -Tf current.tmp current
+          # Keep the five most recent releases per PR, same as prod.
+          ls -1dt releases/*/ | tail -n +6 | xargs -r rm -rf
+          sudo /usr/bin/systemctl enable --now "$SERVICE"
+          sudo /usr/bin/systemctl restart "$SERVICE"
+          for _ in $(seq 1 20); do
+            systemctl is-active --quiet "$SERVICE" && break
+            sleep 2
+          done
+          systemctl is-active "$SERVICE"
+          REMOTE
+
+      - name: smoke test
+        run: ssh target "curl -fsS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:${PORT}/"
+
+      - name: comment on PR
+        uses: actions/github-script@v7
+        env:
+          PR: ${{ needs.guard.outputs.pr }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        with:
+          script: |
+            const { PR, SHA } = process.env;
+            // The dev zone is a repository variable so the URL rendered here
+            // is not baked into the workflow file. Falls back to a sensible
+            // default if the variable is unset.
+            const zone = '${{ vars.PREVIEW_ZONE || 'dev.penumbra.fi' }}';
+            const url = `https://${PR}.${zone}`;
+            const marker = '<!-- preview-veil-comment -->';
+            const body = `${marker}\n**Preview deployed**\n\n- URL: ${url}\n- Commit: \`${SHA}\`\n- Torn down when this PR closes.\n`;
+            const { owner, repo } = context.repo;
+            const issue_number = Number(PR);
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number, per_page: 100,
+            });
+            const existing = comments.find(c => c.body && c.body.startsWith(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+  teardown:
+    name: tear down preview
+    if: github.event.action == 'closed'
+    needs: guard
+    runs-on: ubuntu-latest
+    environment: preview
+    env:
+      APP_ROOT: /opt/penumbra-veil-previews
+      SERVICE: penumbra-veil-preview@${{ needs.guard.outputs.pr }}.service
+      PR: ${{ needs.guard.outputs.pr }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: configure ssh
+        uses: ./.github/actions/ssh-deploy
+        with:
+          ssh-key: ${{ secrets.DEPLOY_SSH_KEY }}
+          known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          jump-host: ${{ secrets.DEPLOY_HOST }}
+          target-host: ${{ secrets.DEPLOY_CT }}
+
+      - name: stop and remove
+        run: |
+          set -euo pipefail
+          ssh target "APP_ROOT='${APP_ROOT}' SERVICE='${SERVICE}' PR='${PR}' bash -s" <<'REMOTE'
+          set -euo pipefail
+          # Best-effort — if the unit was never enabled (e.g. build failed on
+          # the very first push), disable is a no-op.
+          sudo /usr/bin/systemctl disable --now "$SERVICE" || true
+          # Purge the whole per-PR tree so we don't leak inode budget or
+          # host-side secrets from a stale shared/ directory.
+          if [ -d "$APP_ROOT/$PR" ]; then
+            rm -rf -- "$APP_ROOT/$PR"
+          fi
+          REMOTE
+
+      - name: comment on PR
+        uses: actions/github-script@v7
+        env:
+          PR: ${{ needs.guard.outputs.pr }}
+        with:
+          script: |
+            const { PR } = process.env;
+            const marker = '<!-- preview-veil-comment -->';
+            const body = `${marker}\n**Preview torn down** for #${PR}.\n`;
+            const { owner, repo } = context.repo;
+            const issue_number = Number(PR);
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number, per_page: 100,
+            });
+            const existing = comments.find(c => c.body && c.body.startsWith(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }

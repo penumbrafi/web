@@ -178,3 +178,120 @@ touches nginx or haproxy automatically.
   on `ubuntu-latest` (glibc 2.39) while CT1105 is Debian bookworm (glibc 2.36).
   If `server.js` fails on the first deploy with a `GLIBC_` or `.node` loader
   error, switch the build job to `container: node:22-bookworm`.
+
+## Per-PR previews (`<pr>.dev.penumbra.fi`)
+
+Every open PR gets its own throwaway Veil at `https://<pr>.dev.penumbra.fi`,
+built and torn down by `.github/workflows/preview-veil.yml`. Same standalone
+build as prod; the only differences are per-instance port and a
+`NEXT_PUBLIC_ENV=preview` banner.
+
+Host layout on CT1105:
+
+```
+/opt/penumbra-veil-previews/
+  <pr>/
+    releases/<sha>/     unpacked artifact
+    current -> releases/<sha>
+    shared/.env.preview  optional, host-owned, never touched by CI
+  shared/.env.preview   optional shared defaults across previews
+```
+
+The systemd template `penumbra-veil-preview@<pr>.service`
+(`deploy/systemd/penumbra-veil-preview@.service`) runs each preview on
+`127.0.0.1:$((30000 + <pr>))`. PR numbers are gated to `1..9999` in the
+workflow, so the port range is `30001..39999`.
+
+Nginx wildcard vhost (`deploy/nginx-veil-previews.conf.example`) parses the
+PR out of the `Host:` header via `set_by_lua_block` and proxies to the
+matching port. No per-PR nginx entry or reload — start the systemd unit and
+the preview is live; stop it and it's gone. Requires
+`libnginx-mod-http-lua` on the host.
+
+DNS is a single wildcard `*.dev.penumbra.fi` A/AAAA on the Cloudflare zone,
+proxied to the same anycast IP that fronts `*.penumbra.fi`. The TLS
+certificate is a Let's Encrypt wildcard issued via the
+`certbot-dns-cloudflare` plugin — that is the *only* moment a Cloudflare
+API token is needed; certbot renews on a systemd timer.
+
+The Cloudflare token wants `Zone.DNS:Edit` on the `penumbra.fi` zone only.
+Do not use a global token. Store its credentials file at
+`/etc/letsencrypt/cloudflare.ini`, mode `600`, root-owned.
+
+### Secrets and variables for previews
+
+Create a second GitHub Environment named `preview` (same repo, different
+gate — no reviewer requirement, since preview shouldn't need approval to
+churn). The `preview` Environment reuses the same secrets as `production`:
+
+| secret | notes |
+| --- | --- |
+| `DEPLOY_SSH_KEY` | same key or a preview-scoped one (see below) |
+| `DEPLOY_HOST` | bkk06 public address |
+| `DEPLOY_CT` | CT1105 internal address |
+| `DEPLOY_KNOWN_HOSTS` | same two pinned host keys as `production` |
+
+Repository variable (public, but keeps the workflow file zone-agnostic):
+
+| variable | value |
+| --- | --- |
+| `PREVIEW_ZONE` | `dev.penumbra.fi` |
+
+The preview flow needs `enable`/`disable`/`restart` on
+`penumbra-veil-preview@*.service`, not just `restart`. Extend
+`/etc/sudoers.d/penumbra-deploy` on CT1105:
+
+```
+web ALL=(root) NOPASSWD: /usr/bin/systemctl restart penumbra-veil.service, \
+                         /usr/bin/systemctl restart penumbra-explorer-frontend.service, \
+                         /usr/bin/systemctl restart penumbra-explorer.service, \
+                         /usr/bin/systemctl restart penumbra-veil-preview@[0-9]*.service, \
+                         /usr/bin/systemctl enable  penumbra-veil-preview@[0-9]*.service, \
+                         /usr/bin/systemctl disable penumbra-veil-preview@[0-9]*.service
+```
+
+Prefer a **preview-only** ed25519 key rather than reusing the prod key —
+compromised the same way it wouldn't touch anything under `/opt/penumbra-veil/`,
+because the sudoers pattern above scopes preview writes to the
+`penumbra-veil-preview@[0-9]*.service` glob. Put the prod key in the
+`production` Environment secrets and the preview key in the `preview`
+Environment secrets; both use the same `DEPLOY_KNOWN_HOSTS`.
+
+### One-time host setup for previews
+
+Inside CT1105 (`ssh bkk06 'pct exec 1105 -- bash'`):
+
+```sh
+# release root, owned by the same `web` user as prod
+install -d -o web -g web /opt/penumbra-veil-previews /opt/penumbra-veil-previews/shared
+
+# the template unit
+install -m 644 deploy/systemd/penumbra-veil-preview@.service /etc/systemd/system/
+systemctl daemon-reload
+
+# nginx wildcard vhost
+apt-get install -y libnginx-mod-http-lua certbot python3-certbot-dns-cloudflare
+install -m 644 deploy/nginx-veil-previews.conf.example \
+  /etc/nginx/sites-available/veil-previews.penumbra.fi
+ln -sfn /etc/nginx/sites-available/veil-previews.penumbra.fi /etc/nginx/sites-enabled/
+# issue the wildcard cert (Cloudflare token file already in place at
+# /etc/letsencrypt/cloudflare.ini)
+certbot certonly --dns-cloudflare \
+  --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini \
+  -d '*.dev.penumbra.fi' -d dev.penumbra.fi
+nginx -t && systemctl reload nginx
+```
+
+### Teardown behaviour
+
+`preview-veil.yml` fires on `pull_request: closed` (which covers both
+"closed without merge" and "merged"), stops + disables the unit, and
+`rm -rf`s `/opt/penumbra-veil-previews/<pr>/`. If a preview leaks (workflow
+run cancelled between build and teardown), find it with:
+
+```sh
+systemctl list-units 'penumbra-veil-preview@*.service' --all
+ls /opt/penumbra-veil-previews/
+```
+
+and clean up manually. Nothing else in the tree carries per-PR state.
