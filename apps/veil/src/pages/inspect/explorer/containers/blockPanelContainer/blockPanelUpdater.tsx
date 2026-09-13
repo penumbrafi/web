@@ -2,49 +2,39 @@
 'use client'
 
 import { FC, useEffect, useRef, useState } from 'react'
-import { useClient } from 'urql'
-import { pipe, subscribe } from 'wonka'
 import { BlockPanel } from '@/pages/inspect/explorer/components'
 import { animationFrameMs } from '@/pages/inspect/explorer/lib/constants'
-import {
-    BlockUpdateSubscription,
-    BlockUpdateSubscriptionVariables,
-} from '@/pages/inspect/explorer/lib/graphql/generated/types'
-import blockSubscription from '@/pages/inspect/explorer/lib/graphql/subscriptions/blockSubscription.graphql'
+import { subscribeToNewBlocks } from '@/shared/cometbft/subscribe-new-blocks'
 import { Props as BlockPanelContainerProps } from './blockPanelContainer'
+
+const COMETBFT_WS_URL =
+    process.env['NEXT_PUBLIC_COMETBFT_WS_URL'] ?? 'wss://penumbra.rotko.net/websocket'
 
 interface Props extends BlockPanelContainerProps {
     blockHeight?: number
 }
 
 const BlockPanelUpdater: FC<Props> = props => {
-    const client = useClient()
     const queueRef = useRef<number[]>([])
     const animationFrameRef = useRef<number>(undefined)
     const updateTimestampRef = useRef(0)
     const [reindexing, setReindexing] = useState(false)
     const [blockHeight, setBlockHeight] = useState(props.blockHeight)
 
+    // Subscribe to CometBFT directly (same source the block table uses)
+    // rather than the indexer's GraphQL subscription — the indexer trails
+    // tip by a few blocks so the panel used to sit behind the table right
+    // next to it.
     useEffect(() => {
-        const source = client.subscription<
-            BlockUpdateSubscription,
-            BlockUpdateSubscriptionVariables
-        >(blockSubscription, {})
-
-        const { unsubscribe } = pipe(
-            source,
-            subscribe(result => {
-                const block = result.data?.latestBlocks
-
-                if (block) {
-                    queueRef.current.push(block.height)
-                    setReindexing(queueRef.current.length > 2)
-                }
-            })
-        )
-
+        const unsubscribe = subscribeToNewBlocks({
+            url: COMETBFT_WS_URL,
+            onBlock: block => {
+                queueRef.current.push(block.height)
+                setReindexing(queueRef.current.length > 2)
+            },
+        })
         return () => unsubscribe()
-    }, [client])
+    }, [])
 
     useEffect(() => {
         const animationLoop = () => {
