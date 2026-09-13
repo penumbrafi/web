@@ -327,6 +327,11 @@ export const useChartConfig = (
       // bottom margin reserves space for the volume pane below.
       seriesRef.current.priceScale().applyOptions({
         autoScale: true,
+        // Log scale so the visible domain can never enter negatives —
+        // spot prices are strictly > 0, and this is the standard price-
+        // chart mode on TradingView / Binance. mode: 1 = Logarithmic in
+        // lightweight-charts' PriceScaleMode enum.
+        mode: 1,
         scaleMargins: { top: 0.05, bottom: volumeRatioRef.current },
       });
 
