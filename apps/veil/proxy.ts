@@ -4,4 +4,4 @@ export const config = {
   matcher: ['/trade', '/trade/:base/:quote'],
 };
 
-export { routingMiddleware as middleware } from '@/shared/index.server';
+export { routingProxy as proxy } from '@/shared/index.server';

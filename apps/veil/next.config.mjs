@@ -66,67 +66,36 @@ const nextConfig = {
       '@amplitude/analytics-browser': '@repo/stubs/amplitude-analytics-browser',
     },
     rules: {
+      // SVGs load as React components via @svgr/webpack. Options mirror
+      // the previous webpack config: SVGO disabled entirely (project
+      // ships pre-optimized icons), viewBox preserved by preset-default
+      // overrides.
       '*.svg': {
-        loaders: ['@svgr/webpack'],
+        loaders: [
+          {
+            loader: '@svgr/webpack',
+            options: {
+              svgo: false,
+              svgoConfig: {
+                plugins: [
+                  {
+                    name: 'preset-default',
+                    params: { overrides: { removeViewBox: false } },
+                  },
+                ],
+              },
+            },
+          },
+        ],
         as: '*.js',
       },
     },
   },
-  webpack: config => {
-    config.externals.push('pino-pretty');
-
-    config.resolve.alias['@amplitude/analytics-browser'] =
-      '@repo/stubs/amplitude-analytics-browser';
-
-    // Make Next.js's default file/asset rule for SVGs ignore them so that
-    // the @svgr/webpack rule below is the only handler.
-    const fileLoaderRule = config.module.rules.find(
-      rule => rule.test instanceof RegExp && rule.test.test('.svg'),
-    );
-    if (fileLoaderRule) {
-      fileLoaderRule.exclude = /\.svg$/i;
-    }
-
-    config.module.rules.push({
-      test: /\.svg$/i,
-      use: [
-        {
-          loader: '@svgr/webpack',
-          options: {
-            svgo: false,
-            svgoConfig: {
-              plugins: [
-                {
-                  name: 'preset-default',
-                  params: {
-                    overrides: {
-                      removeViewBox: false,
-                    },
-                  },
-                },
-              ],
-            },
-          },
-        },
-      ],
-    });
-
-    // .graphql files are loaded as parsed AST nodes via graphql-tag/loader,
-    // so explorer queries/subscriptions can be `import`-ed directly.
-    config.module.rules.push({
-      test: /\.graphql$/i,
-      exclude: /node_modules/,
-      loader: 'graphql-tag/loader',
-    });
-
-    config.experiments.asyncWebAssembly = true;
-
-    return config;
-  },
+  // Turbopack is the default bundler in Next 16 — SVG handling and the
+  // amplitude alias live in the `turbopack.rules` / `turbopack.resolveAlias`
+  // blocks above. WASM is handled natively. The `pino-pretty` external is
+  // covered by top-level `serverExternalPackages`.
   output: 'standalone',
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   typescript: {
     ignoreBuildErrors: true,
   },

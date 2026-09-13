@@ -1,29 +1,21 @@
 import createConfig from '@penumbra-zone/configs/tailwind-eslint';
-import { FlatCompat } from '@eslint/eslintrc';
-import { fileURLToPath } from 'url';
-import path from 'path';
-import { createRequire } from 'node:module';
+import nextConfig from 'eslint-config-next/core-web-vitals';
 
 const eslintConfig = createConfig(
-  createRequire(import.meta.url).resolve('@penumbra-zone/ui/theme.css'),
+  (await import('node:module')).createRequire(import.meta.url).resolve(
+    '@penumbra-zone/ui/theme.css',
+  ),
 );
-
-// mimic CommonJS variables -- not needed if using CommonJS
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
 
 const excludePlugins = eslintConfig.flatMap(config => Object.keys(config.plugins || {}));
 
 const config = [
-  ...compat
-    .extends('next/core-web-vitals')
-    .filter(config =>
-      Object.keys(config.plugins || {}).every(plugin => !excludePlugins.includes(plugin)),
-    ),
+  // eslint-config-next 16 ships native flat config. The FlatCompat shim
+  // against 'next/core-web-vitals' throws a circular-JSON error against
+  // 16's package layout, so consume the flat export directly.
+  ...(Array.isArray(nextConfig) ? nextConfig : [nextConfig]).filter(cfg =>
+    Object.keys(cfg?.plugins || {}).every(plugin => !excludePlugins.includes(plugin)),
+  ),
 
   ...eslintConfig.filter(config => config.name !== 'custom:turbo-config'),
 

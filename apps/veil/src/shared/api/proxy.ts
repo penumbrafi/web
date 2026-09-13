@@ -4,7 +4,7 @@ import { DEFAULT_PAIR, isPairHealthy } from '@/shared/config/featured-pairs';
 const LAST_PAIR_COOKIE = 'veil_last_pair';
 const LAST_PAIR_COOKIE_MAX_AGE = 60 * 60 * 24 * 90; // 90 days
 
-export const routingMiddleware = async (request: NextRequest) => {
+export const routingProxy = async (request: NextRequest) => {
   const { pathname } = request.nextUrl;
 
   // `/` is now the market/landing page itself (app/page.tsx); no redirect.

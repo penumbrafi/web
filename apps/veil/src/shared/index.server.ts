@@ -1,1 +1,1 @@
-export { routingMiddleware } from './api/middleware';
+export { routingProxy } from './api/proxy';
