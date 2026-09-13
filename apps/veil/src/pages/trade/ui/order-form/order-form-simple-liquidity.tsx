@@ -51,6 +51,13 @@ export const SimpleLiquidityOrderForm = observer(
     // simple absolute zoom adjustment in steps of 0.05
     const [zoomAdjustment, setZoomAdjustment] = useState(0);
     const adjustedPriceRange = priceRange + zoomAdjustment;
+    // Log-symmetric vs linear-symmetric range bounds. Linear (default)
+    // gives [mid*(1-X), mid*(1+X)] — same absolute distance either side
+    // of mid, which visually skews for wide ranges (upside stretches).
+    // Log gives [mid/(1+X), mid*(1+X)] — same percentage either side,
+    // which reads symmetrically on a log price axis and matches how
+    // traders usually think about wide LP ranges (Uniswap V3 does this).
+    const [rangeSpacingLog, setRangeSpacingLog] = useState(false);
 
     const [priceRanges, setPriceRanges] = useState<[number | undefined, number | undefined]>([
       undefined,
@@ -248,35 +255,7 @@ export const SimpleLiquidityOrderForm = observer(
     }, [parentStore]);
 
     return (
-      <div className='p-4'>
-        {/* Live mid-price banner — anchors the form to the chain's
-            current best-bid/best-ask average so the trader has the
-            reference price they're centring liquidity around right at
-            the top, without scanning to the chart label or summary
-            card. Tick-direction-coloured to match. */}
-        {parentStore.marketPrice != null && (
-          <div className='mb-3 flex items-center justify-between rounded-sm border border-other-tonal-stroke px-2 py-1.5'>
-            <Text detail color='text.secondary'>
-              Live mid
-            </Text>
-            <Tooltip message='Average of best bid + best ask on the on-chain route book — the price you are centring liquidity around.'>
-              <span
-                className={cn(
-                  'tabular-nums',
-                  midDirection === 'up'
-                    ? 'text-success-light'
-                    : midDirection === 'down'
-                      ? 'text-destructive-light'
-                      : 'text-text-primary',
-                )}
-              >
-                {midDirection === 'up' ? '▲ ' : midDirection === 'down' ? '▼ ' : ''}
-                {round({ value: parentStore.marketPrice, decimals: 6 })}{' '}
-                <span className='text-text-secondary'>{store.quoteAsset?.symbol ?? ''}</span>
-              </span>
-            </Tooltip>
-          </div>
-        )}
+      <div className='p-3'>
         <div className='mb-3'>
           <div className='mb-2 flex items-center gap-1 leading-6'>
             <Text small color='text.secondary'>
@@ -416,27 +395,32 @@ export const SimpleLiquidityOrderForm = observer(
             />
           </div>
           <div>
-            <div className='mb-2 flex items-center gap-1'>
-              <Text small color='text.secondary'>
-                Positions
+            <div className='mb-2 flex items-baseline justify-between gap-1 leading-6'>
+              <div className='flex items-center gap-1'>
+                <Text small color='text.secondary'>
+                  Positions
+                </Text>
+                <Tooltip message='How many concentrated-liquidity slots to open across the range. More rungs give tighter market coverage; fewer rungs mean each rung carries more of your capital. Range 1–50.'>
+                  <Icon IconComponent={InfoIcon} size='sm' color='text.secondary' />
+                </Tooltip>
+              </div>
+              <Text detail color='text.primary' as='span'>
+                <span className='tabular-nums'>{store.positions}</span>
               </Text>
-              <Tooltip message='How many concentrated-liquidity slots to open across the range. More rungs give tighter market coverage; fewer rungs mean each rung carries more of your capital. Range 1–50.'>
-                <Icon IconComponent={InfoIcon} size='sm' color='text.secondary' />
-              </Tooltip>
             </div>
             <input
-              type='number'
+              type='range'
               min={1}
               max={50}
               step={1}
               value={store.positions}
               onChange={e => store.setPositions(Number(e.target.value))}
-              className='w-full rounded-sm border border-other-tonal-stroke bg-transparent px-3 py-2 text-sm text-text-primary tabular-nums outline-none focus:border-primary-main'
+              className='w-full cursor-pointer accent-primary-main'
             />
           </div>
         </div>
         <div className='mb-3'>
-          <div className='mb-4 flex justify-between leading-6'>
+          <div className='mb-2 flex items-center justify-between leading-6'>
             <div className='flex items-center gap-1'>
               <Text small color='text.secondary'>
                 Price Range
@@ -444,8 +428,50 @@ export const SimpleLiquidityOrderForm = observer(
               <Tooltip message='Defines the range of prices where your liquidity will be active. You earn fees only when trades happen within this range.'>
                 <Icon IconComponent={InfoIcon} size='sm' color='text.secondary' />
               </Tooltip>
+              {/* Live mid inline — used to be a full row above the form,
+                  now sits in the range header where the trader is
+                  actually thinking about it. Tick-direction coloured so
+                  the flash still reads at a glance. */}
+              {parentStore.marketPrice != null && (
+                <Tooltip message='Average of best bid + best ask on the on-chain route book — the price you are centring liquidity around.'>
+                  <span
+                    className={cn(
+                      'ml-2 text-xs tabular-nums',
+                      midDirection === 'up'
+                        ? 'text-success-light'
+                        : midDirection === 'down'
+                          ? 'text-destructive-light'
+                          : 'text-text-secondary',
+                    )}
+                  >
+                    {midDirection === 'up' ? '▲ ' : midDirection === 'down' ? '▼ ' : ''}
+                    {round({ value: parentStore.marketPrice, decimals: 6 })}
+                  </span>
+                </Tooltip>
+              )}
             </div>
             <div className='flex items-center gap-1'>
+              {/* Log/linear range spacing. Linear = same absolute delta
+                  either side of mid (default; matches most simple DEX
+                  forms). Log = same percentage either side (matches
+                  Uniswap V3-style range pickers and reads symmetrically
+                  on a log price axis, which is what wide ranges look
+                  like on the chart). */}
+              <Tooltip
+                message={
+                  rangeSpacingLog
+                    ? 'Range is symmetric in percent either side of mid.'
+                    : 'Range is symmetric in absolute price either side of mid.'
+                }
+              >
+                <button
+                  type='button'
+                  onClick={() => setRangeSpacingLog(v => !v)}
+                  className='rounded-sm px-1.5 py-0.5 text-[10px] text-text-secondary hover:bg-action-hover-overlay hover:text-text-primary'
+                >
+                  {rangeSpacingLog ? 'log' : 'linear'}
+                </button>
+              </Tooltip>
               <Button
                 actionType='default'
                 priority='secondary'
@@ -476,8 +502,16 @@ export const SimpleLiquidityOrderForm = observer(
             </div>
           </div>
           <PriceSlider
-            min={store.marketPrice ? store.marketPrice * (1 - adjustedPriceRange) : 0}
-            max={store.marketPrice ? store.marketPrice * (1 + adjustedPriceRange) : Infinity}
+            min={
+              store.marketPrice
+                ? rangeSpacingLog
+                  ? store.marketPrice / (1 + adjustedPriceRange)
+                  : store.marketPrice * (1 - adjustedPriceRange)
+                : 0
+            }
+            max={
+              store.marketPrice ? store.marketPrice * (1 + adjustedPriceRange) : Infinity
+            }
             values={priceRanges}
             onInput={setPriceRanges}
             quoteExponent={store.quoteAsset?.exponent ?? defaultDecimals}
