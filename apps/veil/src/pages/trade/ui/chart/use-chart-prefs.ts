@@ -28,6 +28,13 @@ export interface ChartPrefs {
    *    honest about time.
    */
   linearTime: boolean;
+  /**
+   * Continuous line traced through candle closes. Doji-shaped candles
+   * (open ≈ close) collapse to a 1-pixel wick that is easy to miss on
+   * a quiet pair, so this line keeps the price visible whether the
+   * candles move or not.
+   */
+  closeLine: boolean;
 }
 
 const DEFAULTS: ChartPrefs = {
@@ -41,6 +48,7 @@ const DEFAULTS: ChartPrefs = {
   ownTrades: false,
   openOrders: false,
   linearTime: true,
+  closeLine: true,
 };
 
 const STORAGE_KEY = 'veil_chart_prefs';

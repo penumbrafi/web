@@ -279,7 +279,13 @@ export const Chart = observer(() => {
     subscribeRedraw,
     subscribeHover,
     subscribeChartClick,
+    setCloseLineVisible,
   } = useChartConfig(fetchNext, isFetching);
+
+  useEffect(() => {
+    if (!chartReady) return;
+    setCloseLineVisible(prefs.closeLine);
+  }, [prefs.closeLine, chartReady, setCloseLineVisible]);
 
   // Gate per-overlay data feeds behind the user's preference. The hooks
   // still mount (so the queries they own can settle), but we hand each a

@@ -48,6 +48,11 @@ const SPECS: Omit<ToggleSpec, 'disabled'>[] = [
     hint: 'Resting limit orders, with × to cancel inline. Coming soon.',
   },
   {
+    key: 'closeLine',
+    label: 'Close-price line',
+    hint: 'Line through candle closes. Keeps the price visible when candles collapse to a 1-pixel doji on flat periods.',
+  },
+  {
     key: 'linearTime',
     label: 'Chronologically linear time',
     hint: 'Default: empty (flat) candles fill the gaps between real trades, so candle X-position tracks actual time elapsed. Off: each present candle sits next to the previous one — denser, but a quiet pair looks busier than it was.',

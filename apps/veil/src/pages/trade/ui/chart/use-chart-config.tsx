@@ -55,6 +55,9 @@ export const useChartConfig = (
   const chartRef = useRef<IChartApi>(undefined);
   const seriesRef = useRef<ReturnType<IChartApi['addCandlestickSeries']>>(undefined);
   const volumeSeriesRef = useRef<ReturnType<IChartApi['addHistogramSeries']>>(undefined);
+  // Overlay line traced through candle closes. Kept in the same price scale
+  // as the candles so its Y-axis matches. Toggleable via prefs.closeLine.
+  const closeLineSeriesRef = useRef<ReturnType<IChartApi['addLineSeries']>>(undefined);
   const volumeRatioRef = useRef<number>(0.2);
   const ownLinesRef = useRef<Map<string, IPriceLine>>(new Map());
 
@@ -172,6 +175,12 @@ export const useChartConfig = (
       })),
     );
 
+    closeLineSeriesRef.current?.setData(
+      candles
+        .filter(c => Number.isFinite(c.ohlc.close) && c.ohlc.close > 0)
+        .map(c => ({ time: c.ohlc.time, value: c.ohlc.close })),
+    );
+
     // Derive a representative price (median close) so axis labels and the
     // crosshair show 2+ significant digits even for sub-cent prices.
     if (candles.length > 0 && seriesRef.current) {
@@ -227,7 +236,19 @@ export const useChartConfig = (
       } catch {
         // Bar is older than the series' last known time. Safe to skip.
       }
+      const line = closeLineSeriesRef.current;
+      if (line && Number.isFinite(candle.ohlc.close) && candle.ohlc.close > 0) {
+        try {
+          line.update({ time: candle.ohlc.time, value: candle.ohlc.close });
+        } catch {
+          // Stale bar.
+        }
+      }
     }
+  }, []);
+
+  const setCloseLineVisible = useCallback((visible: boolean) => {
+    closeLineSeriesRef.current?.applyOptions({ visible });
   }, []);
 
   const updateLatestVolumes = useCallback((candles: CandleWithVolume[] = []) => {
@@ -321,6 +342,17 @@ export const useChartConfig = (
           top: 1 - volumeRatioRef.current,
           bottom: 0,
         },
+      });
+
+      // Close-price line: sits on the candlestick series' price scale, so
+      // its Y-axis aligns with the candles. Neutral color at 1px keeps it
+      // subtle when candles are moving and legible when they aren't.
+      closeLineSeriesRef.current = chartRef.current.addLineSeries({
+        color: theme.color.text.secondary,
+        lineWidth: 1,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
       });
 
       // subscribe to users scrolling left and right the price chart
@@ -528,5 +560,6 @@ export const useChartConfig = (
     subscribeRedraw,
     subscribeHover,
     subscribeChartClick,
+    setCloseLineVisible,
   };
 };
