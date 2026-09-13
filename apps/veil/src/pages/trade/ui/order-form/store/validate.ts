@@ -79,7 +79,7 @@ export interface ValidationInput {
   /** True when the LP plan funds only one side of the book. */
   isOneSided?: boolean;
   /**
-   * For SimpleLP: the side that was funded but cannot be quoted in the
+   * For LP: the side that was funded but cannot be quoted in the
    * chosen range, along with the symbols needed to explain it.
    */
   wrongSide?: { funded: 'base' | 'quote'; baseSymbol: string; quoteSymbol: string };

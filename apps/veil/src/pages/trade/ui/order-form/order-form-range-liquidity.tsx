@@ -137,7 +137,7 @@ export const RangeLiquidityOrderForm = observer(
       <div className='p-4'>
         {/* Live-mid banner removed (duplicate of the 'Anchor mid'
             InfoRow at the bottom of this form). RangeLP is denser than
-            SimpleLP — every extra row costs viewport, so we keep the
+            LP — every extra row costs viewport, so we keep the
             mid reference to one place. */}
         <div className='mb-4'>
           <div className='mb-1'>
@@ -275,7 +275,7 @@ export const RangeLiquidityOrderForm = observer(
           />
         </div>
         <div className='mb-4'>
-          {/* Same 'what's being planted' summary as SimpleLP — anchor mid
+          {/* Same 'what's being planted' summary as LP — anchor mid
               and an endpoints-combined view of the order count, so the
               trader doesn't have to mentally re-stitch upper / lower /
               positions to picture the rung structure. */}

@@ -13,6 +13,10 @@
     "lint:strict": "tsc --noEmit && eslint src --max-warnings 0"
   },
   "exports": {
+    ".": {
+      "types": "./dist/amplitude-analytics-browser.d.cts",
+      "default": "./dist/amplitude-analytics-browser.cjs"
+    },
     "./amplitude-analytics-browser": {
       "types": "./dist/amplitude-analytics-browser.d.cts",
       "default": "./dist/amplitude-analytics-browser.cjs"

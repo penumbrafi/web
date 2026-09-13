@@ -57,8 +57,8 @@ const XlLayout = () => {
         </ResizableSplit>
         <ResizableSplit
           anchor='bottom'
-          defaultSize={360}
-          min={140}
+          defaultSize={290}
+          min={120}
           max={700}
           storageKey='veil-trade-xl-trades-height'
           className='h-full border-l border-l-other-solid-stroke'
@@ -117,8 +117,8 @@ const LLayout = () => {
         </ResizableSplit>
         <ResizableSplit
           anchor='bottom'
-          defaultSize={340}
-          min={140}
+          defaultSize={272}
+          min={120}
           max={700}
           storageKey='veil-trade-lg-trades-height'
           className='h-full border-l border-l-other-solid-stroke'

@@ -5,10 +5,29 @@ import { deserializeRouteBookResponseJson } from '@/shared/api/server/book/seria
 import { RouteBookApiResponse } from '@/shared/api/server/book';
 import { usePathSymbols } from '@/pages/trade/model/use-path.ts';
 
-export const useBook = (overrideBase?: string, overrideQuote?: string) => {
+interface UseBookOptions {
+  overrideBase?: string;
+  overrideQuote?: string;
+  // Client-requested number of levels per side. Server caps + defaults on
+  // its own, so pass through raw; server caches per (base, quote, limit)
+  // so distinct limits stay isolated.
+  traceLimit?: number;
+}
+
+export const useBook = (
+  overrideBaseOrOpts?: string | UseBookOptions,
+  overrideQuoteArg?: string,
+) => {
+  // Preserve the (base, quote) positional signature the older call-sites
+  // still use — new call-sites can pass a single options object.
+  const opts: UseBookOptions =
+    typeof overrideBaseOrOpts === 'object' && overrideBaseOrOpts !== null
+      ? overrideBaseOrOpts
+      : { overrideBase: overrideBaseOrOpts, overrideQuote: overrideQuoteArg };
   const pathSymbols = usePathSymbols();
-  const baseSymbol = overrideBase ?? pathSymbols.baseSymbol;
-  const quoteSymbol = overrideQuote ?? pathSymbols.quoteSymbol;
+  const baseSymbol = opts.overrideBase ?? pathSymbols.baseSymbol;
+  const quoteSymbol = opts.overrideQuote ?? pathSymbols.quoteSymbol;
+  const traceLimit = opts.traceLimit;
 
   // Guard on both symbols being resolved. Without this, the query
   // fires on mount before the router has populated params and issues
@@ -17,13 +36,16 @@ export const useBook = (overrideBase?: string, overrideQuote?: string) => {
   const bothSymbolsPresent = Boolean(baseSymbol) && Boolean(quoteSymbol);
 
   const query = useQuery({
-    queryKey: ['book', baseSymbol, quoteSymbol],
+    queryKey: ['book', baseSymbol, quoteSymbol, traceLimit],
     enabled: bothSymbolsPresent,
     queryFn: async (): Promise<RouteBookResponse> => {
-      const paramsObj = {
+      const paramsObj: Record<string, string> = {
         baseAsset: baseSymbol,
         quoteAsset: quoteSymbol,
       };
+      if (traceLimit !== undefined && traceLimit > 0) {
+        paramsObj['traceLimit'] = String(Math.floor(traceLimit));
+      }
       const baseUrl = '/api/book';
       const urlParams = new URLSearchParams(paramsObj).toString();
       const res = await fetch(`${baseUrl}?${urlParams}`);

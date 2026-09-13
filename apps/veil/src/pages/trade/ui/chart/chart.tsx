@@ -661,11 +661,11 @@ export const Chart = observer(() => {
       tradeFormStore.limitForm.setPriceInput(priceStr);
     };
     const applyLPBound = (which: 'lower' | 'upper') => () => {
-      tradeFormStore.setWhichForm('SimpleLP');
+      tradeFormStore.setWhichForm('LP');
       const setter =
         which === 'lower'
-          ? tradeFormStore.simpleLPForm.setLowerPriceInput
-          : tradeFormStore.simpleLPForm.setUpperPriceInput;
+          ? tradeFormStore.lpForm.setLowerPriceInput
+          : tradeFormStore.lpForm.setUpperPriceInput;
       setter(price);
     };
     const setAlertHere = () => {
@@ -835,7 +835,7 @@ export const Chart = observer(() => {
                 <DepthOverlay yAtPrice={yAtPrice} subscribeRedraw={subscribeRedraw} />
               )}
               {/* Live preview of the LP position the trader is constructing —
-                  only paints when whichForm is SimpleLP / RangeLP and bounds
+                  only paints when whichForm is LP / RangeLP and bounds
                   are set, so it's a no-op for traders not in LP mode. */}
               <LpPreviewOverlay
                 yAtPrice={yAtPrice}

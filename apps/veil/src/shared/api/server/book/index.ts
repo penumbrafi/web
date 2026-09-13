@@ -14,7 +14,7 @@ import { Client } from '@connectrpc/connect';
 import { createClient } from '@/shared/utils/protos/utils.ts';
 
 export const VERY_HIGH_AMOUNT = new Amount({ hi: 10000n }); // Used as default to generate sufficient amount of traces
-export const TRACE_LIMIT_DEFAULT = 8;
+export const TRACE_LIMIT_DEFAULT = 30;
 
 export type RouteBookApiResponse = RouteBookResponseJson | { error: string };
 

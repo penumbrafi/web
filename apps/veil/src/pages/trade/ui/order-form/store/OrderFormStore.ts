@@ -34,7 +34,7 @@ import { isMetadataEqual } from '@/shared/utils/is-metadata-equal';
 import { AssetId, Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { getAssetMetadataById } from '@/shared/api/metadata';
 import { updatePositionsQuery } from '@/entities/position';
-import { SimpleLPFormStore } from './SimpleLPFormStore';
+import { LPFormStore } from './LPFormStore';
 import { encodeLiquidityShape } from '@/shared/math/position';
 import {
   blockingIssue,
@@ -45,10 +45,10 @@ import {
 } from './validate';
 import { parseNumber } from '@/shared/utils/num';
 
-export type WhichForm = 'Market' | 'Limit' | 'RangeLP' | 'SimpleLP';
+export type WhichForm = 'Market' | 'Limit' | 'RangeLP' | 'LP';
 
 export const isWhichForm = (x: string): x is WhichForm => {
-  return x === 'Market' || x === 'Limit' || x === 'RangeLP' || x === 'SimpleLP';
+  return x === 'Market' || x === 'Limit' || x === 'RangeLP' || x === 'LP';
 };
 
 const GAS_DEBOUNCE_MS = 320;
@@ -57,7 +57,7 @@ export class OrderFormStore {
   private _market = new MarketOrderFormStore();
   private _limit = new LimitOrderFormStore();
   private _range = new RangeOrderFormStore();
-  private _simpleLP = new SimpleLPFormStore();
+  private _lp = new LPFormStore();
   private _whichForm: WhichForm = 'Market';
   private _submitting = false;
   private _marketPrice: number | undefined = undefined;
@@ -118,8 +118,8 @@ export class OrderFormStore {
         return `${this._limit.direction}|${this._limit.baseInput}|${this._limit.quoteInput}|${this._limit.priceInput}`;
       case 'RangeLP':
         return `${this._range.liquidityTargetInput}|${this._range.lowerPriceInput}|${this._range.upperPriceInput}|${this._range.feeTierPercentInput}`;
-      case 'SimpleLP':
-        return `${this._simpleLP.baseInput}|${this._simpleLP.quoteInput}|${this._simpleLP.lowerPriceInput}|${this._simpleLP.upperPriceInput}|${this._simpleLP.feeTierPercentInput}`;
+      case 'LP':
+        return `${this._lp.baseInput}|${this._lp.quoteInput}|${this._lp.lowerPriceInput}|${this._lp.upperPriceInput}|${this._lp.feeTierPercentInput}`;
     }
   }
 
@@ -250,7 +250,7 @@ export class OrderFormStore {
     this._market.setAssets(base, quote, unsetInputs);
     this._limit.setAssets(base, quote, unsetInputs);
     this._range.setAssets(base, quote, unsetInputs);
-    this._simpleLP.setAssets(base, quote, unsetInputs);
+    this._lp.setAssets(base, quote, unsetInputs);
   }
 
   setMarketPrice(price: number | undefined) {
@@ -259,12 +259,12 @@ export class OrderFormStore {
     if (price) {
       this._range.marketPrice = price;
       this._limit.marketPrice = price;
-      this._simpleLP.marketPrice = price;
+      this._lp.marketPrice = price;
     }
 
     // explicitly set to null to reset the lp price sliders
     if (price === undefined) {
-      this._simpleLP.marketPrice = null;
+      this._lp.marketPrice = null;
     }
   }
 
@@ -311,8 +311,8 @@ export class OrderFormStore {
     return this._range;
   }
 
-  get simpleLPForm() {
-    return this._simpleLP;
+  get lpForm() {
+    return this._lp;
   }
 
   get plan(): undefined | TransactionPlannerRequest {
@@ -344,7 +344,7 @@ export class OrderFormStore {
       });
     }
 
-    const plan = this._whichForm === 'RangeLP' ? this._range.plan : this._simpleLP.plan;
+    const plan = this._whichForm === 'RangeLP' ? this._range.plan : this._lp.plan;
     if (!plan) {
       this.resetGasFee();
       return undefined;
@@ -381,7 +381,7 @@ export class OrderFormStore {
       return asset && amount ? [{ asset, amount }] : [];
     }
 
-    const form = this._whichForm === 'RangeLP' ? this._range : this._simpleLP;
+    const form = this._whichForm === 'RangeLP' ? this._range : this._lp;
     const { baseAsset, quoteAsset } = form;
     const plan = form.plan;
     if (!plan || !baseAsset || !quoteAsset) {
@@ -402,13 +402,13 @@ export class OrderFormStore {
    * failed transaction and a raw error string.
    */
   get issues(): FormIssue[] {
-    const isLP = this._whichForm === 'RangeLP' || this._whichForm === 'SimpleLP';
+    const isLP = this._whichForm === 'RangeLP' || this._whichForm === 'LP';
     const lpPlan = isLP
-      ? (this._whichForm === 'RangeLP' ? this._range : this._simpleLP).plan
+      ? (this._whichForm === 'RangeLP' ? this._range : this._lp).plan
       : undefined;
 
     const wrongSideFunded =
-      this._whichForm === 'SimpleLP' ? this._simpleLP.wrongSideFunded : undefined;
+      this._whichForm === 'LP' ? this._lp.wrongSideFunded : undefined;
 
     return validateOrder({
       requirements: this.requirements,
@@ -416,16 +416,16 @@ export class OrderFormStore {
       gasFee: parseNumber(this._gasFee.display),
       hasPlan: this.plan !== undefined,
       marketPrice: this._marketPrice,
-      // Only SimpleLP lays positions out around the live mid; RangeLP takes
+      // Only LP lays positions out around the live mid; RangeLP takes
       // explicit bounds and Market/Limit don't need one at all.
-      requiresMarketPrice: this._whichForm === 'SimpleLP',
+      requiresMarketPrice: this._whichForm === 'LP',
       positionCount: lpPlan?.length,
-      isOneSided: this._whichForm === 'SimpleLP' ? this._simpleLP.isOneSided : undefined,
+      isOneSided: this._whichForm === 'LP' ? this._lp.isOneSided : undefined,
       wrongSide: wrongSideFunded
         ? {
             funded: wrongSideFunded,
-            baseSymbol: this._simpleLP.baseAsset?.symbol ?? 'the base asset',
-            quoteSymbol: this._simpleLP.quoteAsset?.symbol ?? 'the quote asset',
+            baseSymbol: this._lp.baseAsset?.symbol ?? 'the base asset',
+            quoteSymbol: this._lp.quoteAsset?.symbol ?? 'the quote asset',
           }
         : undefined,
     });
@@ -584,7 +584,7 @@ export const useOrderFormStore = () => {
   // if the page sets query param `highlight`, set correct tab and highlight it for 3 seconds
   useEffect(() => {
     if (highlight === 'liquidity') {
-      orderFormStore.setWhichForm('SimpleLP');
+      orderFormStore.setWhichForm('LP');
       orderFormStore.setHighlight(true);
     }
   }, [highlight]);
@@ -606,7 +606,7 @@ export const useOrderFormStore = () => {
         Market: orderFormStore.marketForm,
         Limit: orderFormStore.limitForm,
         RangeLP: orderFormStore.rangeForm,
-        SimpleLP: orderFormStore.simpleLPForm,
+        LP: orderFormStore.lpForm,
       };
       const childStore = storeMapping[orderFormStore.whichForm];
       const prevBaseAssetInfo = childStore.baseAsset;

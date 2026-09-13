@@ -89,8 +89,8 @@ const RUNG_COMMIT_THROTTLE_MS = 30;
  */
 export const LpPreviewOverlay = observer(
   ({ yAtPrice, priceAtY, subscribeRedraw }: LpPreviewOverlayProps) => {
-    const { whichForm, simpleLPForm, rangeForm, marketPrice: anchorMid } = tradeFormStore;
-    const isLp = whichForm === 'SimpleLP' || whichForm === 'RangeLP';
+    const { whichForm, lpForm, rangeForm, marketPrice: anchorMid } = tradeFormStore;
+    const isLp = whichForm === 'LP' || whichForm === 'RangeLP';
 
     // Read draft form state — observer() makes the overlay re-render on
     // every form mutation (slider drag, shape toggle, count change, etc).
@@ -102,14 +102,14 @@ export const LpPreviewOverlay = observer(
     let quoteLiq = 0;
     let customWeights: number[] | null = null;
     if (isLp) {
-      if (whichForm === 'SimpleLP') {
-        lower = simpleLPForm.lowerPriceInput ?? undefined;
-        upper = simpleLPForm.upperPriceInput ?? undefined;
-        count = simpleLPForm.positions;
-        shape = simpleLPForm.liquidityShape;
-        baseLiq = parseFloat(simpleLPForm.baseInput) || 0;
-        quoteLiq = parseFloat(simpleLPForm.quoteInput) || 0;
-        customWeights = simpleLPForm.customWeights;
+      if (whichForm === 'LP') {
+        lower = lpForm.lowerPriceInput ?? undefined;
+        upper = lpForm.upperPriceInput ?? undefined;
+        count = lpForm.positions;
+        shape = lpForm.liquidityShape;
+        baseLiq = parseFloat(lpForm.baseInput) || 0;
+        quoteLiq = parseFloat(lpForm.quoteInput) || 0;
+        customWeights = lpForm.customWeights;
       } else {
         lower = rangeForm.lowerPrice;
         upper = rangeForm.upperPrice;
@@ -275,18 +275,18 @@ export const LpPreviewOverlay = observer(
 
     if (!pos) return null;
 
-    // Format a numeric price for the form store. SimpleLP takes numbers,
+    // Format a numeric price for the form store. LP takes numbers,
     // RangeLP takes strings — both stores clamp/validate on their own, we
     // just supply a reasonable precision so the input field reads nicely.
     const commitPrice = (edge: DragEdge, price: number) => {
       if (!Number.isFinite(price) || price <= 0) return;
-      if (whichForm === 'SimpleLP') {
-        // SimpleLP stores raw numbers.
+      if (whichForm === 'LP') {
+        // LP stores raw numbers.
         const rounded = Number(price.toPrecision(6));
         if (edge === 'upper') {
-          simpleLPForm.setUpperPriceInput(rounded);
+          lpForm.setUpperPriceInput(rounded);
         } else {
-          simpleLPForm.setLowerPriceInput(rounded);
+          lpForm.setLowerPriceInput(rounded);
         }
       } else if (whichForm === 'RangeLP') {
         // RangeLP stores strings that are parsed on read.
@@ -378,19 +378,19 @@ export const LpPreviewOverlay = observer(
     };
 
     // ---- Per-rung drag (P3) -------------------------------------------
-    // Only meaningful on SimpleLP; RangeLP doesn't (yet) expose a
+    // Only meaningful on LP; RangeLP doesn't (yet) expose a
     // per-rung setter and its liquidityTarget is a single number, not a
     // vector. State declared above the early return; handlers below are
     // plain functions that close over those refs.
     const commitRungWeight = (index: number, frac: number) => {
-      if (whichForm !== 'SimpleLP') return;
+      if (whichForm !== 'LP') return;
       const clamped = Math.max(0, Math.min(1.5, frac));
-      simpleLPForm.setCustomWeight(index, clamped);
+      lpForm.setCustomWeight(index, clamped);
     };
 
     const onRungPointerDown =
       (index: number) => (ev: React.PointerEvent<HTMLDivElement>) => {
-        if (whichForm !== 'SimpleLP') return;
+        if (whichForm !== 'LP') return;
         if (ev.button !== undefined && ev.button !== 0) return;
         const target = ev.currentTarget;
         const container = containerRef.current;
@@ -514,7 +514,7 @@ export const LpPreviewOverlay = observer(
         {/* Per-position 'shadow' bars: green for bids below mid, red for
             asks above mid. Width proportional to the rung's quote-
             equivalent quantity. Read like a paper-thin DepthOverlay for
-            the LP draft. On SimpleLP each bar carries a drag handle at
+            the LP draft. On LP each bar carries a drag handle at
             the right end so the user can pull it longer/shorter to
             over-ride the shape formula (flips liquidityShape to CUSTOM
             on first drag). */}
@@ -524,7 +524,7 @@ export const LpPreviewOverlay = observer(
           const widthFrac = isDraggingThis
             ? Math.max(MIN_BAR_FRAC, rungDrag.frac)
             : naturalFrac;
-          const draggable = whichForm === 'SimpleLP';
+          const draggable = whichForm === 'LP';
           return (
             <div key={i}>
               <div
@@ -576,7 +576,7 @@ export const LpPreviewOverlay = observer(
         {/* When the user has hand-edited any bar, expose a small 'reset'
             chip that clears customWeights and drops back to the shape
             formula. Sits at the top-right of the range band. */}
-        {whichForm === 'SimpleLP' && customWeights && (
+        {whichForm === 'LP' && customWeights && (
           <button
             type='button'
             className='pointer-events-auto absolute rounded-sm bg-base-black/70 px-1.5 py-0.5 text-[10px] text-text-secondary hover:text-text-primary'
@@ -586,7 +586,7 @@ export const LpPreviewOverlay = observer(
               lineHeight: '14px',
             }}
             onPointerDown={ev => ev.stopPropagation()}
-            onClick={() => simpleLPForm.clearCustomWeights()}
+            onClick={() => lpForm.clearCustomWeights()}
           >
             Reset shape
           </button>

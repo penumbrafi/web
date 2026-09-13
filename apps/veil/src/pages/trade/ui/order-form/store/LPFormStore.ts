@@ -44,21 +44,21 @@ const DEFAULT_FEE_TIER_PERCENT = 0.1;
  * These four are the conventional tiers: stable pairs at the bottom, volatile
  * and exotic pairs higher up, to compensate for inventory risk.
  */
-export enum SimpleFeeTierOptions {
+export enum LPFeeTierOptions {
   Stable = '0.05%',
   Standard = '0.1%',
   Volatile = '0.3%',
   Exotic = '1%',
 }
 
-export const SIMPLE_FEE_TIER_PERCENTS: Record<SimpleFeeTierOptions, string> = {
-  [SimpleFeeTierOptions.Stable]: '0.05',
-  [SimpleFeeTierOptions.Standard]: '0.1',
-  [SimpleFeeTierOptions.Volatile]: '0.3',
-  [SimpleFeeTierOptions.Exotic]: '1',
+export const LP_FEE_TIER_PERCENTS: Record<LPFeeTierOptions, string> = {
+  [LPFeeTierOptions.Stable]: '0.05',
+  [LPFeeTierOptions.Standard]: '0.1',
+  [LPFeeTierOptions.Volatile]: '0.3',
+  [LPFeeTierOptions.Exotic]: '1',
 };
 
-export class SimpleLPFormStore {
+export class LPFormStore {
   private _baseAsset?: AssetInfo;
   private _quoteAsset?: AssetInfo;
   private lastTouchedInput: 'base' | 'quote' | null = null;
@@ -70,7 +70,7 @@ export class SimpleLPFormStore {
   feeTierPercentInput = String(DEFAULT_FEE_TIER_PERCENT);
   marketPrice: number | null = null;
   positions = DEFAULT_POSITION_COUNT;
-  liquidityShape: LiquidityDistributionShape = LiquidityDistributionShape.PYRAMID;
+  liquidityShape: LiquidityDistributionShape = LiquidityDistributionShape.FLAT;
   // Populated when the user drags a bar in the LP preview to override the
   // shape's computed per-rung amount. Length is aligned to `positions`.
   // Cleared when the user picks any non-CUSTOM shape.
@@ -219,17 +219,17 @@ export class SimpleLPFormStore {
     return Math.max(0, Math.min(parseNumber(this.feeTierPercentInput) ?? 0, 50));
   }
 
-  feeTierOption: SimpleFeeTierOptions | undefined = SimpleFeeTierOptions.Standard;
+  feeTierOption: LPFeeTierOptions | undefined = LPFeeTierOptions.Standard;
 
   setFeeTierPercentInput = (x: string) => {
     this.feeTierPercentInput = x;
-    this.feeTierOption = Object.values(SimpleFeeTierOptions).find(
-      option => SIMPLE_FEE_TIER_PERCENTS[option] === x,
+    this.feeTierOption = Object.values(LPFeeTierOptions).find(
+      option => LP_FEE_TIER_PERCENTS[option] === x,
     );
   };
 
-  setFeeTierOption = (option: SimpleFeeTierOptions) => {
-    this.setFeeTierPercentInput(SIMPLE_FEE_TIER_PERCENTS[option]);
+  setFeeTierOption = (option: LPFeeTierOptions) => {
+    this.setFeeTierPercentInput(LP_FEE_TIER_PERCENTS[option]);
   };
 
   /** The base amount actually being provisioned, treating a blank field as zero. */
@@ -341,7 +341,7 @@ export class SimpleLPFormStore {
   }
 
   setPositions = (n: number) => {
-    const clamped = Math.max(1, Math.min(50, Math.floor(n)));
+    const clamped = Math.max(1, Math.min(20, Math.floor(n)));
     if (this.customWeights && this.customWeights.length !== clamped) {
       // Drop hand-edited weights whose length no longer matches the new
       // rung count — safer to fall back to the shape formula than to

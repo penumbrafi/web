@@ -4,7 +4,7 @@ import { Tabs } from '@penumbra-zone/ui/Tabs';
 import { Density } from '@penumbra-zone/ui/Density';
 import { MarketOrderForm } from './order-form/order-form-market';
 import { LimitOrderForm } from './order-form/order-form-limit';
-import { SimpleLiquidityOrderForm } from './order-form/order-form-simple-liquidity';
+import { LPOrderForm } from './order-form/order-form-liquidity';
 import { isWhichForm, useOrderFormStore } from './order-form/store/OrderFormStore';
 import { observer } from 'mobx-react-lite';
 import cn from 'clsx';
@@ -26,14 +26,15 @@ export const FormTabs = observer(() => {
   // Hydrate the user's last selected form on mount. The store defaults to
   // 'Market' on SSR and on the first client render so React hydration
   // stays stable; this effect then swaps in whatever the user had open
-  // last (Market / Limit / SimpleLP). Same pattern as chart timeframe
-  // and chart prefs.
+  // last (Market / Limit / LP). Same pattern as chart timeframe and
+  // chart prefs.
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem('veil_which_form');
-      // 'RangeLP' is retired — its knobs are now on SimpleLP. Anyone
-      // whose last-selected tab was Advanced lands on Basic instead.
-      const normalized = raw === 'RangeLP' ? 'SimpleLP' : raw;
+      // 'RangeLP' is retired and 'SimpleLP' has been renamed to 'LP' —
+      // migrate anyone whose last-selected tab was either of those to
+      // the current name.
+      const normalized = raw === 'RangeLP' || raw === 'SimpleLP' ? 'LP' : raw;
       if (normalized && isWhichForm(normalized) && normalized !== store.whichForm) {
         store.setWhichForm(normalized);
       }
@@ -44,17 +45,17 @@ export const FormTabs = observer(() => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // The top-level Tabs reads 'Liquidity' as the parent option for
-  // SimpleLP. RangeLP is retired but still reachable via the store's
-  // last-used state; the effect above rewrites it to SimpleLP on mount.
-  const isLiquidity = store.whichForm === 'SimpleLP' || store.whichForm === 'RangeLP';
+  // The top-level Tabs reads 'Liquidity' as the parent option for the LP
+  // form. RangeLP is retired but still reachable via the store's
+  // last-used state; the effect above rewrites it to LP on mount.
+  const isLiquidity = store.whichForm === 'LP' || store.whichForm === 'RangeLP';
   const topValue = isLiquidity ? 'Liquidity' : store.whichForm;
 
   const onTopTabChange = useCallback(
     (value: string) => {
       if (value === 'Liquidity') {
         if (!isLiquidity) {
-          store.setWhichForm('SimpleLP');
+          store.setWhichForm('LP');
         }
         return;
       }
@@ -89,8 +90,8 @@ export const FormTabs = observer(() => {
       <div className='min-h-0 flex-1 overflow-y-auto'>
         {store.whichForm === 'Market' && <MarketOrderForm parentStore={store} />}
         {store.whichForm === 'Limit' && <LimitOrderForm parentStore={store} />}
-        {(store.whichForm === 'SimpleLP' || store.whichForm === 'RangeLP') && (
-          <SimpleLiquidityOrderForm parentStore={store} />
+        {(store.whichForm === 'LP' || store.whichForm === 'RangeLP') && (
+          <LPOrderForm parentStore={store} />
         )}
       </div>
     </div>

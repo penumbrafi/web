@@ -18,11 +18,15 @@ const TradeRowImpl = ({
   isSell,
   relativeSize,
   onClick,
+  fillFraction,
 }: {
   trace: Trace;
   isSell: boolean;
   relativeSize: number;
   onClick?: (price: string) => void;
+  // 0..1 fraction of this level's inventory the current draft order would
+  // consume. Undefined means the row isn't touched by the draft.
+  fillFraction?: number;
 }) => {
   const bgColor = isSell ? SELL_BG_COLOR : 'rgba(28, 121, 63, 0.32)';
   const tokens = trace.hops.map(valueView => getSymbolFromValueView(valueView));
@@ -58,8 +62,20 @@ const TradeRowImpl = ({
         'group hover:after:block [&:hover>span:not(:last-child)]:invisible',
         'text-xs tabular-nums', // makes all numbers monospaced
         interactive && 'cursor-pointer',
+        fillFraction !== undefined && fillFraction > 0 && 'border-l-2 border-l-primary-main',
       )}
     >
+      {fillFraction !== undefined && fillFraction > 0 && (
+        // Simulation overlay — a translucent stripe from the left showing
+        // what fraction of this level's inventory the current draft order
+        // would eat. Sits above the depth gradient so the trader sees the
+        // order impact at a glance without the depth colour drowning it.
+        <div
+          aria-hidden
+          className='pointer-events-none absolute inset-y-0 left-0 bg-primary-main/25'
+          style={{ width: `${Math.min(100, Math.max(0, fillFraction * 100))}%` }}
+        />
+      )}
       <Text detailTechnical color={isSell ? 'destructive.light' : 'success.light'}>
         {pnum(trace.price).toFormattedString({
           commas: false,
@@ -118,7 +134,8 @@ export const TradeRow = memo(TradeRowImpl, (prev, next) => {
   if (
     prev.isSell !== next.isSell ||
     prev.relativeSize !== next.relativeSize ||
-    prev.onClick !== next.onClick
+    prev.onClick !== next.onClick ||
+    prev.fillFraction !== next.fillFraction
   ) {
     return false;
   }
