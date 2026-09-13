@@ -130,6 +130,7 @@ export const EditPositionModal = ({ id, position, isOpen, onClose }: EditPositio
       );
       await editPosition({
         oldPositionId: id,
+        oldPosition: position,
         newPosition,
         shape: LiquidityDistributionShape.FLAT,
       });

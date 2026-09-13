@@ -148,8 +148,18 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
       setDragY({ key: state.key, y });
     };
 
+    // Pending-confirmation state: on drop, we don't fire the tx immediately.
+    // Instead we render a small confirmation card next to the drop location
+    // showing old→new price and the sequence of actions (close, withdraw,
+    // open) so the user knows what they're signing.
+    const [pending, setPending] = useState<{
+      rung: Rung;
+      newPrice: number;
+      y: number;
+    } | null>(null);
+
     const onPointerUp =
-      (rung: Rung) => async (ev: React.PointerEvent<HTMLDivElement>) => {
+      (rung: Rung) => (ev: React.PointerEvent<HTMLDivElement>) => {
         const state = dragRef.current;
         try {
           ev.currentTarget.releasePointerCapture(ev.pointerId);
@@ -158,51 +168,59 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
         }
         if (!state || state.pointerId !== ev.pointerId) return;
         const newPrice = priceAtY(state.y);
+        const y = state.y;
         dragRef.current = null;
         setDragY(null);
-        if (
-          newPrice === undefined ||
-          !Number.isFinite(newPrice) ||
-          newPrice <= 0 ||
-          !baseAsset ||
-          !quoteAsset
-        ) {
+        if (newPrice === undefined || !Number.isFinite(newPrice) || newPrice <= 0) {
           return;
         }
-        // Skip if the drop is essentially at the same price (sub-bp
-        // resolution) so an accidental click doesn't rewrite the LP.
+        // Skip if the drop is essentially at the same price (sub-bp) so an
+        // accidental click doesn't open a confirmation.
         if (Math.abs(newPrice - rung.price) / rung.price < 0.001) {
           return;
         }
-        // Rebuild the Position at the new price, preserving the
-        // existing reserves + fee. shape is unknown here (the wallet
-        // doesn't roundtrip strategy metadata) so we tag it as
-        // CUSTOM/ARBITRARY, which is safe on the chain side.
-        const existingFee = rung.position.phi?.component?.fee ?? 0;
-        const r1 = pnum(rung.position.reserves?.r1, rung.baseExponent).toNumber();
-        const r2 = pnum(rung.position.reserves?.r2, rung.quoteExponent).toNumber();
-        const baseExp =
-          baseAsset.denomUnits.find(u => u.denom === baseAsset.display)?.exponent ?? 0;
-        const quoteExp =
-          quoteAsset.denomUnits.find(u => u.denom === quoteAsset.display)?.exponent ?? 0;
-        if (!baseAsset.penumbraAssetId || !quoteAsset.penumbraAssetId) return;
-        const built = planToPosition(
-          {
-            baseAsset: { id: baseAsset.penumbraAssetId, exponent: baseExp },
-            quoteAsset: { id: quoteAsset.penumbraAssetId, exponent: quoteExp },
-            feeBps: existingFee,
-            price: newPrice,
-            baseReserves: r1,
-            quoteReserves: r2,
-          },
-          LiquidityDistributionShape.CUSTOM,
-        );
-        await editPosition({
-          oldPositionId: rung.positionId,
-          newPosition: built.position,
-          shape: LiquidityDistributionShape.CUSTOM,
-        });
+        setPending({ rung, newPrice, y });
       };
+
+    const confirmReprice = async () => {
+      if (!pending || !baseAsset || !quoteAsset) {
+        setPending(null);
+        return;
+      }
+      const { rung, newPrice } = pending;
+      setPending(null);
+      const existingFee = rung.position.phi?.component?.fee ?? 0;
+      const r1 = pnum(rung.position.reserves?.r1, rung.baseExponent).toNumber();
+      const r2 = pnum(rung.position.reserves?.r2, rung.quoteExponent).toNumber();
+      const baseExp =
+        baseAsset.denomUnits.find(u => u.denom === baseAsset.display)?.exponent ?? 0;
+      const quoteExp =
+        quoteAsset.denomUnits.find(u => u.denom === quoteAsset.display)?.exponent ?? 0;
+      if (!baseAsset.penumbraAssetId || !quoteAsset.penumbraAssetId) return;
+      const built = planToPosition(
+        {
+          baseAsset: { id: baseAsset.penumbraAssetId, exponent: baseExp },
+          quoteAsset: { id: quoteAsset.penumbraAssetId, exponent: quoteExp },
+          feeBps: existingFee,
+          price: newPrice,
+          baseReserves: r1,
+          quoteReserves: r2,
+        },
+        LiquidityDistributionShape.CUSTOM,
+      );
+      await editPosition({
+        oldPositionId: rung.positionId,
+        oldPosition: rung.position,
+        newPosition: built.position,
+        shape: LiquidityDistributionShape.CUSTOM,
+      });
+    };
+
+    // Live-drag price under the pointer for the drop tooltip + horizontal
+    // guide line. Computed here so both the label and the line share the
+    // same value.
+    const dragLivePrice =
+      dragY && rungs.some(r => r.key === dragY.key) ? priceAtY(dragY.y) : undefined;
 
     return (
       <div
@@ -210,6 +228,33 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
         aria-label='Reposition your LP orders'
         className='pointer-events-none absolute inset-0 z-[6]'
       >
+        {/* Horizontal guide line + price label under the pointer during drag.
+            Lets the trader see the exact price they're moving the order to
+            before they release. */}
+        {dragY && dragLivePrice !== undefined && (
+          <>
+            <div
+              className='absolute left-0'
+              style={{
+                right: 56,
+                top: dragY.y - 0.5,
+                height: 1,
+                borderTop: '1px dashed rgba(255,255,255,0.6)',
+              }}
+            />
+            <div
+              className='absolute rounded-sm bg-base-black/85 px-1.5 py-0.5 text-[11px] tabular-nums text-text-primary'
+              style={{
+                right: 60,
+                top: dragY.y - 10,
+                lineHeight: '14px',
+                boxShadow: '0 0 0 1px rgba(255,255,255,0.15)',
+              }}
+            >
+              {dragLivePrice.toPrecision(6)}
+            </div>
+          </>
+        )}
         {rungs.map(r => {
           const yLive =
             dragY?.key === r.key ? dragY.y : (yByKeyRef.current.get(r.key) ?? -9999);
@@ -239,6 +284,49 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
             />
           );
         })}
+        {/* Confirmation card — appears at the drop position with old→new
+            price and the tx action list so the user knows what will be
+            signed. Cancel dismisses without touching the chain. */}
+        {pending && (
+          <div
+            className='pointer-events-auto absolute rounded-md border border-other-tonal-stroke bg-base-black/95 p-3 text-xs shadow-lg'
+            style={{
+              right: 72,
+              top: Math.max(4, pending.y - 40),
+              minWidth: 220,
+              lineHeight: '16px',
+            }}
+          >
+            <div className='mb-1 text-text-secondary'>Reprice {pending.rung.direction || 'order'}</div>
+            <div className='mb-2 tabular-nums text-text-primary'>
+              {pending.rung.price.toPrecision(6)}{' '}
+              <span className='text-text-secondary'>→</span>{' '}
+              {pending.newPrice.toPrecision(6)}
+            </div>
+            <div className='mb-2 text-[11px] text-text-secondary'>
+              One tx: close the existing position, withdraw its reserves,
+              open a new one at the new price. Same reserves, same fee tier.
+            </div>
+            <div className='flex justify-end gap-2'>
+              <button
+                type='button'
+                onClick={() => setPending(null)}
+                className='rounded px-2 py-1 text-text-secondary hover:bg-action-hover-overlay hover:text-text-primary'
+              >
+                Cancel
+              </button>
+              <button
+                type='button'
+                onClick={() => {
+                  void confirmReprice();
+                }}
+                className='rounded bg-primary-main px-2 py-1 text-base-black hover:bg-primary-light'
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   },
