@@ -53,6 +53,17 @@ interface PreviewState {
 
 type DragEdge = 'upper' | 'lower';
 
+// Bar-end drag handle width (px) — small square nub at the right edge of
+// each rendered rung that lets the user pull the bar longer/shorter.
+const BAR_HANDLE_WIDTH = 8;
+// Minimum bar width fraction after a shrink drag — a weight of 0 is fine
+// but drawing a completely invisible bar makes it impossible to grab
+// again.
+const MIN_BAR_FRAC = 0.02;
+// Same throttle as the edge drag: keep mobx recomputes off the 60Hz
+// pointermove path.
+const RUNG_COMMIT_THROTTLE_MS = 30;
+
 /**
  * Live shadow-order overlay for the LP form. Mirrors what
  * rangeLiquidityPositions / simpleLiquidityPositions on the chain side will
@@ -89,6 +100,7 @@ export const LpPreviewOverlay = observer(
     let shape: LiquidityDistributionShape = LiquidityDistributionShape.FLAT;
     let baseLiq = 0;
     let quoteLiq = 0;
+    let customWeights: number[] | null = null;
     if (isLp) {
       if (whichForm === 'SimpleLP') {
         lower = simpleLPForm.lowerPriceInput ?? undefined;
@@ -97,6 +109,7 @@ export const LpPreviewOverlay = observer(
         shape = simpleLPForm.liquidityShape;
         baseLiq = parseFloat(simpleLPForm.baseInput) || 0;
         quoteLiq = parseFloat(simpleLPForm.quoteInput) || 0;
+        customWeights = simpleLPForm.customWeights;
       } else {
         lower = rangeForm.lowerPrice;
         upper = rangeForm.upperPrice;
@@ -151,9 +164,12 @@ export const LpPreviewOverlay = observer(
       // Mirror simpleLiquidityPositions on the chain side: positions
       // below mid carry quote (bids), positions above carry base (asks),
       // and the per-position weight comes from getPositionWeights against
-      // the chosen distribution shape. Walk the same lo + i*step that the
-      // plan getter walks so the rungs land on the chain's exact prices.
-      const weights = getPositionWeights(n, shape);
+      // the chosen distribution shape — unless the user has hand-edited
+      // weights via drag, in which case those win (CUSTOM mode).
+      const weights =
+        customWeights && customWeights.length === n
+          ? customWeights
+          : getPositionWeights(n, shape);
       const totalWeight = weights.reduce((s, w) => s + w, 0) || 1;
 
       const recompute = () => {
@@ -196,7 +212,19 @@ export const LpPreviewOverlay = observer(
         });
       };
       return subscribeRedraw(recompute);
-    }, [valid, lower, upper, count, shape, baseLiq, quoteLiq, mid, yAtPrice, subscribeRedraw]);
+    }, [
+      valid,
+      lower,
+      upper,
+      count,
+      shape,
+      baseLiq,
+      quoteLiq,
+      customWeights,
+      mid,
+      yAtPrice,
+      subscribeRedraw,
+    ]);
 
     if (!pos) return null;
 
@@ -302,6 +330,91 @@ export const LpPreviewOverlay = observer(
       setDrag(null);
     };
 
+    // ---- Per-rung drag (P3) -------------------------------------------
+    // Only meaningful on SimpleLP; RangeLP doesn't (yet) expose a
+    // per-rung setter and its liquidityTarget is a single number, not a
+    // vector. Storing the drag state in a ref so pointermove callbacks
+    // don't churn re-renders on top of the throttled commit.
+    const rungDragRef = useRef<{
+      index: number;
+      pointerId: number;
+      lastCommit: number;
+      lastFrac: number | undefined;
+    } | null>(null);
+    // Visual live-drag state so the bar tracks the pointer 1:1 during
+    // the commit throttle window; only the live-dragged rung is affected.
+    const [rungDrag, setRungDrag] = useState<{ index: number; frac: number } | null>(
+      null,
+    );
+
+    const commitRungWeight = (index: number, frac: number) => {
+      if (whichForm !== 'SimpleLP') return;
+      const clamped = Math.max(0, Math.min(1.5, frac));
+      simpleLPForm.setCustomWeight(index, clamped);
+    };
+
+    const onRungPointerDown =
+      (index: number) => (ev: React.PointerEvent<HTMLDivElement>) => {
+        if (whichForm !== 'SimpleLP') return;
+        if (ev.button !== undefined && ev.button !== 0) return;
+        const target = ev.currentTarget;
+        const container = containerRef.current;
+        if (!container) return;
+        const rect = container.getBoundingClientRect();
+        const availWidth = Math.max(1, rect.width - 56);
+        const x = Math.max(0, Math.min(availWidth, ev.clientX - rect.left));
+        const frac = Math.max(MIN_BAR_FRAC, x / availWidth);
+        try {
+          target.setPointerCapture(ev.pointerId);
+        } catch {
+          // best-effort; see edge drag above.
+        }
+        rungDragRef.current = {
+          index,
+          pointerId: ev.pointerId,
+          lastCommit: 0,
+          lastFrac: frac,
+        };
+        setRungDrag({ index, frac });
+        commitRungWeight(index, frac);
+        ev.preventDefault();
+        ev.stopPropagation();
+      };
+
+    const onRungPointerMove = (ev: React.PointerEvent<HTMLDivElement>) => {
+      const state = rungDragRef.current;
+      if (!state || state.pointerId !== ev.pointerId) return;
+      const container = containerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const availWidth = Math.max(1, rect.width - 56);
+      const x = Math.max(0, Math.min(availWidth, ev.clientX - rect.left));
+      const frac = Math.max(MIN_BAR_FRAC, x / availWidth);
+      state.lastFrac = frac;
+      setRungDrag({ index: state.index, frac });
+      const now = performance.now();
+      if (now - state.lastCommit >= RUNG_COMMIT_THROTTLE_MS) {
+        state.lastCommit = now;
+        commitRungWeight(state.index, frac);
+      }
+    };
+
+    const onRungPointerUp = (ev: React.PointerEvent<HTMLDivElement>) => {
+      const state = rungDragRef.current;
+      if (!state || state.pointerId !== ev.pointerId) return;
+      try {
+        ev.currentTarget.releasePointerCapture(ev.pointerId);
+      } catch {
+        // best-effort
+      }
+      if (state.lastFrac !== undefined) {
+        commitRungWeight(state.index, state.lastFrac);
+      }
+      rungDragRef.current = null;
+      setRungDrag(null);
+    };
+    // -------------------------------------------------------------------
+
     // Effective edge y — during a drag on this edge we paint from the
     // pointer's live y, not the store-derived one, so the visible strip
     // tracks the cursor 1:1 even when commits are throttled.
@@ -366,24 +479,83 @@ export const LpPreviewOverlay = observer(
         {/* Per-position 'shadow' bars: green for bids below mid, red for
             asks above mid. Width proportional to the rung's quote-
             equivalent quantity. Read like a paper-thin DepthOverlay for
-            the LP draft. */}
+            the LP draft. On SimpleLP each bar carries a drag handle at
+            the right end so the user can pull it longer/shorter to
+            over-ride the shape formula (flips liquidityShape to CUSTOM
+            on first drag). */}
         {pos.rungs.map((r, i) => {
-          const widthFrac = r.qty > 0 ? Math.max(0.05, r.qty / maxQty) : 0;
+          const isDraggingThis = rungDrag?.index === i;
+          const naturalFrac = r.qty > 0 ? Math.max(MIN_BAR_FRAC, r.qty / maxQty) : 0;
+          const widthFrac = isDraggingThis
+            ? Math.max(MIN_BAR_FRAC, rungDrag.frac)
+            : naturalFrac;
+          const draggable = whichForm === 'SimpleLP';
           return (
-            <div
-              key={i}
-              className='absolute'
-              style={{
-                left: 0,
-                top: r.y - 1,
-                width: `calc((100% - 56px) * ${widthFrac})`,
-                height: 2,
-                background: r.side === 'buy' ? BUY_COLOR : SELL_COLOR,
-                opacity: 0.7,
-              }}
-            />
+            <div key={i}>
+              <div
+                className='absolute'
+                style={{
+                  left: 0,
+                  top: r.y - 1,
+                  width: `calc((100% - 56px) * ${widthFrac})`,
+                  height: 2,
+                  background: r.side === 'buy' ? BUY_COLOR : SELL_COLOR,
+                  opacity: 0.7,
+                }}
+              />
+              {draggable && (
+                <div
+                  role='slider'
+                  aria-label={`Rung ${i + 1} allocation`}
+                  className='pointer-events-auto absolute'
+                  style={{
+                    left: `calc((100% - 56px) * ${widthFrac} - ${BAR_HANDLE_WIDTH / 2}px)`,
+                    top: r.y - HANDLE_HIT_HEIGHT / 2,
+                    width: BAR_HANDLE_WIDTH + 4,
+                    height: HANDLE_HIT_HEIGHT,
+                    cursor: 'ew-resize',
+                    touchAction: 'none',
+                  }}
+                  onPointerDown={onRungPointerDown(i)}
+                  onPointerMove={onRungPointerMove}
+                  onPointerUp={onRungPointerUp}
+                  onPointerCancel={onRungPointerUp}
+                >
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: (HANDLE_HIT_HEIGHT - BAR_HANDLE_WIDTH) / 2,
+                      top: (HANDLE_HIT_HEIGHT - 6) / 2,
+                      width: BAR_HANDLE_WIDTH,
+                      height: 6,
+                      background: r.side === 'buy' ? BUY_COLOR : SELL_COLOR,
+                      opacity: 0.9,
+                      borderRadius: 1,
+                    }}
+                  />
+                </div>
+              )}
+            </div>
           );
         })}
+        {/* When the user has hand-edited any bar, expose a small 'reset'
+            chip that clears customWeights and drops back to the shape
+            formula. Sits at the top-right of the range band. */}
+        {whichForm === 'SimpleLP' && customWeights && (
+          <button
+            type='button'
+            className='pointer-events-auto absolute rounded-sm bg-base-black/70 px-1.5 py-0.5 text-[10px] text-text-secondary hover:text-text-primary'
+            style={{
+              right: 60,
+              top: Math.max(0, upperY - 22),
+              lineHeight: '14px',
+            }}
+            onPointerDown={ev => ev.stopPropagation()}
+            onClick={() => simpleLPForm.clearCustomWeights()}
+          >
+            Reset shape
+          </button>
+        )}
         {/* Drag handles — invisible hit-strips centered on each dashed
             edge. Wider than the visible line so they're comfortable to
             grab, and pointer-events-auto so the chart's own pan/zoom
