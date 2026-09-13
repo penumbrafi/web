@@ -17,26 +17,53 @@ const fetchLatestBlockHeight = async (transport: Transport) => {
   return Number(syncInfo.latestBlockHeight);
 };
 
+// Reconnect delays for the compact-block stream on non-abort errors —
+// exponential-ish with a ceiling so long outages don't hammer the veil
+// endpoint and short blips (deadline_exceeded, transient TLS resets)
+// recover fast enough that a trader mid-order barely notices.
+const RECONNECT_DELAYS_MS = [1_000, 2_000, 5_000, 10_000, 30_000] as const;
+
 const startBlockHeightStream = async (transport: Transport, signal: AbortSignal) => {
-  try {
-    const latestBlockHeight = await fetchLatestBlockHeight(transport);
-    const blockClient = createClient(CompactBlockService, transport);
-    for await (const response of blockClient.compactBlockRange(
-      {
-        startHeight: BigInt(latestBlockHeight) + 1n,
-        keepAlive: true,
-      },
-      { signal },
-    )) {
-      if (response.compactBlock?.height) {
-        const newHeight = Number(response.compactBlock.height);
-        queryClient.setQueryData(LATEST_HEIGHT_QUERY_KEY, newHeight);
+  let attempt = 0;
+  while (!signal.aborted) {
+    try {
+      const latestBlockHeight = await fetchLatestBlockHeight(transport);
+      const blockClient = createClient(CompactBlockService, transport);
+      for await (const response of blockClient.compactBlockRange(
+        {
+          startHeight: BigInt(latestBlockHeight) + 1n,
+          keepAlive: true,
+        },
+        { signal },
+      )) {
+        if (response.compactBlock?.height) {
+          const newHeight = Number(response.compactBlock.height);
+          queryClient.setQueryData(LATEST_HEIGHT_QUERY_KEY, newHeight);
+          // Reset backoff after we successfully receive a block —
+          // otherwise a stream that survived one hiccup would still
+          // wait 30s to retry the next.
+          attempt = 0;
+        }
       }
+    } catch (error) {
+      if (errorIsStreamAbort(error)) return;
+      const delay = RECONNECT_DELAYS_MS[Math.min(attempt, RECONNECT_DELAYS_MS.length - 1)] ?? 30_000;
+      console.warn(
+        `[compact-block] stream ended (${String(error)}); reconnecting in ${delay}ms`,
+      );
+      attempt++;
+      await new Promise<void>(resolve => {
+        const t = setTimeout(resolve, delay);
+        signal.addEventListener('abort', () => {
+          clearTimeout(t);
+          resolve();
+        });
+      });
+      continue;
     }
-  } catch (error) {
-    if (!errorIsStreamAbort(error)) {
-      console.error('Unexpected compact block streaming error:', error);
-    }
+    // The for-await exited without an error (server closed the stream
+    // cleanly, e.g. LB rebind). Loop back and reconnect immediately.
+    if (signal.aborted) return;
   }
 };
 

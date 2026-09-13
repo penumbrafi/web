@@ -10,8 +10,15 @@ export const useBook = (overrideBase?: string, overrideQuote?: string) => {
   const baseSymbol = overrideBase ?? pathSymbols.baseSymbol;
   const quoteSymbol = overrideQuote ?? pathSymbols.quoteSymbol;
 
+  // Guard on both symbols being resolved. Without this, the query
+  // fires on mount before the router has populated params and issues
+  // /api/book?baseAsset=undefined&quoteAsset=undefined — the server
+  // route bails with a 400/500 and floods the console.
+  const bothSymbolsPresent = Boolean(baseSymbol) && Boolean(quoteSymbol);
+
   const query = useQuery({
     queryKey: ['book', baseSymbol, quoteSymbol],
+    enabled: bothSymbolsPresent,
     queryFn: async (): Promise<RouteBookResponse> => {
       const paramsObj = {
         baseAsset: baseSymbol,

@@ -39,12 +39,12 @@ export const PortfolioPositionTabs = () => {
       )}
 
       {tab === PortfolioTab.ClosedPositions && (
-        <PositionsTable
-          stateFilter={[
-            PositionState_PositionStateEnum.CLOSED,
-            PositionState_PositionStateEnum.WITHDRAWN,
-          ]}
-        />
+        // WITHDRAWN positions have zero reserves and are already claimed;
+        // they belong on the History tab (they show up there as a
+        // 'Withdraw' tx), not sitting forever in Closed. Keeping only
+        // CLOSED here lets the tab track what the user still needs to
+        // withdraw.
+        <PositionsTable stateFilter={[PositionState_PositionStateEnum.CLOSED]} />
       )}
 
       {tab === PortfolioTab.History && <PortfolioTransactions />}
