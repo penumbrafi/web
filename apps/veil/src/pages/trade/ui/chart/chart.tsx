@@ -275,6 +275,7 @@ export const Chart = observer(() => {
     setOwnFillMarkers,
     chartReady,
     resetView,
+    centerPriceScaleOn,
     timeAtX,
     subscribeRedraw,
     subscribeHover,
@@ -308,6 +309,20 @@ export const Chart = observer(() => {
     markTriggered: markAlertTriggered,
   } = usePriceAlerts(pairKey);
   useAlertWatcher({ marketPrice, alerts: pairAlerts, onFire: markAlertTriggered });
+
+  // Auto-center the price scale on the live chain mid — once per pair. We
+  // only fire on the first finite marketPrice we see for a given pair so
+  // the view doesn't lurch around every block as the mid ticks; the user's
+  // subsequent pan/zoom is preserved (dragging the price axis flips
+  // autoScale off, at which point the provider stops applying).
+  const centeredForPairRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!chartReady) return;
+    if (marketPrice == null || !Number.isFinite(marketPrice) || marketPrice <= 0) return;
+    if (centeredForPairRef.current === pairKey) return;
+    centeredForPairRef.current = pairKey;
+    centerPriceScaleOn(marketPrice);
+  }, [chartReady, pairKey, marketPrice, centerPriceScaleOn]);
   const {
     drawings,
     add: addDrawing,

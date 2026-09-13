@@ -405,6 +405,38 @@ export const useChartConfig = (
   }, []);
 
   /**
+   * Anchor the vertical (price) axis so the given `mid` sits at the visible
+   * center of the pane. v4.2 IPriceScaleApi doesn't expose setVisibleRange /
+   * setPriceRange, so we do this via the series' autoscaleInfoProvider — it
+   * returns a fixed { minValue, maxValue } while autoScale is on, and the
+   * chart stops consulting it the moment the user drags the price axis
+   * (that toggles autoScale off), so user pan/zoom is preserved.
+   *
+   * We deliberately do NOT refresh this on every block-tick — marketPrice
+   * moves each block and yanking the view around would be hostile. The
+   * caller in chart.tsx gates on a per-pair ref so this fires exactly once
+   * per pair.
+   */
+  const CENTER_MULTIPLIER = 1.15;
+  const centerPriceScaleOn = useCallback((mid: number) => {
+    const series = seriesRef.current;
+    if (!series) return;
+    if (!Number.isFinite(mid) || mid <= 0) return;
+    const minValue = mid / CENTER_MULTIPLIER;
+    const maxValue = mid * CENTER_MULTIPLIER;
+    try {
+      series.applyOptions({
+        autoscaleInfoProvider: () => ({
+          priceRange: { minValue, maxValue },
+        }),
+      });
+      series.priceScale().applyOptions({ autoScale: true });
+    } catch {
+      // chart torn down
+    }
+  }, []);
+
+  /**
    * Reset zoom/pan: fit all data on the time axis and re-enable
    * autoscale on the price axis. Mirrors what lightweight-charts'
    * own controls do — but exposed so the right-click menu can offer
@@ -557,6 +589,7 @@ export const useChartConfig = (
     setOwnFillMarkers,
     chartReady,
     resetView,
+    centerPriceScaleOn,
     subscribeRedraw,
     subscribeHover,
     subscribeChartClick,
