@@ -28,6 +28,19 @@ const COMMIT_THROTTLE_MS = 30;
 // prevents the two edges from crossing or landing on top of each other.
 const MIN_GAP = 1.0001;
 
+// Compact per-rung amount format for the overlay labels. Enough
+// precision to distinguish rung sizes at a glance without overflowing
+// the narrow strip on the right of the chart.
+const formatRungAmount = (v: number): string => {
+  if (!Number.isFinite(v) || v <= 0) return '0';
+  if (v >= 1000) return `${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}k`;
+  if (v >= 100) return v.toFixed(0);
+  if (v >= 10) return v.toFixed(1);
+  if (v >= 1) return v.toFixed(2);
+  if (v >= 0.01) return v.toFixed(3);
+  return v.toPrecision(2);
+};
+
 interface LpPreviewOverlayProps {
   yAtPrice: (price: number) => number | undefined;
   priceAtY: (y: number) => number | undefined;
@@ -39,6 +52,12 @@ interface Rung {
   side: 'buy' | 'sell';
   /** Per-rung quantity in normalized units, used for bar width. */
   qty: number;
+  /** Nominal price of this rung. */
+  price: number;
+  /** Amount of BASE this rung will offer (only meaningful on `sell`). */
+  baseAmount: number;
+  /** Amount of QUOTE this rung will offer (only meaningful on `buy`). */
+  quoteAmount: number;
 }
 
 interface PreviewState {
@@ -91,6 +110,13 @@ export const LpPreviewOverlay = observer(
   ({ yAtPrice, priceAtY, subscribeRedraw }: LpPreviewOverlayProps) => {
     const { whichForm, lpForm, rangeForm, marketPrice: anchorMid } = tradeFormStore;
     const isLp = whichForm === 'LP' || whichForm === 'RangeLP';
+    // Symbols read off the LP form's assets (whichever form is active).
+    // Used to label per-rung amounts so the trader sees "0.5 UM" instead
+    // of a bare number when they mouse over a bar.
+    const baseSym =
+      (whichForm === 'LP' ? lpForm.baseAsset?.symbol : rangeForm.baseAsset?.symbol) ?? '';
+    const quoteSym =
+      (whichForm === 'LP' ? lpForm.quoteAsset?.symbol : rangeForm.quoteAsset?.symbol) ?? '';
 
     // Read draft form state — observer() makes the overlay re-render on
     // every form mutation (slider drag, shape toggle, count change, etc).
@@ -228,15 +254,28 @@ export const LpPreviewOverlay = observer(
           if (y === undefined) continue;
           const w = weights[i] ?? 0;
           if (price < m) {
-            // bid: offers quote, qty in quote terms
-            const qty = (w / totalWeight) * quoteLiq;
-            rungs.push({ y, side: 'buy', qty });
+            // bid: offers quote
+            const q = (w / totalWeight) * quoteLiq;
+            rungs.push({
+              y,
+              side: 'buy',
+              qty: q,
+              price,
+              baseAmount: 0,
+              quoteAmount: q,
+            });
           } else {
-            // ask: offers base, qty in base terms — convert to quote-
-            // equivalent for visual scaling so bid/ask widths share a
-            // comparable axis.
-            const qty = (w / totalWeight) * baseLiq * price;
-            rungs.push({ y, side: 'sell', qty });
+            // ask: offers base. Scale qty as quote-equivalent so bid/ask
+            // bar widths share a comparable axis on the overlay.
+            const b = (w / totalWeight) * baseLiq;
+            rungs.push({
+              y,
+              side: 'sell',
+              qty: b * price,
+              price,
+              baseAmount: b,
+              quoteAmount: 0,
+            });
           }
         }
         const yLo = yAtPrice(lo);
@@ -521,10 +560,21 @@ export const LpPreviewOverlay = observer(
         {pos.rungs.map((r, i) => {
           const isDraggingThis = rungDrag?.index === i;
           const naturalFrac = r.qty > 0 ? Math.max(MIN_BAR_FRAC, r.qty / maxQty) : 0;
+          // While dragging this rung, the visible width follows the pointer
+          // (rungDrag.frac). Its per-rung amount is a linear scale of the
+          // natural fraction so the label tracks the drag in real time
+          // instead of snapping only on drop.
           const widthFrac = isDraggingThis
             ? Math.max(MIN_BAR_FRAC, rungDrag.frac)
             : naturalFrac;
+          const scale = isDraggingThis && naturalFrac > 0 ? widthFrac / naturalFrac : 1;
+          const liveBase = r.baseAmount * scale;
+          const liveQuote = r.quoteAmount * scale;
           const draggable = whichForm === 'LP';
+          const label =
+            r.side === 'buy'
+              ? `${formatRungAmount(liveQuote)} ${quoteSym}`
+              : `${formatRungAmount(liveBase)} ${baseSym}`;
           return (
             <div key={i}>
               <div
@@ -538,6 +588,25 @@ export const LpPreviewOverlay = observer(
                   opacity: 0.7,
                 }}
               />
+              {/* Per-rung amount readout. Sits at the far right of the
+                  row so it stays inside the chart even when the bar is
+                  short, and the eye can scan the column of amounts
+                  independently of the bar widths. */}
+              <div
+                className='absolute pointer-events-none tabular-nums'
+                style={{
+                  right: 60,
+                  top: r.y - 7,
+                  height: 14,
+                  lineHeight: '14px',
+                  fontSize: 10,
+                  color: r.side === 'buy' ? BUY_COLOR : SELL_COLOR,
+                  opacity: isDraggingThis ? 1 : 0.85,
+                  textShadow: '0 1px 2px rgba(0,0,0,0.85)',
+                }}
+              >
+                {label}
+              </div>
               {draggable && (
                 <div
                   role='slider'
