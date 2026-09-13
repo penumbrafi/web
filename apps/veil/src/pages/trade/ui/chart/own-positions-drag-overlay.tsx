@@ -9,6 +9,7 @@ import {
   PositionState_PositionStateEnum,
 } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
 import { connectionStore } from '@/shared/model/connection';
+import { setDragOverride, clearDragOverride } from './drag-overrides';
 import { usePositions } from '@/entities/position/api/use-positions';
 import { editPosition } from '@/entities/position/api/edit-position';
 import { getDisplayPositions } from '@/entities/position/model/get-display-positions';
@@ -160,6 +161,14 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
       const y = Math.max(0, Math.min(rect.height, ev.clientY - rect.top));
       state.y = y;
       setDragY({ key: state.key, y });
+      // Push the live price into the shared override map so
+      // useOwnPositionLines rebuilds the OG solid PriceLine at the new
+      // location — the ball and the line stay glued together instead of
+      // the line orphaned at the pre-drag price.
+      const p = priceAtY(y);
+      if (p !== undefined && Number.isFinite(p) && p > 0) {
+        setDragOverride(state.key, p);
+      }
     };
 
     const onPointerUp =
@@ -175,6 +184,11 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
         const y = state.y;
         dragRef.current = null;
         setDragY(null);
+        // Drop the live-line override on release. If the user confirms the
+        // pending reprice, the on-chain edit + position refetch will paint
+        // the OG line at the new price naturally; if they cancel, the OG
+        // line snaps back to its pre-drag price.
+        clearDragOverride(rung.key);
         if (newPrice === undefined || !Number.isFinite(newPrice) || newPrice <= 0) {
           return;
         }
@@ -232,32 +246,22 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
         aria-label='Reposition your LP orders'
         className='pointer-events-none absolute inset-0 z-[6]'
       >
-        {/* Horizontal guide line + price label under the pointer during drag.
-            Lets the trader see the exact price they're moving the order to
-            before they release. */}
+        {/* Price label under the pointer during drag. The horizontal
+            guide line is redundant with the OG PriceLine now that it
+            follows the ball via `ownPositionDragOverrides`, so only the
+            live numeric price is drawn on top of it. */}
         {dragY && dragLivePrice !== undefined && (
-          <>
-            <div
-              className='absolute left-0'
-              style={{
-                right: 56,
-                top: dragY.y - 0.5,
-                height: 1,
-                borderTop: '1px dashed rgba(255,255,255,0.6)',
-              }}
-            />
-            <div
-              className='absolute rounded-sm bg-base-black/85 px-1.5 py-0.5 text-[11px] tabular-nums text-text-primary'
-              style={{
-                right: 60,
-                top: dragY.y - 10,
-                lineHeight: '14px',
-                boxShadow: '0 0 0 1px rgba(255,255,255,0.15)',
-              }}
-            >
-              {dragLivePrice.toPrecision(6)}
-            </div>
-          </>
+          <div
+            className='absolute rounded-sm bg-base-black/85 px-1.5 py-0.5 text-[11px] tabular-nums text-text-primary'
+            style={{
+              right: 60,
+              top: dragY.y - 10,
+              lineHeight: '14px',
+              boxShadow: '0 0 0 1px rgba(255,255,255,0.15)',
+            }}
+          >
+            {dragLivePrice.toPrecision(6)}
+          </div>
         )}
         {rungs.map(r => {
           const yLive =

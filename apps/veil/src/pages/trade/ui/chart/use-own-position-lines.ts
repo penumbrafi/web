@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { autorun } from 'mobx';
 import { observer } from 'mobx-react-lite';
 import { pnum } from '@penumbra-zone/types/pnum';
 import { PositionState_PositionStateEnum } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
@@ -8,6 +9,7 @@ import { getDisplayPositions } from '@/entities/position/model/get-display-posit
 import { useGetMetadata } from '@/shared/api/assets';
 import { usePathToMetadata } from '../../model/use-path';
 import type { OwnPositionLine } from './use-chart-config';
+import { ownPositionDragOverrides } from './drag-overrides';
 
 /**
  * Reads user's OPEN positions for the current trading pair and pushes
@@ -28,34 +30,47 @@ export const useOwnPositionLines = (
   ]);
 
   useEffect(() => {
-    if (!connected || !baseAsset || !quoteAsset || !positionsPages?.pages.length) {
-      setLines([]);
-      return;
-    }
-    const display = getDisplayPositions({
-      positions: positionsPages.pages,
-      getMetadata,
-      asset1Filter: baseAsset,
-      asset2Filter: quoteAsset,
-    });
-
-    const lines: OwnPositionLine[] = [];
-    for (const dp of display) {
-      if (!dp.isOpened) continue;
-      for (let i = 0; i < dp.orders.length; i++) {
-        const o = dp.orders[i]!;
-        const price = pnum(o.effectivePrice).toNumber();
-        if (!Number.isFinite(price) || price <= 0) continue;
-        const direction = o.direction.toLowerCase();
-        lines.push({
-          id: `${dp.idString}-${i}`,
-          price,
-          direction: direction === 'buy' ? 'buy' : direction === 'sell' ? 'sell' : '',
-          label: direction ? direction.toUpperCase() : 'LP',
-        });
+    // Wrap the line rebuild in a mobx `autorun` so it re-fires whenever
+    // `ownPositionDragOverrides` changes (drag start / move / drop).
+    // React-query's `positionsPages` isn't observable, so it lives in the
+    // outer effect deps — a fresh page of positions destroys the old
+    // autorun and creates a new one with the new closure.
+    const dispose = autorun(() => {
+      if (!connected || !baseAsset || !quoteAsset || !positionsPages?.pages.length) {
+        setLines([]);
+        return;
       }
-    }
-    setLines(lines);
+      const display = getDisplayPositions({
+        positions: positionsPages.pages,
+        getMetadata,
+        asset1Filter: baseAsset,
+        asset2Filter: quoteAsset,
+      });
+
+      const lines: OwnPositionLine[] = [];
+      for (const dp of display) {
+        if (!dp.isOpened) continue;
+        for (let i = 0; i < dp.orders.length; i++) {
+          const o = dp.orders[i]!;
+          const key = `${dp.idString}-${i}`;
+          // If the user is dragging this rung right now, paint the OG
+          // line at the pointer-mapped price. Cleared on drop by the
+          // drag overlay.
+          const override = ownPositionDragOverrides.get(key);
+          const price = override ?? pnum(o.effectivePrice).toNumber();
+          if (!Number.isFinite(price) || price <= 0) continue;
+          const direction = o.direction.toLowerCase();
+          lines.push({
+            id: key,
+            price,
+            direction: direction === 'buy' ? 'buy' : direction === 'sell' ? 'sell' : '',
+            label: direction ? direction.toUpperCase() : 'LP',
+          });
+        }
+      }
+      setLines(lines);
+    });
+    return dispose;
   }, [
     connected,
     positionsPages,
