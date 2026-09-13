@@ -264,32 +264,66 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
           </div>
         )}
         {rungs.map(r => {
-          const yLive =
-            dragY?.key === r.key ? dragY.y : (yByKeyRef.current.get(r.key) ?? -9999);
+          const ogY = yByKeyRef.current.get(r.key) ?? -9999;
+          const isDragging = dragY?.key === r.key;
+          const yLive = isDragging ? dragY.y : ogY;
           const color =
             r.direction === 'buy' ? BUY_COLOR : r.direction === 'sell' ? SELL_COLOR : '#9aa0a6';
           return (
-            <div
-              key={r.key}
-              className='pointer-events-auto absolute'
-              style={{
-                right: 56 + 6,
-                top: yLive - HANDLE_SIZE / 2,
-                width: HANDLE_SIZE,
-                height: HANDLE_SIZE,
-                background: color,
-                borderRadius: HANDLE_SIZE / 2,
-                cursor: 'row-resize',
-                opacity: 0.9,
-                touchAction: 'none',
-                boxShadow: '0 0 0 1px rgba(0,0,0,0.4)',
-              }}
-              onPointerDown={onPointerDown(r)}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp(r)}
-              onPointerCancel={onPointerUp(r)}
-              title={`Drag to reprice ${r.direction || 'order'} @ ${r.price.toPrecision(6)}`}
-            />
+            <div key={r.key}>
+              {/* Ghost marker + OG price tag at the pre-drag y, only
+                  while a drag is active. Lets the trader see where the
+                  order started while the live ball tracks the pointer. */}
+              {isDragging && (
+                <>
+                  <div
+                    className='pointer-events-none absolute'
+                    style={{
+                      right: 56 + 6,
+                      top: ogY - HANDLE_SIZE / 2,
+                      width: HANDLE_SIZE,
+                      height: HANDLE_SIZE,
+                      borderRadius: HANDLE_SIZE / 2,
+                      border: `1px dashed ${color}`,
+                      opacity: 0.55,
+                    }}
+                  />
+                  <div
+                    className='pointer-events-none absolute rounded-sm bg-base-black/80 px-1 py-0.5 text-[10px] tabular-nums'
+                    style={{
+                      right: 56 + 6 + HANDLE_SIZE + 4,
+                      top: ogY - 8,
+                      lineHeight: '12px',
+                      color,
+                      boxShadow: '0 0 0 1px rgba(255,255,255,0.1)',
+                    }}
+                    title='Original price before this drag'
+                  >
+                    {r.price.toPrecision(6)}
+                  </div>
+                </>
+              )}
+              <div
+                className='pointer-events-auto absolute'
+                style={{
+                  right: 56 + 6,
+                  top: yLive - HANDLE_SIZE / 2,
+                  width: HANDLE_SIZE,
+                  height: HANDLE_SIZE,
+                  background: color,
+                  borderRadius: HANDLE_SIZE / 2,
+                  cursor: 'row-resize',
+                  opacity: 0.9,
+                  touchAction: 'none',
+                  boxShadow: '0 0 0 1px rgba(0,0,0,0.4)',
+                }}
+                onPointerDown={onPointerDown(r)}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerUp(r)}
+                onPointerCancel={onPointerUp(r)}
+                title={`Drag to reprice ${r.direction || 'order'} @ ${r.price.toPrecision(6)}`}
+              />
+            </div>
           );
         })}
         {/* Confirmation card — appears at the drop position with old→new
