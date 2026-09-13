@@ -177,6 +177,9 @@ export enum LiquidityDistributionShape {
   PYRAMID = 'PYRAMID',
   /** Lower liquidity near market price, increasing towards range edges */
   INVERTED_PYRAMID = 'INVERTED_PYRAMID',
+  /** Per-rung amounts set explicitly by the user (drag-to-resize on the
+   *  preview). Encoded on-chain as ARBITRARY. */
+  CUSTOM = 'CUSTOM',
 }
 
 /**
@@ -201,6 +204,13 @@ interface SimpleLiquidityPlan {
   feeBps: number;
   positions: number;
   distributionShape: LiquidityDistributionShape;
+  /** When distributionShape is CUSTOM, one weight per rung, indexed
+   *  left-to-right along price (lower..upper). Interpreted as a
+   *  distribution: values are normalized against their sum, then
+   *  applied to the funded side's liquidity like any other shape.
+   *  Length should equal `positions`; if shorter, missing entries
+   *  are treated as 0; if longer, extras are ignored. */
+  customWeights?: number[];
 }
 
 export function encodeLiquidityShape(
@@ -215,6 +225,9 @@ export function encodeLiquidityShape(
       return LiquidityDistributionStrategy.INVERTED_PYRAMID;
     // maps `LIMIT` liquidity shape (identifier for limit orders) to an `ARBITRARY` strategy tag.
     case LiquidityDistributionShape.LIMIT:
+      return LiquidityDistributionStrategy.ARBITRARY;
+    // CUSTOM = per-rung amounts, no computable shape, encoded ARBITRARY.
+    case LiquidityDistributionShape.CUSTOM:
       return LiquidityDistributionStrategy.ARBITRARY;
     default:
       return LiquidityDistributionStrategy.SKIP;
@@ -312,9 +325,16 @@ export const simpleLiquidityPositions = (plan: SimpleLiquidityPlan): PositionedL
   const lowerStepWidth = (plan.marketPrice - plan.lowerPrice) / lowerPositionsAmount;
   const upperStepWidth = (plan.upperPrice - plan.marketPrice) / upperPositionsAmount;
 
-  const weights = getPositionWeights(
-    lowerPositionsAmount + upperPositionsAmount,
-    plan.distributionShape,
+  // CUSTOM uses the user-supplied per-rung weights verbatim; every other
+  // shape derives them from the shape formula. Length is padded/truncated
+  // to match the split total.
+  const rawWeights =
+    plan.distributionShape === LiquidityDistributionShape.CUSTOM && plan.customWeights
+      ? plan.customWeights
+      : getPositionWeights(lowerPositionsAmount + upperPositionsAmount, plan.distributionShape);
+  const weights = Array.from(
+    { length: lowerPositionsAmount + upperPositionsAmount },
+    (_, i) => rawWeights[i] ?? 0,
   );
 
   const lowerRangeTotalWeight = weights
@@ -390,10 +410,14 @@ const oneSidedPositions = (
   // 'from' is the mid end for base-side; the low end for quote-side.
   // Emit rungs left-to-right (ascending price) either way.
   const midEndIsFrom = side === 'base';
-  const weights = Array.from({ length: n }, (_, priceIdx) => {
-    const distFromMidIdx = midEndIsFrom ? priceIdx : n - 1 - priceIdx;
-    return weightAt(distFromMidIdx);
-  });
+  const isCustom =
+    plan.distributionShape === LiquidityDistributionShape.CUSTOM && plan.customWeights;
+  const weights = isCustom
+    ? Array.from({ length: n }, (_, priceIdx) => plan.customWeights?.[priceIdx] ?? 0)
+    : Array.from({ length: n }, (_, priceIdx) => {
+        const distFromMidIdx = midEndIsFrom ? priceIdx : n - 1 - priceIdx;
+        return weightAt(distFromMidIdx);
+      });
   const total = weights.reduce((s, w) => s + w, 0) || 1;
   const totalLiq = side === 'base' ? plan.baseLiquidity : plan.quoteLiquidity;
   const step = span / n;

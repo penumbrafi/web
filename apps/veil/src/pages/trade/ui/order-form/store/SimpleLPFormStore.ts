@@ -47,6 +47,10 @@ export class SimpleLPFormStore {
   marketPrice: number | null = null;
   positions = DEFAULT_POSITION_COUNT;
   liquidityShape: LiquidityDistributionShape = LiquidityDistributionShape.PYRAMID;
+  // Populated when the user drags a bar in the LP preview to override the
+  // shape's computed per-rung amount. Length is aligned to `positions`.
+  // Cleared when the user picks any non-CUSTOM shape.
+  customWeights: number[] | null = null;
 
   constructor() {
     makeAutoObservable(this);
@@ -217,6 +221,7 @@ export class SimpleLPFormStore {
       feeBps: this.feeTierPercent * 100,
       positions: this.positions,
       distributionShape: this.liquidityShape,
+      customWeights: this.customWeights ?? undefined,
     });
   }
 
@@ -255,5 +260,59 @@ export class SimpleLPFormStore {
 
   setLiquidityShape = (shape: LiquidityDistributionShape) => {
     this.liquidityShape = shape;
+    // Any non-CUSTOM shape drops per-rung overrides so the shape formula
+    // fully takes over. Users pick FLAT / PYRAMID / VOLATILE to reset.
+    if (shape !== LiquidityDistributionShape.CUSTOM) {
+      this.customWeights = null;
+    }
+  };
+
+  /**
+   * Replace one rung's weight (drag-to-resize on the LP preview). Flips
+   * the shape to CUSTOM as a side-effect: the user is now sculpting the
+   * distribution by hand, and the shape formula shouldn't overwrite what
+   * they drew on the next render.
+   */
+  setCustomWeight = (index: number, weight: number) => {
+    const n = this.positions;
+    if (index < 0 || index >= n) return;
+    const clamped = Math.max(0, weight);
+    // Seed from the current shape so the first drag doesn't wipe every
+    // other rung — the user drags one bar, the rest stay where they were.
+    const seed =
+      this.customWeights && this.customWeights.length === n
+        ? [...this.customWeights]
+        : deriveWeightsFromShape(n, this.liquidityShape);
+    seed[index] = clamped;
+    this.customWeights = seed;
+    this.liquidityShape = LiquidityDistributionShape.CUSTOM;
+  };
+
+  clearCustomWeights = () => {
+    this.customWeights = null;
   };
 }
+
+// Local mirror of the shape → weights fallback used when the user first
+// drags a bar and there's no prior customWeights snapshot. Kept in-store
+// (rather than imported from the math module) so a future decoupling of
+// shape formulas from the preview doesn't require a store change.
+const deriveWeightsFromShape = (
+  n: number,
+  shape: LiquidityDistributionShape,
+): number[] => {
+  if (n <= 0) return [];
+  if (n === 1) return [1];
+  return Array.from({ length: n }, (_, i) => {
+    const t = i / (n - 1);
+    switch (shape) {
+      case LiquidityDistributionShape.PYRAMID:
+        return 0.1 + 0.9 * (1 - Math.abs(t - 0.5) * 2);
+      case LiquidityDistributionShape.INVERTED_PYRAMID:
+        return Math.abs(t - 0.5) * 2;
+      case LiquidityDistributionShape.FLAT:
+      default:
+        return 1;
+    }
+  });
+};
