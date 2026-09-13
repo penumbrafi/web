@@ -42,19 +42,16 @@ export async function POST(req: NextRequest): Promise<NextResponse<BroadcastApiR
     return NextResponse.json({ error: 'tx (base64) is required' }, { status: 400 });
   }
 
+  // The upstream nginx in front of penumbra.rotko.net proxies `/broadcast_tx_sync`
+  // to CometBFT's URI-style handler, which reads `tx` from the query string and
+  // ignores any JSON-RPC POST body — sending JSON-RPC gave tendermint an empty tx
+  // (hash = SHA256("") = e3b0c442...). Use the URI form with `tx=0x<hex>`.
+  const txHex = Buffer.from(body.tx, 'base64').toString('hex');
   const url = new URL('/broadcast_tx_sync', grpcEndpoint);
+  url.searchParams.set('tx', `0x${txHex}`);
   let upstream: Response;
   try {
-    upstream = await fetch(url.toString(), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'broadcast_tx_sync',
-        params: { tx: body.tx },
-      }),
-    });
+    upstream = await fetch(url.toString(), { method: 'GET' });
   } catch (e) {
     return NextResponse.json({ error: `upstream fetch failed: ${String(e)}` }, { status: 502 });
   }
