@@ -286,34 +286,44 @@ export const rangeLiquidityPositions = (plan: RangeLiquidityPlan): PositionedLiq
 
 /** Given a plan for providing simple liquidity, create all the necessary positions to accomplish the plan. */
 export const simpleLiquidityPositions = (plan: SimpleLiquidityPlan): PositionedLiquidity[] => {
-  // Calculate how many positions should be in each range based on market price position
+  const hasBase = plan.baseLiquidity > 0;
+  const hasQuote = plan.quoteLiquidity > 0;
+
+  // One-sided: use every position on the funded side across [mid, upper]
+  // (base only, ask ladder) or [lower, mid] (quote only, bid ladder),
+  // instead of splitting `positions` in two and leaving half as
+  // zero-reserve dead rungs. Weights are computed across the full n so
+  // PYRAMID reads as a monotonic stair heavy near mid, and
+  // INVERTED_PYRAMID as a stair heavy at the edge.
+  if (hasBase && !hasQuote) {
+    return oneSidedPositions(plan, 'base');
+  }
+  if (hasQuote && !hasBase) {
+    return oneSidedPositions(plan, 'quote');
+  }
+
+  // Two-sided path (existing behavior).
   const totalRange = plan.upperPrice - plan.lowerPrice;
   const marketPosition = (plan.marketPrice - plan.lowerPrice) / totalRange;
 
-  // Calculate number of positions for each range
   const lowerPositionsAmount = Math.max(0, Math.floor(plan.positions * marketPosition));
   const upperPositionsAmount = Math.max(0, plan.positions - lowerPositionsAmount);
 
-  // Calculate step widths for each range
   const lowerStepWidth = (plan.marketPrice - plan.lowerPrice) / lowerPositionsAmount;
   const upperStepWidth = (plan.upperPrice - plan.marketPrice) / upperPositionsAmount;
 
-  // Calculate weights for ALL positions together to maintain the distribution shape
   const weights = getPositionWeights(
     lowerPositionsAmount + upperPositionsAmount,
     plan.distributionShape,
   );
 
-  // Calculate the total weight for each range to properly scale the liquidity
   const lowerRangeTotalWeight = weights
     .slice(0, lowerPositionsAmount)
     .reduce((sum, w) => sum + w, 0);
   const upperRangeTotalWeight = weights.slice(lowerPositionsAmount).reduce((sum, w) => sum + w, 0);
 
-  // Generate positions for lower range (quote liquidity)
   const lowerPositions = Array.from({ length: lowerPositionsAmount }, (_, i) => {
     const price = plan.lowerPrice + i * lowerStepWidth;
-    // Scale the weight by the range's total weight to maintain proper liquidity distribution
     const weight = (weights[i] ?? 0) / (lowerRangeTotalWeight || 1);
     return planToPosition(
       {
@@ -328,10 +338,8 @@ export const simpleLiquidityPositions = (plan: SimpleLiquidityPlan): PositionedL
     );
   });
 
-  // Generate positions for upper range (base liquidity)
   const upperPositions = Array.from({ length: upperPositionsAmount }, (_, i) => {
     const price = plan.marketPrice + i * upperStepWidth;
-    // Scale the weight by the range's total weight to maintain proper liquidity distribution
     const weight = (weights[i + lowerPositionsAmount] ?? 0) / (upperRangeTotalWeight || 1);
     return planToPosition(
       {
@@ -347,6 +355,64 @@ export const simpleLiquidityPositions = (plan: SimpleLiquidityPlan): PositionedL
   });
 
   return [...lowerPositions, ...upperPositions];
+};
+
+const oneSidedPositions = (
+  plan: SimpleLiquidityPlan,
+  side: 'base' | 'quote',
+): PositionedLiquidity[] => {
+  // Base only → asks between max(mid, lower) and upper.
+  // Quote only → bids between lower and min(mid, upper).
+  const from = side === 'base' ? Math.max(plan.marketPrice, plan.lowerPrice) : plan.lowerPrice;
+  const to = side === 'base' ? plan.upperPrice : Math.min(plan.marketPrice, plan.upperPrice);
+  const span = to - from;
+  const n = plan.positions;
+  if (span <= 0 || n <= 0) return [];
+
+  // Monotonic weights along mid → edge (index 0 = closest to mid).
+  //   FLAT: uniform
+  //   PYRAMID (concentrated): heavy near mid, decays to edge
+  //   INVERTED_PYRAMID (volatile): light near mid, rises to edge
+  const nearMidFraction = (i: number) => (n === 1 ? 0 : i / (n - 1));
+  const weightAt = (i: number): number => {
+    const t = nearMidFraction(i);
+    switch (plan.distributionShape) {
+      case LiquidityDistributionShape.PYRAMID:
+        return 0.1 + 0.9 * (1 - t);
+      case LiquidityDistributionShape.INVERTED_PYRAMID:
+        return 0.1 + 0.9 * t;
+      case LiquidityDistributionShape.FLAT:
+      default:
+        return 1;
+    }
+  };
+
+  // 'from' is the mid end for base-side; the low end for quote-side.
+  // Emit rungs left-to-right (ascending price) either way.
+  const midEndIsFrom = side === 'base';
+  const weights = Array.from({ length: n }, (_, priceIdx) => {
+    const distFromMidIdx = midEndIsFrom ? priceIdx : n - 1 - priceIdx;
+    return weightAt(distFromMidIdx);
+  });
+  const total = weights.reduce((s, w) => s + w, 0) || 1;
+  const totalLiq = side === 'base' ? plan.baseLiquidity : plan.quoteLiquidity;
+  const step = span / n;
+
+  return Array.from({ length: n }, (_, i) => {
+    const price = from + i * step;
+    const share = totalLiq * ((weights[i] ?? 0) / total);
+    return planToPosition(
+      {
+        baseAsset: plan.baseAsset,
+        quoteAsset: plan.quoteAsset,
+        feeBps: plan.feeBps,
+        price,
+        baseReserves: side === 'base' ? share / (price || 1) : 0,
+        quoteReserves: side === 'quote' ? share : 0,
+      },
+      plan.distributionShape,
+    );
+  });
 };
 
 /** A limit order plan attempts to buy or sell the baseAsset at a given price.

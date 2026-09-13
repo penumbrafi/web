@@ -325,6 +325,68 @@ describe('simpleLiquidityPositions', () => {
     expect(totalBaseLiquidity).toBeCloseTo(basePlan.baseLiquidity);
     expect(totalQuoteLiquidity).toBeCloseTo(basePlan.quoteLiquidity);
   });
+
+  describe('one-sided distribution', () => {
+    const baseOnly = { ...basePlan, quoteLiquidity: 0 };
+    const quoteOnly = { ...basePlan, baseLiquidity: 0 };
+
+    it('base-only spans mid → upper with all n rungs', () => {
+      const positions = simpleLiquidityPositions({
+        ...baseOnly,
+        distributionShape: LiquidityDistributionShape.FLAT,
+      });
+      expect(positions).toHaveLength(baseOnly.positions);
+      const zeroBaseCount = positions.filter(
+        p => pnum(p.position.reserves?.r1 ?? 0, baseOnly.baseAsset.exponent).toNumber() === 0,
+      ).length;
+      expect(zeroBaseCount).toBe(0);
+      positions.forEach(p =>
+        expect(
+          pnum(p.position.reserves?.r2 ?? 0, baseOnly.quoteAsset.exponent).toNumber(),
+        ).toBe(0),
+      );
+    });
+
+    it('quote-only spans lower → mid with all n rungs', () => {
+      const positions = simpleLiquidityPositions({
+        ...quoteOnly,
+        distributionShape: LiquidityDistributionShape.FLAT,
+      });
+      expect(positions).toHaveLength(quoteOnly.positions);
+      positions.forEach(p =>
+        expect(
+          pnum(p.position.reserves?.r1 ?? 0, quoteOnly.baseAsset.exponent).toNumber(),
+        ).toBe(0),
+      );
+    });
+
+    it('base-only PYRAMID is a monotonically decreasing stair from mid to upper', () => {
+      const positions = simpleLiquidityPositions({
+        ...baseOnly,
+        distributionShape: LiquidityDistributionShape.PYRAMID,
+      });
+      const bases = positions.map(p =>
+        pnum(p.position.reserves?.r1 ?? 0, baseOnly.baseAsset.exponent).toNumber(),
+      );
+      // strictly decreasing (nearest mid rung has the most base)
+      for (let i = 1; i < bases.length; i++) {
+        expect(bases[i]!).toBeLessThan(bases[i - 1]!);
+      }
+    });
+
+    it('base-only INVERTED_PYRAMID is monotonically increasing from mid to upper', () => {
+      const positions = simpleLiquidityPositions({
+        ...baseOnly,
+        distributionShape: LiquidityDistributionShape.INVERTED_PYRAMID,
+      });
+      const bases = positions.map(p =>
+        pnum(p.position.reserves?.r1 ?? 0, baseOnly.baseAsset.exponent).toNumber(),
+      );
+      for (let i = 1; i < bases.length; i++) {
+        expect(bases[i]!).toBeGreaterThan(bases[i - 1]!);
+      }
+    });
+  });
 });
 
 describe('getPositionWeights', () => {
