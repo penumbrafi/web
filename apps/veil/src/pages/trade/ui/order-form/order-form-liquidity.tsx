@@ -265,6 +265,9 @@ export const LPOrderForm = observer(
     const confirmWarnings = useMemo<ConfirmWarning[]>(() => {
       if (mid == null || lo === undefined || hi === undefined) return [];
       if (rangeCoversMid) return [];
+      // One-sided plans get their own dedicated notice; skip the range
+      // warning so the confirm modal doesn't say the same thing twice.
+      if (store.isOneSided) return [];
       const aboveMid = mid > hi;
       return [
         {
@@ -274,7 +277,7 @@ export const LPOrderForm = observer(
             : "Mid below range — fully BID side, won't fill asks until price rises in",
         },
       ];
-    }, [mid, lo, hi, rangeCoversMid]);
+    }, [mid, lo, hi, rangeCoversMid, store.isOneSided]);
 
     // Say what the user gives and what they get back, in a sentence, before
     // they sign. "Open 10 LP positions between X and Y" describes the
@@ -793,9 +796,11 @@ export const LPOrderForm = observer(
             return parts.join(' · ');
           })()}
         </div>
-        {/* Off-mid warning — kept out of the summary line because it needs
-            attention colour, and always visible so a one-sided plan can't
-            be signed without seeing it. */}
+        {/* Off-mid warning — only when BOTH sides are funded but the
+            range still misses mid. The one-sided case already gets a
+            more targeted "One-sided position: earns fees once the
+            market trades into your range" notice via FormIssueNotice
+            further down, so this red block would double up. */}
         {(() => {
           if (
             mid == null ||
@@ -808,6 +813,7 @@ export const LPOrderForm = observer(
             return null;
           }
           if (mid >= lo && mid <= hi) return null;
+          if (store.isOneSided) return null;
           const aboveMid = mid > hi;
           return (
             <div className='mb-2 rounded-sm border border-destructive-light/30 bg-destructive-light/10 px-2 py-1 text-[11px] leading-tight text-destructive-light'>
