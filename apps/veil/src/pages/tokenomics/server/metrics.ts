@@ -72,10 +72,32 @@ const findRowAtOrBefore = async (targetTimestamp: Date) => {
     .executeTakeFirst();
 };
 
+const findUnstakedAtOrBefore = async (targetTimestamp: Date) => {
+  return pindexerDb
+    .selectFrom('supply_total_unstaked')
+    .innerJoin('block_details', 'block_details.height', 'supply_total_unstaked.height')
+    .select([
+      'supply_total_unstaked.height as height',
+      'supply_total_unstaked.arb as arb',
+      'supply_total_unstaked.fees as fees',
+      'block_details.timestamp as timestamp',
+    ])
+    .where('block_details.timestamp', '<=', targetTimestamp)
+    .orderBy('block_details.timestamp', 'desc')
+    .limit(1)
+    .executeTakeFirst();
+};
+
 export async function fetchTokenomicsMetrics(): Promise<TokenomicsMetrics> {
   // Run the independent queries in parallel.
-  const [latestSupply, latestUnstaked, summary24h, supply30dAgo, activeStakedRow] =
-    await Promise.all([
+  const [
+    latestSupply,
+    latestUnstaked,
+    summary24h,
+    supply30dAgo,
+    activeStakedRow,
+    unstaked24hAgo,
+  ] = await Promise.all([
       pindexerDb
         .selectFrom('insights_supply')
         .select(['height', 'total', 'staked', 'market_cap', 'price'])
@@ -113,6 +135,7 @@ export async function fetchTokenomicsMetrics(): Promise<TokenomicsMetrics> {
           sql`(SELECT MAX(height) FROM supply_total_staked sts2 WHERE sts2.validator_id = sts.validator_id)`,
         )
         .executeTakeFirst(),
+      findUnstakedAtOrBefore(new Date(Date.now() - SECONDS_PER_DAY * 1000)),
     ]);
 
   if (!latestSupply) {
@@ -173,10 +196,13 @@ export async function fetchTokenomicsMetrics(): Promise<TokenomicsMetrics> {
     annualizedInflationPct,
     dexVolume24h: summary24h ? toUM(summary24h.direct_volume) : null,
     trades24h: summary24h?.trades ?? null,
-    // Without a per-window cumulative-burn aggregate we approximate "24h
-    // burned" as 1/365 of cumulative annualized; better to leave null than
-    // serve a misleading number.
-    burned24h: null,
+    // Delta of the cumulative arb+fees burn counters over the last 24h.
+    // Both counters are monotonic (burns don't reverse); |Δ| guards a
+    // rare pindexer resync where the historic row is briefly ahead.
+    burned24h: unstaked24hAgo
+      ? Math.abs(arbBurned - toUM(unstaked24hAgo.arb)) +
+        Math.abs(feeBurned - Math.abs(toUM(unstaked24hAgo.fees)))
+      : null,
     genesisAllocation: 95_316_205, // mainnet genesis allocation ≈ 95.3M UM
     blocksPerDay: BLOCKS_PER_DAY,
   };

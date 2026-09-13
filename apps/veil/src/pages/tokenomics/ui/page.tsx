@@ -53,7 +53,8 @@ export const TokenomicsPage = async () => {
     ? {
         dexVolume24h:
           metrics.dexVolume24h !== null ? `${fmtUMShort(metrics.dexVolume24h)}` : '—',
-        umBurned24h: `${fmtUMShort(metrics.totalBurned)}`,
+        umBurned24h:
+          metrics.burned24h !== null ? `${fmtUMShort(metrics.burned24h)}` : '—',
         trades24h: metrics.trades24h !== null ? fmtCount(metrics.trades24h) : '—',
       }
     : undefined;
