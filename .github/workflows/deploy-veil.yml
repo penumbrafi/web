@@ -105,13 +105,12 @@ jobs:
           fail_on_unmatched_files: true
 
   deploy:
-    name: deploy veil to CT1105
+    name: deploy veil (blue/green)
     needs: build
     runs-on: ubuntu-latest
     environment: production
     env:
       APP_DIR: /opt/penumbra-veil
-      SERVICE: penumbra-veil.service
       SHA: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
@@ -134,29 +133,78 @@ jobs:
           jump-host: ${{ secrets.DEPLOY_HOST }}
           target-host: ${{ secrets.DEPLOY_CT }}
 
-      - name: ship release
+      - name: pick target colour
+        id: pick
         run: |
           set -euo pipefail
-          ssh target "mkdir -p '${APP_DIR}/releases/${SHA}' '${APP_DIR}/shared'"
-          rsync -a --delete -e ssh payload/ "target:${APP_DIR}/releases/${SHA}/"
+          # `veil-swap active` prints the colour nginx is currently
+          # pointing at (blue or green). Target is the other one — the
+          # standby "staging" instance that has zero user traffic on it
+          # right now.
+          active=$(ssh target 'sudo -n /usr/local/sbin/veil-swap active')
+          case "$active" in
+              blue)  target=green; port=3002 ;;
+              green) target=blue;  port=3001 ;;
+              *) echo "unexpected active colour: $active" >&2; exit 1 ;;
+          esac
+          echo "active=$active" >> "$GITHUB_OUTPUT"
+          echo "target=$target" >> "$GITHUB_OUTPUT"
+          echo "port=$port"     >> "$GITHUB_OUTPUT"
+          echo "Deploying to $target on :$port; live traffic stays on $active."
 
-      - name: activate
+      - name: ship release to target colour
+        env:
+          TARGET: ${{ steps.pick.outputs.target }}
         run: |
           set -euo pipefail
-          ssh target "APP_DIR='${APP_DIR}' SERVICE='${SERVICE}' SHA='${SHA}' bash -s" <<'REMOTE'
+          ssh target "mkdir -p '${APP_DIR}/${TARGET}/releases/${SHA}' '${APP_DIR}/shared'"
+          rsync -a --delete -e ssh payload/ "target:${APP_DIR}/${TARGET}/releases/${SHA}/"
+
+      - name: activate on target colour
+        env:
+          TARGET: ${{ steps.pick.outputs.target }}
+          PORT: ${{ steps.pick.outputs.port }}
+        run: |
           set -euo pipefail
-          cd "$APP_DIR"
+          ssh target "APP_DIR='${APP_DIR}' TARGET='${TARGET}' PORT='${PORT}' SHA='${SHA}' bash -s" <<'REMOTE'
+          set -euo pipefail
+          case "$TARGET" in blue|green) ;; *) echo "bad target"; exit 64 ;; esac
+          case "$SHA" in ""|*[!0-9a-f]*) echo "bad sha" >&2; exit 64 ;; esac
+          cd "$APP_DIR/$TARGET"
           ln -sfn "releases/$SHA" current.tmp
           mv -Tf current.tmp current
-          # keep the five most recent releases
+          # keep the five most recent releases per colour
           ls -1dt releases/*/ | tail -n +6 | xargs -r rm -rf
-          sudo /usr/bin/systemctl restart "$SERVICE"
-          for _ in $(seq 1 20); do
-            systemctl is-active --quiet "$SERVICE" && break
+          sudo -n /usr/bin/systemctl restart "penumbra-veil@${TARGET}.service"
+          # Poll until the new colour answers. We can wait as long as we
+          # need — this instance is NOT serving user traffic yet.
+          for _ in $(seq 1 60); do
+            if curl -fsS -m 2 -o /dev/null "http://127.0.0.1:${PORT}/"; then
+              exit 0
+            fi
             sleep 2
           done
-          systemctl is-active "$SERVICE"
+          echo "target ${TARGET} did not answer within 120s" >&2
+          systemctl status "penumbra-veil@${TARGET}.service" --no-pager >&2 || true
+          exit 1
           REMOTE
 
-      - name: smoke test
-        run: ssh target 'curl -fsS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3001/'
+      - name: flip nginx upstream to target colour
+        env:
+          TARGET: ${{ steps.pick.outputs.target }}
+        run: |
+          set -euo pipefail
+          # veil-swap does its own is-active + curl smoke check, then
+          # rewrites /etc/nginx/veil-upstream.conf and `nginx -s reload`
+          # (graceful — in-flight requests to the old colour finish, new
+          # connections go to the new colour, zero downtime window).
+          ssh target "sudo -n /usr/local/sbin/veil-swap ${TARGET}"
+
+      - name: post-swap smoke test through nginx
+        run: |
+          set -euo pipefail
+          # This request goes to :80/:443 via nginx (not directly to the
+          # backend port), so it exercises the full path a user would
+          # hit. Uses the internal DNS name from DEPLOY_INTERNAL_HOST if
+          # set, otherwise loopback (nginx on the same container).
+          ssh target 'curl -fsS -o /dev/null -w "post-swap %{http_code}\n" http://127.0.0.1/ -H "Host: penumbra.fi"'

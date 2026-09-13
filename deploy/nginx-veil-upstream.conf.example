@@ -1,0 +1,17 @@
+# /etc/nginx/veil-upstream.conf
+#
+# Written and rewritten by /usr/local/sbin/veil-swap as part of the
+# blue/green deploy. `nginx -s reload` picks up the new upstream
+# gracefully — active workers finish their in-flight requests against
+# the old colour, new connections go to the new colour, no request is
+# dropped and no visible restart window opens.
+#
+# `include /etc/nginx/veil-upstream.conf;` at the top of the vhost that
+# fronts penumbra.fi / dex.rotko.net, then `proxy_pass http://veil;`
+# inside the location block.
+
+upstream veil {
+    server 127.0.0.1:3001;      # blue
+    # server 127.0.0.1:3002 backup;  # green — flipped in by veil-swap
+    keepalive 32;
+}

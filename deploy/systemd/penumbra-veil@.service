@@ -1,0 +1,52 @@
+# /etc/systemd/system/penumbra-veil@.service
+#
+# Templated unit for the Veil DEX explorer. %i is the "colour" slot
+# (`blue` or `green`) — a stable identifier for one of two side-by-side
+# release trees so a deploy can rsync + restart the *other* colour
+# without touching the one currently receiving prod traffic.
+#
+#   penumbra-veil@blue.service   -> /opt/penumbra-veil/blue/current   :3001
+#   penumbra-veil@green.service  -> /opt/penumbra-veil/green/current  :3002
+#
+# nginx points at whichever port is written into
+# /etc/nginx/veil-upstream.conf; the deploy workflow flips that file
+# after the smoke test on the new colour succeeds and reloads nginx
+# gracefully so there is no visible restart window.
+#
+# The old colour keeps running until the next deploy — free rollback:
+# rewrite the include back to its port and `nginx -s reload`.
+
+[Unit]
+Description=Penumbra Veil DEX (%i)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=web
+Group=web
+WorkingDirectory=/opt/penumbra-veil/%i/current/apps/veil
+Environment=NODE_ENV=production
+Environment=HOSTNAME=127.0.0.1
+Environment=NODE_OPTIONS=--dns-result-order=ipv4first
+# One drop-in per colour writes PORT=<3001|3002>. Kept out of the unit
+# so the template stays colour-agnostic; the deploy README wires them.
+EnvironmentFile=/opt/penumbra-veil/%i/env.port
+EnvironmentFile=-/opt/penumbra-veil/shared/.env.production
+EnvironmentFile=-/opt/penumbra-veil/shared/.env.production.local
+ExecStart=/usr/bin/node /opt/penumbra-veil/%i/current/apps/veil/server.js
+Restart=always
+RestartSec=10
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ReadWritePaths=/opt/penumbra-veil/%i/current/apps/veil/.next/cache
+
+[Install]
+WantedBy=multi-user.target

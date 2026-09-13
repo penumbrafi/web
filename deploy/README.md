@@ -18,20 +18,61 @@ is out of scope; it is still built and linted by `turbo-ci.yml`.
 workflow and is unchanged apart from moving off BuildJet runners onto
 `ubuntu-latest`.
 
-## Release layout on the host
+## Release layout on the host (blue/green)
 
 ```
 /opt/penumbra-veil/
-  releases/<git-sha>/     unpacked artifact, contains BUILD_INFO
-  current -> releases/<git-sha>
+  active                        one-line file: "blue" or "green"; nginx
+                                sends prod traffic to whichever this
+                                names. Rewritten by veil-swap.
   shared/.env.production        host-owned, never touched by CI
   shared/.env.production.local  host-owned, never touched by CI
+  blue/
+    env.port                    PORT=3001, root-owned
+    releases/<git-sha>/         unpacked artifacts
+    current -> releases/<sha>
+  green/
+    env.port                    PORT=3002, root-owned
+    releases/<git-sha>/
+    current -> releases/<sha>
 ```
 
-Deploy is: rsync into `releases/<sha>`, atomically flip `current`
-(`ln -sfn` + `mv -T`), prune to the five newest releases, restart the unit,
-smoke-test. `rsync --delete` only ever runs *inside* the new release
-directory, so `shared/` and every `.env*` on the host survive untouched.
+Two independent instances, `penumbra-veil@blue.service` on `:3001` and
+`penumbra-veil@green.service` on `:3002`, both always running. Nginx's
+`/etc/nginx/veil-upstream.conf` names the currently-active colour as the
+primary upstream and the other as a `backup` fallback:
+
+```
+upstream veil {
+    server 127.0.0.1:3001;
+    server 127.0.0.1:3002 backup;
+    keepalive 32;
+}
+```
+
+Deploy is:
+
+1. rsync the artifact into the **non-active** colour's `releases/<sha>`
+   and flip its `current` symlink;
+2. `systemctl restart penumbra-veil@<target>` — the target is not
+   receiving traffic yet, so the restart is not visible to anyone;
+3. curl-loop the target's port until it answers (up to 120s);
+4. `veil-swap <target>` rewrites the nginx upstream include and does
+   `nginx -s reload` — graceful; in-flight requests to the old colour
+   finish on the old worker, new connections go to the new colour;
+5. old colour keeps running as the free rollback.
+
+`rsync --delete` only runs *inside* the target's `releases/<sha>`, so
+`shared/` and every `.env*` on the host survive untouched.
+
+### Rollback
+
+```
+sudo /usr/local/sbin/veil-swap {blue|green}
+```
+
+Points nginx back at whichever colour is still running the last-good
+build. `nginx -s reload` again — no restart, no dropped requests.
 
 ## Transport
 
@@ -127,17 +168,29 @@ KEY
 chown web:web /home/web/.ssh/authorized_keys
 chmod 600 /home/web/.ssh/authorized_keys
 
-# restart rights, nothing else
+# restart rights: only the two colour slots for veil, plus veil-swap
+# (which itself validates its single argument). Nothing else.
 cat > /etc/sudoers.d/penumbra-deploy <<'SUDO'
-web ALL=(root) NOPASSWD: /usr/bin/systemctl restart penumbra-veil.service, \
+web ALL=(root) NOPASSWD: /usr/bin/systemctl restart penumbra-veil@blue.service, \
+                         /usr/bin/systemctl restart penumbra-veil@green.service, \
                          /usr/bin/systemctl restart penumbra-explorer-frontend.service, \
-                         /usr/bin/systemctl restart penumbra-explorer.service
+                         /usr/bin/systemctl restart penumbra-explorer.service, \
+                         /usr/local/sbin/veil-swap blue, \
+                         /usr/local/sbin/veil-swap green, \
+                         /usr/local/sbin/veil-swap active
 SUDO
 chmod 440 /etc/sudoers.d/penumbra-deploy
 visudo -c
 
-# release layout
-install -d -o web -g web /opt/penumbra-veil/releases /opt/penumbra-veil/shared
+# blue/green release layout
+install -d -o web -g web /opt/penumbra-veil/shared /opt/penumbra-veil/blue/releases /opt/penumbra-veil/green/releases
+# port pins per colour, root-owned so the web user cannot rewrite them
+printf 'PORT=3001\n' > /opt/penumbra-veil/blue/env.port
+printf 'PORT=3002\n' > /opt/penumbra-veil/green/env.port
+chmod 644 /opt/penumbra-veil/{blue,green}/env.port
+# start on blue by convention
+printf 'blue\n' > /opt/penumbra-veil/active
+
 install -d -o web -g web /opt/penumbra-node-status/releases
 
 # move the existing hand-managed env files under shared/ (values unchanged)
@@ -146,10 +199,22 @@ cp -a /opt/penumbra-web/apps/veil/.env.production.local /opt/penumbra-veil/share
 chown web:web /opt/penumbra-veil/shared/.env.production*
 chmod 600 /opt/penumbra-veil/shared/.env.production*
 
-# install the unit from this repo, then let the first CI deploy fill current/
-install -m 644 deploy/systemd/penumbra-veil.service /etc/systemd/system/
-rm -rf /etc/systemd/system/penumbra-veil.service.d   # drop-in folded into the unit
+# install the templated unit + the swap wrapper
+install -m 644 deploy/systemd/penumbra-veil@.service /etc/systemd/system/
+install -o root -g root -m 0755 deploy/scripts/veil-swap.sh /usr/local/sbin/veil-swap
+rm -rf /etc/systemd/system/penumbra-veil.service.d   # legacy drop-in folded into the unit
+# retire the pre-blue/green single instance if present
+systemctl disable --now penumbra-veil.service 2>/dev/null || true
 systemctl daemon-reload
+systemctl enable --now penumbra-veil@blue.service penumbra-veil@green.service
+
+# nginx upstream include (initial version points at blue only)
+install -o root -g root -m 0644 deploy/nginx-veil-upstream.conf.example \
+  /etc/nginx/veil-upstream.conf
+# The vhost that fronts penumbra.fi (in CT1102, see
+# deploy/nginx-penumbra.fi.conf.example) must `include
+# /etc/nginx/veil-upstream.conf;` at top level and `proxy_pass http://veil;`
+# inside its location block.
 
 # static host for node-status
 install -m 644 deploy/nginx-ct1105-static.conf.example \
