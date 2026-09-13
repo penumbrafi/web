@@ -18,6 +18,22 @@ export const TRACE_LIMIT_DEFAULT = 30;
 
 export type RouteBookApiResponse = RouteBookResponseJson | { error: string };
 
+// Empty book we return as a graceful fallback when pd is unreachable or
+// slow. Serving an empty book with a hint header degrades the UI (empty
+// route book, empty depth chart) but keeps the app rendered — much better
+// than 502 → ErrorBoundary → React error #300 blowing up the whole trade
+// page. `useBook` handles empty arrays already.
+const EMPTY_BOOK: RouteBookResponseJson = {
+  singleHops: { buy: [], sell: [] },
+  multiHops: { buy: [], sell: [] },
+} as RouteBookResponseJson;
+
+// Bound the pd call so a hanging simulation cannot pin an Actions runner
+// or a next-server request slot. The route-book UI polls every block
+// anyway; a couple of dropped refreshes are cheap compared to a wedged
+// response queue.
+const PD_TIMEOUT_MS = 4_500;
+
 // Server-side cache for route book responses. pd's simulateTrade is
 // CPU-expensive (walks all liquidity positions) so we cache identical
 // queries for ~6s (one block). Keyed by base+quote+limit. Concurrent
@@ -131,8 +147,26 @@ export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiRe
   // duplicate pd queries for concurrent first-time requests.
   const existing = inflight.get(cacheKey);
   if (existing) {
-    const data = await existing;
-    return NextResponse.json(data, { headers: { 'X-Cache': 'INFLIGHT' } });
+    try {
+      const data = await existing;
+      return NextResponse.json(data, { headers: { 'X-Cache': 'INFLIGHT' } });
+    } catch (err) {
+      // The in-flight compute rejected. Return an empty book rather than
+      // 500 — the caller will retry on the next block poll and the
+      // primary compute path below will try again.
+      console.error('[book] inflight failed, serving empty fallback', {
+        cacheKey,
+        err,
+      });
+      return NextResponse.json(EMPTY_BOOK, {
+        status: 200,
+        headers: {
+          'Cache-Control': 'no-store',
+          'X-Cache': 'INFLIGHT-FAIL',
+          'X-Book-Fallback': 'empty',
+        },
+      });
+    }
   }
 
   const compute = computeRouteBook(
@@ -147,15 +181,32 @@ export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiRe
   try {
     data = await compute;
     cache.set(cacheKey, { data, expiresAt: Date.now() + CACHE_TTL_MS, refreshing: false });
+    return NextResponse.json(data, {
+      headers: {
+        'Cache-Control': 'no-store',
+        'X-Cache': 'MISS',
+      },
+    });
+  } catch (err) {
+    // pd unreachable, slow, or throwing. Return an empty book so the UI
+    // renders the trade page shell instead of the ErrorBoundary. The
+    // client-side useBook keeps polling; the next successful compute
+    // will populate the cache and future requests will get real data.
+    console.error('[book] compute failed, serving empty fallback', {
+      cacheKey,
+      err,
+    });
+    return NextResponse.json(EMPTY_BOOK, {
+      status: 200,
+      headers: {
+        'Cache-Control': 'no-store',
+        'X-Cache': 'MISS-FAIL',
+        'X-Book-Fallback': 'empty',
+      },
+    });
   } finally {
     inflight.delete(cacheKey);
   }
-  return NextResponse.json(data, {
-    headers: {
-      'Cache-Control': 'no-store',
-      'X-Cache': 'MISS',
-    },
-  });
 }
 
 async function computeRouteBook(
@@ -196,9 +247,25 @@ async function computeRouteBook(
   });
 
   const client = createClient(grpcEndpoint, SimulationService);
+  // Race each side against a hard timeout so a hanging pd request cannot
+  // pin a next-server request slot (or the in-flight promise) for longer
+  // than one block. On timeout we surface a plain Error the outer catch
+  // renders as an empty-book fallback response.
+  const withTimeout = <T>(p: Promise<T>, label: string): Promise<T> => {
+    let handle: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<T>((_, reject) => {
+      handle = setTimeout(
+        () => reject(new Error(`pd ${label} timed out after ${PD_TIMEOUT_MS}ms`)),
+        PD_TIMEOUT_MS,
+      );
+    });
+    return Promise.race([p, timeout]).finally(() => {
+      if (handle) clearTimeout(handle);
+    });
+  };
   const [buyRes, sellRes] = await Promise.all([
-    simulateTrade(client, buySideRequest),
-    simulateTrade(client, sellSideRequest),
+    withTimeout(simulateTrade(client, buySideRequest), 'buy simulate'),
+    withTimeout(simulateTrade(client, sellSideRequest), 'sell simulate'),
   ]);
   const buyMulti = processSimulation({ res: buyRes, registry, limit, quote_to_base: false });
   const sellMulti = processSimulation({ res: sellRes, registry, limit, quote_to_base: true });
