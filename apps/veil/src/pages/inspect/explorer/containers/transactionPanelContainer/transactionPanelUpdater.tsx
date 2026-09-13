@@ -10,7 +10,7 @@ import {
     TransactionCountUpdateSubscription,
     TransactionCountUpdateSubscriptionVariables,
 } from '@/pages/inspect/explorer/lib/graphql/generated/types'
-import transactionCountSubscription from '@/pages/inspect/explorer/lib/graphql/subscriptions/transactionCountSubscription.graphql'
+import transactionCountSubscription from '@/pages/inspect/explorer/lib/graphql/subscriptions/transactionCountSubscription'
 import { Props as TransactionPanelContainerProps } from './transactionPanelContainer'
 
 interface Props extends TransactionPanelContainerProps {

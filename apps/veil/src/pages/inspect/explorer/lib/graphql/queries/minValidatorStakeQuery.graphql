@@ -1,7 +1,0 @@
-query MinValidatorStake {
-    validatorsHomepage {
-        stakingParameters {
-            minValidatorStake
-        }
-    }
-}

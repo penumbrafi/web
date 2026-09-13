@@ -1,5 +1,0 @@
-subscription TransactionCountUpdate {
-    transactionCount {
-        count
-    }
-}

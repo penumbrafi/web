@@ -11,7 +11,7 @@ import {
     TransactionUpdateSubscription,
     TransactionUpdateSubscriptionVariables,
 } from '@/pages/inspect/explorer/lib/graphql/generated/types'
-import transactionSubscription from '@/pages/inspect/explorer/lib/graphql/subscriptions/transactionSubscription.graphql'
+import transactionSubscription from '@/pages/inspect/explorer/lib/graphql/subscriptions/transactionSubscription'
 import { TransformedPartialTransactionFragment } from '@/pages/inspect/explorer/lib/types'
 import { decodeTransaction, findPrimaryAction } from '@/pages/inspect/explorer/lib/utils'
 import { Props as TransactionTableContainerProps } from './transactionTableContainer'

@@ -1,9 +1,0 @@
-query SwapVolumeHistory($days: Int) {
-    swapVolumeHistory(days: $days) {
-        date
-        totalVolume
-        swapCount
-        arbCount
-        organicCount
-    }
-}

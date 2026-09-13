@@ -1,9 +1,0 @@
-query TradingVolume24h($limit: Int) {
-    tradingVolume24h(limit: $limit) {
-        assetId
-        volume24h
-        swapCount24h
-        periodStart
-        periodEnd
-    }
-}

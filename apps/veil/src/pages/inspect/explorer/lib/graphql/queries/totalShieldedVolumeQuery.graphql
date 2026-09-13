@@ -1,5 +1,0 @@
-query TotalShieldedVolume {
-    ibcTotalShieldedVolume {
-        value
-    }
-}

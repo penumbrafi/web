@@ -1,7 +1,0 @@
-subscription BlockUpdate {
-    latestBlocks(limit: 1) {
-        height
-        createdAt
-        transactionsCount
-    }
-}

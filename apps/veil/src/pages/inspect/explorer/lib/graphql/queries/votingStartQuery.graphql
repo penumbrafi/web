@@ -1,6 +1,0 @@
-query VotingStart($proposalId: Int!) {
-    proposalDetail(id: $proposalId) {
-        votingStartedBlockHeight
-        votingStartedTimestamp
-    }
-}

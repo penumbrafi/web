@@ -1,7 +1,0 @@
-query ActiveVotingPower($filter: ValidatorFilter) {
-    validatorsHomepage(filter: $filter) {
-        stakingParameters {
-            totalStaked
-        }
-    }
-}

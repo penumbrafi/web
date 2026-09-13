@@ -1,9 +1,0 @@
-query RecentSwapPrices($limit: Int) {
-    recentSwapPrices(limit: $limit) {
-        inputAssetId
-        outputAssetId
-        avgPrice
-        swapCount
-        latestSwap
-    }
-}

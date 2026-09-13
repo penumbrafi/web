@@ -1,7 +1,0 @@
-query VotingEnd($proposalId: Int!) {
-    proposalDetail(id: $proposalId) {
-        state
-        votingEndedBlockHeight
-        votingEndedTimestamp
-    }
-}

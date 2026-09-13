@@ -1,7 +1,0 @@
-subscription TransactionUpdate {
-    latestTransactions(limit: 1) {
-        hash
-        id
-        raw
-    }
-}

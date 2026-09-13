@@ -1,5 +1,0 @@
-query DexOpenPositions {
-    dexStats {
-        openPositions
-    }
-}

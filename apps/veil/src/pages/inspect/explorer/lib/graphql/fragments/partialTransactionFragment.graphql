@@ -1,9 +1,0 @@
-fragment PartialTransaction on Transaction {
-    hash
-    block {
-        height
-        createdAt
-    }
-    ibcStatus
-    raw
-}

@@ -1,9 +1,0 @@
-query ValidatorBlocks($id: String!) {
-    validatorDetails(id: $id) {
-        state
-        last300Blocks {
-            height
-            signed
-        }
-    }
-}

@@ -1,7 +1,0 @@
-#import "../fragments/blockFragment.graphql"
-
-query Block($height: Int!) {
-    block(height: $height) {
-        ...Block
-    }
-}

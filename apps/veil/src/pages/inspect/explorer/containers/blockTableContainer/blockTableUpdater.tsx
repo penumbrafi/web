@@ -10,7 +10,7 @@ import {
     BlocksQuery,
     BlocksQueryVariables,
 } from '@/pages/inspect/explorer/lib/graphql/generated/types'
-import blocksQuery from '@/pages/inspect/explorer/lib/graphql/queries/blocksQuery.graphql'
+import blocksQuery from '@/pages/inspect/explorer/lib/graphql/queries/blocksQuery'
 import { subscribeToNewBlocks } from '@/shared/cometbft/subscribe-new-blocks'
 import { TransformedPartialBlockFragment } from '@/pages/inspect/explorer/lib/types'
 import { Props as BlockTableContainerProps } from './blockTableContainer'
