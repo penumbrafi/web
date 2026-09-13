@@ -162,6 +162,23 @@ export const LPOrderForm = observer(
       }
     }, [store, priceRanges]);
 
+    // …and back the other way: when the chart's LP-preview overlay drags
+    // an edge it writes straight to store.setLowerPriceInput /
+    // setUpperPriceInput, bypassing the slider's local state. Sync the
+    // store back into `priceRanges` so the PriceSlider handles follow
+    // the drag. The setPriceRanges updater returns `prev` untouched when
+    // the values match so this cannot ping-pong against the outbound
+    // effect above.
+    useEffect(() => {
+      const storeLo = store.lowerPriceInput;
+      const storeHi = store.upperPriceInput;
+      if (storeLo == null || storeHi == null) return;
+      setPriceRanges(prev => {
+        if (prev[0] === storeLo && prev[1] === storeHi) return prev;
+        return [storeLo, storeHi];
+      });
+    }, [store.lowerPriceInput, store.upperPriceInput]);
+
     const [confirmOpen, setConfirmOpen] = useState(false);
 
     const baseSym = store.baseAsset?.symbol ?? '';
