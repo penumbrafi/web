@@ -30,6 +30,7 @@ import { tradeFormStore } from '../order-form/store/OrderFormStore';
 import { DepthOverlay } from './depth-overlay';
 import { MidPriceOverlay } from './mid-price-overlay';
 import { LpPreviewOverlay } from './lp-preview-overlay';
+import { OwnPositionsDragOverlay } from './own-positions-drag-overlay';
 import { LimitPreviewOverlay } from './limit-preview-overlay';
 import { useOwnPositionLines } from './use-own-position-lines';
 import { useOwnFillMarkers } from './use-own-fill-markers';
@@ -840,6 +841,15 @@ export const Chart = observer(() => {
                 yAtPrice={yAtPrice}
                 priceAtY={priceAtY}
                 subscribeRedraw={subscribeRedraw}
+              />
+              {/* Drag-to-reprice handles on the user's own resting LP
+                  orders. Gated on prefs.ownPositions so it matches the
+                  visibility of the underlying price lines. */}
+              <OwnPositionsDragOverlay
+                yAtPrice={yAtPrice}
+                priceAtY={priceAtY}
+                subscribeRedraw={subscribeRedraw}
+                enabled={prefs.ownPositions && connectionStore.connected}
               />
               {/* Live preview line for the limit order being composed —
                   paints only while the Limit form is active and the
