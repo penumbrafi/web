@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import {
   getPositionWeights,
@@ -15,8 +15,22 @@ const SELL_COLOR = '#f17878'; // destructive.light — asks above mid
 const RANGE_FILL = 'rgba(186, 77, 20, 0.06)';
 const RANGE_EDGE = '#f49c43';
 
+// Vertical hit-strip height (px) centered on each dashed edge. Tall
+// enough to grab comfortably with a mouse or touch without covering
+// enough band to obscure the rungs below.
+const HANDLE_HIT_HEIGHT = 10;
+
+// Throttle commits back to the mobx store during a drag so downstream
+// computations (position plans, weights) don't storm on every pointermove.
+const COMMIT_THROTTLE_MS = 30;
+
+// Minimum multiplicative gap between lower and upper during drag —
+// prevents the two edges from crossing or landing on top of each other.
+const MIN_GAP = 1.0001;
+
 interface LpPreviewOverlayProps {
   yAtPrice: (price: number) => number | undefined;
+  priceAtY: (y: number) => number | undefined;
   subscribeRedraw: (cb: () => void) => () => void;
 }
 
@@ -37,6 +51,8 @@ interface PreviewState {
   rungs: Rung[];
 }
 
+type DragEdge = 'upper' | 'lower';
+
 /**
  * Live shadow-order overlay for the LP form. Mirrors what
  * rangeLiquidityPositions / simpleLiquidityPositions on the chain side will
@@ -51,11 +67,17 @@ interface PreviewState {
  *     price axis — the same orientation as DepthOverlay's live route-book
  *     bars, so the eye reads them as 'this is the depth I'm about to add'.
  *
+ * The dashed top / bottom edges of the range band are also drag handles:
+ * pointer-down on either strip → drag vertically → drop commits the new
+ * price back to the form store's setters. During drag the strip follows
+ * the pointer locally and commits are throttled so mobx-driven downstream
+ * recomputes don't storm on every pointermove.
+ *
  * Pure DOM overlay over the candle canvas, same plumbing as DepthOverlay
  * and MidPriceOverlay so it can't take the chart down.
  */
 export const LpPreviewOverlay = observer(
-  ({ yAtPrice, subscribeRedraw }: LpPreviewOverlayProps) => {
+  ({ yAtPrice, priceAtY, subscribeRedraw }: LpPreviewOverlayProps) => {
     const { whichForm, simpleLPForm, rangeForm, marketPrice: anchorMid } = tradeFormStore;
     const isLp = whichForm === 'SimpleLP' || whichForm === 'RangeLP';
 
@@ -103,6 +125,18 @@ export const LpPreviewOverlay = observer(
       mid > 0;
 
     const [pos, setPos] = useState<PreviewState | null>(null);
+    const containerRef = useRef<HTMLDivElement | null>(null);
+
+    // Drag state. During a drag we ignore store-driven y updates for the
+    // edge being dragged and paint from `dragY` instead, so the strip
+    // tracks the pointer 1:1 even while the throttled commit lags.
+    const [drag, setDrag] = useState<{ edge: DragEdge; y: number } | null>(null);
+    const dragRef = useRef<{
+      edge: DragEdge;
+      pointerId: number;
+      lastCommit: number;
+      lastPrice: number | undefined;
+    } | null>(null);
 
     useEffect(() => {
       if (!valid) {
@@ -166,6 +200,114 @@ export const LpPreviewOverlay = observer(
 
     if (!pos) return null;
 
+    // Format a numeric price for the form store. SimpleLP takes numbers,
+    // RangeLP takes strings — both stores clamp/validate on their own, we
+    // just supply a reasonable precision so the input field reads nicely.
+    const commitPrice = (edge: DragEdge, price: number) => {
+      if (!Number.isFinite(price) || price <= 0) return;
+      if (whichForm === 'SimpleLP') {
+        // SimpleLP stores raw numbers.
+        const rounded = Number(price.toPrecision(6));
+        if (edge === 'upper') {
+          simpleLPForm.setUpperPriceInput(rounded);
+        } else {
+          simpleLPForm.setLowerPriceInput(rounded);
+        }
+      } else if (whichForm === 'RangeLP') {
+        // RangeLP stores strings that are parsed on read.
+        const asString = Number(price.toPrecision(6)).toString();
+        if (edge === 'upper') {
+          rangeForm.setUpperPriceInput(asString);
+        } else {
+          rangeForm.setLowerPriceInput(asString);
+        }
+      }
+    };
+
+    const onPointerDown = (edge: DragEdge) => (ev: React.PointerEvent<HTMLDivElement>) => {
+      // Only left mouse / primary touch; ignore right-click, middle-click.
+      if (ev.button !== undefined && ev.button !== 0) return;
+      const target = ev.currentTarget;
+      const container = containerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const y = ev.clientY - rect.top;
+      try {
+        target.setPointerCapture(ev.pointerId);
+      } catch {
+        // setPointerCapture can throw on some browsers when the pointer is
+        // already released — non-fatal, drag will just fall back to
+        // document-level events which we don't wire up. Best-effort.
+      }
+      dragRef.current = {
+        edge,
+        pointerId: ev.pointerId,
+        lastCommit: 0,
+        lastPrice: undefined,
+      };
+      setDrag({ edge, y });
+      ev.preventDefault();
+      ev.stopPropagation();
+    };
+
+    const onPointerMove = (ev: React.PointerEvent<HTMLDivElement>) => {
+      const state = dragRef.current;
+      if (!state || state.pointerId !== ev.pointerId) return;
+      const container = containerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const y = Math.max(0, Math.min(rect.height, ev.clientY - rect.top));
+      const rawPrice = priceAtY(y);
+      if (rawPrice === undefined || !Number.isFinite(rawPrice) || rawPrice <= 0) {
+        return;
+      }
+      // Clamp so upper > lower * MIN_GAP (and vice versa). Uses the
+      // currently-committed opposite bound as the anchor.
+      let price = rawPrice;
+      if (state.edge === 'upper') {
+        const lo = lower as number;
+        if (price <= lo * MIN_GAP) price = lo * MIN_GAP;
+      } else {
+        const hi = upper as number;
+        if (price >= hi / MIN_GAP) price = hi / MIN_GAP;
+      }
+      // Re-map clamped price back to a y so the strip visibly stops at
+      // the clamp instead of tracking past it.
+      const clampedY = yAtPrice(price);
+      setDrag({ edge: state.edge, y: clampedY ?? y });
+
+      state.lastPrice = price;
+      const now = performance.now();
+      if (now - state.lastCommit >= COMMIT_THROTTLE_MS) {
+        state.lastCommit = now;
+        commitPrice(state.edge, price);
+      }
+    };
+
+    const onPointerUp = (ev: React.PointerEvent<HTMLDivElement>) => {
+      const state = dragRef.current;
+      if (!state || state.pointerId !== ev.pointerId) return;
+      try {
+        ev.currentTarget.releasePointerCapture(ev.pointerId);
+      } catch {
+        // See onPointerDown — releasePointerCapture can throw if capture
+        // was never acquired. Non-fatal; the drag ends either way.
+      }
+      // Commit whatever the final pointer position mapped to (may not
+      // have flushed yet due to throttling).
+      if (state.lastPrice !== undefined) {
+        commitPrice(state.edge, state.lastPrice);
+      }
+      dragRef.current = null;
+      setDrag(null);
+    };
+
+    // Effective edge y — during a drag on this edge we paint from the
+    // pointer's live y, not the store-derived one, so the visible strip
+    // tracks the cursor 1:1 even when commits are throttled.
+    const upperY = drag?.edge === 'upper' ? drag.y : pos.yUpper;
+    const lowerY = drag?.edge === 'lower' ? drag.y : pos.yLower;
+
     // Normalize bar widths against the largest rung so the distribution
     // shape's relative weighting is what the eye reads, not the absolute
     // currency amount (which is captured numerically in the form).
@@ -173,9 +315,11 @@ export const LpPreviewOverlay = observer(
 
     return (
       <div
+        ref={containerRef}
         aria-label='LP position preview'
-        // pointer-events-none — overlay is purely informational, the user
-        // still interacts with the chart canvas underneath.
+        // pointer-events-none on the container so the chart canvas
+        // underneath keeps receiving events; individual hit-strips below
+        // opt back in with pointer-events-auto.
         className='pointer-events-none absolute inset-0 z-[5]'
       >
         {/* Range band — translucent envelope around all rungs */}
@@ -183,8 +327,8 @@ export const LpPreviewOverlay = observer(
           className='absolute left-0'
           style={{
             right: 56,
-            top: pos.yUpper,
-            height: Math.max(1, pos.yLower - pos.yUpper),
+            top: upperY,
+            height: Math.max(1, lowerY - upperY),
             background: RANGE_FILL,
             borderTop: `1px dashed ${RANGE_EDGE}`,
             borderBottom: `1px dashed ${RANGE_EDGE}`,
@@ -240,6 +384,44 @@ export const LpPreviewOverlay = observer(
             />
           );
         })}
+        {/* Drag handles — invisible hit-strips centered on each dashed
+            edge. Wider than the visible line so they're comfortable to
+            grab, and pointer-events-auto so the chart's own pan/zoom
+            handlers don't swallow the pointerdown. */}
+        <div
+          role='slider'
+          aria-label='Upper price bound'
+          aria-valuenow={upper}
+          className='pointer-events-auto absolute left-0'
+          style={{
+            right: 56,
+            top: upperY - HANDLE_HIT_HEIGHT / 2,
+            height: HANDLE_HIT_HEIGHT,
+            cursor: 'row-resize',
+            touchAction: 'none',
+          }}
+          onPointerDown={onPointerDown('upper')}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+        />
+        <div
+          role='slider'
+          aria-label='Lower price bound'
+          aria-valuenow={lower}
+          className='pointer-events-auto absolute left-0'
+          style={{
+            right: 56,
+            top: lowerY - HANDLE_HIT_HEIGHT / 2,
+            height: HANDLE_HIT_HEIGHT,
+            cursor: 'row-resize',
+            touchAction: 'none',
+          }}
+          onPointerDown={onPointerDown('lower')}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+        />
       </div>
     );
   },

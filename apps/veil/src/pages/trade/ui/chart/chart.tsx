@@ -836,7 +836,11 @@ export const Chart = observer(() => {
               {/* Live preview of the LP position the trader is constructing —
                   only paints when whichForm is SimpleLP / RangeLP and bounds
                   are set, so it's a no-op for traders not in LP mode. */}
-              <LpPreviewOverlay yAtPrice={yAtPrice} subscribeRedraw={subscribeRedraw} />
+              <LpPreviewOverlay
+                yAtPrice={yAtPrice}
+                priceAtY={priceAtY}
+                subscribeRedraw={subscribeRedraw}
+              />
               {/* Live preview line for the limit order being composed —
                   paints only while the Limit form is active and the
                   price input has a value, so the trader sees exactly
