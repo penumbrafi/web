@@ -77,6 +77,14 @@ const BlockTableUpdater: FC<Props> = ({
         // If a block arrives non-contiguously (we missed one), refill
         // the visible window from the indexer in one round-trip so the
         // panel stays gap-free.
+        //
+        // The indexer trails cometbft's tip by a few blocks (cometindex
+        // lag). If refill did a wholesale replace of state with the
+        // indexer's window, every fresher WS head we already accepted
+        // would be clobbered on the next 15s poll — pinning the panel
+        // to the indexer's stale tip. So merge: keep any WS-delivered
+        // heads (rendered OR queued) that outrun the indexer, union
+        // with the indexer's window, dedupe, sort desc, top 10.
         const refillVisibleWindow = async () => {
             try {
                 const result = await client
@@ -93,9 +101,16 @@ const BlockTableUpdater: FC<Props> = ({
                     timestamp: dayjs(b.createdAt).valueOf(),
                     transactionsCount: b.transactionsCount,
                 }))
-                blockHeightsRef.current = new Set(transformed.map(b => b.height))
+                const byHeight = new Map<number, TransformedPartialBlockFragment>()
+                for (const b of transformed) byHeight.set(b.height, b)
+                for (const b of blocksRef.current) if (!byHeight.has(b.height)) byHeight.set(b.height, b)
+                for (const b of queueRef.current) if (!byHeight.has(b.height)) byHeight.set(b.height, b)
+                const merged = [...byHeight.values()]
+                    .sort((a, b) => b.height - a.height)
+                    .slice(0, 10)
+                blockHeightsRef.current = new Set(merged.map(b => b.height))
                 queueRef.current = []
-                setBlocks(transformed)
+                setBlocks(merged)
             } catch {
                 // ignore — next sub event or poll will retry
             }
@@ -115,9 +130,14 @@ const BlockTableUpdater: FC<Props> = ({
                     blocksRef.current[0]?.height ?? 0,
                     queueRef.current[queueRef.current.length - 1]?.height ?? 0,
                 )
+                // Gap detected: kick a background refill to fetch the
+                // missed intermediate heights, but still enqueue this
+                // head. Dropping it here is what pinned the panel to
+                // the indexer's stale tip — the indexer trails, so on
+                // first paint 'knownTop' is behind and every WS block
+                // looks like a gap.
                 if (knownTop > 0 && block.height - knownTop > 1) {
                     void refillVisibleWindow()
-                    return
                 }
 
                 blockHeightsRef.current.add(block.height)
