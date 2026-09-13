@@ -21,7 +21,20 @@ const VIEW_KEY = 'veil-route-book-view';
 
 // null = raw (no bucketing). Values are percent-of-mid bucket widths.
 type AggPct = number | null;
-const AGG_OPTIONS: readonly AggPct[] = [null, 0.01, 0.05, 0.1, 0.25, 0.5, 1];
+const AGG_OPTIONS: readonly AggPct[] = [
+  null,
+  0.01,
+  0.05,
+  0.1,
+  0.25,
+  0.5,
+  1,
+  2.5,
+  5,
+  10,
+  25,
+  50,
+];
 const AGG_LABEL = (v: AggPct) => (v === null ? 'raw' : `${v}%`);
 
 type ViewMode = 'both' | 'bids' | 'asks';
@@ -363,6 +376,26 @@ export const RouteBook = observer(() => {
           different views, not steps along a scale, so a stepper would
           hide identity. */}
       <div className='flex items-center gap-1'>
+        {/* Level vs cumulative toggle. The Total column header also
+            toggles this, but the header text is tiny; a pill up here in
+            the control row makes the option discoverable. */}
+        <button
+          type='button'
+          onClick={toggleCumulative}
+          className={cn(
+            'rounded-sm px-1.5 py-0.5 transition-colors',
+            cumulative
+              ? 'bg-primary-main text-base-black'
+              : 'bg-other-tonal-fill5 hover:bg-action-hover-overlay hover:text-text-primary',
+          )}
+          title={
+            cumulative
+              ? 'Showing cumulative total from the touch — click for per-level'
+              : 'Showing per-level total — click for cumulative Σ'
+          }
+        >
+          {cumulative ? 'Σ' : '1:1'}
+        </button>
         {VIEW_OPTIONS.map(v => (
           <button
             key={v}
