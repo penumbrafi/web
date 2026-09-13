@@ -63,6 +63,20 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
     const [, force] = useState(0);
     const dragRef = useRef<{ key: string; pointerId: number; y: number } | null>(null);
     const [dragY, setDragY] = useState<{ key: string; y: number } | null>(null);
+    // Pending-confirmation state: on drop, we don't fire the tx immediately.
+    // Instead we render a small confirmation card next to the drop location
+    // showing old→new price and the sequence of actions (close, withdraw,
+    // open) so the user knows what they're signing.
+    //
+    // Declared alongside the other useState hooks so the hook order stays
+    // stable when the early return below fires. Previously it lived below
+    // the `if (!enabled || rungs.length === 0) return null;`, which turned
+    // any transition through that branch into a React #310.
+    const [pending, setPending] = useState<{
+      rung: Rung;
+      newPrice: number;
+      y: number;
+    } | null>(null);
 
     // Precompute the list of draggable rungs from the wallet's open
     // positions on the current pair. Each rung carries enough context
@@ -147,16 +161,6 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
       state.y = y;
       setDragY({ key: state.key, y });
     };
-
-    // Pending-confirmation state: on drop, we don't fire the tx immediately.
-    // Instead we render a small confirmation card next to the drop location
-    // showing old→new price and the sequence of actions (close, withdraw,
-    // open) so the user knows what they're signing.
-    const [pending, setPending] = useState<{
-      rung: Rung;
-      newPrice: number;
-      y: number;
-    } | null>(null);
 
     const onPointerUp =
       (rung: Rung) => (ev: React.PointerEvent<HTMLDivElement>) => {
