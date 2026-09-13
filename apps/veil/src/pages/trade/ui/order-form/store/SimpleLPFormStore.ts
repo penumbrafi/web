@@ -340,6 +340,17 @@ export class SimpleLPFormStore {
     }
   }
 
+  setPositions = (n: number) => {
+    const clamped = Math.max(1, Math.min(50, Math.floor(n)));
+    if (this.customWeights && this.customWeights.length !== clamped) {
+      // Drop hand-edited weights whose length no longer matches the new
+      // rung count — safer to fall back to the shape formula than to
+      // truncate / pad an intent the user set at a different N.
+      this.customWeights = null;
+    }
+    this.positions = clamped;
+  };
+
   setLiquidityShape = (shape: LiquidityDistributionShape) => {
     this.liquidityShape = shape;
     // Any non-CUSTOM shape drops per-rung overrides so the shape formula

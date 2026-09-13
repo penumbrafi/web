@@ -277,7 +277,7 @@ export const SimpleLiquidityOrderForm = observer(
             </Tooltip>
           </div>
         )}
-        <div className='mb-4'>
+        <div className='mb-3'>
           <div className='mb-2 flex items-center gap-1 leading-6'>
             <Text small color='text.secondary'>
               Enter Amounts
@@ -379,7 +379,7 @@ export const SimpleLiquidityOrderForm = observer(
             )}
           </div>
         </div>
-        <div className='mb-4'>
+        <div className='mb-3'>
           <div className='mb-2 flex items-center gap-1'>
             <Text small color='text.secondary'>
               Liquidity Shape
@@ -399,22 +399,43 @@ export const SimpleLiquidityOrderForm = observer(
             ))}
           </div>
         </div>
-        <div className='mb-4'>
-          <div className='mb-2 flex items-center gap-1'>
-            <Text small color='text.secondary'>
-              Position Fee
-            </Text>
-            <Tooltip message='The fee your positions charge takers, and therefore what you earn on every trade that crosses them. Stable pairs are conventionally 0.05%, most pairs 0.1–0.3%, and thin or volatile pairs higher to cover inventory risk.'>
-              <Icon IconComponent={InfoIcon} size='sm' color='text.secondary' />
-            </Tooltip>
+        <div className='mb-4 grid grid-cols-2 gap-3'>
+          <div>
+            <div className='mb-2 flex items-center gap-1'>
+              <Text small color='text.secondary'>
+                Position Fee
+              </Text>
+              <Tooltip message='The fee your positions charge takers, and therefore what you earn on every trade that crosses them. Stable pairs are conventionally 0.05%, most pairs 0.1–0.3%, and thin or volatile pairs higher to cover inventory risk.'>
+                <Icon IconComponent={InfoIcon} size='sm' color='text.secondary' />
+              </Tooltip>
+            </div>
+            <SelectGroup
+              options={FEE_TIER_OPTIONS}
+              value={store.feeTierOption}
+              onChange={store.setFeeTierOption}
+            />
           </div>
-          <SelectGroup
-            options={FEE_TIER_OPTIONS}
-            value={store.feeTierOption}
-            onChange={store.setFeeTierOption}
-          />
+          <div>
+            <div className='mb-2 flex items-center gap-1'>
+              <Text small color='text.secondary'>
+                Positions
+              </Text>
+              <Tooltip message='How many concentrated-liquidity slots to open across the range. More rungs give tighter market coverage; fewer rungs mean each rung carries more of your capital. Range 1–50.'>
+                <Icon IconComponent={InfoIcon} size='sm' color='text.secondary' />
+              </Tooltip>
+            </div>
+            <input
+              type='number'
+              min={1}
+              max={50}
+              step={1}
+              value={store.positions}
+              onChange={e => store.setPositions(Number(e.target.value))}
+              className='w-full rounded-sm border border-other-tonal-stroke bg-transparent px-3 py-2 text-sm text-text-primary tabular-nums outline-none focus:border-primary-main'
+            />
+          </div>
         </div>
-        <div className='mb-4'>
+        <div className='mb-3'>
           <div className='mb-4 flex justify-between leading-6'>
             <div className='flex items-center gap-1'>
               <Text small color='text.secondary'>
@@ -512,7 +533,7 @@ export const SimpleLiquidityOrderForm = observer(
             </div>
           )}
         </div>
-        <div className='mb-4'>
+        <div className='mb-3'>
           {/* Range width as a +/- % of mid — narrow ranges concentrate
               fee earnings but go out-of-range faster on a quiet pair,
               wide ranges earn less per unit of capital but stay live
@@ -630,7 +651,7 @@ export const SimpleLiquidityOrderForm = observer(
             isLoading={parentStore.gasFeeLoading}
           />
         </div>
-        <div className='mb-4'>
+        <div className='mb-3'>
           {connected ? (
             <Button actionType='accent' disabled={!parentStore.canSubmit} onClick={openConfirm}>
               Add Liquidity

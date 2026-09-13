@@ -4,30 +4,19 @@ import { Tabs } from '@penumbra-zone/ui/Tabs';
 import { Density } from '@penumbra-zone/ui/Density';
 import { MarketOrderForm } from './order-form/order-form-market';
 import { LimitOrderForm } from './order-form/order-form-limit';
-import { RangeLiquidityOrderForm } from './order-form/order-form-range-liquidity';
 import { SimpleLiquidityOrderForm } from './order-form/order-form-simple-liquidity';
 import { isWhichForm, useOrderFormStore } from './order-form/store/OrderFormStore';
 import { observer } from 'mobx-react-lite';
 import cn from 'clsx';
 
-// Top-level tabs: Market / Limit / Provide Liquidity. The 'Provide
-// Liquidity' tab is a parent that resolves to either SimpleLP (Basic)
-// or RangeLP (Advanced) via the inner sub-tab — collapses two top-
-// level tabs into one parent so the form bar stays compact and Basic
-// vs Advanced reads as a graduation, not two separate flows.
+// Top-level tabs: Market / Limit / Provide Liquidity. The advanced-only
+// knobs that once lived on a separate RangeLP tab (fee tier, position
+// count, shape selector) are now on the Provide Liquidity form itself,
+// so one flow covers Basic and Advanced use.
 const TOP_TAB_OPTIONS = [
   { value: 'Market', label: 'Market' },
   { value: 'Limit', label: 'Limit' },
   { value: 'Liquidity', label: 'Provide Liquidity' },
-];
-
-// Inner sub-tabs shown only when 'Provide Liquidity' is active. Map
-// 'Basic' → SimpleLP (guided: auto-derived position count, presets)
-// and 'Advanced' → RangeLP (every knob: fee tier, position count,
-// liquidity-shape selector, manual bounds). Same underlying tx.
-const LP_TAB_OPTIONS = [
-  { value: 'SimpleLP', label: 'Basic' },
-  { value: 'RangeLP', label: 'Advanced' },
 ];
 
 export const FormTabs = observer(() => {
@@ -42,8 +31,11 @@ export const FormTabs = observer(() => {
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem('veil_which_form');
-      if (raw && isWhichForm(raw) && raw !== store.whichForm) {
-        store.setWhichForm(raw);
+      // 'RangeLP' is retired — its knobs are now on SimpleLP. Anyone
+      // whose last-selected tab was Advanced lands on Basic instead.
+      const normalized = raw === 'RangeLP' ? 'SimpleLP' : raw;
+      if (normalized && isWhichForm(normalized) && normalized !== store.whichForm) {
+        store.setWhichForm(normalized);
       }
     } catch {
       // ignore storage errors
@@ -53,16 +45,14 @@ export const FormTabs = observer(() => {
   }, []);
 
   // The top-level Tabs reads 'Liquidity' as the parent option for
-  // SimpleLP / RangeLP; map between that synthetic value and the
-  // store's actual whichForm. Switching back to Liquidity restores
-  // the last-used LP sub-form (defaulting to SimpleLP / Basic).
+  // SimpleLP. RangeLP is retired but still reachable via the store's
+  // last-used state; the effect above rewrites it to SimpleLP on mount.
   const isLiquidity = store.whichForm === 'SimpleLP' || store.whichForm === 'RangeLP';
   const topValue = isLiquidity ? 'Liquidity' : store.whichForm;
 
   const onTopTabChange = useCallback(
     (value: string) => {
       if (value === 'Liquidity') {
-        // Coming from Market / Limit → land on Basic (SimpleLP).
         if (!isLiquidity) {
           store.setWhichForm('SimpleLP');
         }
@@ -73,15 +63,6 @@ export const FormTabs = observer(() => {
       }
     },
     [store, isLiquidity],
-  );
-
-  const onLpSubTabChange = useCallback(
-    (value: string) => {
-      if (isWhichForm(value)) {
-        store.setWhichForm(value);
-      }
-    },
-    [store],
   );
 
   return (
@@ -105,26 +86,12 @@ export const FormTabs = observer(() => {
           />
         </Density>
       </div>
-      {/* Basic / Advanced sub-tab — only shown while the top-level
-          Liquidity tab is active. Switches between SimpleLP (Basic,
-          guided) and RangeLP (Advanced, every knob). */}
-      {isLiquidity && (
-        <div className='border-b border-b-other-tonal-stroke px-4 py-1'>
-          <Density compact>
-            <Tabs
-              value={store.whichForm}
-              actionType='default'
-              onChange={onLpSubTabChange}
-              options={LP_TAB_OPTIONS}
-            />
-          </Density>
-        </div>
-      )}
       <div className='min-h-0 flex-1 overflow-y-auto'>
         {store.whichForm === 'Market' && <MarketOrderForm parentStore={store} />}
         {store.whichForm === 'Limit' && <LimitOrderForm parentStore={store} />}
-        {store.whichForm === 'RangeLP' && <RangeLiquidityOrderForm parentStore={store} />}
-        {store.whichForm === 'SimpleLP' && <SimpleLiquidityOrderForm parentStore={store} />}
+        {(store.whichForm === 'SimpleLP' || store.whichForm === 'RangeLP') && (
+          <SimpleLiquidityOrderForm parentStore={store} />
+        )}
       </div>
     </div>
   );
