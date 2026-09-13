@@ -151,6 +151,23 @@ export const LpPreviewOverlay = observer(
       lastPrice: number | undefined;
     } | null>(null);
 
+    // Per-rung drag state (P3) — moved up here from below the
+    // `if (!pos) return null` so every hook call happens above the
+    // early return. Calling any hook after a possible early return
+    // makes hook-count diverge across renders (React 19.2 catches
+    // this as #310; 19.0 tolerated it silently).
+    const rungDragRef = useRef<{
+      index: number;
+      pointerId: number;
+      lastCommit: number;
+      lastFrac: number | undefined;
+    } | null>(null);
+    // Visual live-drag state so the bar tracks the pointer 1:1 during
+    // the commit throttle window; only the live-dragged rung is affected.
+    const [rungDrag, setRungDrag] = useState<{ index: number; frac: number } | null>(
+      null,
+    );
+
     useEffect(() => {
       if (!valid) {
         setPos(null);
@@ -333,20 +350,8 @@ export const LpPreviewOverlay = observer(
     // ---- Per-rung drag (P3) -------------------------------------------
     // Only meaningful on SimpleLP; RangeLP doesn't (yet) expose a
     // per-rung setter and its liquidityTarget is a single number, not a
-    // vector. Storing the drag state in a ref so pointermove callbacks
-    // don't churn re-renders on top of the throttled commit.
-    const rungDragRef = useRef<{
-      index: number;
-      pointerId: number;
-      lastCommit: number;
-      lastFrac: number | undefined;
-    } | null>(null);
-    // Visual live-drag state so the bar tracks the pointer 1:1 during
-    // the commit throttle window; only the live-dragged rung is affected.
-    const [rungDrag, setRungDrag] = useState<{ index: number; frac: number } | null>(
-      null,
-    );
-
+    // vector. State declared above the early return; handlers below are
+    // plain functions that close over those refs.
     const commitRungWeight = (index: number, frac: number) => {
       if (whichForm !== 'SimpleLP') return;
       const clamped = Math.max(0, Math.min(1.5, frac));
