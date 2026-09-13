@@ -3,6 +3,7 @@ import { Tabs } from '@penumbra-zone/ui/Tabs';
 import { Density } from '@penumbra-zone/ui/Density';
 import { PortfolioTransactions } from './transactions';
 import { PortfolioCard } from '@/pages/portfolio/ui/portfolio-card.tsx';
+import { PositionsSummary } from './positions-summary';
 import { PositionsTable } from '@/entities/position';
 import { PositionState_PositionStateEnum } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
 
@@ -17,6 +18,7 @@ export const PortfolioPositionTabs = () => {
 
   return (
     <PortfolioCard>
+      <PositionsSummary />
       <div className='mb-4 w-full border-b border-b-other-tonal-stroke'>
         <Density compact>
           <Tabs
