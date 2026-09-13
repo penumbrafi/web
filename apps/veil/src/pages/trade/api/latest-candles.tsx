@@ -1,5 +1,6 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useRefetchOnNewBlock } from '@/shared/api/compact-block.ts';
+import { useOnPindexerTick } from '@/shared/api/pindexer-stream.ts';
 import { usePathSymbols } from '@/pages/trade/model/use-path.ts';
 import { DurationWindow } from '@/shared/utils/duration.ts';
 import { CandleWithVolume } from '@/shared/api/server/candles/utils.ts';
@@ -34,6 +35,15 @@ export const useLatestCandles = (durationWindow: DurationWindow, linearTime = tr
   });
 
   useRefetchOnNewBlock('candles', query);
+  // Push path: pindexer's dex_ex commit is the moment new candle
+  // volume/high/low rows land — invalidate then, not later.
+  useOnPindexerTick(['dex_ex'], [
+    'latest-candles',
+    baseSymbol,
+    quoteSymbol,
+    durationWindow,
+    linearTime,
+  ]);
 
   return query;
 };

@@ -3,6 +3,7 @@ import { usePathSymbols } from '@/pages/trade/model/use-path.ts';
 import { apiFetch } from '@/shared/utils/api-fetch.ts';
 import { RecentExecution } from '@/shared/api/server/recent-executions.ts';
 import { useRefetchOnNewBlock } from '@/shared/api/compact-block.ts';
+import { useOnPindexerTick } from '@/shared/api/pindexer-stream.ts';
 
 const LIMIT = 10;
 
@@ -25,6 +26,12 @@ export const useRecentExecutions = () => {
   });
 
   useRefetchOnNewBlock(['recent-executions', baseSymbol, quoteSymbol], query);
+  // Push path: refetch the instant pindexer's dex_ex indexer commits a
+  // new batch, rather than waiting for the compact-block gRPC stream
+  // to tick and then racing to hit the API before pindexer has landed
+  // the new row. Belt-and-suspenders with the block-height refetch
+  // above — React Query dedups near-simultaneous invalidations.
+  useOnPindexerTick(['dex_ex'], ['recent-executions', baseSymbol, quoteSymbol]);
 
   return query;
 };
