@@ -374,6 +374,32 @@ describe('simpleLiquidityPositions', () => {
       }
     });
 
+    it('base-only reserves sum to baseLiquidity (no price division)', () => {
+      const positions = simpleLiquidityPositions({
+        ...baseOnly,
+        distributionShape: LiquidityDistributionShape.FLAT,
+      });
+      const totalBase = positions.reduce(
+        (sum, p) =>
+          sum + pnum(p.position.reserves?.r1 ?? 0, baseOnly.baseAsset.exponent).toNumber(),
+        0,
+      );
+      expect(totalBase).toBeCloseTo(baseOnly.baseLiquidity);
+    });
+
+    it('quote-only reserves sum to quoteLiquidity', () => {
+      const positions = simpleLiquidityPositions({
+        ...quoteOnly,
+        distributionShape: LiquidityDistributionShape.FLAT,
+      });
+      const totalQuote = positions.reduce(
+        (sum, p) =>
+          sum + pnum(p.position.reserves?.r2 ?? 0, quoteOnly.quoteAsset.exponent).toNumber(),
+        0,
+      );
+      expect(totalQuote).toBeCloseTo(quoteOnly.quoteLiquidity);
+    });
+
     it('base-only INVERTED_PYRAMID is monotonically increasing from mid to upper', () => {
       const positions = simpleLiquidityPositions({
         ...baseOnly,

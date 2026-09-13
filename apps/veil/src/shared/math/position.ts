@@ -480,7 +480,12 @@ const oneSidedPositions = (
         quoteAsset: plan.quoteAsset,
         feeBps: plan.feeBps,
         price,
-        baseReserves: side === 'base' ? share / (price || 1) : 0,
+        // `share` is already in the funded side's display units — no price
+        // conversion. plan.baseLiquidity and plan.quoteLiquidity are each in
+        // their own denomination per SimpleLiquidityPlan; dividing by price
+        // here (as rangeLiquidityPositions does for its quote-denominated
+        // targetLiquidity) would inflate the base reserves by ~1/price.
+        baseReserves: side === 'base' ? share : 0,
         quoteReserves: side === 'quote' ? share : 0,
       },
       plan.distributionShape,

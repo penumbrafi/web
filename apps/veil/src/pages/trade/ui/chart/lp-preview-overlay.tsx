@@ -178,22 +178,52 @@ export const LpPreviewOverlay = observer(
       const m = mid as number;
       const n = count;
 
-      // Mirror simpleLiquidityPositions on the chain side: positions
-      // below mid carry quote (bids), positions above carry base (asks),
-      // and the per-position weight comes from getPositionWeights against
-      // the chosen distribution shape — unless the user has hand-edited
-      // weights via drag, in which case those win (CUSTOM mode).
-      const weights =
+      // Mirror simpleLiquidityPositions on the chain side. When only one
+      // side is funded the on-chain path walks all N rungs on the funded
+      // side with a monotonic mid→edge shape (PYRAMID = heavy near mid,
+      // INVERTED_PYRAMID = heavy at edge). Match that here so the preview
+      // reads as a stair, not a bell curve.
+      const hasBase = baseLiq > 0;
+      const hasQuote = quoteLiq > 0;
+      const oneSided = hasBase !== hasQuote;
+      const oneSidedFrom = hasBase && !hasQuote ? Math.max(m, lo) : lo;
+      const oneSidedTo = hasBase && !hasQuote ? hi : Math.min(m, hi);
+      const oneSidedSpan = oneSidedTo - oneSidedFrom;
+      const oneSidedBase = hasBase && !hasQuote;
+      const monotonicWeightAt = (nearMidIdx: number): number => {
+        const t = n === 1 ? 0 : nearMidIdx / (n - 1);
+        switch (shape) {
+          case LiquidityDistributionShape.PYRAMID:
+            return 0.1 + 0.9 * (1 - t);
+          case LiquidityDistributionShape.INVERTED_PYRAMID:
+            return 0.1 + 0.9 * t;
+          case LiquidityDistributionShape.FLAT:
+          default:
+            return 1;
+        }
+      };
+      const weights: number[] =
         customWeights && customWeights.length === n
           ? customWeights
-          : getPositionWeights(n, shape);
+          : oneSided
+            ? Array.from({ length: n }, (_, priceIdx) => {
+                // Base one-sided ladders from mid → upper (priceIdx 0 at mid).
+                // Quote one-sided ladders from lower → mid (priceIdx n-1 at mid).
+                const nearMidIdx = oneSidedBase ? priceIdx : n - 1 - priceIdx;
+                return monotonicWeightAt(nearMidIdx);
+              })
+            : getPositionWeights(n, shape);
       const totalWeight = weights.reduce((s, w) => s + w, 0) || 1;
 
       const recompute = () => {
         const rungs: Rung[] = [];
-        const step = (hi - lo) / n;
+        // Walk the same price step the chain-side path uses. For one-sided
+        // that's [oneSidedFrom, oneSidedTo]/n so rungs land on the funded
+        // side only; for two-sided it's [lo, hi]/n across the full range.
+        const step = oneSided && oneSidedSpan > 0 ? oneSidedSpan / n : (hi - lo) / n;
+        const start = oneSided && oneSidedSpan > 0 ? oneSidedFrom : lo;
         for (let i = 0; i < n; i++) {
-          const price = lo + i * step;
+          const price = start + i * step;
           const y = yAtPrice(price);
           if (y === undefined) continue;
           const w = weights[i] ?? 0;
