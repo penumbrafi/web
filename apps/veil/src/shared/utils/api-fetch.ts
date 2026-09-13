@@ -36,7 +36,17 @@ export const apiFetch = async <RES extends object>(
   );
 
   const urlParams = new URLSearchParams(params).toString();
-  const fetchRes = await fetch(`${url}${urlParams && `?${urlParams}`}`);
+  // cache: 'no-store' — every callsite here is one of our own /api/*
+  // endpoints that must return fresh data per-block (candles, recent
+  // trades, book, summary, pairs). The default browser HTTP cache was
+  // pinning stale responses across per-block refetches — the query
+  // would refire on every new block but fetch() would return the
+  // previously cached body until it expired, making the whole trade
+  // page feel frozen. React Query is our cache layer; the HTTP cache
+  // must not shadow it.
+  const fetchRes = await fetch(`${url}${urlParams && `?${urlParams}`}`, {
+    cache: 'no-store',
+  });
 
   return parseResponse<RES>(fetchRes);
 };
@@ -51,6 +61,7 @@ export const apiPostFetch = async <RES extends object>(
   const fetchRes = await fetch(url, {
     method: 'POST',
     body: JSON.stringify(body),
+    cache: 'no-store',
   });
 
   return parseResponse<RES>(fetchRes);

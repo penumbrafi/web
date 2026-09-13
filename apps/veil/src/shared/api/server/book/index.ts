@@ -110,7 +110,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiRe
       startBackgroundRefresh();
       return NextResponse.json(cached.data, {
         headers: {
-          'Cache-Control': 'public, s-maxage=6, stale-while-revalidate=60',
+          'Cache-Control': 'no-store',
           'X-Cache': cached.expiresAt > now ? 'HIT' : 'STALE',
           'X-Cache-Age-Ms': String(age),
         },
@@ -118,7 +118,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiRe
     } else {
       return NextResponse.json(cached.data, {
         headers: {
-          'Cache-Control': 'public, s-maxage=6, stale-while-revalidate=60',
+          'Cache-Control': 'no-store',
           'X-Cache': cached.expiresAt > now ? 'HIT' : 'STALE',
           'X-Cache-Age-Ms': String(age),
         },
@@ -152,7 +152,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiRe
   }
   return NextResponse.json(data, {
     headers: {
-      'Cache-Control': 'public, s-maxage=6, stale-while-revalidate=60',
+      'Cache-Control': 'no-store',
       'X-Cache': 'MISS',
     },
   });
