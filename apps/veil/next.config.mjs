@@ -47,6 +47,11 @@ To fix this in production containers, ensure:
 const nextConfig = {
   env: getCommitInfo(),
   serverExternalPackages: ['pino-pretty'],
+  // Ship source maps in production while we're chasing a React #310 in the
+  // trade page that we can't map back to source from minified stacks.
+  // Trivial bandwidth cost on a page reload; devtools resolve real
+  // file:line for every stack frame instead of showing `sz`, `zi`, etc.
+  productionBrowserSourceMaps: true,
   experimental: {
     optimizePackageImports: [
       '@penumbra-zone/ui',
