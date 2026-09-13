@@ -17,6 +17,7 @@ const ITEMS: NavItem[] = [
   { label: 'Validators', href: '/explore/validators', matchPrefixes: ['/explore/validator'] },
   { label: 'Governance', href: '/explore/governance', matchPrefixes: ['/explore/proposal'] },
   { label: 'IBC', href: '/explore/ibc' },
+  { label: 'DEX', href: '/explore/dex' },
   { label: 'LPs', href: '/explore/lp-leaderboard', matchPrefixes: ['/explore/lp/'] },
 ];
 
