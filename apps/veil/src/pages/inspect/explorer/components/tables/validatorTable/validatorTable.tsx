@@ -24,6 +24,7 @@ export type ValidatorRow =
     ValidatorsQuery['validatorsHomepage']['validators'][number] & {
         stakeDelta7d?: number
         stakeDelta30d?: number
+        currentStake?: number
     }
 
 export interface Props extends Omit<TableProps, 'children'> {
@@ -71,7 +72,11 @@ function sortValidators(
             case 'name':
                 return mul * (a.name || a.id).localeCompare(b.name || b.id)
             case 'power':
-                return mul * (a.votingPower - b.votingPower)
+                return (
+                    mul *
+                    ((a.currentStake ?? a.votingPower) -
+                        (b.currentStake ?? b.votingPower))
+                )
             case 'uptime':
                 return mul * ((a.uptime || 0) - (b.uptime || 0))
             case 'commission':
@@ -193,7 +198,8 @@ const ValidatorTable: FC<Props> = ({
                                         />
                                         <span>
                                             {formatNumber(
-                                                validator.votingPower
+                                                validator.currentStake ??
+                                                    validator.votingPower
                                             )}{' '}
                                             UM
                                         </span>
@@ -209,7 +215,8 @@ const ValidatorTable: FC<Props> = ({
                                             />
                                             <span>
                                                 {formatNumber(
-                                                    validator.votingPower
+                                                    validator.currentStake ??
+                                                        validator.votingPower
                                                 )}{' '}
                                                 UM
                                             </span>
@@ -220,6 +227,24 @@ const ValidatorTable: FC<Props> = ({
                                             )}
                                             %
                                         </span>
+                                        {validator.currentStake !== undefined &&
+                                            Math.abs(
+                                                validator.currentStake -
+                                                    validator.votingPower
+                                            ) /
+                                                Math.max(
+                                                    validator.votingPower,
+                                                    1
+                                                ) >
+                                                0.01 && (
+                                                <span className="text-text-secondary text-[10px] ml-7">
+                                                    consensus:{' '}
+                                                    {formatNumber(
+                                                        validator.votingPower
+                                                    )}{' '}
+                                                    UM
+                                                </span>
+                                            )}
                                     </span>
                                 )}
                             </TableCell>

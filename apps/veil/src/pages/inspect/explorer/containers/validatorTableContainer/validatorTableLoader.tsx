@@ -28,6 +28,9 @@ const ValidatorTableLoader: FC<Props> = async props => {
             ...v,
             stakeDelta7d: d?.delta7d ?? 0,
             stakeDelta30d: d?.delta30d ?? 0,
+            // supply_total_staked updates per-block; votingPower only at epoch boundaries.
+            // Leave undefined when unknown so the display falls back to votingPower.
+            currentStake: d?.current || undefined,
         }
     })
 
