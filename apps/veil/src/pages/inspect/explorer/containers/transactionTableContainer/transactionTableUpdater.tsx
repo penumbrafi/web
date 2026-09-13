@@ -85,7 +85,11 @@ const TransactionTableUpdater: FC<Props> = ({
                     primaryAction,
                     raw: transaction.raw,
                     status: IbcStatus.Completed, // FIXME: Query ibcStatus
-                    timestamp: 0, // FIXME: Query block.createdAt
+                    // Subscription payload has no timestamp; wall clock at the
+                    // moment the event lands is within a couple of seconds of
+                    // block time. Beats epoch-0 rendering as "57 years ago".
+                    // FIXME: expose Block.createdAt on the subscription type.
+                    timestamp: Date.now(),
                 })
             })
         )
