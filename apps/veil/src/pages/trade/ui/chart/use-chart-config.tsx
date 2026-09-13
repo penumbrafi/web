@@ -77,12 +77,17 @@ export const useChartConfig = (
     for (const line of lines) {
       if (!Number.isFinite(line.price) || line.price <= 0) continue;
       seen.add(line.id);
+      // theme.color.text.secondary is '' in @penumbra-zone/ui — falling
+      // back to the destructive tint so lightweight-charts never receives
+      // an empty color string. Empty color crashes the chart imperative
+      // API, which under React 19.2 (Next 16) tears down mid-render and
+      // trips a hooks-count divergence (#310) in the mobx observer wrap.
       const color =
         line.direction === 'buy'
           ? theme.color.success.light
           : line.direction === 'sell'
             ? theme.color.destructive.light
-            : theme.color.text.secondary;
+            : theme.color.text.secondary || theme.color.text.primary;
       const opts: CreatePriceLineOptions = {
         price: line.price,
         color,
@@ -348,7 +353,11 @@ export const useChartConfig = (
       // its Y-axis aligns with the candles. Neutral color at 1px keeps it
       // subtle when candles are moving and legible when they aren't.
       closeLineSeriesRef.current = chartRef.current.addLineSeries({
-        color: theme.color.text.secondary,
+        // theme.color.text.secondary is '' in the ui package's runtime
+        // theme stub (values live in theme.css only), which crashes
+        // lightweight-charts with "Cannot parse color:". Fall back to
+        // the actual secondary text token used elsewhere.
+        color: theme.color.text.secondary || '#a0a0a0',
         lineWidth: 1,
         priceLineVisible: false,
         lastValueVisible: false,
