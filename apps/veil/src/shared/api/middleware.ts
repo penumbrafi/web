@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { DEFAULT_PAIR } from '@/shared/config/featured-pairs';
+import { DEFAULT_PAIR, isPairHealthy } from '@/shared/config/featured-pairs';
 
 const LAST_PAIR_COOKIE = 'veil_last_pair';
 const LAST_PAIR_COOKIE_MAX_AGE = 60 * 60 * 24 * 90; // 90 days
@@ -33,7 +33,14 @@ export const routingMiddleware = async (request: NextRequest) => {
   if (pathname === '/trade') {
     const lastPair = request.cookies.get(LAST_PAIR_COOKIE)?.value;
     if (lastPair && /^[^/]+\/[^/]+$/.test(lastPair)) {
-      return NextResponse.redirect(new URL(`/trade/${lastPair}`, request.url));
+      // Only honor the cookie if BOTH sides of the remembered pair are still
+      // healthy. A stale cookie from before we scoped IBC to Noble was
+      // dumping users onto random bridge-paused pairs on their next visit
+      // instead of the default UM/USDC market.
+      const [cBase, cQuote] = lastPair.split('/');
+      if (isPairHealthy(cBase, cQuote)) {
+        return NextResponse.redirect(new URL(`/trade/${lastPair}`, request.url));
+      }
     }
 
     // Pin the default to our highest-volume, always-settleable market (UM/USDC)
