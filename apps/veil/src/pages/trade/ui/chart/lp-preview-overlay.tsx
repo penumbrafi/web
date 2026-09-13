@@ -216,17 +216,17 @@ export const LpPreviewOverlay = observer(
       const oneSidedTo = hasBase && !hasQuote ? hi : Math.min(m, hi);
       const oneSidedSpan = oneSidedTo - oneSidedFrom;
       const oneSidedBase = hasBase && !hasQuote;
+      // One-sided always uses the volatile / INVERTED_PYRAMID growth
+      // (small near mid, heavy at the far edge) regardless of the shape
+      // the trader picked in the form. Reason: one-sided is a
+      // directional bet; concentrated (heavy near mid) empties the
+      // near-mid rungs on the first tick and turns the position into a
+      // low-inventory one-sided book at the edge, which is what
+      // "volatile" already models on purpose. Chain-side does the same
+      // (see one-sided branch in position.ts).
       const monotonicWeightAt = (nearMidIdx: number): number => {
         const t = n === 1 ? 0 : nearMidIdx / (n - 1);
-        switch (shape) {
-          case LiquidityDistributionShape.PYRAMID:
-            return 0.1 + 0.9 * (1 - t);
-          case LiquidityDistributionShape.INVERTED_PYRAMID:
-            return 0.1 + 0.9 * t;
-          case LiquidityDistributionShape.FLAT:
-          default:
-            return 1;
-        }
+        return 0.1 + 0.9 * t;
       };
       const weights: number[] =
         customWeights && customWeights.length === n

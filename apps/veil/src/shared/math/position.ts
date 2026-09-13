@@ -438,23 +438,16 @@ const oneSidedPositions = (
   const n = plan.positions;
   if (span <= 0 || n <= 0) return [];
 
-  // Monotonic weights along mid → edge (index 0 = closest to mid).
-  //   FLAT: uniform
-  //   PYRAMID (concentrated): heavy near mid, decays to edge
-  //   INVERTED_PYRAMID (volatile): light near mid, rises to edge
+  // One-sided always uses the volatile / INVERTED_PYRAMID growth (light
+  // near mid, rising to the far edge), regardless of the shape the
+  // trader picked in the form. Concentrated (heavy near mid) on a
+  // one-sided plan empties the near-mid rungs on the first tick and
+  // leaves the LP holding empty positions; volatile keeps inventory
+  // out where it can catch a real swing. FLAT is a valid honest
+  // uniform, but the overlay preview also flips to volatile for one-
+  // sided so the preview matches this path.
   const nearMidFraction = (i: number) => (n === 1 ? 0 : i / (n - 1));
-  const weightAt = (i: number): number => {
-    const t = nearMidFraction(i);
-    switch (plan.distributionShape) {
-      case LiquidityDistributionShape.PYRAMID:
-        return 0.1 + 0.9 * (1 - t);
-      case LiquidityDistributionShape.INVERTED_PYRAMID:
-        return 0.1 + 0.9 * t;
-      case LiquidityDistributionShape.FLAT:
-      default:
-        return 1;
-    }
-  };
+  const weightAt = (i: number): number => 0.1 + 0.9 * nearMidFraction(i);
 
   // 'from' is the mid end for base-side; the low end for quote-side.
   // Emit rungs left-to-right (ascending price) either way.
