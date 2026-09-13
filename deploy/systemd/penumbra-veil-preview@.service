@@ -1,62 +1,105 @@
 # /etc/systemd/system/penumbra-veil-preview@.service
 #
-# Templated unit for per-PR preview builds of Veil. `%i` is the PR number.
-# Serves each preview on port 30000 + <pr>, so:
+# Templated unit for per-PR preview builds of Veil. `%i` is the PR number,
+# constrained by the workflow to 1..9999 and enforced again by the launcher.
+# Each preview serves on 127.0.0.1:$((30000 + %i)).
 #
 #   systemctl start penumbra-veil-preview@42  ->  http://127.0.0.1:30042/
 #
-# Each preview reads its release tree from /opt/penumbra-veil-previews/<pr>/current,
-# which .github/workflows/preview-veil.yml maintains atomically the same way
-# the prod workflow maintains /opt/penumbra-veil/current.
-#
-# A wildcard nginx vhost for *.dev.penumbra.fi (see nginx-veil-previews.conf.example)
-# routes <pr>.dev.penumbra.fi to the matching port.
+# Threat model: the standalone bundle inside `current/` is built from an
+# untrusted PR. The unit is written on the assumption that anything the PR
+# author can inject into that tree will run inside this service.
 [Unit]
 Description=Penumbra Veil PR preview #%i
 After=network-online.target
-# The wildcard nginx vhost does not care whether an unrelated preview is up,
-# so PRs run fully independently — no PartOf/BindsTo across them.
+Wants=network-online.target
+# The wildcard vhost does not care whether an unrelated preview is up, so
+# previews run fully independently — no PartOf/BindsTo across them.
 
 [Service]
 Type=simple
-User=web
-Group=web
+# Dedicated user distinct from the `web` user that owns /opt/penumbra-veil.
+# This is what stops a compromised preview from touching prod paths.
+User=web-preview
+Group=web-preview
+# The launcher is a small root-owned wrapper (installed from
+# deploy/scripts/preview-veil-run.sh) that: validates %i is 1..9999,
+# derives PORT=$((30000+PR)), sanity-checks the tree, and execs node. Kept
+# out of the unit so it can be updated without daemon-reload, and so the
+# argv the workflow passes never reaches systemd's arg parser.
+ExecStart=/usr/local/sbin/penumbra-veil-preview-run %i
 WorkingDirectory=/opt/penumbra-veil-previews/%i/current/apps/veil
 Environment=NODE_ENV=production
 Environment=HOSTNAME=127.0.0.1
-# Compute PORT from %i without escaping systemd's %-substitution rules: the
-# shell inside `bash -c` sees `PR=<pr>` and computes 30000 + PR. Anything
-# reading PORT (Next.js, nginx health check, the workflow's smoke test) sees
-# the arithmetic result.
-Environment=PR=%i
-# Prefer the /etc/hosts IPv4 mapping to CT1102 over the public AAAA; keeps
-# preview builds honest about how prod resolves upstreams.
 Environment=NODE_OPTIONS=--dns-result-order=ipv4first
-# Preview-specific env, host-owned. Optional; a missing file is fine.
-EnvironmentFile=-/opt/penumbra-veil-previews/%i/shared/.env.preview
-EnvironmentFile=-/opt/penumbra-veil-previews/shared/.env.preview
-ExecStart=/bin/bash -c 'exec env PORT=$((30000 + %i)) /usr/bin/node /opt/penumbra-veil-previews/%i/current/apps/veil/server.js'
-Restart=always
-RestartSec=10
-NoNewPrivileges=true
+# Env files live outside the per-PR tree because the per-PR tree is
+# writable by the CI account. Both files must be created (root-owned,
+# 0640 root:web-preview) BEFORE the first preview starts, or the leading
+# `-` on the EnvironmentFile line silently ignores them.
+EnvironmentFile=-/opt/penumbra-veil-previews/etc/env.preview
+EnvironmentFile=-/opt/penumbra-veil-previews/etc/env.%i
+
+# ---- filesystem containment -----------------------------------------
 ProtectSystem=strict
-# The unit writes nothing under /opt itself — the workflow does that as the
-# `web` user over ssh — so we can keep ProtectSystem=strict without a
-# ReadWritePaths=.
 ProtectHome=true
 PrivateTmp=true
+PrivateDevices=true
 ProtectKernelTunables=true
 ProtectKernelModules=true
-# Contain a compromised preview: no ability to talk to abstract sockets or
-# unusual address families. Prod uses the same set.
-RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
-RestrictNamespaces=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=noaccess
+ProcSubset=pid
+# Deny reads into every path the preview must not see. `ProtectSystem=strict`
+# already makes them read-only; these make them not-even-readable.
+InaccessiblePaths=/opt/penumbra-veil /opt/penumbra-explorer /opt/penumbra-explorer-backend /opt/penumbra-web /opt/pindexer /root /home
+# Next writes an image cache under .next/cache. Without this /_next/image
+# fails with EROFS on the first uncached request.
+ReadWritePaths=/opt/penumbra-veil-previews/%i/current/apps/veil/.next/cache
+
+# ---- privilege containment -----------------------------------------
+NoNewPrivileges=true
+CapabilityBoundingSet=
+AmbientCapabilities=
 LockPersonality=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
 MemoryDenyWriteExecute=false
-# Keep the process count in check so a runaway preview cannot fork-bomb the
-# container out from under the other previews.
+# Explicit allowlist, not the deny-list default.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@debug @mount @privileged @reboot @swap @cpu-emulation @obsolete
+SystemCallErrorNumber=EPERM
+
+# ---- network containment ------------------------------------------
+# Loopback only — nginx on CT1102 talks to us via port 30000+%i and we
+# never need to originate outbound network from a preview. Add explicit
+# hosts here if a preview must reach upstreams (chain registry, um-price,
+# etc.); see the README for the current allowlist.
+IPAddressDeny=any
+IPAddressAllow=localhost
+IPAddressAllow=10.7.77.82/32
+IPAddressAllow=185.199.108.133/32
+IPAddressAllow=185.199.109.133/32
+IPAddressAllow=185.199.110.133/32
+IPAddressAllow=185.199.111.133/32
+# ip_local_reserved_ports is set to 30001-39999 on the host (see README),
+# so the kernel will never hand any of our preview ports to an ephemeral
+# outbound connect(). That closes the port-squat race described in the
+# threat model.
+
+# ---- resource containment ------------------------------------------
 LimitNPROC=256
 TasksMax=256
+MemoryHigh=768M
+MemoryMax=1G
+
+Restart=always
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
