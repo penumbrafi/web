@@ -23,12 +23,11 @@ export const Connection = observer(({ mobile }: ConnectionProps) => {
   }
 
   if (mobile) {
+    // Deposit button now lives inside the mobile menu drawer to keep the
+    // top bar to just the wallet chip + hamburger.
     return (
-      <div className='flex items-center gap-2'>
-        <DepositButton variant='mobile' />
-        <div className='max-w-32'>
-          <SubaccountSelector mobile />
-        </div>
+      <div className='max-w-32'>
+        <SubaccountSelector mobile />
       </div>
     );
   }

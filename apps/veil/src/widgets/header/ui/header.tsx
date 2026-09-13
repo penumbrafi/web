@@ -30,9 +30,9 @@ export const Header = () => {
 
         <div className='flex items-center gap-2 lg:hidden'>
           <Density compact>
-            <StatusPopover />
-            <SettingsPopover />
-            <HelpPopover />
+            {/* Mobile top bar keeps only the primary wallet action and the
+                menu button. Status / Settings / Help / Deposit collapse
+                into the drawer to declutter narrow viewports. */}
             <Connection mobile />
             <MobileNav />
           </Density>
