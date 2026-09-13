@@ -2,24 +2,34 @@
 # /usr/local/sbin/veil-swap
 #
 # Blue/green upstream swap for Veil. Root-owned wrapper the deploy user
-# calls via sudo (see deploy/README.md for the sudoers entry). Nothing
-# else in the deploy path talks to nginx.
+# calls via sudo (see deploy/README.md for the sudoers entry).
 #
 # Usage:
 #   veil-swap blue       # active traffic -> blue on :3001
 #   veil-swap green      # active traffic -> green on :3002
 #   veil-swap active     # print the currently active colour to stdout
 #
-# The active colour is recorded in /opt/penumbra-veil/active so a fresh
-# workflow run can read it without shell-out. The nginx include is
-# rewritten atomically (write to .tmp, rename), then `nginx -t` gates
-# the reload — if the config is somehow broken we never touch the live
-# worker set.
+# Writes both `veil` (prod) and `veil_staging` upstreams into
+# /etc/nginx/veil-upstream.conf in one atomic rewrite. Staging always
+# points at whichever colour is currently NOT receiving prod traffic
+# (i.e. the target of the next promote), so `staging.penumbra.fi` is a
+# stable name for "the build about to ship".
 
 set -eu
 
 NGINX_INCLUDE=/etc/nginx/veil-upstream.conf
-ACTIVE_FILE=/opt/penumbra-veil/active
+ACTIVE_FILE=/etc/nginx/veil-active
+# Where the backends actually listen. Kept in a single well-known file
+# on the nginx host so this script is topology-agnostic — if the veil
+# services ever move to a different container the operator edits one
+# file and every subsequent swap picks it up. The file just defines
+# VEIL_HOST=<ip-or-name>. If missing we default to loopback (which is
+# right when nginx and veil live in the same container).
+VEIL_HOST_FILE=/etc/nginx/veil-backend-host
+VEIL_HOST=127.0.0.1
+if [ -r "$VEIL_HOST_FILE" ]; then
+    . "$VEIL_HOST_FILE"
+fi
 
 port_for() {
     case $1 in
@@ -54,23 +64,23 @@ else
     old=blue; old_port=3001
 fi
 
-# Verify the target unit is up and serving before we point nginx at it.
-# Refusing to swap onto a broken target is the whole point of blue/green.
-if ! /usr/bin/systemctl is-active --quiet "penumbra-veil@${target}.service"; then
-    echo "veil-swap: penumbra-veil@${target}.service is not active — refusing to swap" >&2
-    exit 65
-fi
-if ! /usr/bin/curl -fsS -m 5 -o /dev/null "http://127.0.0.1:${new_port}/"; then
-    echo "veil-swap: ${target} on :${new_port} did not answer / — refusing to swap" >&2
+# Verify the target is actually serving. Refusing to swap onto a broken
+# target is the whole point of blue/green.
+if ! /usr/bin/curl -fsS -m 5 -o /dev/null "http://${VEIL_HOST}:${new_port}/"; then
+    echo "veil-swap: ${target} on ${VEIL_HOST}:${new_port} did not answer / — refusing to swap" >&2
     exit 66
 fi
 
 tmp=$(/usr/bin/mktemp "${NGINX_INCLUDE}.XXXXXX")
 cat > "$tmp" <<NGX
 upstream veil {
-    server 127.0.0.1:${new_port};
-    server 127.0.0.1:${old_port} backup;
+    server ${VEIL_HOST}:${new_port};
+    server ${VEIL_HOST}:${old_port} backup;
     keepalive 32;
+}
+upstream veil_staging {
+    server ${VEIL_HOST}:${old_port};
+    keepalive 8;
 }
 NGX
 /bin/chmod 0644 "$tmp"
@@ -78,12 +88,14 @@ NGX
 
 if ! /usr/sbin/nginx -t 2>/dev/null; then
     echo "veil-swap: nginx -t failed after include rewrite — rolling back" >&2
-    # Restore whatever was there before by pointing the include back at
-    # $old (best-effort; the same rewrite that just landed is the culprit).
     cat > "$NGINX_INCLUDE" <<NGX
 upstream veil {
-    server 127.0.0.1:${old_port};
+    server ${VEIL_HOST}:${old_port};
     keepalive 32;
+}
+upstream veil_staging {
+    server ${VEIL_HOST}:${new_port};
+    keepalive 8;
 }
 NGX
     exit 67
@@ -91,4 +103,4 @@ fi
 
 /usr/sbin/nginx -s reload
 echo "$target" > "$ACTIVE_FILE"
-echo "veil-swap: active colour is now ${target} on :${new_port} (backup: ${old}:${old_port})"
+echo "veil-swap: prod = ${target}:${new_port}   staging = ${old}:${old_port}"

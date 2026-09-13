@@ -8,6 +8,18 @@ name: deploy veil
 
 on:
   workflow_dispatch:
+    inputs:
+      promote:
+        description: >-
+          `auto` (default): build → deploy to standby colour → verify →
+          swap. Zero-downtime cutover on success.
+          `staging-only`: build → deploy to standby colour → verify.
+          Skips the swap so the standby serves the new build for
+          inspection on its backend port; a follow-up
+          `promote-veil.yml` run flips traffic when you say so.
+        type: choice
+        default: auto
+        options: [auto, staging-only]
   push:
     branches:
       - main
@@ -190,6 +202,14 @@ jobs:
           REMOTE
 
       - name: flip nginx upstream to target colour
+        # Skip on `staging-only` — the standby colour keeps serving the
+        # new build on its backend port, but prod traffic stays on the
+        # old colour until a follow-up `promote-veil.yml` run says so.
+        # `promote` is only present on workflow_dispatch, so treat the
+        # default (push / tag) as `auto`.
+        if: >-
+          (github.event_name != 'workflow_dispatch') ||
+          (inputs.promote == 'auto')
         env:
           TARGET: ${{ steps.pick.outputs.target }}
         run: |
@@ -201,6 +221,9 @@ jobs:
           ssh target "sudo -n /usr/local/sbin/veil-swap ${TARGET}"
 
       - name: post-swap smoke test through nginx
+        if: >-
+          (github.event_name != 'workflow_dispatch') ||
+          (inputs.promote == 'auto')
         run: |
           set -euo pipefail
           # This request goes to :80/:443 via nginx (not directly to the
@@ -208,3 +231,14 @@ jobs:
           # hit. Uses the internal DNS name from DEPLOY_INTERNAL_HOST if
           # set, otherwise loopback (nginx on the same container).
           ssh target 'curl -fsS -o /dev/null -w "post-swap %{http_code}\n" http://127.0.0.1/ -H "Host: penumbra.fi"'
+
+      - name: staging-only handoff message
+        if: >-
+          github.event_name == 'workflow_dispatch' &&
+          inputs.promote == 'staging-only'
+        env:
+          TARGET: ${{ steps.pick.outputs.target }}
+          PORT: ${{ steps.pick.outputs.port }}
+        run: |
+          echo "::notice title=Staging deployed::penumbra-veil@${TARGET}.service is running the new build on :${PORT}. Prod traffic is still on the old colour."
+          echo "::notice title=Promote::gh workflow run promote-veil.yml"

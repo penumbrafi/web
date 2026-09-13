@@ -74,6 +74,40 @@ sudo /usr/local/sbin/veil-swap {blue|green}
 Points nginx back at whichever colour is still running the last-good
 build. `nginx -s reload` again — no restart, no dropped requests.
 
+### Staging URL
+
+`staging.penumbra.fi` is a companion vhost (see
+`deploy/nginx-staging.penumbra.fi.conf.example`) that proxies to the
+`veil_staging` upstream. `veil-swap` keeps that upstream pointed at
+whichever colour is currently *not* serving prod, so:
+
+- Right after a normal `deploy-veil.yml auto` run, staging and prod
+  serve the same build (the old colour drained into the pool).
+- After a `deploy-veil.yml staging-only` run, staging serves the new
+  build and prod serves the previous one. Inspect at
+  `https://staging.penumbra.fi`, then `gh workflow run promote-veil.yml`
+  when happy.
+
+Gate the staging zone behind Cloudflare Access (or basic auth); an
+unshipped build should never be anonymously reachable.
+
+### Manual invocation via `gh`
+
+```sh
+# ship main to prod, zero-downtime
+gh workflow run deploy-veil.yml
+
+# ship main to STAGING only — inspect at staging.penumbra.fi,
+# prod stays on the previous colour
+gh workflow run deploy-veil.yml -f promote=staging-only
+
+# promote whatever is currently on staging → prod
+gh workflow run promote-veil.yml
+
+# see what would be promoted without doing it
+gh workflow run promote-veil.yml -f dry_run=true
+```
+
 ## Transport
 
 CT1105 has sshd on `:22` but only an internal address (`10.6.78.85/16`), so

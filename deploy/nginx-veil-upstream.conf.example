@@ -1,17 +1,34 @@
 # /etc/nginx/veil-upstream.conf
 #
 # Written and rewritten by /usr/local/sbin/veil-swap as part of the
-# blue/green deploy. `nginx -s reload` picks up the new upstream
-# gracefully — active workers finish their in-flight requests against
-# the old colour, new connections go to the new colour, no request is
-# dropped and no visible restart window opens.
+# blue/green deploy. Two upstreams:
 #
-# `include /etc/nginx/veil-upstream.conf;` at the top of the vhost that
-# fronts penumbra.fi / dex.rotko.net, then `proxy_pass http://veil;`
-# inside the location block.
+#   veil          currently-active colour  primary, other backup
+#                 -> penumbra.fi / dex.rotko.net
+#   veil_staging  currently-STANDBY colour primary
+#                 -> staging.penumbra.fi
+#
+# When a swap runs, both are rewritten atomically, so
+# `staging.penumbra.fi` always points at whichever colour is NOT
+# receiving prod traffic — i.e. whichever tree the next promote would
+# cut over to.
+#
+# `nginx -s reload` picks up the new upstream gracefully — active
+# workers finish their in-flight requests against the old colour, new
+# connections go to the new colour. No dropped requests, no visible
+# restart window.
+#
+# `include /etc/nginx/veil-upstream.conf;` in nginx.conf `http {}`
+# scope; then vhosts use `proxy_pass http://veil;` (prod) or
+# `proxy_pass http://veil_staging;` (staging vhost).
 
 upstream veil {
-    server 127.0.0.1:3001;      # blue
-    # server 127.0.0.1:3002 backup;  # green — flipped in by veil-swap
+    server 127.0.0.1:3001;
+    server 127.0.0.1:3002 backup;
     keepalive 32;
+}
+
+upstream veil_staging {
+    server 127.0.0.1:3002;
+    keepalive 8;
 }
