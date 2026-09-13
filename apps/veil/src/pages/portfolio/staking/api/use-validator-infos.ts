@@ -8,6 +8,7 @@ import {
 import { getVotingPowerFromValidatorInfo } from '@penumbra-zone/getters/validator-info';
 import { joinLoHiAmount } from '@penumbra-zone/types/amount';
 import { penumbra } from '@/shared/const/penumbra';
+import { connectionStore } from '@/shared/model/connection';
 
 export interface ValidatorInfosResult {
   /** All validator infos returned by the chain (active by default). */
@@ -33,6 +34,12 @@ export const useValidatorInfos = () => {
     queryKey: ['stake-service-validator-infos'],
     // Validator set changes slowly; refresh every minute.
     staleTime: 60_000,
+    // Guard against a mount-race with connectionStore.setup(). The service
+    // call goes through the wallet provider; without the guard it fires on
+    // component mount before `connect(origin)` resolves and throws
+    // PenumbraProviderNotConnectedError, which react-query then caches so
+    // the error stays permanent even after the handshake completes.
+    enabled: connectionStore.connected,
     queryFn: async () => {
       const stream = penumbra.service(StakeService).validatorInfo({ showInactive: false });
       const validatorInfos: ValidatorInfo[] = [];
