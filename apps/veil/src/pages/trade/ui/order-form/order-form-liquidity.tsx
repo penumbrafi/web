@@ -723,9 +723,35 @@ export const LPOrderForm = observer(
                         <Icon IconComponent={InfoIcon} size='sm' color='text.secondary' />
                       </Tooltip>
                     </div>
-                    <Text detail color='text.primary' as='span'>
-                      <span className='tabular-nums'>{formatFeePercent(store.feeTierPercent)}%</span>
-                    </Text>
+                    <div className='flex items-baseline gap-1'>
+                      <input
+                        type='text'
+                        inputMode='decimal'
+                        value={store.feeTierPercentInput}
+                        onChange={e => {
+                          // Accept the raw typed value; the store's setter
+                          // normalises and clamps. Empty input is fine (it
+                          // becomes 0 downstream) so the user can clear the
+                          // field and retype.
+                          store.setFeeTierPercentInput(
+                            e.target.value.replace(/[^0-9.]/g, ''),
+                          );
+                        }}
+                        onBlur={() => {
+                          // On blur, snap the input to the formatted / clamped
+                          // representation so the display stays canonical
+                          // (e.g. "0.10" → "0.1", "12" → "10" after clamp).
+                          const clamped = Math.min(
+                            FEE_SLIDER_MAX,
+                            Math.max(0, store.feeTierPercent),
+                          );
+                          store.setFeeTierPercentInput(formatFeePercent(clamped));
+                        }}
+                        aria-label='Fee percent'
+                        className='h-4 w-12 rounded-sm bg-other-tonal-fill5 px-1 text-right text-xs tabular-nums text-text-primary outline-none focus:ring-1 focus:ring-primary-main'
+                      />
+                      <span className='text-text-secondary'>%</span>
+                    </div>
                   </div>
                   <input
                     type='range'
@@ -737,7 +763,7 @@ export const LPOrderForm = observer(
                       const pct = sliderPosToFeePercent(Number(e.target.value));
                       store.setFeeTierPercentInput(formatFeePercent(pct));
                     }}
-                    aria-label='Fee percent'
+                    aria-label='Fee percent slider'
                     className='w-full cursor-pointer accent-primary-main'
                   />
                 </div>
