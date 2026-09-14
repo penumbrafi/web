@@ -39,7 +39,19 @@ on:
   # collaborator with commit access from shipping a workflow-file change
   # that weakens this same protection.
   pull_request_target:
-    types: [opened, synchronize, reopened, closed]
+    # Ready-for-review + converted-to-draft are added so the draft gate
+    # in the jobs below fires at exactly the transitions the trader
+    # wants: draft PR promoted to Ready -> preview goes up; Ready PR
+    # demoted to Draft -> preview comes down; PR closed -> preview
+    # comes down. `synchronize` still runs on every push to a
+    # non-draft PR.
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - closed
+      - ready_for_review
+      - converted_to_draft
     branches: [main]
 
 # One in-flight run per PR. A new push cancels the previous build so we
@@ -54,12 +66,19 @@ permissions: {}
 jobs:
   guard:
     name: guard
-    # Skip fork PRs entirely — they cannot reach `secrets` and any failed
-    # attempt would just be noise on the PR.
+    # Skip fork PRs entirely (they cannot reach `secrets`, noisy failures
+    # otherwise) and skip DRAFT PRs (traders opt in to a preview by
+    # marking the PR Ready for review; a draft is explicitly "not
+    # ready", so it stays off the preview zone). `closed` and
+    # `converted_to_draft` events still pass the guard — teardown needs
+    # to run.
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.number > 0 &&
-      github.event.pull_request.number <= 9999
+      github.event.pull_request.number <= 9999 &&
+      (github.event.action == 'closed' ||
+       github.event.action == 'converted_to_draft' ||
+       github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     outputs:
       pr: ${{ steps.pr.outputs.pr }}
@@ -77,7 +96,11 @@ jobs:
 
   build:
     name: build preview
-    if: github.event.action != 'closed'
+    # Build + deploy on any live-preview transition; skip on close or
+    # draft-conversion (teardown handles both).
+    if: >-
+      github.event.action != 'closed' &&
+      github.event.action != 'converted_to_draft'
     needs: guard
     runs-on: ubuntu-latest
     # No secrets, no writable tokens. The artifact is the only thing that
@@ -153,7 +176,11 @@ jobs:
 
   deploy:
     name: deploy preview
-    if: github.event.action != 'closed'
+    # Build + deploy on any live-preview transition; skip on close or
+    # draft-conversion (teardown handles both).
+    if: >-
+      github.event.action != 'closed' &&
+      github.event.action != 'converted_to_draft'
     needs: [guard, build]
     runs-on: ubuntu-latest
     environment: preview
@@ -261,8 +288,11 @@ jobs:
 
   teardown:
     name: tear down preview
+    # Fire on close (merged or not) AND on Ready -> Draft. Both mean
+    # "the preview should not be live any more."
     if: >-
-      github.event.action == 'closed' &&
+      (github.event.action == 'closed' ||
+       github.event.action == 'converted_to_draft') &&
       github.event.pull_request.head.repo.full_name == github.repository
     needs: guard
     runs-on: ubuntu-latest
