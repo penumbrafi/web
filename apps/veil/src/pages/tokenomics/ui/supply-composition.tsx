@@ -1,6 +1,8 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { Text } from '@penumbra-zone/ui/Text';
+import { sliceByWindow, WindowSelect, type Window, WINDOWS } from './window-select';
 import {
   Area,
   AreaChart,
@@ -43,22 +45,43 @@ interface Props {
 }
 
 export const SupplyComposition = ({ metrics, supply }: Props) => {
-  // Stack: total = bonded + liquid. Note `p.staked` from pindexer is
-  // bonded supply (every delegated UM, including jailed/disabled
-  // validators), not the active-set subset. The card row above shows
-  // both the bonded number here and the active number in the headline
-  // stats — they intentionally disagree.
-  const data = supply.map(p => ({
-    date: p.date,
-    bonded: p.staked,
-    liquid: Math.max(0, p.total - p.staked),
-  }));
+  const [win, setWin] = useState<Window>('1y');
+  const windowDays = useMemo(
+    () => WINDOWS.find(w => w.value === win)?.days ?? null,
+    [win],
+  );
 
+  // Stack layers: bonded + community-pool + liquid = total. We don't have
+  // a historical time series for the community pool balance yet (pindexer
+  // folds it into `supply_total_unstaked.um`), so this uses the current
+  // balance as a constant approximation for every point. It slightly
+  // overstates the pool early in the range and understates it recently,
+  // but the network gap is small compared to `liquid`, so the shape is
+  // still readable. Indexing historical CommunityPoolAssetBalances is a
+  // follow-up.
+  const communityPoolUM = metrics.communityPoolUM ?? 0;
+  const data = useMemo(
+    () =>
+      sliceByWindow(supply, windowDays).map(p => ({
+        date: p.date,
+        bonded: p.staked,
+        // Clamp so a bad snapshot (staked + pool > total) never makes the
+        // liquid band go negative and flip the stack.
+        community: Math.min(communityPoolUM, Math.max(0, p.total - p.staked)),
+        liquid: Math.max(0, p.total - p.staked - communityPoolUM),
+      })),
+    [supply, windowDays, communityPoolUM],
+  );
+
+  // Free float excludes the protocol-owned community pool balance
+  // captured above.
   const free = Math.max(
     0,
-    // `bondedSupply` (not active) here — for supply composition we want
-    // every UM that's currently delegated, regardless of validator state.
-    metrics.totalSupply - metrics.bondedSupply - metrics.dexLocked - metrics.auctionLocked,
+    metrics.totalSupply
+      - metrics.bondedSupply
+      - metrics.dexLocked
+      - metrics.auctionLocked
+      - communityPoolUM,
   );
   const freePct =
     metrics.totalSupply > 0 ? (free / metrics.totalSupply) * 100 : 0;
@@ -78,13 +101,12 @@ export const SupplyComposition = ({ metrics, supply }: Props) => {
           set and earning issuance. Inactive bonded is delegated to validators outside
           that set (may include unbonding-queue tokens) — bonded but not receiving
           issuance. DEX- and auction-locked balances are working liquidity, recoverable.
-          Free float is wallets, exchanges, and pending stakes; the community pool
-          (protocol-owned) currently sits inside this bucket until we index it
-          separately.
+          The community pool is protocol-owned UM controlled by governance. Free float
+          is what&apos;s left — wallets, exchanges, and pending stakes.
         </Text>
       </div>
 
-      <div className='grid grid-cols-2 gap-3 desktop:grid-cols-5'>
+      <div className='grid grid-cols-2 gap-3 desktop:grid-cols-6'>
         {/* Active bonded — the subset of bonded UM that's actually in the
             consensus set and earning staking issuance. Excludes
             jailed/disabled/tombstoned delegations (still bonded but earn
@@ -141,6 +163,29 @@ export const SupplyComposition = ({ metrics, supply }: Props) => {
             {fmtUM(metrics.auctionLocked)} UM
           </Text>
         </div>
+        {/* Community pool — protocol-owned UM. Read live from the pd
+            node's CommunityPoolAssetBalances RPC because pindexer folds
+            it into supply_total_unstaked.um (same bucket as wallets)
+            and there is no schema-level way to peel it out. Falls back
+            to "—" if the RPC is unreachable; free float then includes
+            the pool balance as a known caveat. */}
+        <div className='flex flex-col gap-1 rounded-lg bg-other-tonal-fill5 p-4'>
+          <Text detail color='text.secondary'>
+            Community pool
+          </Text>
+          <Text large color='text.primary'>
+            <span className='font-mono text-sky-300'>
+              {metrics.communityPoolPct === null
+                ? '—'
+                : `${metrics.communityPoolPct.toFixed(1)}%`}
+            </span>
+          </Text>
+          <Text small color='text.secondary'>
+            {metrics.communityPoolUM === null
+              ? 'live query unavailable'
+              : `${fmtUM(metrics.communityPoolUM)} UM governance-controlled`}
+          </Text>
+        </div>
         <div className='flex flex-col gap-1 rounded-lg bg-other-tonal-fill5 p-4'>
           <Text detail color='text.secondary'>
             Free float
@@ -150,11 +195,18 @@ export const SupplyComposition = ({ metrics, supply }: Props) => {
           </Text>
           <Text small color='text.secondary'>
             {fmtUM(free)} UM
+            {metrics.communityPoolUM === null && ' (incl. community pool)'}
           </Text>
         </div>
       </div>
 
       <div className='rounded-lg bg-other-tonal-fill5 p-4'>
+        <div className='mb-2 flex items-center justify-between'>
+          <Text detail color='text.secondary'>
+            Supply over time
+          </Text>
+          <WindowSelect value={win} onChange={setWin} />
+        </div>
         <ResponsiveContainer height={260} width='100%'>
           <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid stroke='#333' strokeDasharray='3 3' />
@@ -187,6 +239,15 @@ export const SupplyComposition = ({ metrics, supply }: Props) => {
               stroke='#5eead4'
               fill='#5eead4'
               fillOpacity={0.4}
+              type='monotone'
+            />
+            <Area
+              dataKey='community'
+              name='Community pool'
+              stackId='s'
+              stroke='#7dd3fc'
+              fill='#7dd3fc'
+              fillOpacity={0.35}
               type='monotone'
             />
             <Area

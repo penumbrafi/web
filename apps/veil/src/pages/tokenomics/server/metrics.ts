@@ -3,6 +3,7 @@
 import { sql } from 'kysely';
 import { pindexerDb } from '@/shared/database/client';
 import { fetchChainIssuanceParams } from './chain-params';
+import { fetchCommunityPoolUM } from './community-pool';
 
 // Penumbra mainnet block cadence — approx. 5s blocks => ~17280 blocks/day.
 // This is only a fallback: real annualization uses `blocksPerYearEmpirical`
@@ -60,6 +61,14 @@ export interface TokenomicsMetrics {
   // "how much of supply is productive?" picture.
   inactiveBondedSupply: number;
   inactiveBondedPct: number;
+
+  // Community pool balance (protocol-owned UM). NOT indexed by pindexer —
+  // supply.rs folds it into supply_total_unstaked.um at genesis and on
+  // every EventFundingStreamReward, so peeling it out here uses the pd
+  // node's CommunityPoolAssetBalances RPC. NULL if the endpoint is
+  // unreachable; UI falls back to lumping it inside free float and says so.
+  communityPoolUM: number | null;
+  communityPoolPct: number | null;
 
   // Chain-configured issuance (from AppParameters). NULL if the app-side
   // gRPC endpoint is unreachable — in that case the page falls back to the
@@ -136,6 +145,7 @@ export async function fetchTokenomicsMetrics(): Promise<TokenomicsMetrics> {
     unstaked24hAgo,
     unstaked30dAgo,
     chainParams,
+    communityPoolUMValue,
     latestBlockRow,
   ] = await Promise.all([
       pindexerDb
@@ -182,6 +192,9 @@ export async function fetchTokenomicsMetrics(): Promise<TokenomicsMetrics> {
       // Chain-configured issuance (may be null if the pd endpoint is
       // unreachable — the page copes).
       fetchChainIssuanceParams(),
+      // Community pool balance (UM only) via the pd node's asset-balances
+      // stream, filtered by the UM asset id. See community-pool.ts.
+      fetchCommunityPoolUM(),
       // Latest block height + timestamp — used to know whether LQT is
       // still active (compare against liquidity_tournament_end_block).
       pindexerDb
@@ -324,6 +337,11 @@ export async function fetchTokenomicsMetrics(): Promise<TokenomicsMetrics> {
     burnAnnualizedPct,
     inactiveBondedSupply,
     inactiveBondedPct,
+    communityPoolUM: communityPoolUMValue,
+    communityPoolPct:
+      communityPoolUMValue !== null && totalSupply > 0
+        ? (communityPoolUMValue / totalSupply) * 100
+        : null,
     stakingIssuancePerBlockUM,
     lqtIssuancePerBlockUM,
     lqtEndBlock,

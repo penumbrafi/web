@@ -1,6 +1,8 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { Text } from '@penumbra-zone/ui/Text';
+import { sliceByWindow, WindowSelect, WINDOWS, type Window } from './window-select';
 import {
   Area,
   AreaChart,
@@ -41,11 +43,28 @@ const fmtM = (um: number) =>
     : `${(um / 1_000).toFixed(0)}K UM`;
 
 export const IssuancePanel = ({ metrics, inflation }: Props) => {
-  const avg = inflation.length
-    ? inflation.reduce((a, p) => a + p.annualizedPct, 0) / inflation.length
+  const [win, setWin] = useState<Window>('1y');
+  const windowDays = useMemo(
+    () => WINDOWS.find(w => w.value === win)?.days ?? null,
+    [win],
+  );
+  const filteredInflation = useMemo(
+    () => sliceByWindow(inflation, windowDays),
+    [inflation, windowDays],
+  );
+
+  const avg = filteredInflation.length
+    ? filteredInflation.reduce((a, p) => a + p.annualizedPct, 0) / filteredInflation.length
     : 0;
-  const min = inflation.length ? Math.min(...inflation.map(p => p.annualizedPct)) : 0;
-  const max = inflation.length ? Math.max(...inflation.map(p => p.annualizedPct)) : 0;
+  const min = filteredInflation.length
+    ? Math.min(...filteredInflation.map(p => p.annualizedPct))
+    : 0;
+  const max = filteredInflation.length
+    ? Math.max(...filteredInflation.map(p => p.annualizedPct))
+    : 0;
+  // Human label for the range card — matches whatever window the trader
+  // picked instead of hard-coding "90-day".
+  const rangeLabel = windowDays === null ? 'All-time' : windowDays === 30 ? '30-day' : '1-year';
   const issuedSinceGenesis = Math.max(0, metrics.totalSupply - metrics.genesisAllocation);
 
   // Penumbra mints a FIXED per-block budget for staking (and a separate
@@ -203,7 +222,7 @@ export const IssuancePanel = ({ metrics, inflation }: Props) => {
       <div className='grid grid-cols-1 gap-3 desktop:grid-cols-2'>
         <div className='flex flex-col gap-1 rounded-lg bg-other-tonal-fill5 p-4'>
           <Text detail color='text.secondary'>
-            90-day inflation range
+            {rangeLabel} inflation range
           </Text>
           <Text large color='text.primary'>
             <span className='font-mono text-teal-300'>{fmtPct(min, 2)}</span>
@@ -230,8 +249,14 @@ export const IssuancePanel = ({ metrics, inflation }: Props) => {
       </div>
 
       <div className='rounded-lg bg-other-tonal-fill5 p-4'>
+        <div className='mb-2 flex items-center justify-between'>
+          <Text detail color='text.secondary'>
+            Realized inflation (trailing 30d, annualized)
+          </Text>
+          <WindowSelect value={win} onChange={setWin} />
+        </div>
         <ResponsiveContainer height={260} width='100%'>
-          <AreaChart data={inflation} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+          <AreaChart data={filteredInflation} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id='infl-grad' x1='0' x2='0' y1='0' y2='1'>
                 <stop offset='0%' stopColor='#fb923c' stopOpacity={0.4} />
@@ -267,13 +292,13 @@ export const IssuancePanel = ({ metrics, inflation }: Props) => {
       </div>
 
       <Text small color='text.secondary'>
-        For comparison: BTC ~0.85%/yr post-2024 halving, ETH net ~0.4%/yr, most Cosmos
-        chains 7–20%, Solana ~5%. Penumbra&apos;s gross issuance is a fixed budget
-        (staking + LQT) that stays roughly constant regardless of participation.
-        DEX fee burns and MEV arb burns run against issuance, so a busy DEX can push
-        realized inflation below zero. As more UM becomes actively bonded, the staking
-        APY shown above falls proportionally — the network mints the same UM either way,
-        it&apos;s just split more thinly.
+        For comparison: BTC ~0.85%/yr post-2024 halving, ZEC ~4%/yr post-2024 halving,
+        ETH net ~0.4%/yr, most Cosmos chains 7–20%, Solana ~5%. Penumbra&apos;s gross
+        issuance is a fixed budget (staking + LQT) that stays roughly constant
+        regardless of participation. DEX fee burns and MEV arb burns run against
+        issuance, so a busy DEX can push realized inflation below zero. As more UM
+        becomes actively bonded, the staking APY shown above falls proportionally —
+        the network mints the same UM either way, it&apos;s just split more thinly.
       </Text>
     </section>
   );

@@ -42,7 +42,9 @@ export const TokenomicsPage = async () => {
   try {
     [metrics, timeseries] = await Promise.all([
       fetchTokenomicsMetrics(),
-      fetchTokenomicsTimeseries(90),
+      // Fetch a wide window (~800d covers Penumbra mainnet since Jul 2024 with
+       // headroom); the panels' 30d/1y/all selectors slice on the client.
+      fetchTokenomicsTimeseries(800),
     ]);
   } catch (e) {
     // Pindexer unreachable in dev → fall through to no-data rendering.
