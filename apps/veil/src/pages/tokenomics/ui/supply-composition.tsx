@@ -74,35 +74,24 @@ export const SupplyComposition = ({ metrics, supply }: Props) => {
           Supply composition
         </Text>
         <Text body color='text.secondary'>
-          Where the UM lives. Bonded includes every delegation — to active validators
-          earning rewards and to jailed or disabled ones still holding stake. DEX- and
-          auction-locked balances are working liquidity, recoverable. The free float is
-          wallets, exchanges, and pending stakes.
+          Where the UM lives. Active bonded is on validators actually in the consensus
+          set and earning issuance. Inactive bonded is delegated to validators outside
+          that set (may include unbonding-queue tokens) — bonded but not receiving
+          issuance. DEX- and auction-locked balances are working liquidity, recoverable.
+          Free float is wallets, exchanges, and pending stakes; the community pool
+          (protocol-owned) currently sits inside this bucket until we index it
+          separately.
         </Text>
       </div>
 
       <div className='grid grid-cols-2 gap-3 desktop:grid-cols-5'>
+        {/* Active bonded — the subset of bonded UM that's actually in the
+            consensus set and earning staking issuance. Excludes
+            jailed/disabled/tombstoned delegations (still bonded but earn
+            zero). Kept as the headline "productive" bucket. */}
         <div className='flex flex-col gap-1 rounded-lg bg-other-tonal-fill5 p-4'>
           <Text detail color='text.secondary'>
-            Bonded
-          </Text>
-          <Text large color='text.primary'>
-            <span className='font-mono text-teal-300'>{metrics.bondedPct.toFixed(1)}%</span>
-          </Text>
-          <Text small color='text.secondary'>
-            {fmtUM(metrics.bondedSupply)} UM delegated
-          </Text>
-        </div>
-        {/* Active set — the subset of bonded UM that's actually counted
-            toward voting power right now. Excludes delegations to
-            jailed/disabled/tombstoned/defined validators (which still
-            hold UM but don't secure the chain). The validators page
-            uses this number prominently; surfacing it here too keeps
-            the two pages in sync, and traders see at a glance how much
-            of bonded supply is *productively* staked. */}
-        <div className='flex flex-col gap-1 rounded-lg bg-other-tonal-fill5 p-4'>
-          <Text detail color='text.secondary'>
-            Active set
+            Active bonded
           </Text>
           <Text large color='text.primary'>
             <span className='font-mono text-teal-300'>
@@ -111,6 +100,23 @@ export const SupplyComposition = ({ metrics, supply }: Props) => {
           </Text>
           <Text small color='text.secondary'>
             {fmtUM(metrics.activeStakedSupply)} UM securing chain
+          </Text>
+        </div>
+        {/* Inactive bonded — delegated UM that earns nothing because the
+            validator is out of the active set. Historically we lumped
+            this into "Bonded" alongside active, which hid the fact that
+            most bonded supply on Penumbra is currently unproductive. */}
+        <div className='flex flex-col gap-1 rounded-lg bg-other-tonal-fill5 p-4'>
+          <Text detail color='text.secondary'>
+            Inactive bonded
+          </Text>
+          <Text large color='text.primary'>
+            <span className='font-mono text-amber-300'>
+              {metrics.inactiveBondedPct.toFixed(1)}%
+            </span>
+          </Text>
+          <Text small color='text.secondary'>
+            {fmtUM(metrics.inactiveBondedSupply)} UM outside active set
           </Text>
         </div>
         <div className='flex flex-col gap-1 rounded-lg bg-other-tonal-fill5 p-4'>
