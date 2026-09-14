@@ -23,13 +23,13 @@ interface Props {
 
 const formatDate = (timestamp: string) => {
     const d = new Date(timestamp)
-    return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+    return d.toLocaleDateString('en-US', { timeZone: 'UTC', day: 'numeric', month: 'short' })
 }
 
 const formatPower = (value: number) => {
     if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
     if (value >= 1_000) return `${(value / 1_000).toFixed(0)}K`
-    return value.toLocaleString()
+    return value.toLocaleString('en-US')
 }
 
 const CustomTooltip: FC<any> = ({ active, payload }) => {
@@ -38,13 +38,13 @@ const CustomTooltip: FC<any> = ({ active, payload }) => {
     return (
         <div className="rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm shadow-lg">
             <div className="text-text-secondary">
-                {new Date(entry.timestamp).toLocaleString()}
+                {new Date(entry.timestamp).toLocaleString('en-US', { timeZone: 'UTC' })}
             </div>
             <div className="mt-1 font-medium">
-                {entry.votingPower.toLocaleString()} UM
+                {entry.votingPower.toLocaleString('en-US')} UM
             </div>
             <div className="text-text-secondary text-xs">
-                Block {entry.blockHeight.toLocaleString()}
+                Block {entry.blockHeight.toLocaleString('en-US')}
             </div>
         </div>
     )

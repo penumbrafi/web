@@ -48,7 +48,7 @@ const DexVolumeHistoryLoader: FC<Props> = async props => {
                 <div className="flex items-baseline gap-3">
                     <h2 className="text-2xl font-medium">Swap volume</h2>
                     <span className="text-text-secondary text-sm">
-                        {totalSwaps.toLocaleString()} swaps in {days}d
+                        {totalSwaps.toLocaleString('en-US')} swaps in {days}d
                     </span>
                 </div>
                 {props.timeRangeSelector}
@@ -60,19 +60,19 @@ const DexVolumeHistoryLoader: FC<Props> = async props => {
                         Total swaps
                     </div>
                     <div className="mt-1 text-lg font-medium">
-                        {totalSwaps.toLocaleString()}
+                        {totalSwaps.toLocaleString('en-US')}
                     </div>
                 </div>
                 <div className="bg-surface-secondary rounded-lg p-4">
                     <div className="text-text-secondary text-xs">Organic</div>
                     <div className="mt-1 text-lg font-medium text-blue-500">
-                        {totalOrganic.toLocaleString()}
+                        {totalOrganic.toLocaleString('en-US')}
                     </div>
                 </div>
                 <div className="bg-surface-secondary rounded-lg p-4">
                     <div className="text-text-secondary text-xs">Arbitrage</div>
                     <div className="mt-1 text-lg font-medium text-amber-500">
-                        {totalArbs.toLocaleString()}
+                        {totalArbs.toLocaleString('en-US')}
                     </div>
                 </div>
             </div>

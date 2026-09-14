@@ -25,7 +25,7 @@ interface Props {
 
 const formatDate = (date: string) => {
     const d = new Date(date)
-    return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+    return d.toLocaleDateString('en-US', { timeZone: 'UTC', day: 'numeric', month: 'short' })
 }
 
 const formatCount = (value: number) => {
@@ -38,7 +38,7 @@ const CustomTooltip: FC<any> = ({ active, label, payload }) => {
     return (
         <div className="rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm shadow-lg">
             <div className="text-text-secondary">
-                {new Date(label).toLocaleDateString()}
+                {new Date(label).toLocaleDateString('en-US', { timeZone: 'UTC' })}
             </div>
             {payload.map((entry: any) => (
                 <div
@@ -46,7 +46,7 @@ const CustomTooltip: FC<any> = ({ active, label, payload }) => {
                     className="mt-1"
                     style={{ color: entry.color }}
                 >
-                    {entry.name}: {Number(entry.value).toLocaleString()}
+                    {entry.name}: {Number(entry.value).toLocaleString('en-US')}
                 </div>
             ))}
         </div>

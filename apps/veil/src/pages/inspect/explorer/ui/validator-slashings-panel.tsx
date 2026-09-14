@@ -16,7 +16,7 @@ const fmtPenalty = (raw: string): string => {
 
 const fmtTimestamp = (iso: string) => {
   try {
-    return new Date(iso).toLocaleString();
+    return new Date(iso).toLocaleString('en-US', { timeZone: 'UTC' });
   } catch {
     return iso;
   }
@@ -54,8 +54,8 @@ export const ValidatorSlashingsPanel: FC<Props> = ({ className, slashings }) => 
                 key={`${s.height}-${s.epoch}`}
                 className='border-border-secondary border-b'
               >
-                <td className='py-3 pr-4 font-mono'>{s.height.toLocaleString()}</td>
-                <td className='py-3 pr-4 font-mono'>{s.epoch.toLocaleString()}</td>
+                <td className='py-3 pr-4 font-mono'>{s.height.toLocaleString('en-US')}</td>
+                <td className='py-3 pr-4 font-mono'>{s.epoch.toLocaleString('en-US')}</td>
                 <td className='text-destructive-light py-3 pr-4 font-mono'>
                   {fmtPenalty(s.penalty)}
                 </td>

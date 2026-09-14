@@ -21,7 +21,7 @@ export const TimeDisplay = ({ dateStr, height }: { dateStr: string; height: numb
       </Text>
       <Tooltip message={utcDate}>
         <Text small color='text.secondary'>
-          {localDate.toLocaleString()}
+          {localDate.toLocaleString('en-US', { timeZone: 'UTC' })}
         </Text>
       </Tooltip>
     </div>

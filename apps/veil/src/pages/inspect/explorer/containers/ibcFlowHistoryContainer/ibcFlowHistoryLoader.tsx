@@ -50,7 +50,7 @@ const IbcFlowHistoryLoader: FC<Props> = async props => {
                         IBC inflows & outflows
                     </h2>
                     <span className="text-text-secondary text-sm">
-                        {(totalInflows + totalOutflows).toLocaleString()}{' '}
+                        {(totalInflows + totalOutflows).toLocaleString('en-US')}{' '}
                         transfers in {days}d
                     </span>
                 </div>
@@ -63,7 +63,7 @@ const IbcFlowHistoryLoader: FC<Props> = async props => {
                         Total transfers
                     </div>
                     <div className="mt-1 text-lg font-medium">
-                        {(totalInflows + totalOutflows).toLocaleString()}
+                        {(totalInflows + totalOutflows).toLocaleString('en-US')}
                     </div>
                 </div>
                 <div className="bg-surface-secondary rounded-lg p-4">
@@ -71,7 +71,7 @@ const IbcFlowHistoryLoader: FC<Props> = async props => {
                         Inflows (shielded)
                     </div>
                     <div className="mt-1 text-lg font-medium text-green-500">
-                        {totalInflows.toLocaleString()}
+                        {totalInflows.toLocaleString('en-US')}
                     </div>
                 </div>
                 <div className="bg-surface-secondary rounded-lg p-4">
@@ -79,7 +79,7 @@ const IbcFlowHistoryLoader: FC<Props> = async props => {
                         Outflows (unshielded)
                     </div>
                     <div className="mt-1 text-lg font-medium text-amber-500">
-                        {totalOutflows.toLocaleString()}
+                        {totalOutflows.toLocaleString('en-US')}
                     </div>
                 </div>
             </div>
