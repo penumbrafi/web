@@ -30,7 +30,11 @@ Group=web-preview
 ExecStart=/usr/local/sbin/penumbra-veil-preview-run %i
 WorkingDirectory=/opt/penumbra-veil-previews/%i/current/apps/veil
 Environment=NODE_ENV=production
-Environment=HOSTNAME=127.0.0.1
+# Same rationale as penumbra-veil@.service — the wildcard nginx vhost
+# lives on the front-proxy container (CT1102), so preview ports must
+# be reachable across the container network, not just loopback.
+# Container-level isolation + the host firewall are the actual gate.
+Environment=HOSTNAME=0.0.0.0
 Environment=NODE_OPTIONS=--dns-result-order=ipv4first
 # Env files live outside the per-PR tree because the per-PR tree is
 # writable by the CI account. Both files must be created (root-owned,

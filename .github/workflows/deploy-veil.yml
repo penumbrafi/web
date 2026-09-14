@@ -125,7 +125,21 @@ jobs:
       APP_DIR: /opt/penumbra-veil
       SHA: ${{ github.sha }}
     steps:
+      # Pin the deploy job's checkout to `refs/heads/main` so the code
+      # that runs alongside `production` secrets is always the current
+      # main-branch version. Under `push: tags: v*` or a
+      # `workflow_dispatch` with a branch input, GitHub would otherwise
+      # let the caller pick any ref — including one whose
+      # `.github/actions/ssh-deploy` is a bespoke curl to attacker.
+      # The build job above uses `github.sha` to produce a matching
+      # artifact; deploy uses this main-branch workflow logic to ship it.
+      #
+      # Admin note: pair this with a repository ruleset restricting `v*`
+      # tag pushes to maintainers only (Settings -> Rules -> New).
       - uses: actions/checkout@v4
+        with:
+          ref: refs/heads/main
+          persist-credentials: false
 
       - uses: actions/download-artifact@v4
         with:

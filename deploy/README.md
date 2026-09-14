@@ -101,6 +101,30 @@ scoped to those repositories.
 `preview` environment secrets are documented in the per-PR previews section
 below.
 
+### Branch protection and tag rulesets (required)
+
+The deploy workflows pin their checkouts to `refs/heads/main` so a tag
+push or a `workflow_dispatch` from any branch cannot ship a version of
+`.github/actions/ssh-deploy` written by an attacker. That pin is only
+meaningful when combined with:
+
+1. **Branch protection on `main`** — Settings -> Branches -> Add rule:
+   require pull request review before merge, require the `Turbo CI`
+   status check to pass, and *disable* force pushes. Otherwise anyone
+   who can push to main can rewrite `main` to include a poisoned
+   ssh-deploy action and immediately ship it.
+2. **Repository ruleset restricting `v*` tag pushes** — Settings ->
+   Rules -> New ruleset -> "Restrict creations" and "Restrict updates"
+   on `refs/tags/v*`, allowed actors: maintainers only. This is the
+   companion to the deploy-veil.yml pin: without it, any collaborator
+   could push `v9.9.9` on their own branch and trigger a deploy of
+   whatever `refs/heads/main` currently points at.
+3. **`preview` environment deployment branch policy** — Settings ->
+   Environments -> `preview` -> Deployment branches: "Selected
+   branches and tags" -> add `main` only. Under `pull_request_target`
+   the preview flow already runs the main-branch workflow file, so
+   restricting deployments to `main` is defense in depth.
+
 Repository **variables** (Settings -> Secrets and variables -> Actions ->
 Variables). These are inlined into the JS bundle at build time and are not
 secret:
@@ -399,8 +423,19 @@ ephemeral outbound source port and lets an unrelated process squat on it:
 ### DNS + TLS
 
 DNS is a single wildcard `*.dev.penumbra.fi` A/AAAA on the Cloudflare zone,
-CF-proxied. Cloudflare Access sits in front — SSO gate for the whole `*.dev`
-zone, no anonymous requests hit the origin.
+CF-proxied. Cloudflare Access sits in front as an SSO gate for the whole
+`*.dev` zone.
+
+**CF Access alone is edge-only.** An attacker who resolves the anycast IP
+directly (`curl --resolve <fqdn>:443:<origin-ip>`) bypasses Access
+completely — the origin never sees the CF session cookie, so it happily
+serves the request. The deploy ships a companion origin-side gate,
+`/etc/nginx/cloudflare-allowlist.conf`, that every gated vhost includes
+and enforces via `if ($cf_gated_allowed = "0") { return 403; }`. Refresh
+the Cloudflare IP ranges (see the file's header comment) once a quarter
+and after any published change to CF's IP list. Together — CF Access at
+the edge, IP allowlist at the origin — no anonymous request reaches the
+gated origin.
 
 TLS is a Let's Encrypt wildcard issued via `certbot-dns-cloudflare` on the
 front-proxy container — the only place the Cloudflare API is touched from a

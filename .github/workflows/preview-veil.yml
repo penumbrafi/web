@@ -27,8 +27,20 @@
 name: preview veil
 
 on:
-  pull_request:
+  # `pull_request_target` runs the workflow file from the default branch
+  # (main), not from the PR — so a PR that edits this YAML or any
+  # composite action under `.github/actions/` cannot influence what runs
+  # alongside `preview` environment secrets. The build job still
+  # explicitly checks out the PR head to actually build it, but with no
+  # secrets in scope and `persist-credentials: false`.
+  #
+  # Admin note: enable branch protection on `main` requiring PR review
+  # before merge — under pull_request_target this is what stops a
+  # collaborator with commit access from shipping a workflow-file change
+  # that weakens this same protection.
+  pull_request_target:
     types: [opened, synchronize, reopened, closed]
+    branches: [main]
 
 # One in-flight run per PR. A new push cancels the previous build so we
 # do not race two artifacts into the same release directory.
@@ -75,6 +87,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # Explicit head-ref checkout — pull_request_target defaults to
+          # the base ref, but the whole point of the preview is to
+          # build the PR head. This is safe because no secrets are in
+          # scope on this job (see the top-level trigger comment).
+          ref: ${{ github.event.pull_request.head.sha }}
           # next.config.mjs reads git metadata for the version footer.
           fetch-depth: 0
           # Do not stash the auth token in .git/config. Nothing later

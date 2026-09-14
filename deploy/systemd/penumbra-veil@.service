@@ -27,7 +27,12 @@ User=web
 Group=web
 WorkingDirectory=/opt/penumbra-veil/%i/current/apps/veil
 Environment=NODE_ENV=production
-Environment=HOSTNAME=127.0.0.1
+# Bind to all interfaces on this container: the nginx front-proxy on a
+# different container (CT1102) proxies to :3001 / :3002 on this
+# container (CT1199) — a loopback-only listener is unreachable from
+# there. Container isolation + the host firewall are what stop the
+# backend port from being publicly reachable, not the bind address.
+Environment=HOSTNAME=0.0.0.0
 # Matches the live unit: CT1199's outbound IPv6 is broken, so DNS lookups
 # (registry fetches etc.) must resolve IPv4 first or they hang/500. See
 # reference_veil_ipv6_dns_workaround in ops notes if this ever gets removed

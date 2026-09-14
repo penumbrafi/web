@@ -35,6 +35,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # Pin to the current main-branch workflow logic. See
+          # deploy-veil.yml's identical pin for the threat model.
+          ref: refs/heads/main
           persist-credentials: false
 
       - name: configure ssh

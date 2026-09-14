@@ -33,6 +33,14 @@ server {
     # Staging is never indexed.
     add_header X-Robots-Tag "noindex, nofollow" always;
 
+    # Cloudflare-only origin gate. Without this, `curl --resolve
+    # staging.penumbra.fi:443:<origin ip>` bypasses CF Access at the
+    # edge — since Access checks a session cookie the edge sets, and
+    # the origin never sees the edge in that direction, only requests
+    # that actually traversed Cloudflare are allowed.
+    include /etc/nginx/cloudflare-allowlist.conf;
+    if ($cf_gated_allowed = "0") { return 403; }
+
     proxy_http_version 1.1;
     proxy_set_header Upgrade         $http_upgrade;
     proxy_set_header Connection      "upgrade";

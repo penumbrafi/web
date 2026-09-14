@@ -63,6 +63,13 @@ server {
     # while still allowing images/fonts served by the app.
     add_header Referrer-Policy "no-referrer" always;
 
+    # Origin-side Cloudflare-only gate. CF Access is edge-only, so an
+    # attacker who resolves the anycast IP with `curl --resolve ...:443:
+    # <origin ip>` would otherwise bypass Access entirely. Refuse
+    # anything that did not come through a Cloudflare edge.
+    include /etc/nginx/cloudflare-allowlist.conf;
+    if ($cf_gated_allowed = "0") { return 403; }
+
     # Derive the upstream port from the hostname. Anything that does not
     # parse as `<1..9999>.dev.penumbra.fi` yields the empty string and we
     # 404 below, so a malformed host cannot proxy_pass to a random port.
