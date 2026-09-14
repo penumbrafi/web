@@ -1,0 +1,66 @@
+# /etc/systemd/system/penumbra-veil@.service
+#
+# Templated unit for the Veil DEX explorer. %i is the "colour" slot
+# (`blue` or `green`) — a stable identifier for one of two side-by-side
+# release trees so a deploy can rsync + restart the *other* colour
+# without touching the one currently receiving prod traffic.
+#
+#   penumbra-veil@blue.service   -> /opt/penumbra-veil/blue/current   :3001
+#   penumbra-veil@green.service  -> /opt/penumbra-veil/green/current  :3002
+#
+# nginx points at whichever port is written into
+# /etc/nginx/veil-upstream.conf; the deploy workflow flips that file
+# after the smoke test on the new colour succeeds and reloads nginx
+# gracefully so there is no visible restart window.
+#
+# The old colour keeps running until the next deploy — free rollback:
+# rewrite the include back to its port and `nginx -s reload`.
+
+[Unit]
+Description=Penumbra Veil DEX (%i)
+After=network-online.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=web
+Group=web
+WorkingDirectory=/opt/penumbra-veil/%i/current/apps/veil
+Environment=NODE_ENV=production
+Environment=HOSTNAME=127.0.0.1
+# Matches the live unit: CT1199's outbound IPv6 is broken, so DNS lookups
+# (registry fetches etc.) must resolve IPv4 first or they hang/500. See
+# reference_veil_ipv6_dns_workaround in ops notes if this ever gets removed
+# "to clean it up" -- it is load-bearing.
+Environment=NODE_OPTIONS=--dns-result-order=ipv4first
+# One drop-in per colour writes PORT=<3001|3002>. Kept out of the unit
+# so the template stays colour-agnostic; the deploy README wires them.
+EnvironmentFile=/opt/penumbra-veil/%i/env.port
+# Per-colour, but one level ABOVE `current` -- a sibling of `env.port` and
+# `releases/`, not inside the release tree. The deploy workflow's rsync
+# only ever touches releases/<sha>/, and the build job strips any .env*
+# files out of the artifact before it ships, so an env file placed inside
+# `current` would vanish on the very next deploy. Living beside `env.port`
+# instead means it survives every release rotation untouched, same as the
+# port file already does. (An earlier draft of this unit assumed a single
+# shared/ directory outside every colour; that layout was never applied.
+# Another draft pointed inside current/apps/veil, which does not survive
+# a deploy under this rsync --delete scheme -- fixed here.)
+EnvironmentFile=-/opt/penumbra-veil/%i/.env.production
+EnvironmentFile=-/opt/penumbra-veil/%i/.env.production.local
+ExecStart=/usr/bin/node /opt/penumbra-veil/%i/current/apps/veil/server.js
+Restart=always
+RestartSec=10
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ReadWritePaths=/opt/penumbra-veil/%i/current/apps/veil/.next/cache
+
+[Install]
+WantedBy=multi-user.target

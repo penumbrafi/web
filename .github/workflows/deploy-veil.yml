@@ -1,0 +1,246 @@
+# Build and deploy Veil (the DEX explorer, https://penumbra.fi).
+#
+# Build happens here, never on the host: `next build` with output: 'standalone'
+# produces a self-contained tree that is tarred as veil-<sha>.tar.zst, uploaded
+# as a workflow artifact, attached to the GitHub release on tags, and rsynced
+# into /opt/penumbra-veil/releases/<sha> by the deploy job.
+name: deploy veil
+
+on:
+  workflow_dispatch:
+    inputs:
+      promote:
+        description: >-
+          `auto` (default): build → deploy to standby colour → verify →
+          swap. Zero-downtime cutover on success.
+          `staging-only`: build → deploy to standby colour → verify.
+          Skips the swap so the standby serves the new build for
+          inspection on its backend port; a follow-up
+          `promote-veil.yml` run flips traffic when you say so.
+        type: choice
+        default: auto
+        options: [auto, staging-only]
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+concurrency:
+  group: deploy-veil
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build veil
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # next.config.mjs reads git metadata for the version footer
+          fetch-depth: 0
+
+      - name: setup nix
+        uses: ./.github/actions/setup-nix
+
+      - name: setup turbo
+        uses: ./.github/actions/setup-turbo
+
+      - name: build veil
+        env:
+          # NEXT_PUBLIC_* is inlined at build time, so it has to come from the
+          # repository/environment variables rather than the host .env files.
+          # An unset repository variable expands to "", which Next inlines in
+          # preference to the value in apps/veil/.env.production. Spell the
+          # fallback out here so a missing variable cannot ship an empty
+          # endpoint into the bundle.
+          NEXT_PUBLIC_GRAPHQL_HOST: ${{ vars.NEXT_PUBLIC_GRAPHQL_HOST || 'api.explorer.rotko.net' }}
+          NEXT_PUBLIC_COMETBFT_WS_URL: ${{ vars.NEXT_PUBLIC_COMETBFT_WS_URL || 'wss://penumbra.rotko.net/websocket' }}
+        run: nix develop --command pnpm turbo build --filter=penumbra-veil...
+
+      - name: assemble standalone tree
+        run: |
+          set -euo pipefail
+          cd apps/veil
+          test -f .next/standalone/apps/veil/server.js
+          cp -r public .next/standalone/apps/veil/public
+          mkdir -p .next/standalone/apps/veil/.next
+          cp -r .next/static .next/standalone/apps/veil/.next/static
+          # Never ship a build-time .env into a public release asset.
+          find .next/standalone -maxdepth 3 -name '.env*' -print -delete
+          # pnpm inside the nix devshell can compile native modules against
+          # /nix/store libraries that do not exist on the Debian host.
+          if find .next/standalone -name '*.node' | read -r _; then
+            find .next/standalone -name '*.node' -exec ldd {} + > /tmp/nativedeps.txt 2>&1 || true
+            if grep -Eq '/nix/store|not found' /tmp/nativedeps.txt; then
+              echo 'native module linked against paths absent on the deploy host:'
+              grep -E '/nix/store|not found' /tmp/nativedeps.txt
+              exit 1
+            fi
+          fi
+          cat > .next/standalone/BUILD_INFO <<INFO
+          app=veil
+          sha=${{ github.sha }}
+          ref=${{ github.ref }}
+          run_id=${{ github.run_id }}
+          built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          INFO
+
+      - name: pack artifact
+        run: |
+          set -euo pipefail
+          tar --zstd -C apps/veil/.next/standalone -cf "veil-${{ github.sha }}.tar.zst" .
+          ls -lh "veil-${{ github.sha }}.tar.zst"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: veil-${{ github.sha }}
+          path: veil-${{ github.sha }}.tar.zst
+          retention-days: 30
+          if-no-files-found: error
+
+  release:
+    name: attach to release
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: veil-${{ github.sha }}
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: veil-${{ github.sha }}.tar.zst
+          fail_on_unmatched_files: true
+
+  deploy:
+    name: deploy veil (blue/green)
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      APP_DIR: /opt/penumbra-veil
+      SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: veil-${{ github.sha }}
+
+      - name: unpack
+        run: |
+          set -euo pipefail
+          mkdir -p payload
+          tar --zstd -C payload -xf "veil-${SHA}.tar.zst"
+
+      - name: configure ssh
+        uses: ./.github/actions/ssh-deploy
+        with:
+          ssh-key: ${{ secrets.DEPLOY_SSH_KEY }}
+          known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          jump-host: ${{ secrets.DEPLOY_HOST }}
+          target-host: ${{ secrets.DEPLOY_CT }}
+          proxy-host: ${{ secrets.DEPLOY_PROXY_CT }}
+
+      - name: pick target colour
+        id: pick
+        run: |
+          set -euo pipefail
+          # `veil-swap active` prints the colour nginx is currently
+          # pointing at (blue or green). Target is the other one — the
+          # standby "staging" instance that has zero user traffic on it
+          # right now. veil-swap lives on the front-proxy container, not
+          # the workload container the app itself runs on.
+          active=$(ssh proxy 'sudo -n /usr/local/sbin/veil-swap active')
+          case "$active" in
+              blue)  target=green; port=3002 ;;
+              green) target=blue;  port=3001 ;;
+              *) echo "unexpected active colour: $active" >&2; exit 1 ;;
+          esac
+          echo "active=$active" >> "$GITHUB_OUTPUT"
+          echo "target=$target" >> "$GITHUB_OUTPUT"
+          echo "port=$port"     >> "$GITHUB_OUTPUT"
+          echo "Deploying to $target on :$port; live traffic stays on $active."
+
+      - name: ship release to target colour
+        env:
+          TARGET: ${{ steps.pick.outputs.target }}
+        run: |
+          set -euo pipefail
+          ssh target "mkdir -p '${APP_DIR}/${TARGET}/releases/${SHA}'"
+          rsync -a --delete -e ssh payload/ "target:${APP_DIR}/${TARGET}/releases/${SHA}/"
+
+      - name: activate on target colour
+        env:
+          TARGET: ${{ steps.pick.outputs.target }}
+          PORT: ${{ steps.pick.outputs.port }}
+        run: |
+          set -euo pipefail
+          ssh target "APP_DIR='${APP_DIR}' TARGET='${TARGET}' PORT='${PORT}' SHA='${SHA}' bash -s" <<'REMOTE'
+          set -euo pipefail
+          case "$TARGET" in blue|green) ;; *) echo "bad target"; exit 64 ;; esac
+          case "$SHA" in ""|*[!0-9a-f]*) echo "bad sha" >&2; exit 64 ;; esac
+          cd "$APP_DIR/$TARGET"
+          ln -sfn "releases/$SHA" current.tmp
+          mv -Tf current.tmp current
+          # keep the five most recent releases per colour
+          ls -1dt releases/*/ | tail -n +6 | xargs -r rm -rf
+          sudo -n /usr/bin/systemctl restart "penumbra-veil@${TARGET}.service"
+          # Poll until the new colour answers. We can wait as long as we
+          # need — this instance is NOT serving user traffic yet.
+          for _ in $(seq 1 60); do
+            if curl -fsS -m 2 -o /dev/null "http://127.0.0.1:${PORT}/"; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "target ${TARGET} did not answer within 120s" >&2
+          systemctl status "penumbra-veil@${TARGET}.service" --no-pager >&2 || true
+          exit 1
+          REMOTE
+
+      - name: flip nginx upstream to target colour
+        # Skip on `staging-only` — the standby colour keeps serving the
+        # new build on its backend port, but prod traffic stays on the
+        # old colour until a follow-up `promote-veil.yml` run says so.
+        # `promote` is only present on workflow_dispatch, so treat the
+        # default (push / tag) as `auto`.
+        if: >-
+          (github.event_name != 'workflow_dispatch') ||
+          (inputs.promote == 'auto')
+        env:
+          TARGET: ${{ steps.pick.outputs.target }}
+        run: |
+          set -euo pipefail
+          # veil-swap does its own is-active + curl smoke check, then
+          # rewrites /etc/nginx/veil-upstream.conf and `nginx -s reload`
+          # (graceful — in-flight requests to the old colour finish, new
+          # connections go to the new colour, zero downtime window). Runs
+          # on the front-proxy container, where nginx and veil-swap live.
+          ssh proxy "sudo -n /usr/local/sbin/veil-swap ${TARGET}"
+
+      - name: post-swap smoke test through nginx
+        if: >-
+          (github.event_name != 'workflow_dispatch') ||
+          (inputs.promote == 'auto')
+        run: |
+          set -euo pipefail
+          # This request goes to :80/:443 via nginx on the front-proxy
+          # container (not directly to the backend port on the workload
+          # container), so it exercises the full path a user would hit.
+          ssh proxy 'curl -fsS -o /dev/null -w "post-swap %{http_code}\n" http://127.0.0.1/ -H "Host: penumbra.fi"'
+
+      - name: staging-only handoff message
+        if: >-
+          github.event_name == 'workflow_dispatch' &&
+          inputs.promote == 'staging-only'
+        env:
+          TARGET: ${{ steps.pick.outputs.target }}
+          PORT: ${{ steps.pick.outputs.port }}
+        run: |
+          echo "::notice title=Staging deployed::penumbra-veil@${TARGET}.service is running the new build on :${PORT}. Prod traffic is still on the old colour."
+          echo "::notice title=Promote::gh workflow run promote-veil.yml"

@@ -46,18 +46,25 @@ actually holds the value on the day someone runs the one-time host setup.
 
 ## Transport
 
-The workload container has sshd on an internal-only address, so Actions
-reaches it with `ProxyJump` through a jump host:
+**Two containers, not one.** The workload container (runs the veil units) and
+the front-proxy container (runs nginx and `veil-swap`) are different boxes on
+the internal network. `.github/actions/ssh-deploy` sets up a jump host and
+proxies to *either or both*, as `target` and `proxy` respectively — pass
+whichever host inputs a given job needs:
 
 ```
-runner --ssh--> deploy-jump@<jump host public IP> --(-W)--> web@<workload host internal IP>
+runner --ssh--> deploy-jump@<jump host public IP> --(-W)--> web@<workload host internal IP>   (alias: target)
+                                                  \-(-W)--> web@<front-proxy host internal IP> (alias: proxy)
 ```
+
+`deploy-veil.yml` and `promote-veil.yml` need both: `target` to ship the
+release and restart the standby unit, `proxy` to call `veil-swap` and to
+smoke-test through nginx. `deploy-node-status.yml` only needs `target`.
 
 The jump account should be forwarding-only: no shell, and `permitopen`
-restricted to the workload container. `.github/actions/ssh-deploy` sets this
-up and verifies the hop before anything is copied. The action takes the jump
-host, target host and target user entirely as inputs (from secrets) — it has
-no container numbers or IPs of its own.
+restricted to the two containers it's allowed to reach. The action verifies
+each hop it was given inputs for before anything is copied. It has no
+container numbers or IPs of its own — those come entirely from secrets.
 
 **This forwarding-only jump account does not exist today.** The only working
 path in is `ssh root@<proxmox host>` with full root, which is how deploys
@@ -81,10 +88,13 @@ Environments):
 | `DEPLOY_SSH_KEY` | ed25519 **private** key for the deploy account, PEM body |
 | `DEPLOY_HOST` | public address of the jump host |
 | `DEPLOY_CT` | address of the workload container on the internal network |
-| `DEPLOY_KNOWN_HOSTS` | pinned host keys for the jump host and the workload container — generate with `ssh-keyscan`, do not paste keys from this README into an issue or elsewhere public |
+| `DEPLOY_PROXY_CT` | address of the front-proxy container on the internal network |
+| `DEPLOY_KNOWN_HOSTS` | pinned host keys for the jump host, the workload container, and the front-proxy container — generate with `ssh-keyscan`, do not paste keys from this README into an issue or elsewhere public |
 
-The same four are needed by `penumbra-explorer` and `penumbra-explorer-backend`
-— as an org admin you can instead create them once as **organization** secrets
+`DEPLOY_SSH_KEY`, `DEPLOY_HOST`, `DEPLOY_CT` and `DEPLOY_KNOWN_HOSTS` are also
+needed by `penumbra-explorer` and `penumbra-explorer-backend` (they don't talk
+to the front-proxy container, so they don't need `DEPLOY_PROXY_CT`) — as an
+org admin you can instead create those four once as **organization** secrets
 scoped to those repositories.
 
 `preview` environment secrets are documented in the per-PR previews section
@@ -104,15 +114,22 @@ explicit fallback in the workflow, so leaving them unset keeps the current
 rotko.net endpoints rather than baking an empty string into the bundle.
 
 `PENUMBRA_INDEXER_CA_CERT` is empty on the host today, so no certificate has to
-be carried into `shared/`; if it is ever set, put the file in `shared/` and
-point the variable at that path.
+be carried anywhere; if it is ever set, put the file next to that colour's
+`.env.production` and point the variable at that path.
 
 `BASE_URL`, `PENUMBRA_GRPC_ENDPOINT`, `PENUMBRA_CHAIN_ID`,
 `PENUMBRA_CUILOA_URL`, `PENUMBRA_INDEXER_ENDPOINT`,
 `PENUMBRA_INDEXER_CA_CERT` and `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` are read at
-**runtime** from the host files in `shared/`, so they are not needed in CI.
-Set `BASE_URL=https://penumbra.fi` there when the domain goes live — it is what
-canonical URLs and OpenGraph images are built from.
+**runtime** from `.env.production` / `.env.production.local` at
+`/opt/penumbra-veil/{blue,green}/.env.production*` — one level above each
+colour's `current` release symlink, alongside `env.port` (see the blue/green
+section). That placement matters: it's a sibling of the release tree, not
+inside it, so it survives every deploy's `rsync --delete` and the build
+job's own stripping of `.env*` out of the artifact. There is no single
+shared directory across colours; each colour carries its own copy, kept in
+sync by hand when a value changes. Set `BASE_URL=https://penumbra.fi` there
+when the domain goes live — it is what canonical URLs and OpenGraph images
+are built from.
 
 ## node-status
 
@@ -172,6 +189,137 @@ install -d -o web -g web /opt/penumbra-node-status/releases
 The blue/green section below has the rest of the host setup for veil itself
 (units, `veil-swap`, sudoers).
 
+## Blue/green (veil)
+
+**Status: live.** This is how veil actually runs in production today — the
+sections above describe the deploy automation this PR adds on top of an
+already-running blue/green setup, not a design being proposed for the first
+time.
+
+Two systemd units, `penumbra-veil@blue` and `penumbra-veil@green`, run side
+by side on the workload container from the templated unit
+`deploy/systemd/penumbra-veil@.service`:
+
+```
+/opt/penumbra-veil/
+  blue/
+    env.port              PORT=3001, root-owned
+    .env.production        colour-local runtime env, root-owned, NOT touched by CI
+    .env.production.local  same
+    releases/<git-sha>/    unpacked artifact, contains BUILD_INFO
+    current -> releases/<git-sha>
+  green/
+    env.port              PORT=3002
+    (same layout)
+```
+
+`.env.production*` sit *beside* `current`, not inside it — the deploy
+workflow's `rsync --delete` only ever touches `releases/<sha>/`, and the
+build job deliberately strips any `.env*` out of the artifact, so anything
+living inside the release tree would be gone on the very next deploy.
+
+On the front-proxy container, `/etc/nginx/veil-upstream.conf` (written by
+`veil-swap`, see `deploy/nginx-veil-upstream.conf.example`) defines two
+upstreams — `veil` (active colour primary, other colour as nginx `backup`)
+and `veil_staging` (standby colour) — and the `penumbra.fi` / `dex.rotko.net`
+vhosts `include` it and `proxy_pass http://veil;`. `/usr/local/sbin/veil-swap`
+(from `deploy/scripts/veil-swap.sh`) rewrites that include atomically,
+`nginx -t` gates it, then `nginx -s reload` — graceful, no dropped
+connections, no restart window. `veil-swap active` reports which colour is
+currently prod; `/etc/nginx/veil-active` persists that across reloads.
+`/etc/nginx/veil-backend-host` (optional) tells `veil-swap` the workload
+container's address when nginx and veil are not on the same host, which in
+this topology they are not — it must be set to
+`VEIL_HOST=<workload host internal IP>` (the script's baked-in default,
+`127.0.0.1`, is only correct if nginx and veil share a container).
+
+### What the workflow does
+
+1. `deploy-veil.yml` on `push: main` (or `workflow_dispatch` with
+   `promote: auto`, the default): build → ask `proxy` which colour is active
+   → rsync the artifact into the *other* colour's `releases/<sha>` on
+   `target` → flip that colour's `current` symlink → restart its unit →
+   poll its port directly until it answers (up to 120s; it isn't serving
+   traffic yet, so there's no rush) → `veil-swap <target>` on `proxy` →
+   smoke test through nginx.
+2. `workflow_dispatch` with `promote: staging-only` does the same but stops
+   before the swap — the new build sits on the standby colour, reachable at
+   its backend port and (once the staging vhost is enabled) at
+   `staging.penumbra.fi`, while prod traffic stays on the old colour.
+3. `promote-veil.yml` (`workflow_dispatch`, no build) just calls
+   `veil-swap <standby>` — the same primitive, for when a `staging-only` run
+   already checked out fine and someone says "ship it" without a rebuild.
+   `dry_run: true` prints what would happen without swapping.
+
+Rollback is `gh workflow run promote-veil.yml` again — the previous colour
+is still running, untouched, so promoting back is instant.
+
+### Staging vhost
+
+`deploy/nginx-staging.penumbra.fi.conf.example` proxies `staging.penumbra.fi`
+to the `veil_staging` upstream. **Status: include installed on the front-proxy
+container, vhost not enabled** — it needs a DNS record and a certificate for
+`staging.penumbra.fi` first. Until then, `staging-only` deploys are only
+reachable by curling the standby colour's backend port directly from inside
+the workload container.
+
+### Host setup (blue/green pieces)
+
+On the **workload container**:
+
+```sh
+# blue/green release layout + port pins (root-owned so `web` cannot rewrite them)
+install -d -o web -g web /opt/penumbra-veil/blue/releases /opt/penumbra-veil/green/releases
+printf 'PORT=3001\n' > /opt/penumbra-veil/blue/env.port
+printf 'PORT=3002\n' > /opt/penumbra-veil/green/env.port
+chmod 644 /opt/penumbra-veil/{blue,green}/env.port
+
+# per-colour runtime env (values come from whatever the existing hand-managed
+# .env.production was — copy it to BOTH colours, they diverge only if you
+# deliberately want that)
+install -o web -g web -m 600 .env.production       /opt/penumbra-veil/blue/.env.production
+install -o web -g web -m 600 .env.production       /opt/penumbra-veil/green/.env.production
+# .env.production.local similarly, if one exists
+
+# templated unit
+install -m 644 deploy/systemd/penumbra-veil@.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now penumbra-veil@blue.service penumbra-veil@green.service
+
+# restart rights for the deploy account: only the two colour slots, nothing else
+cat > /etc/sudoers.d/penumbra-deploy-veil <<'SUDO'
+web ALL=(root) NOPASSWD: /usr/bin/systemctl restart penumbra-veil@blue.service, \
+                         /usr/bin/systemctl restart penumbra-veil@green.service
+SUDO
+chmod 440 /etc/sudoers.d/penumbra-deploy-veil
+visudo -c
+```
+
+On the **front-proxy container**:
+
+```sh
+install -o root -g root -m 0755 deploy/scripts/veil-swap.sh /usr/local/sbin/veil-swap
+install -o root -g root -m 0644 deploy/nginx-veil-upstream.conf.example \
+  /etc/nginx/veil-upstream.conf
+# tell veil-swap where the workload container actually is
+printf 'VEIL_HOST=<WORKLOAD_HOST_INTERNAL_IP>\n' > /etc/nginx/veil-backend-host
+printf 'blue\n' > /etc/nginx/veil-active   # or whatever colour is actually live
+# vhosts (deploy/nginx-penumbra.fi.conf.example) must `include
+# /etc/nginx/veil-upstream.conf;` and `proxy_pass http://veil;`
+
+# veil-swap rights for the deploy account, nothing else — the script itself
+# validates its one argument, so this is as narrow as sudo gets
+cat > /etc/sudoers.d/penumbra-deploy-veil-swap <<'SUDO'
+web ALL=(root) NOPASSWD: /usr/local/sbin/veil-swap blue, \
+                         /usr/local/sbin/veil-swap green, \
+                         /usr/local/sbin/veil-swap active
+SUDO
+chmod 440 /etc/sudoers.d/penumbra-deploy-veil-swap
+visudo -c
+
+nginx -t && systemctl reload nginx
+```
+
 ## Known unverified
 
 * GitHub-hosted runners reaching the jump host on `:22` — not yet exercised
@@ -185,20 +333,30 @@ The blue/green section below has the rest of the host setup for veil itself
 
 Applied by hand, already live in production:
 
-* Blue/green systemd units and the `veil-swap` helper — see the blue/green
-  section.
+* Blue/green systemd units (`penumbra-veil@blue`, `penumbra-veil@green`) on
+  the workload container.
+* `veil-swap` and `veil-upstream.conf` on the front-proxy container.
 * The front-proxy vhosts for `penumbra.fi` and `dex.rotko.net`, routed through
   `veil-upstream.conf`.
+* The staging `veil-upstream.conf` include mechanics (i.e. `veil_staging`
+  always points at the standby colour).
 
 Not yet applied — required before `gh workflow run deploy-veil.yml` will work
 end-to-end:
 
 * The forwarding-only jump account described above (today only a full-root
   SSH path exists).
-* The four `production` environment secrets and the `production` /
-  `preview` GitHub Environments themselves.
+* The `production` and `preview` GitHub Environments and their secrets,
+  including `DEPLOY_PROXY_CT` (this PR's workflows are the first thing that
+  needs to reach the front-proxy container separately from the workload
+  container — nothing before this automated the swap step).
+* The `penumbra-deploy-veil` / `penumbra-deploy-veil-swap` sudoers files
+  above, scoped to whatever account `DEPLOY_SSH_KEY` authenticates as.
+* Per-colour `.env.production*` living beside `current` rather than inside
+  it, if the host's current copies are not already there (verify before the
+  first CI-driven deploy, or the app will come up with empty runtime config).
 * node-status host setup (release dir exists nowhere, no vhost).
 * Everything under the per-PR previews section (dedicated user, wildcard
   vhost, wildcard cert, Cloudflare Access, sysctl reservation).
-* Staging vhost for `staging.penumbra.fi` (DNS + certificate not issued yet;
-  the include is documented, not enabled) — see the blue/green section.
+* `staging.penumbra.fi` DNS + certificate (the vhost example and the
+  upstream mechanics are ready; the name isn't resolvable yet).
