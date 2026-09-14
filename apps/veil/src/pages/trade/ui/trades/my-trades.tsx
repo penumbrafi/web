@@ -1,3 +1,5 @@
+'use client';
+
 import { observer } from 'mobx-react-lite';
 import { connectionStore } from '@/shared/model/connection';
 import { useLatestSwaps } from '../../api/latest-swaps';

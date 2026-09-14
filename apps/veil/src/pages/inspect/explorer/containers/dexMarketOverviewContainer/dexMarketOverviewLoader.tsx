@@ -30,8 +30,8 @@ function formatDisplayAmount(raw: string, exponent: number): string {
     if (scaled >= 1e9) return `${(scaled / 1e9).toFixed(2)}B`
     if (scaled >= 1e6) return `${(scaled / 1e6).toFixed(2)}M`
     if (scaled >= 1e3) return `${(scaled / 1e3).toFixed(1)}K`
-    if (scaled >= 1) return scaled.toLocaleString(undefined, { maximumFractionDigits: 2 })
-    return scaled.toLocaleString(undefined, { maximumFractionDigits: 6 })
+    if (scaled >= 1) return scaled.toLocaleString('en-US', { maximumFractionDigits: 2 })
+    return scaled.toLocaleString('en-US', { maximumFractionDigits: 6 })
 }
 
 function b64ToBytes(s: string): Uint8Array {
@@ -156,7 +156,7 @@ const DexMarketOverviewLoader: FC<Props> = async props => {
                                                 )}
                                             </td>
                                             <td className="py-2 text-right">
-                                                {v.swapCount24h.toLocaleString()}
+                                                {v.swapCount24h.toLocaleString('en-US')}
                                             </td>
                                         </tr>
                                     )
@@ -222,7 +222,7 @@ const DexMarketOverviewLoader: FC<Props> = async props => {
                                                 {label1} / {label2}
                                             </td>
                                             <td className="py-2 pr-4 text-right">
-                                                {p.activePositions.toLocaleString()}
+                                                {p.activePositions.toLocaleString('en-US')}
                                             </td>
                                             <td className="py-2 pr-4 text-right font-mono">
                                                 {formatDisplayAmount(

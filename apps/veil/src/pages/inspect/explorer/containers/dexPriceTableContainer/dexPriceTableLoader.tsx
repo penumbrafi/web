@@ -90,13 +90,13 @@ const DexPriceTableLoader: FC<Props> = async props => {
                                     {formatPrice(p.avgPrice)}
                                 </td>
                                 <td className="py-2 pr-4 text-right">
-                                    {p.swapCount.toLocaleString()}
+                                    {p.swapCount.toLocaleString('en-US')}
                                 </td>
                                 <td className="text-text-secondary py-2 text-right">
                                     {p.latestSwap
                                         ? new Date(
                                               p.latestSwap
-                                          ).toLocaleTimeString()
+                                          ).toLocaleTimeString('en-US', { timeZone: 'UTC' })
                                         : '-'}
                                 </td>
                             </tr>

@@ -1,3 +1,5 @@
+'use client';
+
 import { RefObject, useCallback, useEffect, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { getDisplayDenomExponent } from '@penumbra-zone/getters/metadata';

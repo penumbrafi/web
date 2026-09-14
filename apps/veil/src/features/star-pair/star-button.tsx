@@ -1,3 +1,5 @@
+'use client';
+
 import { FC, MouseEventHandler } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Star } from 'lucide-react';

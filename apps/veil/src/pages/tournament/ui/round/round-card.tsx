@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 import { ArrowLeft, Hourglass } from 'lucide-react';
 import { observer } from 'mobx-react-lite';
@@ -13,7 +15,7 @@ import { IncentivePool } from '../landing-card/incentive-pool';
 import { GradientCard } from '../shared/gradient-card';
 import { VotingInfo } from '../voting-info';
 import { formatTimeRemaining } from '@/shared/utils/format-time';
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import {
   SocialCardDialog,
   useTournamentSocialCard,
@@ -42,9 +44,14 @@ export const RoundCard = observer(({ epoch }: RoundCardProps) => {
     ended,
   );
 
-  const endingTime = summary?.[0]?.ends_in_s
-    ? format(addSeconds(new Date(), summary[0].ends_in_s), 'MMM d, yyyy, hh:mm aa OOO')
-    : undefined;
+  const endingTime = useMemo(
+    () =>
+      summary?.[0]?.ends_in_s
+        ? format(addSeconds(new Date(), summary[0].ends_in_s), 'MMM d, yyyy, hh:mm aa OOO')
+        : undefined,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   const { subaccount } = connectionStore;
   const { data: rewards } = usePersonalRewards(subaccount, currentEpoch, false, 1, 1);

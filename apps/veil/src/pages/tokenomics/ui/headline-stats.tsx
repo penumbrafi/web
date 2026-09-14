@@ -61,7 +61,7 @@ export const HeadlineStats = ({ metrics }: { metrics: TokenomicsMetrics }) => {
           The numbers, right now
         </Text>
         <Text body color='text.secondary'>
-          Latest on-chain snapshot — block {metrics.latestHeight.toLocaleString()}.
+          Latest on-chain snapshot — block {metrics.latestHeight.toLocaleString('en-US')}.
         </Text>
       </div>
 
