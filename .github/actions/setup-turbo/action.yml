@@ -9,21 +9,17 @@ inputs:
     description: Restore prefix for the cache
     required: false
     default: turbo-${{ runner.os }}-
-  backend:
-    description: Backend to use for caching
-    required: false
-    default: buildjet
-
 runs:
   using: composite
   steps:
     - name: Setup turbo cache
-      uses: buildjet/cache@v4
+      uses: actions/cache@v4
       with:
         path: |
           .turbo
           node_modules
         key: ${{ inputs.primary-key }}
+        restore-keys: ${{ inputs.restore-prefix }}
 
     - name: Install node deps
       shell: bash

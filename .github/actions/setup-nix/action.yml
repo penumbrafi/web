@@ -12,7 +12,7 @@ inputs:
   backend:
     description: Backend to use for caching
     required: false
-    default: buildjet
+    default: actions
 
 runs:
   using: composite

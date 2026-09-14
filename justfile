@@ -77,7 +77,3 @@ test-rust: playwright-setup
 # Run test suites locally and gather timing information
 benchmark-tests:
   ./scripts/benchmark-tests
-
-# Deploy Veil from current branch to fly.io
-deploy:
-  ./ci/fly-deploy-branch
