@@ -76,13 +76,17 @@ SystemCallFilter=~@debug @mount @privileged @reboot @swap @cpu-emulation @obsole
 SystemCallErrorNumber=EPERM
 
 # ---- network containment ------------------------------------------
-# Loopback only — nginx on CT1102 talks to us via port 30000+%i and we
-# never need to originate outbound network from a preview. Add explicit
-# hosts here if a preview must reach upstreams (chain registry, um-price,
-# etc.); see the README for the current allowlist.
+# Loopback only — nginx on the front-proxy container talks to us via port
+# 30000+%i and we never need to originate outbound network from a preview.
+# Add explicit hosts here if a preview must reach upstreams (chain
+# registry, um-price, etc.); see the README for the current allowlist.
+#
+# Replace <FRONT_PROXY_HOST_INTERNAL_IP> with that container's actual
+# internal address before installing this unit — do not commit a real
+# internal IP here, this file is checked into a public repo.
 IPAddressDeny=any
 IPAddressAllow=localhost
-IPAddressAllow=10.7.77.82/32
+IPAddressAllow=<FRONT_PROXY_HOST_INTERNAL_IP>/32
 IPAddressAllow=185.199.108.133/32
 IPAddressAllow=185.199.109.133/32
 IPAddressAllow=185.199.110.133/32
