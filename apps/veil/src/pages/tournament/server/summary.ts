@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Serialized, serialize } from '@/shared/utils/serializer';
 import { pindexerDb } from '@/shared/database/client';
 import { LqtSummary } from '@/shared/database/schema';
+import {
+  withApiFallback,
+  withTimeout,
+  DEFAULT_TIMEOUT_MS,
+} from '@/shared/api/server/with-api-fallback.ts';
 
 const DEFAULT_LIMIT = 10;
 
@@ -68,7 +73,17 @@ const totalSummaryCountQuery = async (epochs?: number[]) => {
   return query.executeTakeFirst();
 };
 
-export async function POST(
+const EMPTY_TOURNAMENT_SUMMARY: Serialized<TournamentSummaryApiResponse | { error: string }> = {
+  total: 0,
+  data: [],
+};
+
+export const POST = withApiFallback(handlePost, {
+  emptyResponse: EMPTY_TOURNAMENT_SUMMARY,
+  logTag: 'tournament/summary',
+});
+
+async function handlePost(
   req: NextRequest,
 ): Promise<NextResponse<Serialized<TournamentSummaryApiResponse | { error: string }>>> {
   const urlParams = getQueryParams(req);
@@ -80,10 +95,11 @@ export async function POST(
     ...bodyData,
   };
 
-  const [results, total] = await Promise.all([
-    tournamentSummaryQuery(params),
-    totalSummaryCountQuery(params.epochs),
-  ]);
+  const [results, total] = await withTimeout(
+    Promise.all([tournamentSummaryQuery(params), totalSummaryCountQuery(params.epochs)]),
+    DEFAULT_TIMEOUT_MS,
+    'tournament/summary query',
+  );
 
   return NextResponse.json({
     total: Number(total?.total ?? 0),

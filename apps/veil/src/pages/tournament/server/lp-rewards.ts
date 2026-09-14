@@ -5,6 +5,11 @@ import { positionIdFromBech32 } from '@penumbra-zone/bech32m/plpid';
 import { PositionId } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
 import { AssetId } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { JsonObject } from '@bufbuild/protobuf';
+import {
+  withApiFallback,
+  withTimeout,
+  DEFAULT_TIMEOUT_MS,
+} from '@/shared/api/server/with-api-fallback.ts';
 
 export type LpRewardsSortKey = 'epoch' | 'position_id' | 'rewards';
 export type LpRewardsSortDirection = 'asc' | 'desc';
@@ -67,11 +72,18 @@ async function queryLqtLps({ positionIds, sortKey, sortDirection, limit, page }:
   };
 }
 
-export async function POST(
+const EMPTY_LP_REWARDS: Serialized<LpRewardsApiResponse> = { data: [], total: 0, totalRewards: 0 };
+
+export const POST = withApiFallback(handlePost, {
+  emptyResponse: EMPTY_LP_REWARDS,
+  logTag: 'tournament/lp-rewards',
+});
+
+async function handlePost(
   req: NextRequest,
 ): Promise<NextResponse<Serialized<LpRewardsApiResponse>>> {
   const params = (await req.json()) as LpRewardsRequest;
-  const lps = await queryLqtLps(params);
+  const lps = await withTimeout(queryLqtLps(params), DEFAULT_TIMEOUT_MS, 'tournament/lp-rewards query');
 
   return NextResponse.json(
     serialize({
