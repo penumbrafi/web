@@ -94,6 +94,23 @@ export const useDepthChart = (
         horzLine: { style: LineStyle.Dashed },
       },
       rightPriceScale: { borderVisible: false },
+      // The container div owns wheel/pinch zoom (see RouteDepth's
+      // setWheelZoomRef) and remaps it to the ±% window state. Disable
+      // lightweight-charts' own wheel-scale and pinch handling so a single
+      // gesture doesn't both re-scale the time axis AND trigger our
+      // zoomPct → refetch → fitContent() cycle. Drag-to-pan stays enabled.
+      handleScroll: {
+        mouseWheel: false,
+        pressedMouseMove: true,
+        horzTouchDrag: true,
+        vertTouchDrag: true,
+      },
+      handleScale: {
+        mouseWheel: false,
+        pinch: false,
+        axisPressedMouseMove: true,
+        axisDoubleClickReset: true,
+      },
       timeScale: {
         borderVisible: false,
         // The X axis values are scaled prices, not times — format them as
