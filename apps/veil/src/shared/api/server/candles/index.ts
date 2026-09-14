@@ -5,8 +5,14 @@ import { DurationWindow, durationWindows, isDurationWindow } from '@/shared/util
 import { combineDbCandles, insertEmptyCandles } from '@/shared/api/server/candles/utils.ts';
 import { CandleApiResponse, DbCandle } from '@/shared/api/server/candles/types.ts';
 import { pindexerDb } from '@/shared/database/client';
+import { withApiFallback, withTimeout, DEFAULT_TIMEOUT_MS } from '@/shared/api/server/with-api-fallback.ts';
 
 const MAINNET_CHAIN_ID = 'penumbra-1';
+
+// Empty candle list -- the graceful fallback served when the registry or
+// pindexer is unreachable. Candle consumers already handle an empty array
+// (no chart data yet) rather than crashing.
+const EMPTY_CANDLES: CandleApiResponse = [];
 
 const getCandlesOneDirection = async ({
   assetStart,
@@ -43,7 +49,12 @@ const getCandlesOneDirection = async ({
     .execute();
 };
 
-export async function GET(req: NextRequest): Promise<NextResponse<CandleApiResponse>> {
+export const GET = withApiFallback(handleGet, {
+  emptyResponse: EMPTY_CANDLES,
+  logTag: 'candles',
+});
+
+async function handleGet(req: NextRequest): Promise<NextResponse<CandleApiResponse>> {
   const grpcEndpoint =
     process.env['PENUMBRA_GRPC_ENDPOINT_INTERNAL'] ?? process.env['PENUMBRA_GRPC_ENDPOINT'];
   const chainId = process.env['PENUMBRA_CHAIN_ID'];
@@ -75,7 +86,11 @@ export async function GET(req: NextRequest): Promise<NextResponse<CandleApiRespo
   }
 
   const registryClient = new ChainRegistryClient();
-  const registry = await registryClient.remote.get(chainId);
+  const registry = await withTimeout(
+    registryClient.remote.get(chainId),
+    DEFAULT_TIMEOUT_MS,
+    'candles registry.get',
+  );
 
   // TODO: Add getMetadataBySymbol() helper to registry npm package
   const allAssets = registry.getAllAssets();
@@ -96,24 +111,28 @@ export async function GET(req: NextRequest): Promise<NextResponse<CandleApiRespo
   // direction-keyed, so (base→quote) holds taker-sell candles and
   // (quote→base) holds taker-buy candles. Merging the two by start_time
   // gives a single candle per bucket with split buy/sell volume.
-  const [forwardRows, reverseRows] = await Promise.all([
-    getCandlesOneDirection({
-      assetStart: baseAssetMetadata.penumbraAssetId,
-      assetEnd: quoteAssetMetadata.penumbraAssetId,
-      window: durationWindow,
-      chainId,
-      limit,
-      page,
-    }),
-    getCandlesOneDirection({
-      assetStart: quoteAssetMetadata.penumbraAssetId,
-      assetEnd: baseAssetMetadata.penumbraAssetId,
-      window: durationWindow,
-      chainId,
-      limit,
-      page,
-    }),
-  ]);
+  const [forwardRows, reverseRows] = await withTimeout(
+    Promise.all([
+      getCandlesOneDirection({
+        assetStart: baseAssetMetadata.penumbraAssetId,
+        assetEnd: quoteAssetMetadata.penumbraAssetId,
+        window: durationWindow,
+        chainId,
+        limit,
+        page,
+      }),
+      getCandlesOneDirection({
+        assetStart: quoteAssetMetadata.penumbraAssetId,
+        assetEnd: baseAssetMetadata.penumbraAssetId,
+        window: durationWindow,
+        chainId,
+        limit,
+        page,
+      }),
+    ]),
+    DEFAULT_TIMEOUT_MS,
+    'candles pindexer query',
+  );
 
   const byTime = new Map<number, { fwd?: DbCandle; rev?: DbCandle }>();
   for (const r of forwardRows) {

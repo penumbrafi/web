@@ -51,19 +51,38 @@ export async function POST(req: NextRequest): Promise<NextResponse<BroadcastApiR
   url.searchParams.set('tx', `0x${txHex}`);
   let upstream: Response;
   try {
-    upstream = await fetch(url.toString(), { method: 'GET' });
+    // Broadcasting a tx must never be "silently degraded" -- unlike the
+    // read routes in this file family, a fabricated success response here
+    // would tell the client its transaction went through when it didn't.
+    // So this route keeps returning real error statuses; we only bound
+    // the outbound call so a hung cometbft can't pin the request forever.
+    upstream = await fetch(url.toString(), {
+      method: 'GET',
+      signal: AbortSignal.timeout(10_000),
+    });
   } catch (e) {
     return NextResponse.json({ error: `upstream fetch failed: ${String(e)}` }, { status: 502 });
   }
 
   if (!upstream.ok) {
+    let bodyText = '';
+    try {
+      bodyText = await upstream.text();
+    } catch {
+      bodyText = '<unreadable body>';
+    }
+    return NextResponse.json({ error: `upstream ${upstream.status}: ${bodyText}` }, { status: 502 });
+  }
+
+  let json: JsonRpcResult;
+  try {
+    json = (await upstream.json()) as JsonRpcResult;
+  } catch (e) {
     return NextResponse.json(
-      { error: `upstream ${upstream.status}: ${await upstream.text()}` },
+      { error: `upstream returned invalid json: ${String(e)}` },
       { status: 502 },
     );
   }
-
-  const json = (await upstream.json()) as JsonRpcResult;
   if (json.error) {
     return NextResponse.json(
       { error: `upstream rpc error: ${json.error.message}` },

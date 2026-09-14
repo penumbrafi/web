@@ -48,63 +48,96 @@ async function ensureListener(): Promise<void> {
   listenClient = client;
 }
 
-export async function GET(req: NextRequest): Promise<Response> {
-  await ensureListener();
-
-  const encoder = new TextEncoder();
+// Empty, immediately-closed SSE stream. Served when the upstream LISTEN
+// connection can't be established (indexer DB unreachable, env var
+// missing) so the route degrades to "no live ticks" instead of throwing
+// out of the handler -- which would otherwise 500 -> 502 every client
+// that tries to subscribe, instead of just leaving them without
+// realtime updates (they still get data via polling/refetch elsewhere).
+function emptyStream(): Response {
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
-      let closed = false;
-      const write = (line: string) => {
-        if (closed) return;
-        try {
-          controller.enqueue(encoder.encode(line));
-        } catch {
-          closed = true;
-        }
-      };
-
-      // A first line so proxies flush headers immediately and clients
-      // see the connection is live.
-      write(': hello\n\n');
-
-      const subscriber: Subscriber = payload => {
-        // SSE frame: one event named `tick` with the raw NOTIFY payload
-        // as data. Client parses the JSON on receive.
-        write(`event: tick\ndata: ${payload}\n\n`);
-      };
-      subs.add(subscriber);
-
-      // Heartbeat comment every 15s. SSE spec ignores lines starting
-      // with `:` — this keeps intermediary proxies (nginx, cloudflare)
-      // from timing out an otherwise-idle connection.
-      const heartbeat = setInterval(() => write(`: keepalive ${Date.now()}\n\n`), 15_000);
-
-      const cleanup = () => {
-        if (closed) return;
-        closed = true;
-        clearInterval(heartbeat);
-        subs.delete(subscriber);
-        try {
-          controller.close();
-        } catch {
-          // already closed
-        }
-      };
-
-      req.signal.addEventListener('abort', cleanup);
+      controller.close();
     },
   });
-
   return new Response(stream, {
+    status: 200,
     headers: {
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-store, no-transform',
       Connection: 'keep-alive',
-      // X-Accel-Buffering:no defeats nginx's default response buffering
-      // for this route only, so ticks reach the client the instant we
-      // write them instead of when nginx's buffer fills.
-      'X-Accel-Buffering': 'no',
+      'X-Fallback': 'empty',
     },
   });
+}
+
+export async function GET(req: NextRequest): Promise<Response> {
+  try {
+    await ensureListener();
+  } catch (err) {
+    console.error('[pindexer-stream] ensureListener failed, serving empty stream', err);
+    return emptyStream();
+  }
+
+  try {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        let closed = false;
+        const write = (line: string) => {
+          if (closed) return;
+          try {
+            controller.enqueue(encoder.encode(line));
+          } catch {
+            closed = true;
+          }
+        };
+
+        // A first line so proxies flush headers immediately and clients
+        // see the connection is live.
+        write(': hello\n\n');
+
+        const subscriber: Subscriber = payload => {
+          // SSE frame: one event named `tick` with the raw NOTIFY payload
+          // as data. Client parses the JSON on receive.
+          write(`event: tick\ndata: ${payload}\n\n`);
+        };
+        subs.add(subscriber);
+
+        // Heartbeat comment every 15s. SSE spec ignores lines starting
+        // with `:` — this keeps intermediary proxies (nginx, cloudflare)
+        // from timing out an otherwise-idle connection.
+        const heartbeat = setInterval(() => write(`: keepalive ${Date.now()}\n\n`), 15_000);
+
+        const cleanup = () => {
+          if (closed) return;
+          closed = true;
+          clearInterval(heartbeat);
+          subs.delete(subscriber);
+          try {
+            controller.close();
+          } catch {
+            // already closed
+          }
+        };
+
+        req.signal.addEventListener('abort', cleanup);
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-store, no-transform',
+        Connection: 'keep-alive',
+        // X-Accel-Buffering:no defeats nginx's default response buffering
+        // for this route only, so ticks reach the client the instant we
+        // write them instead of when nginx's buffer fills.
+        'X-Accel-Buffering': 'no',
+      },
+    });
+  } catch (err) {
+    console.error('[pindexer-stream] stream setup failed, serving empty stream', err);
+    return emptyStream();
+  }
 }
