@@ -35,6 +35,21 @@ export interface ChartPrefs {
    * candles move or not.
    */
   closeLine: boolean;
+  /**
+   * Line width for own-position lines reflects each position's size
+   * relative to the max size of any open own-position on this pair —
+   * bigger positions read as thicker lines. Off by default: most traders
+   * don't have enough concurrent open positions on one pair for the
+   * relative sizing to be worth the extra visual noise.
+   */
+  linesSizeByAmount: boolean;
+  /**
+   * Suffix the own-position line's axis label with its amount (base
+   * asset for asks/sell, quote asset for bids/buy) — the same figure the
+   * LP preview overlay already shows per rung, but on the live lines.
+   * Off by default: the plain BUY/SELL label is the quieter option.
+   */
+  linesShowAmount: boolean;
 }
 
 const DEFAULTS: ChartPrefs = {
@@ -49,6 +64,8 @@ const DEFAULTS: ChartPrefs = {
   openOrders: false,
   linearTime: true,
   closeLine: true,
+  linesSizeByAmount: false,
+  linesShowAmount: false,
 };
 
 const STORAGE_KEY = 'veil_chart_prefs';

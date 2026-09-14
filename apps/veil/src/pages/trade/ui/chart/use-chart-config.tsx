@@ -16,6 +16,17 @@ export interface OwnPositionLine {
   price: number;
   direction: 'buy' | 'sell' | '';
   label?: string;
+  /** Reserves of BASE this line represents — set on ask/sell lines. */
+  baseAmount?: number;
+  /** Reserves of QUOTE this line represents — set on bid/buy lines. */
+  quoteAmount?: number;
+  /**
+   * Precomputed lightweight-charts line width (1/2/4), reflecting this
+   * line's size relative to the other open own-position lines on this
+   * pair — only populated when the `linesSizeByAmount` pref is on.
+   * Falls back to 1 when absent (pref off, or amount unavailable).
+   */
+  lineWidth?: number;
 }
 
 export interface OwnFillMarker {
@@ -148,12 +159,17 @@ export const useChartConfig = (
         price: line.price,
         color,
         lineStyle: LineStyle.Dashed,
-        lineWidth: 1,
+        // lineWidth precomputed by useOwnPositionLines when the
+        // linesSizeByAmount pref is on (1/2/4 by ratio-of-max); otherwise
+        // absent and every line draws at 1px.
+        lineWidth: (line.lineWidth ?? 1) as CreatePriceLineOptions['lineWidth'],
         // Axis label off — lightweight-charts renders a small arrow-like
         // pointer next to the price which reads as a direction indicator
         // and confuses traders. We render our own hover strip via the
         // drag overlay, so the trader hovers the line to see direction +
-        // price + amount instead.
+        // price + amount instead. If linesShowAmount is on, the label
+        // text still ends up in the hover tooltip (see use-own-position-
+        // lines.ts).
         axisLabelVisible: false,
         title: line.label ?? line.id.slice(0, 6),
       };
