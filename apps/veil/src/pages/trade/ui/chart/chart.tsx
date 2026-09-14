@@ -38,7 +38,7 @@ import { usePathSymbols } from '../../model/use-path';
 import { useDrawings } from './drawings/use-drawings';
 import { DrawingToolbar } from './drawings/toolbar';
 import { DrawingsOverlay } from './drawings/drawings-overlay';
-import type { ToolMode } from './drawings/types';
+import type { Drawing, ToolMode } from './drawings/types';
 
 // theme.ts exports a typing stub, so theme.color.primary.main resolves to ''
 // at runtime. Use the actual hex from theme.css for SVG strokes/fills that
@@ -81,6 +81,69 @@ const NOOP_SETTER = (_: unknown) => {};
 
 // Hoisted const — same identity every render, drops a fresh-literal alloc.
 const CROSSHAIR_STYLE = { cursor: 'crosshair' } as const;
+
+// Small pixel offset applied to a pasted drawing so the clone doesn't sit
+// exactly on top of the original — nudged down in screen space, like a
+// typical "paste" clone in a drawing/design tool.
+const PASTE_PIXEL_OFFSET = 30;
+
+// Build a fresh copy of `d` for Ctrl/Cmd+V, offset by PASTE_PIXEL_OFFSET
+// screen pixels in price/time space (via yAtPrice/priceAtY and
+// xAtTime/timeAtX) so it reads as a constant visual nudge regardless of
+// the chart's current scale, rather than an arbitrary fraction of the
+// price/time itself.
+const offsetPrice = (
+  price: number,
+  yAtPrice: (price: number) => number | undefined,
+  priceAtY: (y: number) => number | undefined,
+): number => {
+  const y = yAtPrice(price);
+  if (y === undefined) return price * 1.001;
+  const shifted = priceAtY(y + PASTE_PIXEL_OFFSET);
+  return shifted === undefined ? price * 1.001 : shifted;
+};
+
+// Vertical beams are time-anchored only, so a y-offset wouldn't move them —
+// nudge along the axis they actually live on (time) by the same pixel
+// amount instead, via xAtTime/timeAtX.
+const offsetTime = (
+  time: number,
+  xAtTime: (time: number) => number | undefined,
+  timeAtX: (x: number) => number | undefined,
+): number => {
+  const x = xAtTime(time);
+  if (x === undefined) return time;
+  const shifted = timeAtX(x + PASTE_PIXEL_OFFSET);
+  return shifted === undefined ? time : shifted;
+};
+
+const pasteWithOffset = (
+  d: Drawing,
+  yAtPrice: (price: number) => number | undefined,
+  priceAtY: (y: number) => number | undefined,
+  xAtTime: (time: number) => number | undefined,
+  timeAtX: (x: number) => number | undefined,
+): Drawing => {
+  const id = `${d.kind}-${Date.now()}-${Math.floor(Math.random() * 1000)}-copy`;
+  const createdAt = Date.now();
+  switch (d.kind) {
+    case 'horizontal-line':
+      return { ...d, id, createdAt, price: offsetPrice(d.price, yAtPrice, priceAtY) };
+    case 'vertical-line':
+      return { ...d, id, createdAt, time: offsetTime(d.time, xAtTime, timeAtX) };
+    case 'trend-line':
+    case 'rectangle':
+      return {
+        ...d,
+        id,
+        createdAt,
+        price1: offsetPrice(d.price1, yAtPrice, priceAtY),
+        price2: offsetPrice(d.price2, yAtPrice, priceAtY),
+      };
+    case 'text':
+      return { ...d, id, createdAt, price: offsetPrice(d.price, yAtPrice, priceAtY) };
+  }
+};
 
 // Module-scoped formatter — pure, no closure deps, so there's no reason to
 // allocate it inside the Chart render closure.
@@ -334,18 +397,27 @@ export const Chart = observer(() => {
     redo: redoDrawing,
     canUndo,
     canRedo,
+    selectedId,
+    select: selectDrawing,
   } = useDrawings(pairKey);
+
+  // Ctrl/Cmd+C copy target — per-tab, memory-only clipboard for the
+  // selected drawing (deliberately not persisted; a page reload or a new
+  // tab starts empty, matching a regular OS clipboard's scope here).
+  const drawingClipboardRef = useRef<Drawing | null>(null);
 
   const [tool, setTool] = useState<ToolMode>('none');
 
   const [menu, setMenu] = useState<{ x: number; y: number; price: number } | null>(null);
 
-  // Cmd/Ctrl-Z and Cmd/Ctrl-Shift-Z for undo/redo, plus Esc to cancel an
-  // active drawing tool. Listening on the document so the shortcuts work
-  // regardless of which chart sub-element has focus, but we ignore events
-  // that bubble out of an editable input/textarea so order-form typing or
-  // a pending text-annotation isn't hijacked (the text-annotation input
-  // owns its own Esc handler that commits/cancels in place).
+  // Cmd/Ctrl-Z and Cmd/Ctrl-Shift-Z for undo/redo, Esc to cancel an active
+  // drawing tool / clear selection, Delete/Backspace to remove the selected
+  // drawing, and Cmd/Ctrl-C / Cmd/Ctrl-V to copy/paste it. Listening on the
+  // document so the shortcuts work regardless of which chart sub-element
+  // has focus, but we ignore events that bubble out of an editable
+  // input/textarea so order-form typing or a pending text-annotation isn't
+  // hijacked (the text-annotation input owns its own Esc handler that
+  // commits/cancels in place).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -360,22 +432,64 @@ export const Chart = observer(() => {
       if (e.key === 'Escape') {
         // Esc is a no-op when nothing's active so we don't fight the
         // user's other dialogs/menus that also want Escape.
-        if (tool !== 'none' || menu !== null) {
+        if (tool !== 'none' || menu !== null || selectedId !== null) {
           e.preventDefault();
           setTool('none');
           setMenu(null);
+          selectDrawing(null);
         }
         return;
       }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId !== null) {
+        e.preventDefault();
+        removeDrawing(selectedId);
+        selectDrawing(null);
+        return;
+      }
       if (!(e.ctrlKey || e.metaKey)) return;
-      if (e.key.toLowerCase() !== 'z') return;
-      e.preventDefault();
-      if (e.shiftKey) redoDrawing();
-      else undoDrawing();
+      const key = e.key.toLowerCase();
+      if (key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) redoDrawing();
+        else undoDrawing();
+        return;
+      }
+      if (key === 'c') {
+        // Only intercept when a drawing is selected — otherwise let the
+        // browser's normal copy behaviour through untouched.
+        if (!selectedId) return;
+        const d = drawings.find(x => x.id === selectedId);
+        if (!d) return;
+        e.preventDefault();
+        drawingClipboardRef.current = d;
+        return;
+      }
+      if (key === 'v') {
+        const clip = drawingClipboardRef.current;
+        if (!clip) return;
+        e.preventDefault();
+        const pasted = pasteWithOffset(clip, yAtPrice, priceAtY, xAtTime, timeAtX);
+        addDrawing(pasted);
+        selectDrawing(pasted.id);
+      }
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [undoDrawing, redoDrawing, tool, menu]);
+  }, [
+    undoDrawing,
+    redoDrawing,
+    tool,
+    menu,
+    selectedId,
+    selectDrawing,
+    removeDrawing,
+    drawings,
+    addDrawing,
+    yAtPrice,
+    priceAtY,
+    xAtTime,
+    timeAtX,
+  ]);
 
   useEffect(() => {
     const initial = readStoredVolumeRatio();
@@ -548,6 +662,14 @@ export const Chart = observer(() => {
   const handleDrawingClick = useCallback(
     (point: { x: number; y: number }, price: number, time: number | undefined) => {
       const t = toolRef.current;
+      if (t === 'none') {
+        // Clicking empty chart canvas (no tool active) deselects the
+        // current drawing — DrawingsOverlay's own shapes stopPropagation
+        // on their pointer handlers, so this only fires for clicks that
+        // actually missed every drawing.
+        if (selectedId !== null) selectDrawing(null);
+        return;
+      }
       if (t === 'text') {
         if (time === undefined) return;
         setPendingText({ x: point.x, y: point.y, time, price });
@@ -604,7 +726,7 @@ export const Chart = observer(() => {
         setTool('none');
       }
     },
-    [addDrawing, pendingAnchor],
+    [addDrawing, pendingAnchor, selectedId, selectDrawing],
   );
 
   useEffect(() => {
@@ -875,6 +997,8 @@ export const Chart = observer(() => {
                 subscribeRedraw={subscribeRedraw}
                 onDelete={removeDrawing}
                 onUpdate={updateDrawing}
+                selectedId={selectedId}
+                onSelect={selectDrawing}
               />
               {/* Each active price alert paints as a dotted horizontal
                   line on the chart with a left-edge 🔔 label and a

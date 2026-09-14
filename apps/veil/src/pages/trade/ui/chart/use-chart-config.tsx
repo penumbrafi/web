@@ -5,6 +5,7 @@ import {
   IPriceLine,
   LineStyle,
   type CreatePriceLineOptions,
+  type Logical,
   type UTCTimestamp,
 } from 'lightweight-charts';
 import { theme } from '@penumbra-zone/ui/theme';
@@ -47,6 +48,58 @@ const priceFormatFor = (price: number): { precision: number; minMove: number } =
   return { precision, minMove };
 };
 
+// --- Continuous time<->pixel mapping for timeAtX / xAtTime -----------------
+//
+// lightweight-charts' own coordinateToTime / timeToCoordinate snap strictly
+// to an *existing* candle: coordinateToTime ceils to a bar index and returns
+// null the moment that index falls outside the plotted data (i.e. anywhere
+// in the whitespace to the right of the last candle, or to the left of the
+// first); timeToCoordinate returns null for any time that isn't the exact
+// timestamp of a plotted bar. Drawing placement used to trust these calls
+// directly, so:
+//   - clicking the second point of a trend-line/rectangle in the (very
+//     common) "project into the future" whitespace past the last candle
+//     made timeAtX return undefined, and the click was silently swallowed
+//     (chart.tsx's `if (time === undefined) return;`) — the shape just
+//     never completed.
+//   - dragging a shape so an endpoint's interpolated time landed off the
+//     exact bar grid made xAtTime return undefined for a perfectly
+//     reasonable in-range time, which is what previously made translated
+//     shapes flicker / vanish (partially papered over in ef5301c1 by
+//     skipping those drag frames).
+//   - switching candle duration (1m -> 1d etc) made *every* existing
+//     drawing's stored time miss the new duration's bar grid almost
+//     certainly (a 1m click's timestamp essentially never lands on an
+//     exact 1d bar boundary), so drawings would vanish/reappear on every
+//     timeframe switch even though they're stored as plain absolute UNIX
+//     seconds and never bucketed (see use-drawings.ts).
+//
+// Fix: fall back to the chart's continuous logical-index space
+// (coordinateToLogical / logicalToCoordinate, which are defined everywhere
+// the chart has *any* data) and interpolate/extrapolate a time from the
+// known bar times whenever the native bar-snapped call returns null. Bar
+// times are tracked in `barTimesRef`, kept in sync by setCandlesData /
+// updateLatestCandles below.
+const median = (xs: number[]): number => {
+  const sorted = [...xs].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)] ?? 0;
+};
+
+// Typical spacing between consecutive bars, sampled from the tail of the
+// known bar times (robust to the odd gap-filled/missing bar).
+const inferBarInterval = (times: number[]): number => {
+  if (times.length < 2) return 60;
+  const diffs: number[] = [];
+  for (let i = Math.max(1, times.length - 20); i < times.length; i++) {
+    const prev = times[i - 1];
+    const cur = times[i];
+    if (prev === undefined || cur === undefined) continue;
+    const d = cur - prev;
+    if (d > 0) diffs.push(d);
+  }
+  return diffs.length ? median(diffs) : 60;
+};
+
 export const useChartConfig = (
   loadMore: () => Promise<void>,
   loadingDisabled: RefObject<boolean>,
@@ -60,6 +113,9 @@ export const useChartConfig = (
   const closeLineSeriesRef = useRef<ReturnType<IChartApi['addLineSeries']>>(undefined);
   const volumeRatioRef = useRef<number>(0.2);
   const ownLinesRef = useRef<Map<string, IPriceLine>>(new Map());
+  // Sorted-ascending candle times currently painted on the chart — see the
+  // timeAtX / xAtTime whitespace-fallback comment above.
+  const barTimesRef = useRef<number[]>([]);
 
   // chartReady flips true after createChart() runs in setChartRef. Consumers
   // that need to subscribe to chart events list this in their useEffect deps
@@ -177,6 +233,9 @@ export const useChartConfig = (
   // body only reads seriesRef / volumeSeriesRef — both stable refs — so
   // empty deps are honest.
   const setCandlesData = useCallback((candles: CandleWithVolume[] = []) => {
+    // Full replace (initial paint / duration switch / history page) — the
+    // caller always hands these in ASC order.
+    barTimesRef.current = candles.map(c => c.ohlc.time as number);
     seriesRef.current?.setData(
       candles.map(candle => ({
         ...candle.ohlc,
@@ -240,6 +299,18 @@ export const useChartConfig = (
     const series = seriesRef.current;
     if (!series || !candles.length) return;
     for (const candle of candles) {
+      const t = candle.ohlc.time as number;
+      const times = barTimesRef.current;
+      const lastTime = times[times.length - 1];
+      // Mirror series.update()'s own semantics: append a genuinely new bar,
+      // leave the array as-is for an in-place update of the current last
+      // bar, or skip a stale tick — keeps barTimesRef in lockstep with
+      // what's actually on the chart without a full re-sort every tick.
+      if (lastTime === undefined || t > lastTime) {
+        times.push(t);
+      } else if (t < lastTime) {
+        continue; // stale tick — series.update() below would throw + skip too
+      }
       const high =
         candle.ohlc.high / candle.ohlc.open > SUPER_CANDLE_RATIO
           ? candle.ohlc.open * SUPER_CANDLE_RATIO
@@ -411,19 +482,112 @@ export const useChartConfig = (
   }, []);
 
   // Time → x pixel; used by drawings anchored to a (time, price) pair.
+  // Falls back to the continuous logical-index space when `time` doesn't
+  // land exactly on a plotted bar (see the whitespace-fallback comment
+  // above `median`) — e.g. a time produced by timeAtX's own fallback below,
+  // a drag-translate delta that isn't bar-aligned, or an absolute time
+  // anchored under a different candle duration.
   const xAtTime = useCallback((time: number): number | undefined => {
     const chart = chartRef.current;
     if (!chart) return undefined;
     const coord = chart.timeScale().timeToCoordinate(time as never);
-    return typeof coord === 'number' && Number.isFinite(coord) ? coord : undefined;
+    if (typeof coord === 'number' && Number.isFinite(coord)) return coord;
+
+    const times = barTimesRef.current;
+    const lastIdx = times.length - 1;
+    const firstTime = times[0];
+    const lastTime = times[lastIdx];
+    if (firstTime === undefined || lastTime === undefined) return undefined;
+    const interval = inferBarInterval(times);
+    let logical: number;
+    if (time > lastTime) {
+      logical = lastIdx + (time - lastTime) / interval;
+    } else if (time < firstTime) {
+      logical = (time - firstTime) / interval;
+    } else {
+      // Binary search for the pair of bars bracketing `time`.
+      let lo = 0;
+      let hi = lastIdx;
+      while (hi - lo > 1) {
+        const mid = Math.floor((lo + hi) / 2);
+        const midTime = times[mid];
+        if (midTime !== undefined && midTime <= time) lo = mid;
+        else hi = mid;
+      }
+      const loTime = times[lo];
+      const hiTime = times[hi];
+      const span = loTime !== undefined && hiTime !== undefined ? hiTime - loTime : 0;
+      logical = span > 0 && loTime !== undefined ? lo + (time - loTime) / span : lo;
+    }
+    // logicalToCoordinate silently returns 0 (not null) for a non-integer
+    // logical (lightweight-charts' _internal_indexToCoordinate bails out
+    // via `!isInteger(index)` before ever consulting bar spacing) — passing
+    // our fractional `logical` straight through would collapse every
+    // fallback-positioned drawing onto the chart's left edge. Bracket it
+    // with the two neighbouring *integer* logical indices instead (both are
+    // always resolvable, even past either end of the data) and lerp in
+    // pixel space.
+    const ts = chart.timeScale();
+    const loLogical = Math.floor(logical);
+    const frac = logical - loLogical;
+    const xLo = ts.logicalToCoordinate(loLogical as Logical);
+    if (typeof xLo !== 'number' || !Number.isFinite(xLo)) return undefined;
+    if (frac === 0) return xLo;
+    const xHi = ts.logicalToCoordinate((loLogical + 1) as Logical);
+    if (typeof xHi !== 'number' || !Number.isFinite(xHi)) return undefined;
+    return xLo + frac * (xHi - xLo);
   }, []);
 
   // Reverse: x pixel → time. Useful for placing time-anchored drawings.
+  // Falls back to the continuous logical-index space when the pixel falls
+  // in whitespace past the last (or before the first) candle — the native
+  // coordinateToTime returns null there instead of extrapolating, which is
+  // exactly the "second click in the future-projection area silently does
+  // nothing" bug: a trend-line/rectangle's second point is very often
+  // placed to the right of the last candle, and the click was being
+  // swallowed by chart.tsx's `if (time === undefined) return;` guard.
   const timeAtX = useCallback((x: number): number | undefined => {
     const chart = chartRef.current;
     if (!chart) return undefined;
     const t = chart.timeScale().coordinateToTime(x);
-    return typeof t === 'number' && Number.isFinite(t) ? t : undefined;
+    if (typeof t === 'number' && Number.isFinite(t)) return t;
+
+    const times = barTimesRef.current;
+    const lastIdx = times.length - 1;
+    const firstTime = times[0];
+    const lastTime = times[lastIdx];
+    if (firstTime === undefined || lastTime === undefined) return undefined;
+    // coordinateToLogical rounds up to the next integer bar index — not
+    // continuous — so recover the true fractional logical position by
+    // inverse-interpolating against two neighbouring *integer* logicals'
+    // pixel coordinates (bar spacing is uniform across the whole timeline,
+    // so this affine relationship is exact, not an approximation).
+    const ts = chart.timeScale();
+    const ceilLogical = ts.coordinateToLogical(x);
+    if (typeof ceilLogical !== 'number' || !Number.isFinite(ceilLogical)) return undefined;
+    const xAtCeil = ts.logicalToCoordinate(ceilLogical as Logical);
+    const xAtCeilMinus1 = ts.logicalToCoordinate((ceilLogical - 1) as Logical);
+    let logical: number;
+    if (
+      typeof xAtCeil === 'number' &&
+      typeof xAtCeilMinus1 === 'number' &&
+      xAtCeil !== xAtCeilMinus1
+    ) {
+      const spacing = xAtCeil - xAtCeilMinus1;
+      logical = ceilLogical - (xAtCeil - x) / spacing;
+    } else {
+      logical = ceilLogical;
+    }
+    const interval = inferBarInterval(times);
+    if (logical > lastIdx) return lastTime + (logical - lastIdx) * interval;
+    if (logical < 0) return firstTime + logical * interval;
+    const lo = Math.floor(logical);
+    const hi = Math.ceil(logical);
+    const loT = times[lo];
+    if (lo === hi) return loT;
+    const hiT = times[hi];
+    if (loT === undefined || hiT === undefined) return undefined;
+    return loT + (hiT - loT) * (logical - lo);
   }, []);
 
   /**
