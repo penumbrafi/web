@@ -33,12 +33,13 @@ live in GitHub secrets (see below) so that cloning this public repo does not
 hand out a map of the internal network. Container **numbers** and role names
 are not secret and are used here as documentation:
 
-* **Front-proxy container** — nginx, TLS termination, anycast entry point for
-  `penumbra.fi` and `dex.rotko.net`. Holds `veil-upstream.conf` (blue/green
-  routing, see below) and the `veil-swap` helper.
-* **Node.js workload container** — runs the veil `blue`/`green` systemd units.
-  This is also where node-status would run once deployed, and where the
-  per-PR preview units run (see the previews section).
+* **Front-proxy container (CT1102)** — nginx, TLS termination, anycast entry
+  point for `penumbra.fi` and `dex.rotko.net`. Holds `veil-upstream.conf`
+  (blue/green routing, see below), the `veil-swap` helper, and (once set up)
+  the per-PR previews wildcard vhost + Cloudflare Access front door.
+* **Node.js workload container (CT1199)** — runs the veil `blue`/`green`
+  systemd units. This is also where node-status would run once deployed, and
+  where the per-PR preview units run (see the previews section).
 
 Wherever this README needs an address, port, or key it says
 `<FRONT_PROXY_HOST>` / `<WORKLOAD_HOST>` / etc. and points at the secret that
@@ -319,6 +320,215 @@ visudo -c
 
 nginx -t && systemctl reload nginx
 ```
+
+## Per-PR previews (`<pr>.dev.penumbra.fi`)
+
+**Status: not installed on either container.** This entire section is a
+design that passed a security review but has no host-side footprint yet —
+see "what remains" at the end. Nothing here touches the workload container's
+existing veil blue/green setup or the front-proxy's existing vhosts; it is
+fully additive.
+
+Every open PR gets its own throwaway Veil at `https://<pr>.dev.penumbra.fi`,
+built and torn down by `.github/workflows/preview-veil.yml`.
+
+### Threat model
+
+Anyone with commit access to this repo can open a PR that runs arbitrary
+code inside the *build* job. The preview infrastructure is designed so that
+arbitrary code:
+
+1. Never sees any secret. The build job runs with no environment secrets and
+   `persist-credentials: false` on `actions/checkout`.
+2. Never influences the *deploy* job. The deploy and teardown jobs check out
+   the PR's **base ref**, not its head, so `.github/actions/ssh-deploy` and
+   every other composite action executes as its maintainer-merged version —
+   the PR head has no way to alter what runs alongside `DEPLOY_SSH_KEY`.
+3. Runs under a dedicated `web-preview` user with `InaccessiblePaths=` for
+   every prod path, no network egress except localhost + a small allowlist,
+   and a preview-only ssh key that can only invoke a wrapper granting
+   `start|stop <pr>`.
+4. Cannot be reached by the open internet — the whole `*.dev.penumbra.fi`
+   zone sits behind Cloudflare Access. A preview URL that leaks into a Slack
+   channel or a search index is still gated at CF's edge.
+
+Fork PRs skip every job. `pull_request` on a fork cannot access `secrets` in
+the first place, and the top-level `if:` on `guard` makes the failure
+explicit rather than a red X halfway down the workflow.
+
+These findings came out of a joint review round (redshiftzero /
+danielmicay) on the original draft of this preview infrastructure; every
+finding from that round maps to a specific hardening change already baked
+into the files here (base-ref checkout for deploy/teardown, the dedicated
+user + hardened unit, sudoers scoped to the wrapper only, the reserved port
+range, CF Access as a second gate). Nothing in this consolidation loosens
+any of that — paths were updated for CT1199, the security posture was not
+touched.
+
+### Host layout
+
+```
+/opt/penumbra-veil-previews/
+  etc/                        root-owned; contains env.preview and env.<pr>
+    env.preview               shared defaults, 0640 root:web-preview
+    env.<pr>                  per-PR overrides, same mode
+  <pr>/                       created by CI as web-preview; wiped on teardown
+    releases/<sha>/           unpacked artifact
+    current -> releases/<sha> symlink flipped atomically
+```
+
+`etc/` sits *outside* every `<pr>/` and is not writable by the CI account, so
+a compromised preview cannot swap `env.preview` for a symlink to
+`/etc/letsencrypt/cloudflare.ini` and have PID 1 read it back as environment
+variables.
+
+### Ports and network
+
+PR numbers are gated to `1..9999` in the workflow and re-validated by both
+`preview-ctl` and the launcher script; the port range is therefore
+`30001..39999` — outside veil's blue/green range (`3001`/`3002`) and
+node-status's placeholder (`3003`). **Reserve this range on the workload
+container** so the kernel never hands out one of our preview ports as an
+ephemeral outbound source port and lets an unrelated process squat on it:
+
+```
+/etc/sysctl.d/10-veil-previews.conf:
+    net.ipv4.ip_local_reserved_ports = 30001-39999
+```
+
+### DNS + TLS
+
+DNS is a single wildcard `*.dev.penumbra.fi` A/AAAA on the Cloudflare zone,
+CF-proxied. Cloudflare Access sits in front — SSO gate for the whole `*.dev`
+zone, no anonymous requests hit the origin.
+
+TLS is a Let's Encrypt wildcard issued via `certbot-dns-cloudflare` on the
+front-proxy container — the only place the Cloudflare API is touched from a
+host. Certbot renews on its systemd timer.
+
+The Cloudflare token wants **`Zone.DNS:Edit` on the `penumbra.fi` zone
+only**. Do not use a global token. `/etc/letsencrypt/cloudflare.ini`, mode
+`600`, root-owned.
+
+### Secrets and variables
+
+`preview` environment secrets:
+
+| secret | notes |
+| --- | --- |
+| `DEPLOY_SSH_KEY` | **preview-only** ed25519 key. Not the prod key, not scoped to the front-proxy container at all. |
+| `DEPLOY_HOST` | jump host public address (can be the same jump host as `production`; the account and its `permitopen` are what differ) |
+| `DEPLOY_CT` | workload container internal address |
+| `DEPLOY_KNOWN_HOSTS` | same pinned host keys as `production` for the jump host and workload container |
+
+Repository variable:
+
+| variable | value |
+| --- | --- |
+| `PREVIEW_ZONE` | `dev.penumbra.fi` |
+
+### One-time host setup (workload container)
+
+```sh
+# dedicated user; owns per-PR trees but nothing else
+adduser --system --home /var/lib/web-preview --shell /usr/sbin/nologin \
+        --disabled-password web-preview
+
+# release root, split into a CI-writable per-PR area and a root-only etc/
+install -d -o root -g root         -m 0755 /opt/penumbra-veil-previews
+install -d -o root -g web-preview  -m 0750 /opt/penumbra-veil-previews/etc
+# Move any real env files into etc/, root-owned, mode 0640.
+
+# authorized_keys for the preview-only key, restricted at the ssh layer
+install -d -o web-preview -g web-preview -m 0700 /home/web-preview/.ssh
+cat > /home/web-preview/.ssh/authorized_keys <<'KEY'
+restrict,pty ssh-ed25519 AAAA...  github-actions penumbrafi preview
+KEY
+chown web-preview:web-preview /home/web-preview/.ssh/authorized_keys
+chmod 600 /home/web-preview/.ssh/authorized_keys
+
+# root-owned launcher + wrapper. Never install these from user paths.
+install -o root -g root -m 0755 \
+        deploy/scripts/penumbra-veil-preview-run.sh /usr/local/sbin/penumbra-veil-preview-run
+install -o root -g root -m 0755 \
+        deploy/scripts/preview-ctl.sh              /usr/local/sbin/preview-ctl
+
+# sudoers: web-preview may call exactly the wrapper, nothing else. The
+# wrapper does its OWN validation of $2 (PR number), so the digit-glob in
+# the sudoers pattern is defence-in-depth, not the only check.
+cat > /etc/sudoers.d/penumbra-veil-preview <<'SUDO'
+Defaults!/usr/local/sbin/preview-ctl env_reset
+web-preview ALL=(root) NOPASSWD: /usr/local/sbin/preview-ctl start [1-9]*, \
+                                 /usr/local/sbin/preview-ctl stop  [1-9]*
+SUDO
+chmod 440 /etc/sudoers.d/penumbra-veil-preview
+visudo -c
+
+# systemd template unit
+install -o root -g root -m 0644 \
+        deploy/systemd/penumbra-veil-preview@.service /etc/systemd/system/
+systemctl daemon-reload
+
+# sysctl for the reserved port range
+install -o root -g root -m 0644 - /etc/sysctl.d/10-veil-previews.conf <<'SYSCTL'
+net.ipv4.ip_local_reserved_ports = 30001-39999
+SYSCTL
+sysctl --system
+```
+
+### One-time nginx setup (front-proxy container)
+
+The wildcard vhost lives on the front-proxy container, not the workload
+container — CF Access is in front of the front-proxy, and the front-proxy is
+the machine that already terminates TLS for `*.penumbra.fi`.
+
+```sh
+apt-get install -y libnginx-mod-http-lua certbot python3-certbot-dns-cloudflare
+
+# NEVER commit the internal upstream IP. Write it to a root-owned include
+# that the vhost expects to exist. If the file is missing nginx refuses to
+# start rather than proxying to a default host.
+cat > /etc/nginx/veil-previews-upstream.conf <<'NGX'
+set $preview_upstream <WORKLOAD_HOST_INTERNAL_IP>;
+NGX
+chmod 644 /etc/nginx/veil-previews-upstream.conf
+
+install -o root -g root -m 0644 \
+        deploy/nginx-veil-previews.conf.example \
+        /etc/nginx/sites-available/veil-previews.penumbra.fi
+ln -sfn /etc/nginx/sites-available/veil-previews.penumbra.fi /etc/nginx/sites-enabled/
+
+# wildcard cert; the CF token file is /etc/letsencrypt/cloudflare.ini
+certbot certonly --dns-cloudflare \
+  --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini \
+  -d '*.dev.penumbra.fi' -d dev.penumbra.fi
+
+nginx -t && systemctl reload nginx
+```
+
+### Cloudflare Access
+
+In the Cloudflare Zero Trust dashboard, add an Access application for the
+zone `*.dev.penumbra.fi` (session duration ~24h) with a policy that requires
+membership in the maintainers' identity group. Nothing about this is in the
+workflow; CF Access sits in front of the origin, so it gates the vhost
+before any Lua parses the Host header. This is the control that makes it
+safe to auto-post preview URLs into PR comments.
+
+### Teardown
+
+`preview-veil.yml` fires on `pull_request: closed` (both merged and closed
+without merge), calls `sudo preview-ctl stop <pr>`, which stops + disables
+`penumbra-veil-preview@<pr>.service` and `rm -rf`s
+`/opt/penumbra-veil-previews/<pr>/`. If a preview leaks (workflow cancelled
+between activate and teardown, network flake, etc.), find it:
+
+```sh
+systemctl list-units 'penumbra-veil-preview@*.service' --all
+ls /opt/penumbra-veil-previews/
+```
+
+and run `sudo preview-ctl stop <pr>` per orphan.
 
 ## Known unverified
 

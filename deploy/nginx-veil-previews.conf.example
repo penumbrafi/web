@@ -1,0 +1,119 @@
+# /etc/nginx/sites-available/veil-previews.penumbra.fi
+#
+# Wildcard vhost for per-PR previews of Veil. Lives on the front-proxy
+# container and forwards <pr>.dev.penumbra.fi to
+#   http://<preview-host>:$((30000 + pr))
+# where <preview-host> is the internal address of the Node.js workload
+# container that runs the preview systemd instances (the same container
+# veil's blue/green units run on) -- keep that value in the workflow's
+# DEPLOY_CT secret, not here.
+#
+# The upstream port is derived from the hostname via lua so no per-PR
+# nginx entry or reload is needed. Requires `libnginx-mod-http-lua`.
+#
+# The whole *.dev zone is placed behind Cloudflare Access (Zero Trust)
+# BEFORE this vhost sees traffic. That is the wall that keeps hostile PR
+# builds off the open internet — a per-request cookie / SSO gate that
+# rejects the request at CF's edge. See deploy/README.md for the token
+# and rule set-up. Nothing below assumes CF Access is in place; it just
+# assumes CF Access is not the ONLY control. Belt-and-braces.
+
+# ---- WebSocket helper -------------------------------------------------
+# Only add `Connection: upgrade` when the client actually asked for it,
+# otherwise inherit the default `Connection: close`.
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+# ---- HTTP -> HTTPS (only for known dev hostnames) --------------------
+# Historically this vhost used `return 301 https://$host$request_uri` on a
+# catch-all `server_name *.dev.penumbra.fi dev.penumbra.fi`. That is fine
+# when nginx routes purely by `server_name`, but if this file ever becomes
+# a default vhost, `$host` echoes whatever the attacker sent in the
+# Host header — an open redirect. Reject explicitly.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name *.dev.penumbra.fi dev.penumbra.fi;
+
+    location /.well-known/acme-challenge/ { root /var/www/letsencrypt; }
+
+    location / {
+        # Only redirect if the Host header parses as one of ours.
+        if ($host !~* '^([1-9][0-9]{0,3}\.)?dev\.penumbra\.fi$') {
+            return 400;
+        }
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name *.dev.penumbra.fi;
+
+    ssl_certificate     /etc/letsencrypt/live/dev.penumbra.fi/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/dev.penumbra.fi/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    add_header X-Robots-Tag "noindex, nofollow" always;
+    # Discourage accidental wallet extension discovery of preview URLs
+    # while still allowing images/fonts served by the app.
+    add_header Referrer-Policy "no-referrer" always;
+
+    # Derive the upstream port from the hostname. Anything that does not
+    # parse as `<1..9999>.dev.penumbra.fi` yields the empty string and we
+    # 404 below, so a malformed host cannot proxy_pass to a random port.
+    set_by_lua_block $preview_port {
+        local host = ngx.var.host or ""
+        -- `%d` in lua is ASCII-only; unicode digits do not match.
+        local pr = host:match("^(%d+)%.dev%.penumbra%.fi$")
+        if not pr then return "" end
+        -- Reject leading zeros so `042.dev.penumbra.fi` cannot alias 42.
+        if #pr > 1 and pr:sub(1, 1) == "0" then return "" end
+        local n = tonumber(pr)
+        if not n or n < 1 or n > 9999 then return "" end
+        return tostring(30000 + n)
+    }
+
+    if ($preview_port = "") {
+        return 404;
+    }
+
+    # Upstream host is written by the deploy scripts, but the file itself
+    # is checked into the repo as an example — do NOT bake the internal
+    # IP in here. Store it in /etc/nginx/veil-previews-upstream.conf as
+    #   set $preview_upstream <WORKLOAD_HOST_INTERNAL_IP>;
+    # and include it here. The file is root-owned, 0644, part of the
+    # host's static config; if it is missing nginx refuses to start
+    # (rather than proxying to a default $host).
+    include /etc/nginx/veil-previews-upstream.conf;
+
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade         $http_upgrade;
+    proxy_set_header Connection      $connection_upgrade;
+    proxy_set_header Host            $host;
+    proxy_set_header X-Real-IP       $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Proto https;
+
+    proxy_intercept_errors on;
+    error_page 502 504 = @preview_down;
+
+    location / {
+        proxy_pass http://$preview_upstream:$preview_port;
+        proxy_connect_timeout 3s;
+        proxy_read_timeout    30s;
+    }
+
+    location @preview_down {
+        # Re-assert headers because add_header does not inherit into an
+        # error location.
+        add_header X-Robots-Tag "noindex, nofollow" always;
+        add_header Content-Type "text/plain; charset=utf-8" always;
+        return 502 "Preview for this PR is not running.\n";
+    }
+}
