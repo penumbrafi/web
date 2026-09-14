@@ -295,6 +295,7 @@ export const Chart = observer(() => {
   // chart and the function reference is stable across renders.
   useOwnPositionLines(
     prefs.ownPositions ? setOwnPositionLines : (NOOP_SETTER as typeof setOwnPositionLines),
+    prefs,
   );
   useOwnFillMarkers(
     prefs.ownTrades ? setOwnFillMarkers : (NOOP_SETTER as typeof setOwnFillMarkers),

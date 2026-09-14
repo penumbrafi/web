@@ -15,6 +15,17 @@ export interface OwnPositionLine {
   price: number;
   direction: 'buy' | 'sell' | '';
   label?: string;
+  /** Reserves of BASE this line represents — set on ask/sell lines. */
+  baseAmount?: number;
+  /** Reserves of QUOTE this line represents — set on bid/buy lines. */
+  quoteAmount?: number;
+  /**
+   * Precomputed lightweight-charts line width (1/2/4), reflecting this
+   * line's size relative to the other open own-position lines on this
+   * pair — only populated when the `linesSizeByAmount` pref is on.
+   * Falls back to 1 when absent (pref off, or amount unavailable).
+   */
+  lineWidth?: number;
 }
 
 export interface OwnFillMarker {
@@ -92,7 +103,11 @@ export const useChartConfig = (
         price: line.price,
         color,
         lineStyle: LineStyle.Dashed,
-        lineWidth: 1,
+        // lineWidth is precomputed by useOwnPositionLines (relative to the
+        // max size of any open own-position on this pair) when the
+        // linesSizeByAmount pref is on; otherwise it's absent and every
+        // line draws at the previous constant 1px.
+        lineWidth: (line.lineWidth ?? 1) as CreatePriceLineOptions['lineWidth'],
         axisLabelVisible: true,
         title: line.label ?? line.id.slice(0, 6),
       };

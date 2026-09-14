@@ -38,6 +38,16 @@ const SPECS: Omit<ToggleSpec, 'disabled'>[] = [
     hint: 'Horizontal lines for each open LP price you own.',
   },
   {
+    key: 'linesSizeByAmount',
+    label: 'Size-proportional LP lines',
+    hint: 'Line width reflects the position size on this pair — bigger orders read as thicker lines.',
+  },
+  {
+    key: 'linesShowAmount',
+    label: 'Amount in LP line label',
+    hint: 'Suffix the price-scale label with the position amount (base for asks, quote for bids).',
+  },
+  {
     key: 'ownTrades',
     label: 'My recent fills',
     hint: 'Arrow markers on the chart for each swap you submitted on this pair.',
@@ -92,7 +102,11 @@ export const ChartSettingsMenu = memo(({ prefs, onToggle, walletConnected }: Pro
         ...s,
         disabled:
           s.key === 'openOrders' ||
-          ((s.key === 'ownPositions' || s.key === 'ownTrades') && !walletConnected),
+          ((s.key === 'ownPositions' ||
+            s.key === 'ownTrades' ||
+            s.key === 'linesSizeByAmount' ||
+            s.key === 'linesShowAmount') &&
+            !walletConnected),
       })),
     [walletConnected],
   );
