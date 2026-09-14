@@ -406,6 +406,13 @@ export const useChartConfig = (
         timeScale: {
           timeVisible: true,
           secondsVisible: false,
+          // Reserve empty bars past the last candle so the trader can
+          // project trend lines / rectangles into the future and see a
+          // slice of open axis for their drawings — the standard
+          // TradingView / Binance behaviour. Combined with the drawing
+          // coordinate fix (continuous logical-index mapping), a second
+          // click in this whitespace now completes the shape reliably.
+          rightOffset: 24,
         },
       });
 
