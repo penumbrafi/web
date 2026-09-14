@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { round } from '@penumbra-zone/types/round';
 import { Button } from '@penumbra-zone/ui/Button';
@@ -8,9 +8,6 @@ import { ConnectButton } from '@/features/connect/connect-button';
 import { useTickDirection } from '../../model/use-tick-direction';
 import { OrderInput } from './order-input';
 import { SegmentedControl } from './segmented-control';
-import { InfoRowTradingFee } from './info-row-trading-fee';
-import { InfoRowGasFee } from './info-row-gas-fee';
-import { InfoRow } from './info-row';
 import { SelectGroup } from './select-group';
 import { OrderFormStore } from './store/OrderFormStore';
 import { BuyLimitOrderOptions, SellLimitOrderOptions } from './store/LimitOrderFormStore';
@@ -22,6 +19,77 @@ import { FormIssueNotice } from './form-issue';
 // Same idiom as the form-tabs / history-tabs / trades-tabs hoists.
 const BUY_PRICE_OPTIONS = Object.values(BuyLimitOrderOptions);
 const SELL_PRICE_OPTIONS = Object.values(SellLimitOrderOptions);
+
+interface BalanceSliderProps {
+  inputValue: string;
+  balance?: number;
+  balanceDisplay?: string;
+  onSetFraction: (fraction: number) => void;
+}
+
+// Balance slider — a native range input paired with a small editable
+// percent field, same pattern as the LP form's fee slider (see
+// order-form-liquidity.tsx) and the Market form's balance slider. Drives
+// whichever amount field is bounded by a wallet balance (quote on a buy,
+// base on a sell); the other side follows automatically via the store's
+// price-linked inputs.
+const BalanceSlider = observer(
+  ({ inputValue, balance, balanceDisplay, onSetFraction }: BalanceSliderProps) => {
+    const rawPct =
+      inputValue && balance ? Math.round((Number(inputValue) / Number(balance)) * 100) : 0;
+    const clampedPct = Math.min(100, Math.max(0, Number.isFinite(rawPct) ? rawPct : 0));
+
+    const [pctInput, setPctInput] = useState(String(clampedPct));
+    useEffect(() => {
+      setPctInput(String(clampedPct));
+    }, [clampedPct]);
+
+    return (
+      <div>
+        <div className='mb-1 flex items-center justify-between gap-2 leading-none'>
+          <Text small color='text.secondary'>
+            Available Balance
+          </Text>
+          <button type='button' onClick={() => onSetFraction(1.0)}>
+            <Text small color='text.primary'>
+              {balanceDisplay ?? '--'}
+            </Text>
+          </button>
+        </div>
+        <div className='flex items-center gap-2'>
+          <input
+            type='range'
+            min={0}
+            max={100}
+            step={1}
+            value={clampedPct}
+            disabled={!balance}
+            onChange={e => onSetFraction(Number(e.target.value) / 100)}
+            aria-label='Percent of available balance'
+            className='w-full cursor-pointer accent-primary-main disabled:cursor-not-allowed disabled:opacity-40'
+          />
+          <div className='flex shrink-0 items-baseline gap-1'>
+            <input
+              type='text'
+              inputMode='decimal'
+              value={pctInput}
+              disabled={!balance}
+              onChange={e => setPctInput(e.target.value.replace(/[^0-9.]/g, ''))}
+              onBlur={() => {
+                const n = Math.min(100, Math.max(0, parseFloat(pctInput) || 0));
+                onSetFraction(n / 100);
+                setPctInput(String(Math.round(n)));
+              }}
+              aria-label='Percent of available balance input'
+              className='h-6 w-11 rounded-sm bg-other-tonal-fill5 px-1 text-right text-xs tabular-nums text-text-primary outline-none focus:ring-1 focus:ring-primary-main disabled:cursor-not-allowed disabled:opacity-40'
+            />
+            <span className='text-xs text-text-secondary'>%</span>
+          </div>
+        </div>
+      </div>
+    );
+  },
+);
 
 export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFormStore }) => {
   const { connected } = connectionStore;
@@ -43,6 +111,33 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
   // resting book and executes as a taker, paying the taker fee instead
   // of resting as a maker.
   const wouldCross = deltaPct != null && (isBuy ? deltaPct >= 0 : deltaPct <= 0);
+
+  // The amount field that's actually bounded by a wallet balance: what
+  // you pay with on a buy, what you sell on a sell. Drives the balance
+  // slider; the other side follows automatically via the store's
+  // price-linked inputs.
+  const drivingAsset = isBuy ? store.quoteAsset : store.baseAsset;
+  const drivingInput = isBuy ? store.quoteInput : store.baseInput;
+  // AssetInfo#balance is already in display units, matching what the
+  // amount inputs above hold — no base-unit conversion needed here.
+  const drivingBalance = drivingAsset?.balance;
+  const setDrivingInput = isBuy ? store.setQuoteInput : store.setBaseInput;
+
+  // ≈ at mid — the trader's available balance, valued at the current
+  // chain mid, in the asset they'd come away with. Surfaced in the
+  // confirm modal rather than inline now that the form uses a compact
+  // summary line.
+  const balanceAtMid = useMemo(() => {
+    if (!mid || mid <= 0) return undefined;
+    const balanceNum = isBuy ? store.quoteAsset?.balance : store.baseAsset?.balance;
+    if (balanceNum === undefined || !Number.isFinite(balanceNum) || balanceNum <= 0) {
+      return undefined;
+    }
+    const equiv = isBuy ? balanceNum / mid : balanceNum * mid;
+    const equivAsset = isBuy ? store.baseAsset : store.quoteAsset;
+    if (!equivAsset || !Number.isFinite(equiv)) return undefined;
+    return equivAsset.formatDisplayAmount(equiv);
+  }, [isBuy, mid, store.baseAsset, store.quoteAsset]);
 
   const confirmRows = useMemo<ConfirmInfoRow[]>(() => {
     const rows: ConfirmInfoRow[] = [];
@@ -71,6 +166,11 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
       label: isBuy ? 'You receive' : 'You sell',
       value: `${store.baseInput || '—'} ${baseSym}`,
     });
+    rows.push({ label: 'Available balance', value: store.balance });
+    if (balanceAtMid) {
+      rows.push({ label: '≈ at mid', value: balanceAtMid });
+    }
+    rows.push({ label: 'Trading fee', value: 'Free', valueColor: 'success' });
     rows.push({
       label: 'Gas fee',
       value: `${parentStore.gasFee.display} ${parentStore.gasFee.symbol}`,
@@ -86,6 +186,8 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
     quoteSym,
     store.baseInput,
     store.quoteInput,
+    store.balance,
+    balanceAtMid,
     parentStore.gasFee.display,
     parentStore.gasFee.symbol,
   ]);
@@ -136,10 +238,30 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
     void parentStore.submit();
   }, [parentStore]);
 
+  // Compact one-line summary — replaces the old InfoRow stack (Trading
+  // Fee / Gas Fee / Distance from mid / Receive). Full detail still lives
+  // in the pre-submit confirm modal via confirmRows above.
+  const summaryLine = useMemo(() => {
+    const parts: string[] = ['Fee free'];
+    if (deltaPct != null && !wouldCross) {
+      parts.push(`Δ mid ${deltaPct > 0 ? '+' : ''}${deltaPct.toFixed(2)}%`);
+    }
+    parts.push(
+      `gas ${parentStore.gasFeeLoading ? '…' : `${parentStore.gasFee.display} ${parentStore.gasFee.symbol}`}`,
+    );
+    return parts.join(' · ');
+  }, [
+    deltaPct,
+    wouldCross,
+    parentStore.gasFeeLoading,
+    parentStore.gasFee.display,
+    parentStore.gasFee.symbol,
+  ]);
+
   return (
-    <div className='p-4'>
+    <div className='flex flex-col p-3'>
       <SegmentedControl direction={store.direction} setDirection={store.setDirection} />
-      <div className='mb-4'>
+      <div className='mb-2'>
         {/* Live mid-price chip above the price input — saves the trader
             from scanning the chart label or the bottom rate row to find
             the chain's current mid before deciding on a limit. Click =
@@ -198,7 +320,7 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
           onChange={store.setPriceInputOption}
         />
       </div>
-      <div className='mb-4'>
+      <div className='mb-2'>
         <OrderInput
           round
           label={isBuy ? 'Buy' : 'Sell'}
@@ -208,7 +330,7 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
           denominator={store.baseAsset?.symbol}
         />
       </div>
-      <div className='mb-4'>
+      <div className='mb-2'>
         <OrderInput
           round
           label={isBuy ? 'Pay with' : 'Receive'}
@@ -218,73 +340,46 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
           denominator={store.quoteAsset?.symbol}
         />
       </div>
-      <div className='mb-4'>
-        <InfoRow label='Available balance' value={store.balance} />
-        {/* Mid-equivalent of the trader's current balance — for a buy,
-            the quote balance worth at current mid converts to the base
-            amount they'd come away with; for a sell, the base balance
-            converts to its mid-value in quote. Lets a trader sense at a
-            glance 'this is what my balance is worth right now', without
-            mentally multiplying. */}
-        {(() => {
-          const mid = parentStore.marketPrice;
-          if (!mid || mid <= 0) return null;
-          const balanceNum = isBuy ? store.quoteAsset?.balance : store.baseAsset?.balance;
-          if (balanceNum === undefined || !Number.isFinite(balanceNum) || balanceNum <= 0) {
-            return null;
-          }
-          // buy: balance is in quote → equivalent base = balance / mid
-          // sell: balance is in base → equivalent quote = balance * mid
-          const equiv = isBuy ? balanceNum / mid : balanceNum * mid;
-          const equivAsset = isBuy ? store.baseAsset : store.quoteAsset;
-          if (!equivAsset || !Number.isFinite(equiv)) return null;
-          return (
-            <InfoRow
-              label='≈ at mid'
-              value={`${equivAsset.formatDisplayAmount(equiv)}`}
-              toolTip='Your available balance valued at the current chain mid — what you would come away with if you cleared at the mid right now.'
-            />
-          );
-        })()}
-        {/* % of mid the limit price sits at — catches fat-finger order-of-
-            magnitude typos before submit. Coloured by direction-of-intent
-            so a buy 5% above mid (i.e. would cross immediately) reads as
-            error, mirroring Bybit/Hyperliquid. */}
-        {(() => {
-          const limit = parseFloat(store.priceInput);
-          const mid = parentStore.marketPrice;
-          if (!Number.isFinite(limit) || limit <= 0 || !mid || mid <= 0) {
-            return null;
-          }
-          const deltaPct = ((limit - mid) / mid) * 100;
-          const sign = deltaPct > 0 ? '+' : '';
-          // For a buy, a positive delta means paying more than mid =
-          // crossing the spread (bad). For a sell, the inverse.
-          const wouldCross = isBuy ? deltaPct > 0.5 : deltaPct < -0.5;
-          return (
-            <InfoRow
-              label='Distance from mid'
-              value={`${sign}${deltaPct.toFixed(2)}%`}
-              valueColor={wouldCross ? 'error' : undefined}
-            />
-          );
-        })()}
-        <InfoRowTradingFee />
-        <InfoRowGasFee
-          gasFee={parentStore.gasFee.display}
-          symbol={parentStore.gasFee.symbol}
-          isLoading={parentStore.gasFeeLoading}
-        />
-        <InfoRow
-          label='Receive'
-          value={
-            isBuy
-              ? `${store.baseInput} ${store.baseAsset?.symbol ?? '--'}`
-              : `${store.quoteInput} ${store.quoteAsset?.symbol ?? '--'}`
-          }
+      <div className='mb-2'>
+        <BalanceSlider
+          inputValue={drivingInput}
+          balance={drivingBalance}
+          balanceDisplay={store.balance}
+          onSetFraction={fraction => {
+            if (drivingBalance === undefined) return;
+            setDrivingInput((fraction * drivingBalance).toString());
+          }}
         />
       </div>
-      <div className='mb-4'>
+
+      {/* Compact summary line — one tight line replaces the InfoRow stack.
+          Full detail (limit price, mid, balances, gas) still in the
+          confirm modal. */}
+      <div className='mb-2 text-[11px] leading-tight text-text-secondary'>{summaryLine}</div>
+
+      {/* Crosses the spread — executes as taker immediately instead of
+          resting as a maker. Same red-toned treatment as the LP form's
+          off-mid warning. */}
+      {wouldCross && (
+        <div className='mb-2 rounded-sm border border-destructive-light/30 bg-destructive-light/10 px-2 py-1 text-[11px] leading-tight text-destructive-light'>
+          ⚠ {isBuy ? 'Buy ≥ mid' : 'Sell ≤ mid'} — will execute as taker, not maker.
+        </div>
+      )}
+
+      {parentStore.marketPrice && (
+        <div className='mb-2 flex justify-center'>
+          <Text small color='text.secondary'>
+            1 {store.baseAsset?.symbol} ={' '}
+            <Text small color='text.primary'>
+              {store.quoteAsset?.formatDisplayAmount(parentStore.marketPrice)}
+            </Text>
+          </Text>
+        </div>
+      )}
+
+      {/* Submit — sticky so it never leaves the fold, same treatment as
+          the LP form. */}
+      <div className='sticky bottom-0 -mx-3 -mb-3 border-t border-other-tonal-stroke bg-base-black/95 px-3 pb-3 pt-2 backdrop-blur-sm'>
         {connected ? (
           <Button actionType='accent' disabled={!parentStore.canSubmit} onClick={openConfirm}>
             {isBuy ? 'Buy' : 'Sell'} {store.baseAsset?.symbol}
@@ -305,16 +400,6 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
         onConfirm={handleConfirm}
         onCancel={closeConfirm}
       />
-      {parentStore.marketPrice && (
-        <div className='flex justify-center p-1'>
-          <Text small color='text.secondary'>
-            1 {store.baseAsset?.symbol} ={' '}
-            <Text small color='text.primary'>
-              {store.quoteAsset?.formatDisplayAmount(parentStore.marketPrice)}
-            </Text>
-          </Text>
-        </div>
-      )}
     </div>
   );
 });

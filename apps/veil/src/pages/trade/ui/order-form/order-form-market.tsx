@@ -1,19 +1,15 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Button } from '@penumbra-zone/ui/Button';
 import { Text } from '@penumbra-zone/ui/Text';
 import { Tooltip } from '@penumbra-zone/ui/Tooltip';
-import { Slider as PenumbraSlider } from '@penumbra-zone/ui/Slider';
 import { round } from '@penumbra-zone/types/round';
 import { connectionStore } from '@/shared/model/connection';
 import { ConnectButton } from '@/features/connect/connect-button';
 import { useMarketPrice } from '../../model/useMarketPrice';
 import { OrderInput } from './order-input';
 import { SegmentedControl } from './segmented-control';
-import { InfoRowGasFee } from './info-row-gas-fee';
-import { InfoRowTradingFee } from './info-row-trading-fee';
 import { OrderFormStore } from './store/OrderFormStore';
-import { InfoRow } from './info-row';
 import { ConfirmInfoRow, ConfirmOrderModal } from './confirm-order-modal';
 import { FormIssueNotice } from './form-issue';
 
@@ -23,28 +19,29 @@ interface SliderProps {
   balanceDisplay?: string;
   setBalanceFraction: (fraction: number) => void;
 }
+
+// Balance slider — a native range input paired with a small editable
+// percent field, same pattern as the LP form's fee slider (see
+// order-form-liquidity.tsx). Either control can drive the underlying
+// fraction and both stay in sync because they're both derived from the
+// same store-backed input/balance pair.
 const Slider = observer(
   ({ inputValue, balance, balanceDisplay, setBalanceFraction }: SliderProps) => {
-    const value =
-      inputValue && balance ? Math.round((Number(inputValue) / Number(balance)) * 10) : 0;
+    const rawPct =
+      inputValue && balance ? Math.round((Number(inputValue) / Number(balance)) * 100) : 0;
+    const clampedPct = Math.min(100, Math.max(0, Number.isFinite(rawPct) ? rawPct : 0));
+
+    const [pctInput, setPctInput] = useState(String(clampedPct));
+    // Keep the editable field in sync when the fraction changes from
+    // elsewhere — the Max button, direction switch, or typing directly
+    // into the amount field above.
+    useEffect(() => {
+      setPctInput(String(clampedPct));
+    }, [clampedPct]);
 
     return (
-      <div className='mb-4'>
-        <div className='mb-1'>
-          <PenumbraSlider
-            min={0}
-            max={10}
-            step={1}
-            value={value}
-            showValue={false}
-            disabled={!balance}
-            onChange={x => setBalanceFraction(x / 10)}
-            showTrackGaps={true}
-            trackGapBackground='base.black'
-            showFill={true}
-          />
-        </div>
-        <div className='flex flex-row items-center justify-between py-1'>
+      <div>
+        <div className='mb-1 flex items-center justify-between gap-2 leading-none'>
           <Text small color='text.secondary'>
             Available Balance
           </Text>
@@ -53,6 +50,36 @@ const Slider = observer(
               {balanceDisplay ?? '--'}
             </Text>
           </button>
+        </div>
+        <div className='flex items-center gap-2'>
+          <input
+            type='range'
+            min={0}
+            max={100}
+            step={1}
+            value={clampedPct}
+            disabled={!balance}
+            onChange={e => setBalanceFraction(Number(e.target.value) / 100)}
+            aria-label='Percent of available balance'
+            className='w-full cursor-pointer accent-primary-main disabled:cursor-not-allowed disabled:opacity-40'
+          />
+          <div className='flex shrink-0 items-baseline gap-1'>
+            <input
+              type='text'
+              inputMode='decimal'
+              value={pctInput}
+              disabled={!balance}
+              onChange={e => setPctInput(e.target.value.replace(/[^0-9.]/g, ''))}
+              onBlur={() => {
+                const n = Math.min(100, Math.max(0, parseFloat(pctInput) || 0));
+                setBalanceFraction(n / 100);
+                setPctInput(String(Math.round(n)));
+              }}
+              aria-label='Percent of available balance input'
+              className='h-6 w-11 rounded-sm bg-other-tonal-fill5 px-1 text-right text-xs tabular-nums text-text-primary outline-none focus:ring-1 focus:ring-primary-main disabled:cursor-not-allowed disabled:opacity-40'
+            />
+            <span className='text-xs text-text-secondary'>%</span>
+          </div>
         </div>
       </div>
     );
@@ -107,8 +134,13 @@ export const MarketOrderForm = observer(({ parentStore }: { parentStore: OrderFo
         value: `${round({ value: mid, decimals: 6 })} ${quoteSym}`,
       });
     }
+    rows.push({ label: 'Trading fee', value: 'Free', valueColor: 'success' });
     if (store.priceImpact) {
-      rows.push({ label: 'Price impact', value: store.priceImpact });
+      rows.push({
+        label: 'Price impact',
+        value: store.priceImpact,
+        valueColor: (store.priceImpactPercent ?? 0) > 1 ? 'error' : undefined,
+      });
     }
     if (store.unfilled) {
       rows.push({ label: 'Unfilled amount', value: store.unfilled, valueColor: 'error' });
@@ -126,6 +158,7 @@ export const MarketOrderForm = observer(({ parentStore }: { parentStore: OrderFo
     isBuy,
     mid,
     store.priceImpact,
+    store.priceImpactPercent,
     store.unfilled,
     parentStore.gasFee.display,
     parentStore.gasFee.symbol,
@@ -149,8 +182,29 @@ export const MarketOrderForm = observer(({ parentStore }: { parentStore: OrderFo
     void parentStore.submit();
   }, [parentStore]);
 
+  // Compact one-line summary — replaces the old InfoRow stack (Trading
+  // Fee / Gas Fee / Price impact). Full detail still lives in the
+  // pre-submit confirm modal via confirmRows above.
+  const summaryLine = useMemo(() => {
+    const parts: string[] = ['Fee free'];
+    parts.push(
+      `gas ${parentStore.gasFeeLoading ? '…' : `${parentStore.gasFee.display} ${parentStore.gasFee.symbol}`}`,
+    );
+    if (store.priceImpact) {
+      parts.push(`impact ${store.priceImpact}`);
+    }
+    return parts.join(' · ');
+  }, [
+    parentStore.gasFeeLoading,
+    parentStore.gasFee.display,
+    parentStore.gasFee.symbol,
+    store.priceImpact,
+  ]);
+
+  const highImpact = (store.priceImpactPercent ?? 0) > 1;
+
   return (
-    <div className='p-4'>
+    <div className='flex flex-col p-3'>
       <SegmentedControl direction={store.direction} setDirection={store.setDirection} />
       {/* Pre-fill reference: the touch price the order will actually clear
           at, with how far that is from the chain's calculated mid. Reads
@@ -160,7 +214,7 @@ export const MarketOrderForm = observer(({ parentStore }: { parentStore: OrderFo
         <Tooltip
           message={`The current ${touchLabel.toLowerCase()} on the on-chain route book — where a ${isBuy ? 'buy' : 'sell'} market order's first lot would clear. The percentage shows how far that is from the calculated chain mid.`}
         >
-          <div className='-mt-2 mb-3 flex items-center justify-end gap-1 text-xs tabular-nums'>
+          <div className='mb-2 flex items-center justify-end gap-1 text-xs tabular-nums'>
             <Text detail color='text.secondary'>
               Clears at {touchLabel}:
             </Text>
@@ -179,7 +233,7 @@ export const MarketOrderForm = observer(({ parentStore }: { parentStore: OrderFo
           </div>
         </Tooltip>
       )}
-      <div className='mb-4'>
+      <div className='mb-2'>
         <OrderInput
           round
           value={store.baseInput}
@@ -191,7 +245,7 @@ export const MarketOrderForm = observer(({ parentStore }: { parentStore: OrderFo
           denominator={store.baseAsset?.symbol}
         />
       </div>
-      <div className='mb-4'>
+      <div className='mb-2'>
         <OrderInput
           round
           label={isBuy ? 'Pay with' : 'Receive'}
@@ -203,68 +257,50 @@ export const MarketOrderForm = observer(({ parentStore }: { parentStore: OrderFo
           denominator={store.quoteAsset?.symbol}
         />
       </div>
-      <Slider
-        inputValue={isBuy ? store.quoteInput : store.baseInput}
-        balance={isBuy ? store.quoteBalance : store.baseBalance}
-        balanceDisplay={store.balance}
-        setBalanceFraction={x => store.setBalanceFraction(x)}
-      />
-      <div className='mb-4'>
-        {/* Effective fill price = quote spent / base received. The Market
-            form derives one side from the other via estimateQuote /
-            estimateBase, so once both inputs settle we already know what
-            'unit price' the trader would actually pay. Surface it
-            explicitly — trader currently has to do the division
-            themselves to compare against the chart's mid. */}
-        {(() => {
-          const base = store.baseInputAmount;
-          const quote = store.quoteInputAmount;
-          if (!base || !quote || base <= 0 || quote <= 0) return null;
-          const fillPrice = quote / base;
-          const decimals = fillPrice >= 1 ? 4 : fillPrice >= 0.01 ? 5 : fillPrice >= 0.0001 ? 6 : 8;
-          return (
-            <InfoRow
-              label='Avg fill price'
-              value={`${fillPrice.toFixed(decimals)} ${store.quoteAsset?.symbol ?? ''}`}
-              toolTip='Estimated unit price your market order would clear at, derived from the quoted total ÷ base amount. Compare against the chart mid for a rough slippage check.'
-            />
-          );
-        })()}
-        <InfoRowTradingFee />
-        <InfoRowGasFee
-          gasFee={parentStore.gasFee.display}
-          symbol={parentStore.gasFee.symbol}
-          isLoading={parentStore.gasFeeLoading}
+      <div className='mb-2'>
+        <Slider
+          inputValue={isBuy ? store.quoteInput : store.baseInput}
+          balance={isBuy ? store.quoteBalance : store.baseBalance}
+          balanceDisplay={store.balance}
+          setBalanceFraction={x => store.setBalanceFraction(x)}
         />
-        {store.priceImpact && (
-          <InfoRow
-            label='Price impact'
-            value={store.priceImpact}
-            // Red when slippage is meaningful (>1%) — by then it's no
-            // longer 'small market move noise' but a chunk of the
-            // trader's expected fill they'll lose. Mirrors how every
-            // pro DEX warns at the same threshold.
-            valueColor={(store.priceImpactPercent ?? 0) > 1 ? 'error' : undefined}
-            toolTip={
-              (store.priceImpactPercent ?? 0) > 1
-                ? 'High price impact — your trade is large enough relative to the book that the executed price will move noticeably from the current mid. Consider splitting the order or using Limit form.'
-                : 'This percentage represents the effect of your trade on the token’s price.'
-            }
-          />
-        )}
-        {store.unfilled && (
-          <InfoRow
-            label='Unfilled amount'
-            value={store.unfilled}
-            // Any unfilled amount means the route book ran out of
-            // liquidity before completing the trade — always a warning,
-            // not a neutral fact.
-            valueColor='error'
-            toolTip='The portion of your trade that cannot be completed due to insufficient liquidity. Reduce the trade size or wait for more liquidity to appear.'
-          />
-        )}
       </div>
-      <div className='mb-4'>
+
+      {/* Compact summary line — one tight line replaces the InfoRow stack.
+          Full detail (avg fill price, mid, price impact, gas) still in
+          the confirm modal. */}
+      <div className='mb-2 text-[11px] leading-tight text-text-secondary'>{summaryLine}</div>
+
+      {/* Unfilled amount — the route book ran out of liquidity before
+          completing the trade. Always a warning, never neutral. */}
+      {store.unfilled && (
+        <div className='mb-2 rounded-sm border border-destructive-light/30 bg-destructive-light/10 px-2 py-1 text-[11px] leading-tight text-destructive-light'>
+          ⚠ Unfilled: {store.unfilled} — insufficient liquidity to fill the full size.
+        </div>
+      )}
+      {/* High price impact — the trade is large enough relative to the
+          book that the executed price will move noticeably from mid. */}
+      {highImpact && (
+        <div className='mb-2 rounded-sm border border-destructive-light/30 bg-destructive-light/10 px-2 py-1 text-[11px] leading-tight text-destructive-light'>
+          ⚠ High price impact ({store.priceImpact}) — consider splitting the order or using
+          Limit.
+        </div>
+      )}
+
+      {parentStore.marketPrice && (
+        <div className='mb-2 flex justify-center'>
+          <Text small color='text.secondary'>
+            1 {store.baseAsset?.symbol} ={' '}
+            <Text small color='text.primary'>
+              {store.quoteAsset?.formatDisplayAmount(parentStore.marketPrice)}
+            </Text>
+          </Text>
+        </div>
+      )}
+
+      {/* Submit — sticky so it never leaves the fold, same treatment as
+          the LP form. */}
+      <div className='sticky bottom-0 -mx-3 -mb-3 border-t border-other-tonal-stroke bg-base-black/95 px-3 pb-3 pt-2 backdrop-blur-sm'>
         {connected ? (
           <Button actionType='accent' disabled={!parentStore.canSubmit} onClick={openConfirm}>
             {isBuy ? 'Buy' : 'Sell'} {store.baseAsset?.symbol}
@@ -283,16 +319,6 @@ export const MarketOrderForm = observer(({ parentStore }: { parentStore: OrderFo
         onConfirm={handleConfirm}
         onCancel={closeConfirm}
       />
-      {parentStore.marketPrice && (
-        <div className='flex justify-center p-1'>
-          <Text small color='text.secondary'>
-            1 {store.baseAsset?.symbol} ={' '}
-            <Text small color='text.primary'>
-              {store.quoteAsset?.formatDisplayAmount(parentStore.marketPrice)}
-            </Text>
-          </Text>
-        </div>
-      )}
     </div>
   );
 });
