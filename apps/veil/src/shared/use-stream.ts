@@ -58,8 +58,13 @@ export const useStream = ({ id, enabled = true, streamFn }: StreamConfig) => {
 const STREAM_ABORT_MSG = 'useStream unmounting';
 
 export const errorIsStreamAbort = (error: unknown) => {
+  // Connect-Web wraps our AbortController.abort() as ConnectError(Canceled)
+  // on some code paths, but on others the streaming iterator throws a
+  // plain DOMException/Error whose message carries our abort reason.
+  // Both are the same "consumer unmounted, nothing to do here" event —
+  // don't log-and-reconnect either one.
   return (
     (error instanceof ConnectError && error.code === Code.Canceled) ||
-    (error instanceof ConnectError && error.message.includes(STREAM_ABORT_MSG))
+    (error instanceof Error && error.message.includes(STREAM_ABORT_MSG))
   );
 };
