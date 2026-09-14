@@ -571,10 +571,14 @@ export const LpPreviewOverlay = observer(
           const liveBase = r.baseAmount * scale;
           const liveQuote = r.quoteAmount * scale;
           const draggable = whichForm === 'LP';
-          const label =
-            r.side === 'buy'
-              ? `${formatRungAmount(liveQuote)} ${quoteSym}`
-              : `${formatRungAmount(liveBase)} ${baseSym}`;
+          const liveAmt = r.side === 'buy' ? liveQuote : liveBase;
+          const liveSym = r.side === 'buy' ? quoteSym : baseSym;
+          // Hide the label entirely when the amount is zero; a chart
+          // full of "0 UM" rows next to empty inputs was the "wtf is
+          // this" the user reported. When the trader hasn't typed
+          // amounts yet the preview just shows bars + no numbers.
+          const showLabel = liveAmt > 0;
+          const label = showLabel ? `${formatRungAmount(liveAmt)} ${liveSym}` : '';
           return (
             <div key={i}>
               <div
@@ -592,6 +596,7 @@ export const LpPreviewOverlay = observer(
                   row so it stays inside the chart even when the bar is
                   short, and the eye can scan the column of amounts
                   independently of the bar widths. */}
+              {showLabel && (
               <div
                 className='absolute pointer-events-none tabular-nums'
                 style={{
@@ -607,6 +612,7 @@ export const LpPreviewOverlay = observer(
               >
                 {label}
               </div>
+              )}
               {draggable && (
                 <div
                   role='slider'

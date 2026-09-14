@@ -34,7 +34,10 @@ export const useOwnFillMarkers = (
           time: Math.floor(t / 1000),
           price,
           direction: f.kind,
-          label: `${f.kind === 'buy' ? '↑' : '↓'} ${f.amount}`,
+          // Colour already tells the direction (green = buy, red = sell);
+          // dropping the arrow character out of the label keeps the
+          // marker readable without echoing the same signal twice.
+          label: `${f.amount}`,
         } satisfies OwnFillMarker;
       })
       .filter((m): m is OwnFillMarker => m !== null);

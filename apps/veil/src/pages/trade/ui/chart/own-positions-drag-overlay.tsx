@@ -30,6 +30,8 @@ interface Rung {
   position: Position;
   baseExponent: number;
   quoteExponent: number;
+  /** Amount the rung will offer, formatted for the tooltip. */
+  amountLabel: string;
 }
 
 interface Props {
@@ -100,6 +102,13 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
           const price = pnum(o.effectivePrice).toNumber();
           if (!Number.isFinite(price) || price <= 0) continue;
           const dir = o.direction.toLowerCase();
+          const amt = pnum(o.amount).toNumber();
+          const sym = dir === 'buy'
+            ? (o.quoteAsset?.asset?.symbol ?? '')
+            : (o.baseAsset?.asset?.symbol ?? '');
+          const amountLabel = Number.isFinite(amt) && amt > 0
+            ? `${amt >= 100 ? amt.toFixed(0) : amt.toFixed(4)} ${sym}`
+            : '';
           out.push({
             key: `${dp.idString}-${i}`,
             y: 0,
@@ -109,6 +118,7 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
             position: dp.position,
             baseExponent: o.baseAsset.exponent,
             quoteExponent: o.quoteAsset.exponent,
+            amountLabel,
           });
         }
       }
@@ -268,28 +278,53 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
             dragY?.key === r.key ? dragY.y : (yByKeyRef.current.get(r.key) ?? -9999);
           const color =
             r.direction === 'buy' ? BUY_COLOR : r.direction === 'sell' ? SELL_COLOR : '#9aa0a6';
+          const dirLabel =
+            r.direction === 'buy'
+              ? 'Buy'
+              : r.direction === 'sell'
+                ? 'Sell'
+                : 'Order';
+          const tooltip = r.amountLabel
+            ? `${dirLabel} · ${r.amountLabel} @ ${r.price.toPrecision(6)}\n(drag to reprice)`
+            : `${dirLabel} @ ${r.price.toPrecision(6)}\n(drag to reprice)`;
           return (
-            <div
-              key={r.key}
-              className='pointer-events-auto absolute'
-              style={{
-                right: 56 + 6,
-                top: yLive - HANDLE_SIZE / 2,
-                width: HANDLE_SIZE,
-                height: HANDLE_SIZE,
-                background: color,
-                borderRadius: HANDLE_SIZE / 2,
-                cursor: 'row-resize',
-                opacity: 0.9,
-                touchAction: 'none',
-                boxShadow: '0 0 0 1px rgba(0,0,0,0.4)',
-              }}
-              onPointerDown={onPointerDown(r)}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp(r)}
-              onPointerCancel={onPointerUp(r)}
-              title={`Drag to reprice ${r.direction || 'order'} @ ${r.price.toPrecision(6)}`}
-            />
+            <div key={r.key}>
+              {/* Full-width hover strip along the line's y. Thin enough
+                  not to hide the chart, tall enough to be an easy hover
+                  target. Native `title` gives a browser tooltip with
+                  direction + amount + price — replaces the LP axis
+                  labels we turned off in use-chart-config. */}
+              <div
+                className='pointer-events-auto absolute left-0'
+                style={{
+                  right: 56 + 6 + HANDLE_SIZE + 2,
+                  top: yLive - 5,
+                  height: 10,
+                  cursor: 'help',
+                }}
+                title={tooltip}
+              />
+              <div
+                className='pointer-events-auto absolute'
+                style={{
+                  right: 56 + 6,
+                  top: yLive - HANDLE_SIZE / 2,
+                  width: HANDLE_SIZE,
+                  height: HANDLE_SIZE,
+                  background: color,
+                  borderRadius: HANDLE_SIZE / 2,
+                  cursor: 'row-resize',
+                  opacity: 0.9,
+                  touchAction: 'none',
+                  boxShadow: '0 0 0 1px rgba(0,0,0,0.4)',
+                }}
+                onPointerDown={onPointerDown(r)}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerUp(r)}
+                onPointerCancel={onPointerUp(r)}
+                title={tooltip}
+              />
+            </div>
           );
         })}
         {/* Confirmation card — appears at the drop position with old→new

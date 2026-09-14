@@ -93,7 +93,12 @@ export const useChartConfig = (
         color,
         lineStyle: LineStyle.Dashed,
         lineWidth: 1,
-        axisLabelVisible: true,
+        // Axis label off — lightweight-charts renders a small arrow-like
+        // pointer next to the price which reads as a direction indicator
+        // and confuses traders. We render our own hover strip via the
+        // drag overlay, so the trader hovers the line to see direction +
+        // price + amount instead.
+        axisLabelVisible: false,
         title: line.label ?? line.id.slice(0, 6),
       };
       const existing = ownLinesRef.current.get(line.id);
@@ -142,7 +147,10 @@ export const useChartConfig = (
         position: f.direction === 'buy' ? ('belowBar' as const) : ('aboveBar' as const),
         color:
           f.direction === 'buy' ? theme.color.success.light : theme.color.destructive.light,
-        shape: f.direction === 'buy' ? ('arrowUp' as const) : ('arrowDown' as const),
+        // Circles read as "trades happened here" without implying a
+        // predicted price direction. Same colour split as before; hover
+        // the marker (or the crosshair) to see f.label with the amount.
+        shape: 'circle' as const,
         text: f.label,
       }));
     try {
