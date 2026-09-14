@@ -5,6 +5,11 @@ import { ChainRegistryClient } from '@penumbra-labs/registry';
 import { serialize, Serialized } from '@/shared/utils/serializer';
 import { pindexer } from '@/shared/database';
 import { RecentExecutionsResponse, transformData } from './recent-executions';
+import {
+  withApiFallback,
+  withTimeout,
+  DEFAULT_TIMEOUT_MS,
+} from '@/shared/api/server/with-api-fallback.ts';
 
 export interface MyExecutionsRequestBody extends JsonObject {
   height: number;
@@ -24,7 +29,14 @@ export interface MyExecutionsRequestBody extends JsonObject {
  * 2. `quote` {AssetId}: quote asset ID
  * 3. `blochHeight` {number}: swap block height
  */
-export async function POST(
+const EMPTY_MY_EXECUTIONS: Serialized<RecentExecutionsResponse> = [];
+
+export const POST = withApiFallback(handlePost, {
+  emptyResponse: EMPTY_MY_EXECUTIONS,
+  logTag: 'my-executions',
+});
+
+async function handlePost(
   req: NextRequest,
 ): Promise<NextResponse<Serialized<RecentExecutionsResponse>>> {
   const chainId = process.env['PENUMBRA_CHAIN_ID'];
@@ -39,18 +51,22 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 
-  const [registry, results] = await Promise.all([
-    registryClient.remote.get(chainId),
-    pindexer.myTrades(
-      body.map(swap => ({
-        base: AssetId.fromJson(swap.base),
-        quote: AssetId.fromJson(swap.quote),
-        height: swap.height,
-        input: swap.input,
-        output: swap.output,
-      })),
-    ),
-  ]);
+  const [registry, results] = await withTimeout(
+    Promise.all([
+      registryClient.remote.get(chainId),
+      pindexer.myTrades(
+        body.map(swap => ({
+          base: AssetId.fromJson(swap.base),
+          quote: AssetId.fromJson(swap.quote),
+          height: swap.height,
+          input: swap.input,
+          output: swap.output,
+        })),
+      ),
+    ]),
+    DEFAULT_TIMEOUT_MS,
+    'my-executions registry+pindexer query',
+  );
 
   const transformed = results
     .map(data => transformData(data, data.type, registry))

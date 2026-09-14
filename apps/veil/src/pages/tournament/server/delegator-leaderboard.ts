@@ -3,6 +3,11 @@ import { Address } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys_pb';
 import { serialize, Serialized } from '@/shared/utils/serializer';
 import { LqtDelegatorSummary } from '@/shared/database/schema';
 import { pindexerDb } from '@/shared/database/client';
+import {
+  withApiFallback,
+  withTimeout,
+  DEFAULT_TIMEOUT_MS,
+} from '@/shared/api/server/with-api-fallback.ts';
 
 const SORT_KEYS = ['epochs_voted_in', 'streak', 'total_rewards'] as const;
 export type DelegatorLeaderboardSortKey = (typeof SORT_KEYS)[number];
@@ -80,15 +85,25 @@ const totalDelegatorsQuery = async () => {
     .executeTakeFirst();
 };
 
-export async function GET(
+const EMPTY_DELEGATOR_LEADERBOARD: Serialized<
+  DelegatorLeaderboardApiResponse | { error: string }
+> = { total: 0, data: [] };
+
+export const GET = withApiFallback(handleGet, {
+  emptyResponse: EMPTY_DELEGATOR_LEADERBOARD,
+  logTag: 'tournament/delegator-leaderboard',
+});
+
+async function handleGet(
   req: NextRequest,
 ): Promise<NextResponse<Serialized<DelegatorLeaderboardApiResponse | { error: string }>>> {
   const params = getQueryParams(req);
 
-  const [results, total] = await Promise.all([
-    delegatorLeaderboardQuery(params),
-    totalDelegatorsQuery(),
-  ]);
+  const [results, total] = await withTimeout(
+    Promise.all([delegatorLeaderboardQuery(params), totalDelegatorsQuery()]),
+    DEFAULT_TIMEOUT_MS,
+    'tournament/delegator-leaderboard query',
+  );
 
   const mapped = results
     .map<DelegatorLeaderboardData>(item => ({

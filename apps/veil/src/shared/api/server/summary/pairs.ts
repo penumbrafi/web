@@ -9,6 +9,11 @@ import {
 import { ChainRegistryClient } from '@penumbra-labs/registry';
 import { toValueView } from '@/shared/utils/value-view';
 import { getStablecoins } from '@/shared/utils/stables';
+import {
+  withApiFallback,
+  withTimeout,
+  DEFAULT_TIMEOUT_MS,
+} from '@/shared/api/server/with-api-fallback.ts';
 
 export interface PairData {
   baseAsset: Metadata;
@@ -18,21 +23,36 @@ export interface PairData {
 
 export type PairsResponse = Serialized<PairData>[] | { error: string };
 
-export async function GET(): Promise<NextResponse<PairsResponse>> {
+const EMPTY_PAIRS: PairsResponse = [];
+
+export const GET = withApiFallback(handleGet, {
+  emptyResponse: EMPTY_PAIRS,
+  logTag: 'summary/pairs',
+});
+
+async function handleGet(): Promise<NextResponse<PairsResponse>> {
   const chainId = process.env['PENUMBRA_CHAIN_ID'];
   if (!chainId) {
     return NextResponse.json({ error: 'PENUMBRA_CHAIN_ID is not set' }, { status: 500 });
   }
 
   const registryClient = new ChainRegistryClient();
-  const registry = await registryClient.remote.get(chainId);
+  const registry = await withTimeout(
+    registryClient.remote.get(chainId),
+    DEFAULT_TIMEOUT_MS,
+    'summary/pairs registry.get',
+  );
   const allAssets = registry.getAllAssets();
 
   const { stablecoins } = getStablecoins(allAssets, 'USDC');
 
-  const results = await pindexer.pairs({
-    stablecoins: stablecoins.map(asset => asset.penumbraAssetId) as AssetId[],
-  });
+  const results = await withTimeout(
+    pindexer.pairs({
+      stablecoins: stablecoins.map(asset => asset.penumbraAssetId) as AssetId[],
+    }),
+    DEFAULT_TIMEOUT_MS,
+    'summary/pairs pindexer.pairs',
+  );
 
   const pairs = (await Promise.all(
     results.map(summary => {

@@ -6,6 +6,11 @@ import { serialize, Serialized } from '@/shared/utils/serializer';
 import { pindexerDb } from '@/shared/database/client';
 import { base64ToUint8Array } from '@penumbra-zone/types/base64';
 import { MappedGauge } from './previous-epochs';
+import {
+  withApiFallback,
+  withTimeout,
+  DEFAULT_TIMEOUT_MS,
+} from '@/shared/api/server/with-api-fallback.ts';
 
 const SORT_KEYS = ['portion', 'votes'] as const;
 export type EpochResultsSortKey = (typeof SORT_KEYS)[number];
@@ -86,7 +91,17 @@ const totalEpochResultsQuery = async ({ epoch }: EpochResultsRequest) => {
     .executeTakeFirst();
 };
 
-export async function GET(
+const EMPTY_EPOCH_RESULTS: Serialized<EpochResultsApiResponse | { error: string }> = {
+  total: 0,
+  data: [],
+};
+
+export const GET = withApiFallback(handleGet, {
+  emptyResponse: EMPTY_EPOCH_RESULTS,
+  logTag: 'tournament/epoch-results',
+});
+
+async function handleGet(
   req: NextRequest,
 ): Promise<NextResponse<Serialized<EpochResultsApiResponse | { error: string }>>> {
   const chainId = process.env['PENUMBRA_CHAIN_ID'];
@@ -105,11 +120,15 @@ export async function GET(
     nextjsServerSide: true,
   });
 
-  const [registry, results, total] = await Promise.all([
-    registryClient.remote.get(chainId),
-    epochResultsQuery(params),
-    totalEpochResultsQuery(params),
-  ]);
+  const [registry, results, total] = await withTimeout(
+    Promise.all([
+      registryClient.remote.get(chainId),
+      epochResultsQuery(params),
+      totalEpochResultsQuery(params),
+    ]),
+    DEFAULT_TIMEOUT_MS,
+    'tournament/epoch-results query',
+  );
 
   const mapped = results
     .map<MappedGauge | undefined>(item => {

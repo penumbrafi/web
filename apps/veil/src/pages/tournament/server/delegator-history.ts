@@ -8,6 +8,11 @@ import { Serialized, serialize } from '@/shared/utils/serializer';
 import { pindexerDb } from '@/shared/database/client';
 import { LqtDelegatorHistory } from '@/shared/database/schema';
 import { BASE_LIMIT, BASE_PAGE } from '../api/use-personal-rewards';
+import {
+  withApiFallback,
+  withTimeout,
+  DEFAULT_TIMEOUT_MS,
+} from '@/shared/api/server/with-api-fallback.ts';
 
 export const SORT_KEYS = ['epoch', 'reward'] as const;
 export type DelegatorHistorySortKey = (typeof SORT_KEYS)[number];
@@ -104,7 +109,15 @@ const tournamentDelegatorHistoryQuery = async ({
   return aggregated.execute();
 };
 
-export async function POST(
+const EMPTY_DELEGATOR_HISTORY: Serialized<TournamentDelegatorHistoryResponse[] | { error: string }> =
+  [];
+
+export const POST = withApiFallback(handlePost, {
+  emptyResponse: EMPTY_DELEGATOR_HISTORY,
+  logTag: 'tournament/delegator-history',
+});
+
+async function handlePost(
   req: NextRequest,
 ): Promise<NextResponse<Serialized<TournamentDelegatorHistoryResponse[] | { error: string }>>> {
   const params = await getBodyParams(req);
@@ -112,7 +125,11 @@ export async function POST(
     return NextResponse.json({ error: params }, { status: 400 });
   }
 
-  const result = await tournamentDelegatorHistoryQuery(params);
+  const result = await withTimeout(
+    tournamentDelegatorHistoryQuery(params),
+    DEFAULT_TIMEOUT_MS,
+    'tournament/delegator-history query',
+  );
   const history = await Promise.all(
     result.map(historyByAddress => {
       return {

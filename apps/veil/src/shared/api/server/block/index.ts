@@ -9,6 +9,11 @@ import { joinLoHi, LoHi } from '@penumbra-zone/types/lo-hi';
 import { serialize, Serialized } from '@/shared/utils/serializer';
 import { BatchSwapSummary as PindexerBatchSwapSummary } from '@/shared/database/schema';
 import { BatchSwapSummary, BlockSummaryApiResponse } from './types';
+import {
+  withApiFallback,
+  withTimeout,
+  DEFAULT_TIMEOUT_MS,
+} from '@/shared/api/server/with-api-fallback.ts';
 
 function isLoHi(value: unknown): value is LoHi {
   return typeof value === 'object' && value !== null && 'lo' in value;
@@ -64,7 +69,16 @@ export const getBatchSwapDisplayData =
     };
   };
 
-export async function GET(
+const EMPTY_BLOCK_SUMMARY: Serialized<BlockSummaryApiResponse> = {
+  error: 'block summary service unavailable',
+};
+
+export const GET = withApiFallback(handleGet, {
+  emptyResponse: EMPTY_BLOCK_SUMMARY,
+  logTag: 'block',
+});
+
+async function handleGet(
   _req: NextRequest,
   { params }: { params: Promise<{ height: string }> },
 ): Promise<NextResponse<Serialized<BlockSummaryApiResponse>>> {
@@ -80,9 +94,17 @@ export async function GET(
   }
 
   const registryClient = new ChainRegistryClient();
-  const registry = await registryClient.remote.get(chainId);
+  const registry = await withTimeout(
+    registryClient.remote.get(chainId),
+    DEFAULT_TIMEOUT_MS,
+    'block registry.get',
+  );
 
-  const blockSummary = await pindexer.getBlockSummary(Number(height));
+  const blockSummary = await withTimeout(
+    pindexer.getBlockSummary(Number(height)),
+    DEFAULT_TIMEOUT_MS,
+    'block pindexer.getBlockSummary',
+  );
 
   if (!blockSummary) {
     return NextResponse.json({ error: 'Block summary not found' }, { status: 404 });

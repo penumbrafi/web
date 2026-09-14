@@ -11,6 +11,11 @@ import { LpLeaderboardRequest, LpLeaderboardResponse, LpLeaderboardErrorResponse
 import { hexToUint8Array } from '@penumbra-zone/types/hex';
 import { DexService } from '@penumbra-zone/protobuf';
 import { createClient } from '@/shared/utils/protos/utils.ts';
+import {
+  withApiFallback,
+  withTimeout,
+  DEFAULT_TIMEOUT_MS,
+} from '@/shared/api/server/with-api-fallback.ts';
 
 async function queryLqtLps({
   positionIds = [],
@@ -77,7 +82,17 @@ async function queryLqtLps({
   };
 }
 
-export async function POST(
+const EMPTY_LP_LEADERBOARD: Serialized<LpLeaderboardResponse> | LpLeaderboardErrorResponse = {
+  data: [],
+  total: 0,
+};
+
+export const POST = withApiFallback(handlePost, {
+  emptyResponse: EMPTY_LP_LEADERBOARD,
+  logTag: 'leaderboard/post-lp-leaderboard',
+});
+
+async function handlePost(
   req: NextRequest,
 ): Promise<NextResponse<Serialized<LpLeaderboardResponse> | LpLeaderboardErrorResponse>> {
   const grpcEndpoint =
@@ -87,7 +102,11 @@ export async function POST(
   }
 
   const params = (await req.json()) as LpLeaderboardRequest;
-  const lps = await queryLqtLps(params);
+  const lps = await withTimeout(
+    queryLqtLps(params),
+    DEFAULT_TIMEOUT_MS,
+    'leaderboard/post-lp-leaderboard db query',
+  );
 
   const lqtLps = lps.data.map(lp => ({
     epoch: lp.epoch,
@@ -104,10 +123,14 @@ export async function POST(
   }));
 
   const client = createClient(grpcEndpoint, DexService);
-  const positionsRes = await Array.fromAsync(
-    client.liquidityPositionsById({
-      positionId: lqtLps.map(lp => lp.positionId),
-    }),
+  const positionsRes = await withTimeout(
+    Array.fromAsync(
+      client.liquidityPositionsById({
+        positionId: lqtLps.map(lp => lp.positionId),
+      }),
+    ),
+    DEFAULT_TIMEOUT_MS,
+    'leaderboard/post-lp-leaderboard liquidityPositionsById',
   );
   const positions = positionsRes.map(r => r.data).filter(Boolean) as Position[];
 

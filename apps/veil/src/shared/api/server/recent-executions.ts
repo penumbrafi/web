@@ -6,6 +6,11 @@ import { pnum } from '@penumbra-zone/types/pnum';
 import { serialize, Serialized } from '@/shared/utils/serializer';
 import { pindexer } from '@/shared/database';
 import { getDisplayDenomExponent } from '@penumbra-zone/getters/metadata';
+import {
+  withApiFallback,
+  withTimeout,
+  DEFAULT_TIMEOUT_MS,
+} from '@/shared/api/server/with-api-fallback.ts';
 
 type FromPromise<T> = T extends Promise<(infer U)[]> ? U : T;
 type RecentExecutionData = FromPromise<ReturnType<typeof pindexer.recentExecutions>>;
@@ -83,7 +88,14 @@ export const transformData = (
  * 2. `quoteAsset` (string, required): quote asset symbol
  * 3. `limit` (number, required): number of recent executions to return
  */
-export async function GET(
+const EMPTY_RECENT_EXECUTIONS: Serialized<RecentExecutionsResponse> = [];
+
+export const GET = withApiFallback(handleGet, {
+  emptyResponse: EMPTY_RECENT_EXECUTIONS,
+  logTag: 'recent-executions',
+});
+
+async function handleGet(
   req: NextRequest,
 ): Promise<NextResponse<Serialized<RecentExecutionsResponse>>> {
   const chainId = process.env['PENUMBRA_CHAIN_ID'];
@@ -103,7 +115,11 @@ export async function GET(
   }
 
   const registryClient = new ChainRegistryClient();
-  const registry = await registryClient.remote.get(chainId);
+  const registry = await withTimeout(
+    registryClient.remote.get(chainId),
+    DEFAULT_TIMEOUT_MS,
+    'recent-executions registry.get',
+  );
 
   const allAssets = registry.getAllAssets();
   const baseAssetMetadata = allAssets.find(
@@ -121,16 +137,24 @@ export async function GET(
 
   // We need two queries: * base -> quote (sell)
   //                      * quote -> base (buy)
-  const sellStream = await pindexer.recentExecutions(
-    baseAssetMetadata.penumbraAssetId,
-    quoteAssetMetadata.penumbraAssetId,
-    Number(limit),
+  const sellStream = await withTimeout(
+    pindexer.recentExecutions(
+      baseAssetMetadata.penumbraAssetId,
+      quoteAssetMetadata.penumbraAssetId,
+      Number(limit),
+    ),
+    DEFAULT_TIMEOUT_MS,
+    'recent-executions sell query',
   );
 
-  const buyStream = await pindexer.recentExecutions(
-    quoteAssetMetadata.penumbraAssetId,
-    baseAssetMetadata.penumbraAssetId,
-    Number(limit),
+  const buyStream = await withTimeout(
+    pindexer.recentExecutions(
+      quoteAssetMetadata.penumbraAssetId,
+      baseAssetMetadata.penumbraAssetId,
+      Number(limit),
+    ),
+    DEFAULT_TIMEOUT_MS,
+    'recent-executions buy query',
   );
 
   const responses = await Promise.all([
