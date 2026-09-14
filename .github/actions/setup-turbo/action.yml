@@ -9,11 +9,21 @@ inputs:
     description: Restore prefix for the cache
     required: false
     default: turbo-${{ runner.os }}-
+  save-cache:
+    description: >
+      Whether to save the cache after the build. Set to 'false' for untrusted
+      builds (per-PR previews under pull_request_target) so an attacker-
+      controlled build cannot poison the cache scope that trusted builds on
+      the same branch (main) restore from. Trusted deploy workflows leave it
+      at the default 'true'.
+    required: false
+    default: 'true'
 runs:
   using: composite
   steps:
-    - name: Setup turbo cache
-      uses: actions/cache@v4
+    - name: Restore turbo cache
+      id: restore-turbo
+      uses: actions/cache/restore@v4
       with:
         path: |
           .turbo
@@ -26,3 +36,17 @@ runs:
       # We assume that the "setup-nix" step has already been run,
       # so that `pnpm` is on the path.
       run: nix develop --command just install
+
+    # Save is a separate step gated by `save-cache`. Preview builds run
+    # untrusted PR code and pass save-cache='false' so nothing this job
+    # produces ever lands in the shared branch cache. Trusted deploys keep
+    # save-cache='true' (the default) and behave exactly like the old
+    # single-step `actions/cache@v4`.
+    - name: Save turbo cache
+      if: ${{ inputs.save-cache == 'true' && steps.restore-turbo.outputs.cache-hit != 'true' }}
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          .turbo
+          node_modules
+        key: ${{ inputs.primary-key }}

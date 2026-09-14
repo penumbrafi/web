@@ -13,6 +13,13 @@ inputs:
     description: Backend to use for caching
     required: false
     default: actions
+  save-cache:
+    description: >
+      Whether to save the nix-store cache after the build. Set to 'false'
+      for untrusted PR builds so an attacker-controlled build cannot poison
+      the branch-scoped cache that trusted builds restore from.
+    required: false
+    default: 'true'
 
 runs:
   using: composite
@@ -20,12 +27,27 @@ runs:
     - name: Install Nix
       uses: nixbuild/nix-quick-install-action@v30
 
-    - name: Setup Nix Cache
+    # Trusted path: restore + save. Cache-nix-action's post step writes the
+    # store back into the cache scope after the job.
+    - name: Setup Nix Cache (with save)
+      if: ${{ inputs.save-cache == 'true' }}
       uses: nix-community/cache-nix-action@v6
       with:
         primary-key: ${{ inputs.primary-key }}
         restore-prefixes-first-match: ${{ inputs.restore-prefix }}
         backend: ${{ inputs.backend }}
+
+    # Untrusted path: restore only. Sets `save: false` so cache-nix-action
+    # skips its post-job save, meaning nothing this job produces ever lands
+    # in the shared branch cache.
+    - name: Setup Nix Cache (restore only)
+      if: ${{ inputs.save-cache != 'true' }}
+      uses: nix-community/cache-nix-action@v6
+      with:
+        primary-key: ${{ inputs.primary-key }}
+        restore-prefixes-first-match: ${{ inputs.restore-prefix }}
+        backend: ${{ inputs.backend }}
+        save: false
 
     - name: Pre-build development shell
       shell: bash

@@ -121,8 +121,27 @@ jobs:
           # in this job needs to reach GitHub.
           persist-credentials: false
 
-      - uses: ./.github/actions/setup-nix
-      - uses: ./.github/actions/setup-turbo
+      # Composite actions are pinned to `penumbrafi/web@main` (remote
+      # ref) instead of `./.github/actions/...` — otherwise the composite
+      # action files would come from the PR-head tree we just checked
+      # out, so an attacker could rewrite setup-nix / setup-turbo to
+      # override the `save-cache: 'false'` gate we set below. Remote-ref
+      # `uses:` fetches the action from the default branch of the repo,
+      # not the working tree.
+      #
+      # `save-cache: 'false'` puts both caches in restore-only mode for
+      # this untrusted build. Under `pull_request_target` `GITHUB_REF`
+      # is `refs/heads/main`, so a save from here would write into the
+      # `main` cache scope that `deploy-veil.yml` restores from. That
+      # was the cache-poisoning path redshiftzero flagged; this closes
+      # it. Previews still get a fast cold read from prior main-scope
+      # entries via the restore-prefix fallback.
+      - uses: penumbrafi/web/.github/actions/setup-nix@main
+        with:
+          save-cache: 'false'
+      - uses: penumbrafi/web/.github/actions/setup-turbo@main
+        with:
+          save-cache: 'false'
 
       - name: build veil
         env:

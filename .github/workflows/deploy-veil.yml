@@ -7,6 +7,11 @@
 name: deploy veil
 
 on:
+  # Manual only — no auto-deploy on push. To ship a change you either
+  # run this workflow (`to_prod`) or, for a rollback that reuses the
+  # previous build already sitting on the other colour, run
+  # `promote-veil.yml`. Nothing lands on prod without a hand on the
+  # trigger.
   workflow_dispatch:
     inputs:
       promote:
@@ -20,11 +25,6 @@ on:
         type: choice
         default: auto
         options: [auto, staging-only]
-  push:
-    branches:
-      - main
-    tags:
-      - 'v*'
 
 concurrency:
   group: deploy-veil
@@ -102,19 +102,9 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
-  release:
-    name: attach to release
-    if: startsWith(github.ref, 'refs/tags/')
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: veil-${{ github.sha }}
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: veil-${{ github.sha }}.tar.zst
-          fail_on_unmatched_files: true
+  # (No tag-based release job — deploys are workflow_dispatch only, no
+  # tag push triggers this workflow. If you want a release artifact,
+  # cut the tag separately and download the workflow run's artifact.)
 
   deploy:
     name: deploy veil (blue/green)

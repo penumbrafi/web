@@ -11,12 +11,9 @@
 name: deploy node-status
 
 on:
+  # Manual only — same shape as deploy-veil.yml. No auto-deploy on
+  # push or tag. Ship via `gh workflow run deploy-node-status.yml`.
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    tags:
-      - 'v*'
 
 concurrency:
   group: deploy-node-status
@@ -60,19 +57,8 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
-  release:
-    name: attach to release
-    if: startsWith(github.ref, 'refs/tags/')
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: node-status-${{ github.sha }}
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: node-status-${{ github.sha }}.tar.zst
-          fail_on_unmatched_files: true
+  # (No tag-based release job — workflow_dispatch only, same as
+  # deploy-veil.yml.)
 
   deploy:
     name: deploy node-status
