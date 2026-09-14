@@ -14,6 +14,9 @@ interface DrawingsOverlayProps {
   onDelete: (id: string) => void;
   /** Patch a drawing in place (used while dragging an endpoint). */
   onUpdate: (id: string, patch: Partial<Drawing>) => void;
+  /** Currently-selected drawing id — drives the inline X-delete glyph. */
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
 }
 
 interface PositionedHorizontalLine {
@@ -84,11 +87,53 @@ const formatTimeShort = (t: number): string => {
   return `${hh}:${mm}`;
 };
 
+// Inline X-delete glyph shown at a selected drawing's "top-right"-ish
+// anchor point. A standalone component (rather than an inline closure) so
+// its hover state is a stable per-shape instance across re-renders instead
+// of being recreated (and losing hover) whenever the parent redraws.
+// Centered on (x, y) via the translate — callers pass the point the glyph
+// should sit on, already nudged clear of any resize handle at that corner.
+const DeleteGlyph = ({ x, y, onDelete }: { x: number; y: number; onDelete: () => void }) => {
+  const [hover, setHover] = useState(false);
+  return (
+    <g
+      transform={`translate(${x - 6}, ${y - 6})`}
+      className='cursor-pointer'
+      pointerEvents='all'
+      // Swallow pointerdown so it doesn't fall through to the shape's own
+      // (larger) drag/click hit area sitting underneath the glyph.
+      onPointerDown={e => e.stopPropagation()}
+      onClick={e => {
+        e.preventDefault();
+        e.stopPropagation();
+        onDelete();
+      }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      <title>Delete drawing</title>
+      <rect
+        width={12}
+        height={12}
+        rx={2.5}
+        fill={hover ? '#f17878' : 'rgba(13,13,13,0.8)'}
+        stroke='#ffffff'
+        strokeWidth={1}
+        strokeOpacity={0.8}
+      />
+      <line x1={3} y1={3} x2={9} y2={9} stroke='#ffffff' strokeWidth={1.4} strokeLinecap='round' />
+      <line x1={9} y1={3} x2={3} y2={9} stroke='#ffffff' strokeWidth={1.4} strokeLinecap='round' />
+    </g>
+  );
+};
+
 /**
  * SVG overlay rendering user drawings positioned via the candle series's
  * priceToCoordinate. Click a shape's body to open the manage menu
  * (delete / colour) or drag past 4px to move it; click an endpoint /
- * corner handle to reshape.
+ * corner handle to reshape. The selected drawing (selectedId) additionally
+ * gets an inline X-delete glyph, and responds to the Delete/Backspace and
+ * Ctrl/Cmd-C/V shortcuts wired up in chart.tsx.
  */
 export const DrawingsOverlay = ({
   drawings,
@@ -99,6 +144,8 @@ export const DrawingsOverlay = ({
   subscribeRedraw,
   onDelete,
   onUpdate,
+  selectedId,
+  onSelect,
 }: DrawingsOverlayProps) => {
 
   const [hLines, setHLines] = useState<PositionedHorizontalLine[]>([]);
@@ -106,6 +153,10 @@ export const DrawingsOverlay = ({
   const [tLines, setTLines] = useState<PositionedTrendLine[]>([]);
   const [rects, setRects] = useState<PositionedRectangle[]>([]);
   const [texts, setTexts] = useState<PositionedText[]>([]);
+  // Container width, refreshed alongside every recompute — needed to place
+  // the horizontal-line X-delete glyph at the right edge (that line itself
+  // is drawn x1=0/x2='100%', so there's no numeric right-edge x otherwise).
+  const [svgWidth, setSvgWidth] = useState(0);
   // Live chain mid — used to annotate each horizontal-line drawing with
   // its current % gap from mid. The trader marks a level once and the
   // label keeps re-stamping the live distance as mid drifts, no more
@@ -131,6 +182,8 @@ export const DrawingsOverlay = ({
     }
 
     const recompute = () => {
+      const svg = containerRef.current;
+      if (svg) setSvgWidth(svg.getBoundingClientRect().width);
       const nextH: PositionedHorizontalLine[] = [];
       const nextV: PositionedVerticalLine[] = [];
       const nextT: PositionedTrendLine[] = [];
@@ -228,11 +281,13 @@ export const DrawingsOverlay = ({
         (document.activeElement as HTMLElement | null)?.isContentEditable;
       if (e.key === 'Escape') {
         setMenu(null);
+        onSelect(null);
         return;
       }
       if ((e.key === 'Delete' || e.key === 'Backspace') && !inEditable) {
         e.preventDefault();
         onDelete(menu.id);
+        onSelect(null);
         setMenu(null);
       }
     };
@@ -242,7 +297,7 @@ export const DrawingsOverlay = ({
       document.removeEventListener('click', onClick);
       document.removeEventListener('keydown', onKey);
     };
-  }, [menu, onDelete]);
+  }, [menu, onDelete, onSelect]);
 
   if (drawings.length === 0) return null;
 
@@ -257,6 +312,7 @@ export const DrawingsOverlay = ({
     if (!svg) return;
     const rect = svg.getBoundingClientRect();
     setMenu({ x: e.clientX - rect.left, y: e.clientY - rect.top, id, label });
+    onSelect(id);
   };
 
   // Drag-or-click handler factory for horizontal lines. Pointer-down
@@ -444,6 +500,7 @@ export const DrawingsOverlay = ({
             id,
             label,
           });
+          onSelect(id);
         }
       };
       window.addEventListener('pointermove', onMove);
@@ -504,6 +561,7 @@ export const DrawingsOverlay = ({
           id,
           label,
         });
+        onSelect(id);
       }
     };
     window.addEventListener('pointermove', onMove);
@@ -562,6 +620,7 @@ export const DrawingsOverlay = ({
           id,
           label,
         });
+        onSelect(id);
       }
     };
     window.addEventListener('pointermove', onMove);
@@ -659,6 +718,18 @@ export const DrawingsOverlay = ({
                   {deltaText}
                 </text>
               )}
+              {/* Inline delete glyph — right edge, level with the line
+                  (the "axis end" for a horizontal, price-anchored line). */}
+              {selectedId === line.id && svgWidth > 0 && (
+                <DeleteGlyph
+                  x={svgWidth - 14}
+                  y={line.y}
+                  onDelete={() => {
+                    onDelete(line.id);
+                    onSelect(null);
+                  }}
+                />
+              )}
             </g>
           );
         })}
@@ -716,6 +787,18 @@ export const DrawingsOverlay = ({
               >
                 {labelText}
               </text>
+              {/* Inline delete glyph — near the top (time) axis end,
+                  offset clear of the time label above it. */}
+              {selectedId === line.id && (
+                <DeleteGlyph
+                  x={line.x}
+                  y={26}
+                  onDelete={() => {
+                    onDelete(line.id);
+                    onSelect(null);
+                  }}
+                />
+              )}
             </g>
           );
         })}
@@ -792,6 +875,19 @@ export const DrawingsOverlay = ({
               >
                 <title>Drag to reshape (endpoint 2)</title>
               </circle>
+              {/* Inline delete glyph — near the end point (endpoint 2),
+                  nudged off it so it doesn't sit on top of the resize
+                  handle. */}
+              {selectedId === line.id && (
+                <DeleteGlyph
+                  x={line.x2 + 12}
+                  y={line.y2 - 12}
+                  onDelete={() => {
+                    onDelete(line.id);
+                    onSelect(null);
+                  }}
+                />
+              )}
             </g>
           );
         })}
@@ -903,6 +999,18 @@ export const DrawingsOverlay = ({
                   </circle>
                 ));
               })()}
+              {/* Inline delete glyph — top-right corner, nudged clear of
+                  that corner's resize handle. */}
+              {selectedId === rect.id && (
+                <DeleteGlyph
+                  x={rect.x + rect.width + 12}
+                  y={rect.y - 12}
+                  onDelete={() => {
+                    onDelete(rect.id);
+                    onSelect(null);
+                  }}
+                />
+              )}
             </g>
           );
         })}
@@ -939,6 +1047,17 @@ export const DrawingsOverlay = ({
               >
                 {t.text}
               </text>
+              {/* Inline delete glyph — top-right corner of the label. */}
+              {selectedId === t.id && (
+                <DeleteGlyph
+                  x={t.x + approxWidth + 8}
+                  y={t.y - 11}
+                  onDelete={() => {
+                    onDelete(t.id);
+                    onSelect(null);
+                  }}
+                />
+              )}
             </g>
           );
         })}
@@ -982,6 +1101,7 @@ export const DrawingsOverlay = ({
             role='menuitem'
             onClick={() => {
               onDelete(menu.id);
+              onSelect(null);
               setMenu(null);
             }}
             className='flex w-full items-center px-3 py-2 text-left text-destructive-light transition-colors hover:bg-action-hover-overlay'
