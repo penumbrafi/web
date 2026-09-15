@@ -151,10 +151,9 @@ const ValidatorLoader: FC<Props> = async props => {
             <footer className="text-text-secondary flex gap-1 text-xs">
                 <InfoIcon className="-mt-1" />
                 <span>
-                    To report inaccurate information or update a logo, email us
-                    at{' '}
-                    <a href="mailto:penumbra@pklabs.me" target="_blank">
-                        penumbra@pklabs.me
+                    To report inaccurate information or update a logo, ping{' '}
+                    <a href="https://discord.gg/penumbrazone" target="_blank">
+                        #dev-chat on the Penumbra Discord
                     </a>
                     .
                 </span>
