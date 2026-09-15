@@ -66,6 +66,14 @@ function emptyStream(): Response {
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-store, no-transform',
       Connection: 'keep-alive',
+      // Match the success path: defeat nginx's default response
+      // buffering. Without this, nginx waits until it has buffered
+      // some bytes before forwarding the response headers upstream —
+      // and this stream immediately closes with zero bytes, so nginx
+      // sometimes returns 502 to the browser instead of a legit
+      // empty SSE. EventSource then reports "failed loading" instead
+      // of the normal onopen-then-close behaviour we want here.
+      'X-Accel-Buffering': 'no',
       'X-Fallback': 'empty',
     },
   });
