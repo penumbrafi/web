@@ -30,9 +30,19 @@ export async function fetchCommunityPoolUM(): Promise<number | null> {
   if (now - inflightAt < 5_000) return cached?.um ?? null;
   inflightAt = now;
 
+  // Fall back to the public rotko pd endpoint if neither env var is set —
+  // the tokenomics page has been shipping with the CP band collapsed to
+  // zero in prod because whoever provisioned the workload container
+  // didn't set PENUMBRA_GRPC_ENDPOINT in the systemd EnvironmentFile,
+  // and the built artifact strips .env* on deploy. Baking a working
+  // default here means the page renders the CP bucket out of the box;
+  // operators who want to point at an internal pd (loopback, mesh IP)
+  // still override it via PENUMBRA_GRPC_ENDPOINT_INTERNAL and skip the
+  // public round-trip.
   const grpcEndpoint =
-    process.env['PENUMBRA_GRPC_ENDPOINT_INTERNAL'] ?? process.env['PENUMBRA_GRPC_ENDPOINT'];
-  if (!grpcEndpoint) return cached?.um ?? null;
+    process.env['PENUMBRA_GRPC_ENDPOINT_INTERNAL']
+    ?? process.env['PENUMBRA_GRPC_ENDPOINT']
+    ?? 'https://penumbra.rotko.net';
 
   try {
     // Reuse the registry's bundled staking asset id — same source as the
