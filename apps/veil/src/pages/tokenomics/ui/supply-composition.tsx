@@ -16,8 +16,15 @@ import {
 import type { SupplyPoint } from '../server/timeseries';
 import type { TokenomicsMetrics } from '../server/metrics';
 
+// Pin locale + tz so SSR and client render the exact same label (server's
+// system locale/TZ vs the browser's diverge under React 19 hydration and
+// trip #418/#425 -> #441).
 const fmtDate = (d: string) =>
-  new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  new Date(d).toLocaleDateString('en-US', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  });
 
 const fmtUM = (n: number) => {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;

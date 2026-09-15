@@ -1,7 +1,6 @@
 import { ReactNode, memo } from 'react';
 import { Star, CandlestickChart } from 'lucide-react';
 import cn from 'clsx';
-import { subDays } from 'date-fns';
 import Link from 'next/link';
 import { shortify } from '@penumbra-zone/types/shortify';
 import { getFormattedAmtFromValueView } from '@penumbra-zone/types/value-view';
@@ -52,8 +51,18 @@ export interface PairCardProps {
 // SummaryWithPrices objects are structurally-shared by React Query so
 // identity equality is the right comparison here.
 export const PairCard = memo(({ summary }: PairCardProps) => {
-  const today = new Date();
-  const yesterday = subDays(new Date(), 1);
+  // Time window pinned to the summary's own recent-prices boundaries.
+  // Reading `new Date()` in the render body diverges between server-render
+  // and client-hydration (React #418/#425), which the preview-chart's SVG
+  // polyline coordinates then bake into hydration-mismatched markup. The
+  // recentPrices array is a server-computed 24-interval series, so its
+  // first and last timestamps ARE the window we want to draw.
+  const firstPrice = summary.recentPrices[0];
+  const lastPrice = summary.recentPrices[summary.recentPrices.length - 1];
+  // Fallback for the empty-series edge case; both sides see the same 0
+  // epoch so it still hydrates deterministically.
+  const from = firstPrice ? firstPrice[0] : new Date(0);
+  const to = lastPrice ? lastPrice[0] : new Date(0);
 
   const getMetadata = useGetMetadata();
   const startMetadata = getMetadata(summary.start);
@@ -154,8 +163,8 @@ export const PairCard = memo(({ summary }: PairCardProps) => {
           values={summary.recentPrices.map(x => x[1])}
           dates={summary.recentPrices.map(x => x[0])}
           intervals={24}
-          from={yesterday}
-          to={today}
+          from={from}
+          to={to}
         />
       </div>
 

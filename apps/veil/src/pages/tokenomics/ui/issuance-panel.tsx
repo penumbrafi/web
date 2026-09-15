@@ -16,8 +16,13 @@ import type { InflationPoint } from '../server/timeseries';
 import type { TokenomicsMetrics } from '../server/metrics';
 
 const fmtPct = (n: number, digits = 2) => `${n.toFixed(digits)}%`;
+// Pin locale + tz so SSR and client render the exact same label.
 const fmtDate = (d: string) =>
-  new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  new Date(d).toLocaleDateString('en-US', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  });
 
 const InflationTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
