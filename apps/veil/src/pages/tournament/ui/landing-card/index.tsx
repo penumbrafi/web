@@ -1,3 +1,6 @@
+'use client';
+
+import { useMemo } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Text } from '@penumbra-zone/ui/Text';
 import { Skeleton } from '@penumbra-zone/ui/Skeleton';
@@ -55,9 +58,14 @@ export const LandingCard = observer(() => {
 
   const { isOpen: showSocial, close: hideSocial } = useTournamentSocialCard(latestReward?.epoch);
   const epochEndsIn = summary?.[0]?.ends_in_s;
-  const endingTime = epochEndsIn
-    ? format(addSeconds(new Date(), epochEndsIn), 'MMM d, yyyy, hh:mm aa OOO')
-    : undefined;
+  const endingTime = useMemo(
+    () =>
+      epochEndsIn
+        ? format(addSeconds(new Date(), epochEndsIn), 'MMM d, yyyy, hh:mm aa OOO')
+        : undefined,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   return (
     <>

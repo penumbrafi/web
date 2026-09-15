@@ -65,13 +65,13 @@ const ValidatorVotingPowerHistoryLoader: FC<Props> = async props => {
                 <div className="bg-surface-secondary rounded-lg p-4">
                     <div className="text-text-secondary text-xs">Current</div>
                     <div className="mt-1 text-lg font-medium">
-                        {lastEntry.votingPower.toLocaleString()} UM
+                        {lastEntry.votingPower.toLocaleString('en-US')} UM
                     </div>
                 </div>
                 <div className="bg-surface-secondary rounded-lg p-4">
                     <div className="text-text-secondary text-xs">Initial</div>
                     <div className="mt-1 text-lg font-medium">
-                        {firstEntry.votingPower.toLocaleString()} UM
+                        {firstEntry.votingPower.toLocaleString('en-US')} UM
                     </div>
                 </div>
                 <div className="bg-surface-secondary rounded-lg p-4">
@@ -87,7 +87,7 @@ const ValidatorVotingPowerHistoryLoader: FC<Props> = async props => {
                         )}
                     >
                         {totalChange > 0 ? '+' : ''}
-                        {totalChange.toLocaleString()} UM
+                        {totalChange.toLocaleString('en-US')} UM
                     </div>
                 </div>
                 <div className="bg-surface-secondary rounded-lg p-4">
@@ -146,10 +146,10 @@ const ValidatorVotingPowerHistoryLoader: FC<Props> = async props => {
                                         className="border-border-secondary border-b"
                                     >
                                         <td className="py-3 pr-4 font-mono">
-                                            {entry.blockHeight.toLocaleString()}
+                                            {entry.blockHeight.toLocaleString('en-US')}
                                         </td>
                                         <td className="py-3 pr-4">
-                                            {entry.votingPower.toLocaleString()}{' '}
+                                            {entry.votingPower.toLocaleString('en-US')}{' '}
                                             UM
                                         </td>
                                         <td
@@ -164,12 +164,12 @@ const ValidatorVotingPowerHistoryLoader: FC<Props> = async props => {
                                         >
                                             {index === 0
                                                 ? '-'
-                                                : `${change > 0 ? '+' : ''}${change.toLocaleString()}`}
+                                                : `${change > 0 ? '+' : ''}${change.toLocaleString('en-US')}`}
                                         </td>
                                         <td className="text-text-secondary py-3">
                                             {new Date(
                                                 entry.timestamp
-                                            ).toLocaleString()}
+                                            ).toLocaleString('en-US', { timeZone: 'UTC' })}
                                         </td>
                                     </tr>
                                 )

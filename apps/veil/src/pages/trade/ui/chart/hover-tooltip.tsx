@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useState } from 'react';
 import { useMarketPrice } from '../../model/useMarketPrice';
 
@@ -30,7 +32,8 @@ const formatVolume = (v: number): string => {
 
 const formatTime = (s: number): string => {
   const d = new Date(s * 1000);
-  return d.toLocaleString(undefined, {
+  return d.toLocaleString('en-US', {
+    timeZone: 'UTC',
     year: 'numeric',
     month: 'short',
     day: 'numeric',

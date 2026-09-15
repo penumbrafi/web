@@ -7,7 +7,7 @@ import { pnum } from '@penumbra-zone/types/pnum';
 import { usePathSymbols } from '../../model/use-path';
 import { useBook } from '../../api/book';
 import type { Trace } from '@/shared/api/server/book/types';
-import { calculateRelativeSizes } from './utils';
+import { calculateCumulativeDepthByPrice } from './utils';
 import { simulateMarketBase } from './simulation';
 import { RouteBookLoadingRow } from './loading-row';
 import { TradeRow } from './trade-row';
@@ -257,13 +257,27 @@ export const RouteBook = observer(() => {
     [buyDisplay, cumulative],
   );
 
-  // Width of the gradient bar follows whichever totals we're rendering.
+  // Bar background = always a cumulative-depth staircase from the touch
+  // outward, normalized to the deepest visible row = 100%. That reads as
+  // a step-curve depth graph behind the price ladder (MEXC / Binance /
+  // OKX default depth tint), independent of what the `Total` column
+  // shows numerically — the `1:1 / Σ` toggle only affects the number,
+  // not the bar shape. Keyed by price so the row-index vs total-string
+  // mapping doesn't drift when bucketing rounds two rows to the same
+  // total.
+  //
   // Memoize on the row arrays — useBook polls every block (~5s), so on
   // pairs with deep books this iterates 30+ rows twice per refetch. The
   // map identity also matters: stable references mean child <TradeRow>
   // memoization doesn't bust on every block.
-  const sellRelativeSizes = useMemo(() => calculateRelativeSizes(sellRows), [sellRows]);
-  const buyRelativeSizes = useMemo(() => calculateRelativeSizes(buyRows), [buyRows]);
+  const sellRelativeSizes = useMemo(
+    () => calculateCumulativeDepthByPrice(sellDisplay, 'sell'),
+    [sellDisplay],
+  );
+  const buyRelativeSizes = useMemo(
+    () => calculateCumulativeDepthByPrice(buyDisplay, 'buy'),
+    [buyDisplay],
+  );
 
   // Simulate the current draft order against the raw book (pre-bucketing)
   // so the fill walks real per-position inventory, not summarized totals.
@@ -466,7 +480,7 @@ export const RouteBook = observer(() => {
           key={`sell-${idx}`}
           trace={trace}
           isSell={true}
-          relativeSize={sellRelativeSizes.get(trace.total) ?? 0}
+          relativeSize={sellRelativeSizes.get(trace.price) ?? 0}
           onClick={onSellClick}
           fillFraction={
             fillByRenderedPrice.get(trace.price) ??
@@ -482,7 +496,7 @@ export const RouteBook = observer(() => {
           key={`buy-${idx}`}
           trace={trace}
           isSell={false}
-          relativeSize={buyRelativeSizes.get(trace.total) ?? 0}
+          relativeSize={buyRelativeSizes.get(trace.price) ?? 0}
           onClick={onBuyClick}
           fillFraction={
             fillByRenderedPrice.get(trace.price) ??

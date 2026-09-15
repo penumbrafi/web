@@ -1,3 +1,5 @@
+'use client';
+
 import cn from 'clsx';
 import { Fragment } from 'react';
 import { ChevronRight } from 'lucide-react';

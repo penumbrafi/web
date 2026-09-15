@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useMemo } from 'react';
 import { Text } from '@penumbra-zone/ui/Text';
 import { Eye, ShieldCheckIcon, Info } from 'lucide-react';

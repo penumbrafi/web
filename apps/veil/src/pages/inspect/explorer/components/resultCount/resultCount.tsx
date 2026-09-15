@@ -20,8 +20,8 @@ const ResultCount: FC<Props> = props => {
                 props.className
             )}
         >
-            Showing {start.toLocaleString()}-{end.toLocaleString()} of{' '}
-            {props.total.toLocaleString()}
+            Showing {start.toLocaleString('en-US')}-{end.toLocaleString('en-US')} of{' '}
+            {props.total.toLocaleString('en-US')}
             {props.filtered && ' (filtered)'}
         </span>
     )

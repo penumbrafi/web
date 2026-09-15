@@ -41,7 +41,7 @@ function formatUm(raw: string): string {
     const num = Number(raw) / 1_000_000
     if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`
     if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`
-    return num.toLocaleString(undefined, { maximumFractionDigits: 2 })
+    return num.toLocaleString('en-US', { maximumFractionDigits: 2 })
 }
 
 const ValidatorDelegationFlowLoader: FC<Props> = async props => {
@@ -124,7 +124,7 @@ const ValidatorDelegationFlowLoader: FC<Props> = async props => {
                         </div>
                         <div className="mt-1 text-lg font-medium">
                             {stats.nextReleaseHeight
-                                ? stats.nextReleaseHeight.toLocaleString()
+                                ? stats.nextReleaseHeight.toLocaleString('en-US')
                                 : '-'}
                         </div>
                     </div>
@@ -193,12 +193,12 @@ const ValidatorDelegationFlowLoader: FC<Props> = async props => {
                                             {formatUm(entry.unbondedAmount)}
                                         </td>
                                         <td className="py-3 pr-4 font-mono">
-                                            {entry.blockHeight.toLocaleString()}
+                                            {entry.blockHeight.toLocaleString('en-US')}
                                         </td>
                                         <td className="text-text-secondary py-3">
                                             {new Date(
                                                 entry.timestamp
-                                            ).toLocaleString()}
+                                            ).toLocaleString('en-US', { timeZone: 'UTC' })}
                                         </td>
                                     </tr>
                                 ))}

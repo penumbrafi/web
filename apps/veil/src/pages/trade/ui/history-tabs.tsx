@@ -1,3 +1,5 @@
+'use client';
+
 import { useCallback, useState } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { Tabs } from '@penumbra-zone/ui/Tabs';

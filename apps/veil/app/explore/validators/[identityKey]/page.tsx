@@ -15,7 +15,7 @@ import { fetchValidatorStakeHistory } from '@/pages/inspect/explorer/server/vali
 import { fetchValidatorSlashings } from '@/pages/inspect/explorer/server/validator-slashings';
 import { ValidatorStakeHistoryChart } from '@/pages/inspect/explorer/ui/validator-stake-history-chart';
 import { ValidatorSlashingsPanel } from '@/pages/inspect/explorer/ui/validator-slashings-panel';
-import { ValidatorStakeActions } from '@/pages/inspect/explorer/ui/validator-stake-actions';
+import { ValidatorStakeActionsClient as ValidatorStakeActions } from './validator-stake-actions-client';
 import { classNames } from '@/pages/inspect/explorer/lib/utils';
 import { StakingDialogHostClient } from './staking-dialog-host-client';
 

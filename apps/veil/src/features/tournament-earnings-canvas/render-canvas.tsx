@@ -69,7 +69,7 @@ export async function renderTournamentEarningsCanvas(
       return `${shortify(amount.toNumber())} ${unit}`;
     }
 
-    return `${Number(amount.toNumber()).toLocaleString()} ${unit}`;
+    return `${Number(amount.toNumber()).toLocaleString('en-US')} ${unit}`;
   };
 
   scaleCanvas(canvas, size);
