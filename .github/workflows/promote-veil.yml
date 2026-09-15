@@ -1,0 +1,82 @@
+# Promote the standby colour (currently serving `staging.penumbra.fi`)
+# to prod. No build, no rsync — just calls `veil-swap` on the host,
+# which verifies the target is answering and does the graceful nginx
+# reload. Same primitive the auto path in `deploy-veil.yml` uses.
+#
+# Trigger with:
+#   gh workflow run promote-veil.yml
+#
+# The dry-run input skips the swap and just prints what would change,
+# useful right after a `deploy-veil.yml` staging-only run.
+name: promote veil
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: >-
+          If true, print the current active colour and what would be
+          promoted, but do not run veil-swap.
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-veil
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    name: swap traffic to standby
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Pin to the current main-branch workflow logic. See
+          # deploy-veil.yml's identical pin for the threat model.
+          ref: refs/heads/main
+          persist-credentials: false
+
+      - name: configure ssh
+        uses: ./.github/actions/ssh-deploy
+        with:
+          ssh-key: ${{ secrets.DEPLOY_SSH_KEY }}
+          known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          jump-host: ${{ secrets.DEPLOY_HOST }}
+          proxy-host: ${{ secrets.DEPLOY_PROXY_CT }}
+
+      - name: pick target colour
+        id: pick
+        run: |
+          set -euo pipefail
+          # veil-swap lives on the front-proxy container.
+          active=$(ssh proxy 'sudo -n /usr/local/sbin/veil-swap active')
+          case "$active" in
+              blue)  target=green ;;
+              green) target=blue  ;;
+              *) echo "unexpected active colour: $active" >&2; exit 1 ;;
+          esac
+          echo "active=$active" >> "$GITHUB_OUTPUT"
+          echo "target=$target" >> "$GITHUB_OUTPUT"
+
+      - name: report
+        env:
+          ACTIVE: ${{ steps.pick.outputs.active }}
+          TARGET: ${{ steps.pick.outputs.target }}
+        run: |
+          echo "Currently active: ${ACTIVE}"
+          echo "Would promote:    ${TARGET}"
+
+      - name: swap
+        if: inputs.dry_run != true
+        env:
+          TARGET: ${{ steps.pick.outputs.target }}
+        run: ssh proxy "sudo -n /usr/local/sbin/veil-swap ${TARGET}"
+
+      - name: post-swap smoke test through nginx
+        if: inputs.dry_run != true
+        run: |
+          ssh proxy 'curl -fsS -o /dev/null -w "post-swap %{http_code}\n" http://127.0.0.1/ -H "Host: penumbra.fi"'

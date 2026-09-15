@@ -1,0 +1,110 @@
+name: 'Configure deploy SSH'
+description: >
+  Writes the deploy key, pinned host keys and an ssh config that reaches the
+  application container(s) through a jump host. After this action runs, `ssh
+  target` and `rsync -e ssh ... target:` work, and `ssh proxy` too if
+  proxy-host was given. Which physical host is the jump, the workload
+  container, and the front-proxy container is entirely a property of the
+  secrets passed in — this action has no topology baked in.
+
+  Two containers are proxied because in production they are two different
+  boxes: the Node.js workload container runs the app units (`target`), the
+  front-proxy container terminates TLS and owns the nginx swap helper
+  (`proxy`). A workflow that only ever touches one of them can omit the
+  other's inputs.
+inputs:
+  ssh-key:
+    description: 'ed25519 private key (secrets.DEPLOY_SSH_KEY)'
+    required: true
+  known-hosts:
+    description: 'known_hosts entries for the jump host and every container reached through it (secrets.DEPLOY_KNOWN_HOSTS)'
+    required: true
+  jump-host:
+    description: 'public address of the jump host (secrets.DEPLOY_HOST)'
+    required: true
+  jump-user:
+    description: 'user on the jump host'
+    required: false
+    default: deploy-jump
+  target-host:
+    description: 'address of the Node.js workload container inside the jump host network (secrets.DEPLOY_CT)'
+    required: false
+  target-user:
+    description: 'user inside the workload container that owns /opt/<app>'
+    required: false
+    default: web
+  proxy-host:
+    description: 'address of the front-proxy container inside the jump host network (secrets.DEPLOY_PROXY_CT) — only needed by jobs that call veil-swap'
+    required: false
+  proxy-user:
+    description: 'user inside the front-proxy container allowed to run veil-swap via sudo'
+    required: false
+    default: web
+
+runs:
+  using: composite
+  steps:
+    - name: write ssh key and config
+      shell: bash
+      env:
+        SSH_KEY: ${{ inputs.ssh-key }}
+        KNOWN_HOSTS: ${{ inputs.known-hosts }}
+        JUMP_HOST: ${{ inputs.jump-host }}
+        JUMP_USER: ${{ inputs.jump-user }}
+        TARGET_HOST: ${{ inputs.target-host }}
+        TARGET_USER: ${{ inputs.target-user }}
+        PROXY_HOST: ${{ inputs.proxy-host }}
+        PROXY_USER: ${{ inputs.proxy-user }}
+      run: |
+        set -euo pipefail
+        install -m 700 -d ~/.ssh
+        printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+        chmod 600 ~/.ssh/id_deploy
+        printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+        chmod 644 ~/.ssh/known_hosts
+        {
+          cat <<CFG
+        Host jump
+          HostName $JUMP_HOST
+          User $JUMP_USER
+          IdentityFile ~/.ssh/id_deploy
+          IdentitiesOnly yes
+          StrictHostKeyChecking yes
+        CFG
+          if [ -n "$TARGET_HOST" ]; then
+            cat <<CFG
+
+        Host target
+          HostName $TARGET_HOST
+          User $TARGET_USER
+          ProxyJump jump
+          IdentityFile ~/.ssh/id_deploy
+          IdentitiesOnly yes
+          StrictHostKeyChecking yes
+        CFG
+          fi
+          if [ -n "$PROXY_HOST" ]; then
+            cat <<CFG
+
+        Host proxy
+          HostName $PROXY_HOST
+          User $PROXY_USER
+          ProxyJump jump
+          IdentityFile ~/.ssh/id_deploy
+          IdentitiesOnly yes
+          StrictHostKeyChecking yes
+        CFG
+          fi
+        } > ~/.ssh/config
+        chmod 600 ~/.ssh/config
+
+    - name: verify connectivity
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ -n "${{ inputs.target-host }}" ]; then
+          ssh -o BatchMode=yes target 'echo "connected to $(hostname) as $(id -un)"'
+        fi
+        if [ -n "${{ inputs.proxy-host }}" ]; then
+          ssh -o BatchMode=yes proxy 'echo "connected to $(hostname) as $(id -un)"'
+        fi

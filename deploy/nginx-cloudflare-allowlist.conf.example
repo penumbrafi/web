@@ -1,0 +1,55 @@
+# /etc/nginx/cloudflare-allowlist.conf
+#
+# `include` this in any vhost that MUST NOT be reachable except via
+# Cloudflare — i.e. everywhere Cloudflare Access is the access-control
+# story. Without this, an attacker who resolves the anycast IP with
+# `curl --resolve <fqdn>:443:<origin-ip>` bypasses CF Access at the
+# edge and hits the origin directly.
+#
+# Two things go into a vhost that uses this:
+#
+#     include /etc/nginx/cloudflare-allowlist.conf;
+#     if ($cf_gated_allowed = "0") { return 403; }
+#
+# The `if` runs after the geo/map, so a request from anywhere but a CF
+# range is refused BEFORE any lua/upstream logic sees it. The 403 body
+# is unavoidably a plain nginx page; that's fine, since only attackers
+# ever see it.
+#
+# Regenerate the ranges via:
+#     ( curl -s https://www.cloudflare.com/ips-v4/ ; echo ; \
+#       curl -s https://www.cloudflare.com/ips-v6/ ) \
+#       | sed 's/$/ 1;/'
+# then paste into the `geo` block below. Also refresh once a quarter
+# and after any Cloudflare "IP list changed" advisory.
+
+geo $cf_gated_allowed {
+    default 0;
+    # --- IPv4 (from https://www.cloudflare.com/ips-v4) ---
+    173.245.48.0/20    1;
+    103.21.244.0/22    1;
+    103.22.200.0/22    1;
+    103.31.4.0/22      1;
+    141.101.64.0/18    1;
+    108.162.192.0/18   1;
+    190.93.240.0/20    1;
+    188.114.96.0/20    1;
+    197.234.240.0/22   1;
+    198.41.128.0/17    1;
+    162.158.0.0/15     1;
+    104.16.0.0/13      1;
+    104.24.0.0/14      1;
+    172.64.0.0/13      1;
+    131.0.72.0/22      1;
+    # --- IPv6 (from https://www.cloudflare.com/ips-v6) ---
+    2400:cb00::/32     1;
+    2606:4700::/32     1;
+    2803:f800::/32     1;
+    2405:b500::/32     1;
+    2405:8100::/32     1;
+    2a06:98c0::/29     1;
+    2c0f:f248::/32     1;
+    # --- Loopback for local nginx health checks ---
+    127.0.0.1/32       1;
+    ::1/128            1;
+}

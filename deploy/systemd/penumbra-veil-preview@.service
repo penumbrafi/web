@@ -1,0 +1,113 @@
+# /etc/systemd/system/penumbra-veil-preview@.service
+#
+# Templated unit for per-PR preview builds of Veil. `%i` is the PR number,
+# constrained by the workflow to 1..9999 and enforced again by the launcher.
+# Each preview serves on 127.0.0.1:$((30000 + %i)).
+#
+#   systemctl start penumbra-veil-preview@42  ->  http://127.0.0.1:30042/
+#
+# Threat model: the standalone bundle inside `current/` is built from an
+# untrusted PR. The unit is written on the assumption that anything the PR
+# author can inject into that tree will run inside this service.
+[Unit]
+Description=Penumbra Veil PR preview #%i
+After=network-online.target
+Wants=network-online.target
+# The wildcard vhost does not care whether an unrelated preview is up, so
+# previews run fully independently — no PartOf/BindsTo across them.
+
+[Service]
+Type=simple
+# Dedicated user distinct from the `web` user that owns /opt/penumbra-veil.
+# This is what stops a compromised preview from touching prod paths.
+User=web-preview
+Group=web-preview
+# The launcher is a small root-owned wrapper (installed from
+# deploy/scripts/preview-veil-run.sh) that: validates %i is 1..9999,
+# derives PORT=$((30000+PR)), sanity-checks the tree, and execs node. Kept
+# out of the unit so it can be updated without daemon-reload, and so the
+# argv the workflow passes never reaches systemd's arg parser.
+ExecStart=/usr/local/sbin/penumbra-veil-preview-run %i
+WorkingDirectory=/opt/penumbra-veil-previews/%i/current/apps/veil
+Environment=NODE_ENV=production
+# Same rationale as penumbra-veil@.service — the wildcard nginx vhost
+# lives on the front-proxy container (CT1102), so preview ports must
+# be reachable across the container network, not just loopback.
+# Container-level isolation + the host firewall are the actual gate.
+Environment=HOSTNAME=0.0.0.0
+Environment=NODE_OPTIONS=--dns-result-order=ipv4first
+# Env files live outside the per-PR tree because the per-PR tree is
+# writable by the CI account. Both files must be created (root-owned,
+# 0640 root:web-preview) BEFORE the first preview starts, or the leading
+# `-` on the EnvironmentFile line silently ignores them.
+EnvironmentFile=-/opt/penumbra-veil-previews/etc/env.preview
+EnvironmentFile=-/opt/penumbra-veil-previews/etc/env.%i
+
+# ---- filesystem containment -----------------------------------------
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=noaccess
+ProcSubset=pid
+# Deny reads into every path the preview must not see. `ProtectSystem=strict`
+# already makes them read-only; these make them not-even-readable.
+InaccessiblePaths=/opt/penumbra-veil /opt/penumbra-explorer /opt/penumbra-explorer-backend /opt/penumbra-web /opt/pindexer /root /home
+# Next writes an image cache under .next/cache. Without this /_next/image
+# fails with EROFS on the first uncached request.
+ReadWritePaths=/opt/penumbra-veil-previews/%i/current/apps/veil/.next/cache
+
+# ---- privilege containment -----------------------------------------
+NoNewPrivileges=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+LockPersonality=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+MemoryDenyWriteExecute=false
+# Explicit allowlist, not the deny-list default.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@debug @mount @privileged @reboot @swap @cpu-emulation @obsolete
+SystemCallErrorNumber=EPERM
+
+# ---- network containment ------------------------------------------
+# Loopback only — nginx on the front-proxy container talks to us via port
+# 30000+%i and we never need to originate outbound network from a preview.
+# Add explicit hosts here if a preview must reach upstreams (chain
+# registry, um-price, etc.); see the README for the current allowlist.
+#
+# Replace <FRONT_PROXY_HOST_INTERNAL_IP> with that container's actual
+# internal address before installing this unit — do not commit a real
+# internal IP here, this file is checked into a public repo.
+IPAddressDeny=any
+IPAddressAllow=localhost
+IPAddressAllow=<FRONT_PROXY_HOST_INTERNAL_IP>/32
+IPAddressAllow=185.199.108.133/32
+IPAddressAllow=185.199.109.133/32
+IPAddressAllow=185.199.110.133/32
+IPAddressAllow=185.199.111.133/32
+# ip_local_reserved_ports is set to 30001-39999 on the host (see README),
+# so the kernel will never hand any of our preview ports to an ephemeral
+# outbound connect(). That closes the port-squat race described in the
+# threat model.
+
+# ---- resource containment ------------------------------------------
+LimitNPROC=256
+TasksMax=256
+MemoryHigh=768M
+MemoryMax=1G
+
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

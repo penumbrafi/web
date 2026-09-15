@@ -1,0 +1,372 @@
+# Per-PR preview builds of Veil.
+#
+# Every push to an open PR builds the standalone artifact and ships it to a
+# per-PR release directory on the same container that hosts prod. A systemd
+# template unit `penumbra-veil-preview@<pr>.service` runs the preview on
+# 127.0.0.1:$((30000 + pr)); a wildcard nginx vhost on the front-proxy routes
+# `<pr>.dev.penumbra.fi` to that port. Close the PR → this workflow tears the
+# preview down.
+#
+# Security posture (see deploy/README.md for full details):
+#
+#  - The `build` job runs untrusted PR code with NO secrets and no write
+#    tokens. It only produces an artifact.
+#  - The `deploy` and `teardown` jobs check out the BASE ref of the PR, not
+#    the PR head, so PR-controlled `.github/actions/` code never executes
+#    with `preview` environment secrets.
+#  - Both privileged jobs use a preview-only ssh key + preview-only user on
+#    the target; sudoers grants only `/usr/local/sbin/preview-ctl start|stop
+#    <pr>`, so a compromised preview key cannot touch prod services.
+#  - Forks are gated at every job — fork PRs never enter the deploy path.
+#
+# The workflow file is public. Nothing about the target host, container,
+# jump host, DNS zone, IP or path layout is written here — every specific
+# value comes from GitHub `secrets` scoped to the `preview` Environment
+# (and the public `PREVIEW_ZONE` repo variable).
+
+name: preview veil
+
+on:
+  # `pull_request_target` runs the workflow file from the default branch
+  # (main), not from the PR — so a PR that edits this YAML or any
+  # composite action under `.github/actions/` cannot influence what runs
+  # alongside `preview` environment secrets. The build job still
+  # explicitly checks out the PR head to actually build it, but with no
+  # secrets in scope and `persist-credentials: false`.
+  #
+  # Admin note: enable branch protection on `main` requiring PR review
+  # before merge — under pull_request_target this is what stops a
+  # collaborator with commit access from shipping a workflow-file change
+  # that weakens this same protection.
+  pull_request_target:
+    # Ready-for-review + converted-to-draft are added so the draft gate
+    # in the jobs below fires at exactly the transitions the trader
+    # wants: draft PR promoted to Ready -> preview goes up; Ready PR
+    # demoted to Draft -> preview comes down; PR closed -> preview
+    # comes down. `synchronize` still runs on every push to a
+    # non-draft PR.
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - closed
+      - ready_for_review
+      - converted_to_draft
+    branches: [main]
+
+# One in-flight run per PR. A new push cancels the previous build so we
+# do not race two artifacts into the same release directory.
+concurrency:
+  group: preview-veil-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+# Top-level default: nothing. Every job overrides with the minimum it needs.
+permissions: {}
+
+jobs:
+  guard:
+    name: guard
+    # Skip fork PRs entirely (they cannot reach `secrets`, noisy failures
+    # otherwise) and skip DRAFT PRs (traders opt in to a preview by
+    # marking the PR Ready for review; a draft is explicitly "not
+    # ready", so it stays off the preview zone). `closed` and
+    # `converted_to_draft` events still pass the guard — teardown needs
+    # to run.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.number > 0 &&
+      github.event.pull_request.number <= 9999 &&
+      (github.event.action == 'closed' ||
+       github.event.action == 'converted_to_draft' ||
+       github.event.pull_request.draft == false)
+    runs-on: ubuntu-latest
+    outputs:
+      pr: ${{ steps.pr.outputs.pr }}
+      port: ${{ steps.pr.outputs.port }}
+      base_sha: ${{ steps.pr.outputs.base_sha }}
+    steps:
+      - id: pr
+        run: |
+          set -euo pipefail
+          pr='${{ github.event.pull_request.number }}'
+          [[ "$pr" =~ ^[1-9][0-9]{0,3}$ ]] || { echo "pr not 1..9999: $pr" >&2; exit 1; }
+          echo "pr=$pr"                                                  >> "$GITHUB_OUTPUT"
+          echo "port=$((30000 + pr))"                                    >> "$GITHUB_OUTPUT"
+          echo "base_sha=${{ github.event.pull_request.base.sha }}"      >> "$GITHUB_OUTPUT"
+
+  build:
+    name: build preview
+    # Build + deploy on any live-preview transition; skip on close or
+    # draft-conversion (teardown handles both).
+    if: >-
+      github.event.action != 'closed' &&
+      github.event.action != 'converted_to_draft'
+    needs: guard
+    runs-on: ubuntu-latest
+    # No secrets, no writable tokens. The artifact is the only thing that
+    # crosses the trust boundary out of this job.
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Explicit head-ref checkout — pull_request_target defaults to
+          # the base ref, but the whole point of the preview is to
+          # build the PR head. This is safe because no secrets are in
+          # scope on this job (see the top-level trigger comment).
+          ref: ${{ github.event.pull_request.head.sha }}
+          # next.config.mjs reads git metadata for the version footer.
+          fetch-depth: 0
+          # Do not stash the auth token in .git/config. Nothing later
+          # in this job needs to reach GitHub.
+          persist-credentials: false
+
+      # Composite actions are pinned to `penumbrafi/web@main` (remote
+      # ref) instead of `./.github/actions/...` — otherwise the composite
+      # action files would come from the PR-head tree we just checked
+      # out, so an attacker could rewrite setup-nix / setup-turbo to
+      # override the `save-cache: 'false'` gate we set below. Remote-ref
+      # `uses:` fetches the action from the default branch of the repo,
+      # not the working tree.
+      #
+      # `save-cache: 'false'` puts both caches in restore-only mode for
+      # this untrusted build. Under `pull_request_target` `GITHUB_REF`
+      # is `refs/heads/main`, so a save from here would write into the
+      # `main` cache scope that `deploy-veil.yml` restores from. That
+      # was the cache-poisoning path redshiftzero flagged; this closes
+      # it. Previews still get a fast cold read from prior main-scope
+      # entries via the restore-prefix fallback.
+      - uses: penumbrafi/web/.github/actions/setup-nix@main
+        with:
+          save-cache: 'false'
+      - uses: penumbrafi/web/.github/actions/setup-turbo@main
+        with:
+          save-cache: 'false'
+
+      - name: build veil
+        env:
+          NEXT_PUBLIC_GRAPHQL_HOST: ${{ vars.NEXT_PUBLIC_GRAPHQL_HOST || 'api.explorer.rotko.net' }}
+          NEXT_PUBLIC_COMETBFT_WS_URL: ${{ vars.NEXT_PUBLIC_COMETBFT_WS_URL || 'wss://penumbra.rotko.net/websocket' }}
+        run: nix develop --command pnpm turbo build --filter=penumbra-veil...
+
+      - name: assemble standalone tree
+        env:
+          SHA: ${{ github.event.pull_request.head.sha }}
+          PR: ${{ needs.guard.outputs.pr }}
+        run: |
+          set -euo pipefail
+          cd apps/veil
+          test -f .next/standalone/apps/veil/server.js
+          cp -r public .next/standalone/apps/veil/public
+          mkdir -p .next/standalone/apps/veil/.next
+          cp -r .next/static .next/standalone/apps/veil/.next/static
+          find .next/standalone -maxdepth 3 -name '.env*' -print -delete
+          if find .next/standalone -name '*.node' | read -r _; then
+            find .next/standalone -name '*.node' -exec ldd {} + > /tmp/nativedeps.txt 2>&1 || true
+            if grep -Eq '/nix/store|not found' /tmp/nativedeps.txt; then
+              echo 'native module linked against paths absent on the deploy host:' >&2
+              grep -E '/nix/store|not found' /tmp/nativedeps.txt >&2
+              exit 1
+            fi
+          fi
+          cat > .next/standalone/BUILD_INFO <<INFO
+          app=veil-preview
+          pr=$PR
+          sha=$SHA
+          ref=${{ github.ref }}
+          run_id=${{ github.run_id }}
+          built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          INFO
+
+      - name: pack artifact
+        env:
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          tar --zstd -C apps/veil/.next/standalone -cf "veil-preview-${SHA}.tar.zst" .
+          ls -lh "veil-preview-${SHA}.tar.zst"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: veil-preview-${{ github.event.pull_request.head.sha }}
+          path: veil-preview-${{ github.event.pull_request.head.sha }}.tar.zst
+          retention-days: 7
+          if-no-files-found: error
+
+  deploy:
+    name: deploy preview
+    # Build + deploy on any live-preview transition; skip on close or
+    # draft-conversion (teardown handles both).
+    if: >-
+      github.event.action != 'closed' &&
+      github.event.action != 'converted_to_draft'
+    needs: [guard, build]
+    runs-on: ubuntu-latest
+    environment: preview
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      APP_ROOT: /opt/penumbra-veil-previews
+      PR: ${{ needs.guard.outputs.pr }}
+      PORT: ${{ needs.guard.outputs.port }}
+      SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      # Check out the BASE of the PR, not the PR head. The PR head can
+      # rewrite `.github/actions/ssh-deploy/action.yml` to exfiltrate
+      # DEPLOY_SSH_KEY once the environment secret is injected. Building
+      # from base means the workflow logic (and every composite action it
+      # calls) is always what the maintainers already merged.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.guard.outputs.base_sha }}
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: veil-preview-${{ github.event.pull_request.head.sha }}
+
+      - name: unpack
+        run: |
+          set -euo pipefail
+          mkdir -p payload
+          tar --zstd -C payload -xf "veil-preview-${SHA}.tar.zst"
+
+      - name: configure ssh
+        uses: ./.github/actions/ssh-deploy
+        with:
+          ssh-key: ${{ secrets.DEPLOY_SSH_KEY }}
+          known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          jump-host: ${{ secrets.DEPLOY_HOST }}
+          target-host: ${{ secrets.DEPLOY_CT }}
+          target-user: web-preview
+
+      - name: ship release
+        run: |
+          set -euo pipefail
+          ssh target "PR='${PR}' SHA='${SHA}' bash -s" <<'REMOTE'
+          set -euo pipefail
+          case "$PR"  in ""|*[!0-9]*|0*) echo "bad PR"  >&2; exit 64 ;; esac
+          case "$SHA" in ""|*[!0-9a-f]*) echo "bad SHA" >&2; exit 64 ;; esac
+          [ "${#SHA}" -eq 40 ] || { echo "bad SHA len" >&2; exit 64; }
+          mkdir -p "/opt/penumbra-veil-previews/${PR}/releases/${SHA}"
+          REMOTE
+          rsync -a --delete -e ssh payload/ "target:${APP_ROOT}/${PR}/releases/${SHA}/"
+
+      - name: activate
+        run: |
+          set -euo pipefail
+          ssh target "PR='${PR}' SHA='${SHA}' bash -s" <<'REMOTE'
+          set -euo pipefail
+          case "$PR"  in ""|*[!0-9]*|0*) echo "bad PR"  >&2; exit 64 ;; esac
+          case "$SHA" in ""|*[!0-9a-f]*) echo "bad SHA" >&2; exit 64 ;; esac
+          [ "${#SHA}" -eq 40 ] || { echo "bad SHA len" >&2; exit 64; }
+          cd "/opt/penumbra-veil-previews/${PR}"
+          ln -sfn "releases/${SHA}" current.tmp
+          mv -Tf current.tmp current
+          # Keep five most-recent releases per PR.
+          ls -1dt releases/*/ | tail -n +6 | xargs -r rm -rf
+          sudo -n /usr/local/sbin/preview-ctl start "${PR}"
+          REMOTE
+
+      - name: smoke test
+        run: ssh target "curl -fsS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:${PORT}/"
+
+      - name: comment on PR
+        uses: actions/github-script@v7
+        env:
+          PR: ${{ needs.guard.outputs.pr }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          ZONE: ${{ vars.PREVIEW_ZONE || 'dev.penumbra.fi' }}
+        with:
+          script: |
+            const { PR, SHA, ZONE } = process.env;
+            // Zone is read from process.env, never interpolated into the
+            // template literal below — the value goes through JS parsing
+            // only, no backtick / dollar-brace expansion possible.
+            const url = `https://${PR}.${ZONE}`;
+            const marker = '<!-- preview-veil-comment -->';
+            const body = `${marker}\n**Preview deployed**\n\n- URL: ${url}\n- Commit: \`${SHA}\`\n- Torn down when this PR closes.\n`;
+            const { owner, repo } = context.repo;
+            const issue_number = Number(PR);
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number, per_page: 100,
+            });
+            // Only edit a comment we posted. `startsWith(marker)` alone
+            // matches any user's copy-paste of the marker string.
+            const existing = comments.find(
+              c => c.user?.type === 'Bot'
+                && c.user?.login === 'github-actions[bot]'
+                && c.body?.startsWith(marker),
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+  teardown:
+    name: tear down preview
+    # Fire on close (merged or not) AND on Ready -> Draft. Both mean
+    # "the preview should not be live any more."
+    if: >-
+      (github.event.action == 'closed' ||
+       github.event.action == 'converted_to_draft') &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    needs: guard
+    runs-on: ubuntu-latest
+    environment: preview
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      PR: ${{ needs.guard.outputs.pr }}
+    steps:
+      # Base-ref checkout, same reason as `deploy` above.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.guard.outputs.base_sha }}
+          persist-credentials: false
+
+      - name: configure ssh
+        uses: ./.github/actions/ssh-deploy
+        with:
+          ssh-key: ${{ secrets.DEPLOY_SSH_KEY }}
+          known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          jump-host: ${{ secrets.DEPLOY_HOST }}
+          target-host: ${{ secrets.DEPLOY_CT }}
+          target-user: web-preview
+
+      - name: stop and remove
+        run: |
+          set -euo pipefail
+          ssh target "PR='${PR}' bash -s" <<'REMOTE'
+          set -euo pipefail
+          case "$PR" in ""|*[!0-9]*|0*) echo "bad PR" >&2; exit 64 ;; esac
+          sudo -n /usr/local/sbin/preview-ctl stop "${PR}"
+          REMOTE
+
+      - name: comment on PR
+        uses: actions/github-script@v7
+        env:
+          PR: ${{ needs.guard.outputs.pr }}
+        with:
+          script: |
+            const { PR } = process.env;
+            const marker = '<!-- preview-veil-comment -->';
+            const body = `${marker}\n**Preview torn down** for #${PR}.\n`;
+            const { owner, repo } = context.repo;
+            const issue_number = Number(PR);
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number, per_page: 100,
+            });
+            const existing = comments.find(
+              c => c.user?.type === 'Bot'
+                && c.user?.login === 'github-actions[bot]'
+                && c.body?.startsWith(marker),
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
