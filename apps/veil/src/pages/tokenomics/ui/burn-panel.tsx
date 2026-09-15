@@ -20,8 +20,13 @@ const fmtUM = (n: number) => {
   if (n >= 1) return n.toFixed(0);
   return n.toFixed(2);
 };
+// Pin locale + tz so SSR and client render the exact same label.
 const fmtDate = (d: string) =>
-  new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  new Date(d).toLocaleDateString('en-US', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  });
 
 const BurnTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;

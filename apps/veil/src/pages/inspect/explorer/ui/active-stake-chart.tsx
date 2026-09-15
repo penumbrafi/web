@@ -17,8 +17,13 @@ import type { ActiveStakeFlowPoint, ValidatorFlow } from '../server/active-stake
 import { StakeRangeSelector } from './stake-range-selector';
 import type { StakeRangeKey } from './stake-range';
 
+// Pin locale + tz so SSR and client render the exact same label.
 const fmtDate = (d: string) =>
-  new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  new Date(d).toLocaleDateString('en-US', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  });
 
 const fmtUM = (n: number) => {
   if (n === 0) return '0';

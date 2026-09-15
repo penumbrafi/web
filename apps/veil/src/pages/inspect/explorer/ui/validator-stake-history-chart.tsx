@@ -14,8 +14,13 @@ import {
 } from 'recharts';
 import type { ValidatorStakeFlowPoint } from '../server/validator-stake-history';
 
+// Pin locale + tz so SSR and client render the exact same label.
 const fmtDate = (d: string) =>
-  new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  new Date(d).toLocaleDateString('en-US', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  });
 
 const fmtUM = (n: number) => {
   if (n === 0) return '0';
