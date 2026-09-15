@@ -1,4 +1,3 @@
-import { MailIcon } from 'lucide-react'
 import { FC } from 'react'
 import { appVersion, envName } from '@/pages/inspect/explorer/lib/constants'
 import { classNames } from '@/pages/inspect/explorer/lib/utils'
@@ -35,7 +34,7 @@ const Footer: FC<Props> = props => (
                         'border-other-tonal-stroke inline-flex h-8 w-8',
                         'items-center justify-center rounded-full border-1'
                     )}
-                    href="https://github.com/pk-labs/penumbra-explorer"
+                    href="https://github.com/penumbrafi/penumbra-explorer"
                     target="_blank"
                 >
                     <GitHub />
@@ -84,22 +83,15 @@ const Footer: FC<Props> = props => (
                 'sm:self-end sm:text-left'
             )}
         >
-            Built by{' '}
+            Questions or fixes? Ping{' '}
             <a
                 className="text-text-secondary hover:text-text-special"
-                href="https://www.pklabs.me/"
+                href="https://discord.gg/penumbrazone"
                 target="_blank"
             >
-                PK Labs
+                #dev-chat on the Penumbra Discord
             </a>
-            <br />
-            <MailIcon
-                className="text-text-primary inline align-middle"
-                size={12}
-            />{' '}
-            <a href="mailto:penumbra@pklabs.me" target="_blank">
-                penumbra@pklabs.me
-            </a>
+            .
         </div>
         <div
             className={classNames(
