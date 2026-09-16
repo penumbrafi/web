@@ -19,6 +19,7 @@ const TradeRowImpl = ({
   relativeSize,
   onClick,
   fillFraction,
+  depthBar = true,
 }: {
   trace: Trace;
   isSell: boolean;
@@ -27,6 +28,11 @@ const TradeRowImpl = ({
   // 0..1 fraction of this level's inventory the current draft order would
   // consume. Undefined means the row isn't touched by the draft.
   fillFraction?: number;
+  // Whether the per-row depth bar renders behind the row. Off when the
+  // parent draws a unified DepthCurve SVG across the ladder instead of
+  // per-row bars — cleaner "depth graph" read. Default keeps the old
+  // MEXC-style bar so callers that don't opt in are unchanged.
+  depthBar?: boolean;
 }) => {
   const bgColor = isSell ? SELL_BG_COLOR : 'rgba(28, 121, 63, 0.32)';
   const tokens = trace.hops.map(valueView => getSymbolFromValueView(valueView));
@@ -48,14 +54,18 @@ const TradeRowImpl = ({
           : undefined
       }
       title={interactive ? `Click to ${isSell ? 'buy' : 'sell'} at this price` : undefined}
-      style={{
-        // Fill from the right edge inward — `to left` reads the gradient
-        // stops as 'paint colour from the right up to relativeSize%, then
-        // transparent the rest of the way to the left'. Mirrors MEXC /
-        // Bybit / Binance depth viz so the price column on the left stays
-        // unobstructed.
-        backgroundImage: `linear-gradient(to left, ${bgColor} ${relativeSize}%, transparent ${relativeSize}%)`,
-      }}
+      style={
+        depthBar
+          ? {
+              // Fill from the right edge inward — `to left` reads the
+              // gradient stops as 'paint colour from the right up to
+              // relativeSize%, then transparent the rest of the way to
+              // the left'. Mirrors MEXC / Bybit / Binance depth viz so
+              // the price column on the left stays unobstructed.
+              backgroundImage: `linear-gradient(to left, ${bgColor} ${relativeSize}%, transparent ${relativeSize}%)`,
+            }
+          : undefined
+      }
       className={cn(
         'relative col-span-4 grid h-full grid-cols-subgrid items-center border-b border-other-tonal-fill15 px-4',
         'after:absolute after:right-0 after:left-0 after:hidden after:h-full after:bg-other-tonal-fill5 after:content-[""]',
@@ -135,7 +145,8 @@ export const TradeRow = memo(TradeRowImpl, (prev, next) => {
     prev.isSell !== next.isSell ||
     prev.relativeSize !== next.relativeSize ||
     prev.onClick !== next.onClick ||
-    prev.fillFraction !== next.fillFraction
+    prev.fillFraction !== next.fillFraction ||
+    prev.depthBar !== next.depthBar
   ) {
     return false;
   }
