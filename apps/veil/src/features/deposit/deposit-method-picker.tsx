@@ -1,10 +1,12 @@
 'use client';
 
 import { Text } from '@penumbra-zone/ui/Text';
-import { ArrowLeft, Wallet, ChevronRight, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Building2, Wallet, ChevronRight, ExternalLink } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
-export interface DepositRoute {
+/** A source the Skip widget can route to Penumbra on its own. */
+export interface SkipDepositRoute {
+  kind: 'skip';
   srcChainId: string;
   srcAssetDenom: string;
   /** Chip label shown to the user in the picker. */
@@ -13,35 +15,70 @@ export interface DepositRoute {
   hint?: string;
 }
 
+/**
+ * A source Skip cannot route yet, deposited with a plain ICS-20 transfer
+ * from the user's own wallet against our ephemeral Penumbra address.
+ */
+export interface ManualDepositRoute {
+  kind: 'manual';
+  srcChainId: string;
+  /** Channel on the SOURCE chain that points at penumbra-1. */
+  srcChannelId: string;
+  /** Assets Penumbra accepts over this channel, for the panel copy. */
+  assetsHint: string;
+  label: string;
+  hint?: string;
+}
+
+export type DepositRoute = SkipDepositRoute | ManualDepositRoute;
+
 /** Per-source presets. Skip's defaultRoute only takes srcChain + srcAsset; the
  *  user can still tweak everything inside the widget. Exchange on-ramps are
- *  handled by the wallet (Zafu), not here. */
+ *  handled by the wallet (Zafu), not here.
+ *
+ *  Injective is first: it is the newest and shortest path in, and the one
+ *  reachable straight from an exchange withdrawal. Skip has no Penumbra
+ *  destination denom for Injective-sourced assets yet, so it uses the manual
+ *  ICS-20 panel instead of the widget. */
 const ONCHAIN: DepositRoute[] = [
   {
-    label: 'Cosmos Hub',
-    hint: 'Bring ATOM via IBC',
-    srcChainId: 'cosmoshub-4',
-    srcAssetDenom: 'uatom',
+    kind: 'manual',
+    label: 'Injective',
+    hint: 'USDC, INJ and more — direct IBC',
+    srcChainId: 'injective-1',
+    srcChannelId: 'channel-494',
+    assetsHint: 'USDC, AUSD, USDT and INJ',
   },
   {
-    label: 'Osmosis',
-    hint: 'Any IBC asset on Osmosis',
-    srcChainId: 'osmosis-1',
-    srcAssetDenom: 'uosmo',
-  },
-  {
+    kind: 'skip',
     label: 'Noble',
     hint: 'Native USDC, no extra hop',
     srcChainId: 'noble-1',
     srcAssetDenom: 'uusdc',
   },
   {
+    kind: 'skip',
+    label: 'Cosmos Hub',
+    hint: 'Bring ATOM via IBC',
+    srcChainId: 'cosmoshub-4',
+    srcAssetDenom: 'uatom',
+  },
+  {
+    kind: 'skip',
+    label: 'Osmosis',
+    hint: 'Any IBC asset on Osmosis',
+    srcChainId: 'osmosis-1',
+    srcAssetDenom: 'uosmo',
+  },
+  {
+    kind: 'skip',
     label: 'Ethereum',
     hint: 'USDC via Noble bridge',
     srcChainId: '1',
     srcAssetDenom: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
   },
   {
+    kind: 'skip',
     label: 'Solana',
     hint: 'USDC via Noble',
     srcChainId: 'solana',
@@ -74,6 +111,20 @@ export const DepositMethodPicker = ({ onPick }: PickerProps) => (
     </div>
 
     <Group label='From another chain' icon={Wallet} routes={ONCHAIN} onPick={onPick} />
+
+    <div className='flex flex-col gap-2 border-t border-t-other-tonal-stroke pt-4'>
+      <div className='flex items-center gap-2'>
+        <Building2 className='h-4 w-4 text-text-secondary' />
+        <Text detail color='text.secondary'>
+          Exchange gateways
+        </Text>
+      </div>
+      <Text small color='text.secondary'>
+        Withdraw INJ from Kraken or Binance, or USDC from Kraken, straight to the Injective
+        network — to your inj1… address in Zafu or any Injective wallet. Then pick Injective
+        above to shield it.
+      </Text>
+    </div>
 
     <div className='flex items-center justify-between border-t border-t-other-tonal-stroke pt-4'>
       <Text detail color='text.secondary'>

@@ -114,7 +114,7 @@ export const LearnHub = () => (
           external
           icon={ArrowLeftRight}
           title='IBC bridge tool'
-          body='Move assets across IBC chains — Cosmos Hub, Noble, Osmosis, Penumbra, and more — with a single signed transaction.'
+          body='Move assets across IBC chains — Injective, Noble, Cosmos Hub, Osmosis, Penumbra, and more — with a single signed transaction.'
         />
         <Card
           href='https://penumbra.zone/'

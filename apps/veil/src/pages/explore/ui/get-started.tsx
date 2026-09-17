@@ -63,7 +63,7 @@ export const GetStarted = () => (
         icon={ArrowRightLeft}
         step='2.'
         title='Shield assets'
-        body='Deposit from any IBC chain through your wallet. USDC arrives via Noble with no wrapped tokens; ATOM, OSMO, TIA and every other IBC asset shield the same way.'
+        body='Deposit from any IBC chain through your wallet. USDC arrives natively over Injective — or over Noble, still supported — with no wrapped tokens; ATOM, OSMO, TIA and every other IBC asset shield the same way.'
       />
       <Step
         href='/trade/UM/USDC'
