@@ -56,7 +56,7 @@ export const ibc = [
     },
     {
         chainId: 'injective-1',
-        id: '07-tendermint-20',
+        id: '07-tendermint-26',
         image: icon('injective'),
         name: 'Injective Finance',
         slug: 'injective',

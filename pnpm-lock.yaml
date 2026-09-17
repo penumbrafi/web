@@ -185,7 +185,7 @@ importers:
         version: 1.26.3(@types/react@19.0.12)(babel-plugin-macros@3.1.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@penumbra-labs/registry':
         specifier: github:penumbrafi/registry#rotko-release
-        version: https://codeload.github.com/penumbrafi/registry/tar.gz/341fae63e36130d7ca1ea76af3efa28a4f703a37
+        version: https://codeload.github.com/penumbrafi/registry/tar.gz/4a2320dd8cf790a3c9d105fac6acbf146dd92f62
       '@penumbra-zone/bech32m':
         specifier: workspace:*
         version: link:../../packages/bech32m
@@ -375,7 +375,7 @@ importers:
         version: 1.26.3(@types/react@19.0.12)(babel-plugin-macros@3.1.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@penumbra-labs/registry':
         specifier: github:penumbrafi/registry#rotko-release
-        version: https://codeload.github.com/penumbrafi/registry/tar.gz/341fae63e36130d7ca1ea76af3efa28a4f703a37
+        version: https://codeload.github.com/penumbrafi/registry/tar.gz/4a2320dd8cf790a3c9d105fac6acbf146dd92f62
       '@penumbra-zone/bech32m':
         specifier: workspace:*
         version: link:../../packages/bech32m
@@ -614,7 +614,7 @@ importers:
         version: 1.26.2(@types/react@19.0.12)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@penumbra-labs/registry':
         specifier: github:penumbrafi/registry#rotko-release
-        version: https://codeload.github.com/penumbrafi/registry/tar.gz/341fae63e36130d7ca1ea76af3efa28a4f703a37
+        version: https://codeload.github.com/penumbrafi/registry/tar.gz/4a2320dd8cf790a3c9d105fac6acbf146dd92f62
       '@penumbra-zone/bech32m':
         specifier: workspace:*
         version: link:../../packages/bech32m
@@ -1055,7 +1055,7 @@ importers:
     devDependencies:
       '@penumbra-labs/registry':
         specifier: github:penumbrafi/registry#rotko-release
-        version: https://codeload.github.com/penumbrafi/registry/tar.gz/341fae63e36130d7ca1ea76af3efa28a4f703a37
+        version: https://codeload.github.com/penumbrafi/registry/tar.gz/4a2320dd8cf790a3c9d105fac6acbf146dd92f62
       '@penumbra-zone/protobuf':
         specifier: workspace:*
         version: link:../protobuf
@@ -4269,9 +4269,9 @@ packages:
     resolution: {integrity: sha512-IHnV6A+zxU7XwmKFinmYjUcwlyK9+xkG3/s9KcQhI9BjQKycrJ1JRO+FbNYPwZiPKW3je/DR0k7w8/gLa5eaxQ==}
     deprecated: 'The package is now available as "qr": npm install qr'
 
-  '@penumbra-labs/registry@https://codeload.github.com/penumbrafi/registry/tar.gz/341fae63e36130d7ca1ea76af3efa28a4f703a37':
-    resolution: {tarball: https://codeload.github.com/penumbrafi/registry/tar.gz/341fae63e36130d7ca1ea76af3efa28a4f703a37}
-    version: 12.8.0-rotko.0
+  '@penumbra-labs/registry@https://codeload.github.com/penumbrafi/registry/tar.gz/4a2320dd8cf790a3c9d105fac6acbf146dd92f62':
+    resolution: {tarball: https://codeload.github.com/penumbrafi/registry/tar.gz/4a2320dd8cf790a3c9d105fac6acbf146dd92f62}
+    version: 12.9.0
 
   '@penumbra-zone/bech32m@13.0.0':
     resolution: {integrity: sha512-d89AM78hoeqK2xtHku2jjbjJaMxpimo0qVXuOMM4doa7G31x61WktMAjWmsi1mjK9o9IXgzTRaaFkI1QpT0Vag==}
@@ -19266,7 +19266,7 @@ snapshots:
 
   '@paulmillr/qr@0.2.1': {}
 
-  '@penumbra-labs/registry@https://codeload.github.com/penumbrafi/registry/tar.gz/341fae63e36130d7ca1ea76af3efa28a4f703a37': {}
+  '@penumbra-labs/registry@https://codeload.github.com/penumbrafi/registry/tar.gz/4a2320dd8cf790a3c9d105fac6acbf146dd92f62': {}
 
   '@penumbra-zone/bech32m@13.0.0(@penumbra-zone/protobuf@7.2.0(@bufbuild/protobuf@1.10.1))':
     dependencies:

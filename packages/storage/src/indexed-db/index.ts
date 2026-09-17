@@ -338,7 +338,7 @@ export class IndexedDb implements IndexedDbInterface {
     });
   }
 
-  // creates a local copy of the asset list from registry (https://github.com/prax-wallet/registry)
+  // creates a local copy of the asset list from registry (https://github.com/penumbrafi/registry)
   async saveRegistryAssets(registryClient: ChainRegistryClient, chainId: string) {
     try {
       const registry = await registryClient.remote.get(chainId);

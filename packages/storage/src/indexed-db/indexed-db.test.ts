@@ -89,7 +89,9 @@ const generateInitialProps = () => ({
   registryClient,
 });
 
-const registryEndpoint = 'https://raw.githubusercontent.com/prax-wallet/registry/main/registry';
+// Must track REGISTRY_BASE_URL in @penumbra-labs/registry: the client builds
+// its remote requests from that, and fetch-mock matches on the exact URL.
+const registryEndpoint = 'https://raw.githubusercontent.com/penumbrafi/registry/main/registry';
 
 describe('IndexedDb', () => {
   beforeEach(() => {
