@@ -13,6 +13,7 @@ import { RouteBookLoadingRow } from './loading-row';
 import { TradeRow } from './trade-row';
 import { SpreadRow } from './spread-row';
 import { RouteBookHeader } from './header-row';
+import { DepthCurve } from './depth-curve';
 import { tradeFormStore } from '../order-form/store/OrderFormStore';
 
 const CUMULATIVE_KEY = 'veil-route-book-cumulative';
@@ -459,52 +460,82 @@ export const RouteBook = observer(() => {
 
   const showSpread = viewMode === 'both';
 
+  // Grid-row bookkeeping for the DepthCurve SVGs. Row 1 = header;
+  // sells start at 2 and take n_sells rows; the spread row (if
+  // shown) then eats one row; buys follow. Same math the
+  // <SpreadRow> visually implies but explicit so the SVGs can span
+  // the correct rows via `grid-row: A / span B`.
+  const sellGridStart = 2;
+  const buyGridStart = sellGridStart + sellRows.length + (showSpread ? 1 : 0);
+
   return (
-    <>
-    {controls}
-    <div className='mt-2 grid w-full auto-rows-[32px] grid-cols-[1fr_1fr_1fr_1fr] items-center gap-x-2'>
-      <RouteBookHeader
-        quote={pair.quoteSymbol}
-        base={pair.baseSymbol}
-        cumulative={cumulative}
-        onToggleCumulative={toggleCumulative}
-      />
+      <>
+        {controls}
+        <div className='mt-2 grid w-full auto-rows-[32px] grid-cols-[1fr_1fr_1fr_1fr] items-center gap-x-2'>
+          <RouteBookHeader
+            quote={pair.quoteSymbol}
+            base={pair.baseSymbol}
+            cumulative={cumulative}
+            onToggleCumulative={toggleCumulative}
+          />
 
-      {sellRows.map((trace, idx) => (
-        // Use idx as the key, not price+idx. The Nth sell row stays
-        // the Nth sell row across book updates even when its price
-        // moves — keying on price would unmount/remount the entire
-        // row DOM subtree on every level shift, killing CSS
-        // transitions and triggering paint thrash on each block.
-        <TradeRow
-          key={`sell-${idx}`}
-          trace={trace}
-          isSell={true}
-          relativeSize={sellRelativeSizes.get(trace.price) ?? 0}
-          onClick={onSellClick}
-          fillFraction={
-            fillByRenderedPrice.get(trace.price) ??
-            (limitFillPrice === trace.price ? 1 : undefined)
-          }
-        />
-      ))}
+          {/*
+            DepthCurve SVGs sit before the rows in source order so the
+            rows paint on top of the fill (keeping click targets and
+            hover states intact). Two independent SVGs, one per side,
+            each stretched via preserveAspectRatio='none' to match its
+            side's block height.
+          */}
+          <DepthCurve
+            rows={sellRows}
+            relativeSizes={sellRelativeSizes}
+            side='sell'
+            gridRowStart={sellGridStart}
+          />
+          <DepthCurve
+            rows={buyRows}
+            relativeSizes={buyRelativeSizes}
+            side='buy'
+            gridRowStart={buyGridStart}
+          />
 
-      {showSpread && <SpreadRow sellOrders={multiHops.sell} buyOrders={multiHops.buy} />}
+          {sellRows.map((trace, idx) => (
+            // Use idx as the key, not price+idx. The Nth sell row stays
+            // the Nth sell row across book updates even when its price
+            // moves — keying on price would unmount/remount the entire
+            // row DOM subtree on every level shift, killing CSS
+            // transitions and triggering paint thrash on each block.
+            <TradeRow
+              key={`sell-${idx}`}
+              trace={trace}
+              isSell={true}
+              relativeSize={sellRelativeSizes.get(trace.price) ?? 0}
+              onClick={onSellClick}
+              fillFraction={
+                fillByRenderedPrice.get(trace.price) ??
+                (limitFillPrice === trace.price ? 1 : undefined)
+              }
+              depthBar={false}
+            />
+          ))}
 
-      {buyRows.map((trace, idx) => (
-        <TradeRow
-          key={`buy-${idx}`}
-          trace={trace}
-          isSell={false}
-          relativeSize={buyRelativeSizes.get(trace.price) ?? 0}
-          onClick={onBuyClick}
-          fillFraction={
-            fillByRenderedPrice.get(trace.price) ??
-            (limitFillPrice === trace.price ? 1 : undefined)
-          }
-        />
-      ))}
-    </div>
-    </>
-  );
+          {showSpread && <SpreadRow sellOrders={multiHops.sell} buyOrders={multiHops.buy} />}
+
+          {buyRows.map((trace, idx) => (
+            <TradeRow
+              key={`buy-${idx}`}
+              trace={trace}
+              isSell={false}
+              relativeSize={buyRelativeSizes.get(trace.price) ?? 0}
+              onClick={onBuyClick}
+              fillFraction={
+                fillByRenderedPrice.get(trace.price) ??
+                (limitFillPrice === trace.price ? 1 : undefined)
+              }
+              depthBar={false}
+            />
+          ))}
+        </div>
+      </>
+    );
 });
