@@ -7,6 +7,53 @@ const UM_UNIT = 1_000_000;
 const toUM = (raw: bigint | number | string | null | undefined): number =>
   raw === null || raw === undefined ? 0 : Number(raw) / UM_UNIT;
 
+// Iterate one calendar day at a time from `startDate` to `endDate`
+// (inclusive) in UTC, yielding ISO YYYY-MM-DD strings that match how
+// pindexer's `date_trunc('day', ...)` labels rows. Using
+// setUTCDate(...+1) is DST-safe (no local-time skew across March/Nov)
+// and cheaper than parsing new Date() each turn.
+function* eachDay(startDate: string, endDate: string): Generator<string> {
+  const start = new Date(startDate + 'T00:00:00Z');
+  const end = new Date(endDate + 'T00:00:00Z');
+  for (
+    const cursor = start;
+    cursor.getTime() <= end.getTime();
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
+  ) {
+    yield cursor.toISOString().slice(0, 10);
+  }
+}
+
+// Turn a sparse daily series (pindexer only emits rows on days with
+// blocks — chain outages leave gaps) into a dense one by carrying
+// the previous row forward. `synthesize` builds the row for a missing
+// day from the last real one; typically that keeps cumulative counters
+// steady and zeroes per-day deltas, which is the honest picture of an
+// offline period.
+function fillDailyGaps<T extends { date: string }>(
+  rows: T[],
+  synthesize: (prev: T, date: string) => T,
+): T[] {
+  if (rows.length === 0) return rows;
+  const out: T[] = [];
+  let prev = rows[0]!;
+  out.push(prev);
+  for (let i = 1; i < rows.length; i++) {
+    const next = rows[i]!;
+    let gapStarted = false;
+    for (const day of eachDay(prev.date, next.date)) {
+      if (day === prev.date) continue; // already pushed
+      if (day === next.date) break;
+      out.push(synthesize(prev, day));
+      gapStarted = true;
+    }
+    void gapStarted; // silence unused when there is no gap
+    out.push(next);
+    prev = next;
+  }
+  return out;
+}
+
 export interface SupplyPoint {
   date: string; // ISO date, e.g. '2026-04-15'
   total: number; // UM
@@ -57,10 +104,23 @@ export async function fetchTokenomicsTimeseries(
     .orderBy('date', 'asc')
     .execute();
 
-  const supply: SupplyPoint[] = supplyRows.map(r => ({
+  const rawSupply: SupplyPoint[] = supplyRows.map(r => ({
     date: r.date,
     total: toUM(r.total),
     staked: toUM(r.staked),
+  }));
+  // Forward-fill missing days. Pindexer only emits an `insights_supply`
+  // row per block, so a chain outage or long block gap leaves days
+  // absent from the group-by-day result. When we hand those sparse rows
+  // to recharts, it linearly interpolates between neighbours — a chain
+  // that was offline for four days looks like it was gently deflating
+  // for those four days, which is wrong. During a real outage no UM
+  // is minted (issuance requires blocks) and no fees or arb are booked,
+  // so the honest series carries the previous values forward.
+  const supply = fillDailyGaps(rawSupply, (prev, date) => ({
+    date,
+    total: prev.total,
+    staked: prev.staked,
   }));
 
   // Cumulative burns per day. supply_total_unstaked has running totals;
@@ -78,12 +138,27 @@ export async function fetchTokenomicsTimeseries(
     .orderBy('date', 'asc')
     .execute();
 
+  // Forward-fill first so a chain outage doesn't dump the entire
+  // gap's accumulated burns onto the first post-outage day (the
+  // counters are monotonic, so a delta computed across a 5-day gap
+  // would attribute five days of burns to one row and read as a
+  // spike). With per-day forward-fill each missing day carries the
+  // previous cumulative values, so its own delta is zero.
+  const filledBurnRows = fillDailyGaps(
+    burnRows.map(r => ({
+      date: r.date,
+      arb: toUM(r.arb),
+      fees: Math.abs(toUM(r.fees)),
+    })),
+    (prev, date) => ({ date, arb: prev.arb, fees: prev.fees }),
+  );
+
   const burns: BurnPoint[] = [];
   let prevArb: number | null = null;
   let prevFees: number | null = null;
-  for (const r of burnRows) {
-    const arbCum = toUM(r.arb);
-    const feeCum = Math.abs(toUM(r.fees));
+  for (const r of filledBurnRows) {
+    const arbCum = r.arb;
+    const feeCum = r.fees;
     const arbDelta = prevArb === null ? 0 : Math.max(0, arbCum - prevArb);
     const feeDelta = prevFees === null ? 0 : Math.max(0, feeCum - prevFees);
     prevArb = arbCum;
