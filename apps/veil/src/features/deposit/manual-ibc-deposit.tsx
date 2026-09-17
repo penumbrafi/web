@@ -23,7 +23,7 @@ interface ManualIbcDepositProps {
  * bech32m the Skip path uses: two deposits are not linkable to one subaccount.
  */
 export const ManualIbcDeposit = ({ route }: ManualIbcDepositProps) => {
-  const { data: penumbraAddress, isLoading, error } = useDepositAddress();
+  const { data: penumbraAddress, isLoading, error, fetchStatus } = useDepositAddress();
 
   return (
     <div className='flex flex-col gap-4'>
@@ -33,20 +33,25 @@ export const ManualIbcDeposit = ({ route }: ManualIbcDepositProps) => {
         </Text>
         <Text small color='text.secondary'>
           Send an IBC transfer from your {route.label} wallet to the address below, over{' '}
-          <span className='font-mono'>{route.srcChannelId}</span> (
-          {route.label} → penumbra-1). It arrives as a shielded balance.
+          <span className='font-mono'>{route.srcChannelId}</span> ({route.label} → penumbra-1). It
+          arrives as a shielded balance.
         </Text>
       </div>
 
-      <AddressBox address={penumbraAddress} isLoading={isLoading} hasError={Boolean(error)} />
+      <AddressBox
+        address={penumbraAddress}
+        isLoading={isLoading}
+        hasError={Boolean(error)}
+        isDisconnected={!isLoading && !penumbraAddress && fetchStatus === 'idle'}
+      />
 
       <div className='flex flex-col gap-1'>
         <Text detail color='text.secondary'>
           Supported here: {route.assetsHint}
         </Text>
         <Text detail color='text.secondary'>
-          The address is single-use — reopen this dialog for a fresh one. Use a wallet that can
-          send an IBC transfer to Penumbra; the recipient field must hold the full address above.
+          The address is single-use — reopen this dialog for a fresh one. Use a wallet that can send
+          an IBC transfer to Penumbra; the recipient field must hold the full address above.
         </Text>
       </div>
     </div>
@@ -57,10 +62,15 @@ const AddressBox = ({
   address,
   isLoading,
   hasError,
+  isDisconnected,
 }: {
   address?: string;
   isLoading: boolean;
   hasError: boolean;
+  /** The address query is gated on a Penumbra connection; when it never runs
+   *  tanstack reports idle rather than loading, which would otherwise leave
+   *  the skeleton spinning with no explanation. */
+  isDisconnected: boolean;
 }) => {
   const [copied, setCopied] = useState(false);
 
@@ -73,6 +83,14 @@ const AddressBox = ({
       setTimeout(() => setCopied(false), 1500);
     });
   };
+
+  if (isDisconnected) {
+    return (
+      <Text small color='text.secondary'>
+        Connect your Penumbra wallet to generate a deposit address.
+      </Text>
+    );
+  }
 
   if (hasError) {
     return (
