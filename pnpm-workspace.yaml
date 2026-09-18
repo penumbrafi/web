@@ -10,4 +10,4 @@ overrides:
   cosmos-kit: ^2.21.1
   '@hexxagon/feather.js': npm:@terra-money/feather.js@1.0.9
   '@amplitude/analytics-browser': ./packages/stubs
-  '@penumbra-labs/registry': github:penumbrafi/registry#rotko-release
+  '@penumbra-labs/registry': npm:@penumbrafi/registry@^13.0.0
