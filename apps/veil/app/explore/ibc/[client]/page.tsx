@@ -23,7 +23,11 @@ interface Props {
 
 const ClientPage: FC<Props> = async props => {
   const params = await props.params;
-  const client = ibc.find(c => c.slug === params.client);
+  // Match on slug OR id — links used to be slug-only (`/explore/ibc/injective`)
+  // but current callers emit the client id (`/explore/ibc/07-tendermint-26`).
+  // Without the id branch the resolver misses, and the page renders as
+  // "Unknown" with no image or chainId.
+  const client = ibc.find(c => c.slug === params.client || c.id === params.client);
   const id = client?.id ?? params.client;
   const name = client?.name ?? 'Unknown';
 
