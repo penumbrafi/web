@@ -1,4 +1,4 @@
-import { ChainRegistryClient } from '@penumbra-labs/registry';
+import { ChainRegistryClient } from '@penumbrafi/registry';
 import { sample } from 'lodash';
 import { useQuery } from '@tanstack/react-query';
 import { createGrpcWebTransport } from '@connectrpc/connect-web';

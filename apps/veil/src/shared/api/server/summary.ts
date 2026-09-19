@@ -8,7 +8,7 @@ import { pnum } from '@penumbra-zone/types/pnum';
 import { deserialize, serialize, Serialized } from '@/shared/utils/serializer';
 import { fetchRegistry } from '../fetch-registry';
 import { getClientSideEnv } from '../env/getClientSideEnv';
-import { Registry } from '@penumbra-labs/registry';
+import { Registry } from '@penumbrafi/registry';
 import { compareAssetId } from '@/shared/math/position';
 import { DurationWindow } from '@/shared/utils/duration';
 

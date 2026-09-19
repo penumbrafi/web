@@ -8,7 +8,7 @@ import { Button } from '@penumbra-zone/ui/Button';
 import { AssetIcon } from '@penumbra-zone/ui/AssetIcon';
 import { useShieldingDeposits } from '@/shared/api/use-shielding-deposits';
 import { useRegistry } from '@/shared/api/registry';
-import { Chain, Registry } from '@penumbra-labs/registry';
+import { Chain, Registry } from '@penumbrafi/registry';
 import { toValueView } from '@/shared/utils/value-view';
 import Marquee from 'react-fast-marquee';
 import { useRouter, useSearchParams } from 'next/navigation';

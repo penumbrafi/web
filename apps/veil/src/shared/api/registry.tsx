@@ -1,6 +1,6 @@
 'use client';
 
-import { Registry } from '@penumbra-labs/registry';
+import { Registry } from '@penumbrafi/registry';
 import { AssetId } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { useQuery } from '@tanstack/react-query';
 import {

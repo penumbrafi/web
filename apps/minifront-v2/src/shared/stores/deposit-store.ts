@@ -1,7 +1,7 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import { RootStore } from './root-store';
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { ChainRegistryClient } from '@penumbra-labs/registry';
+import { ChainRegistryClient } from '@penumbrafi/registry';
 import { chains } from 'chain-registry';
 import { EncodeObject } from '@cosmjs/proto-signing';
 import { StdFee, GasPrice, calculateFee, SigningStargateClient } from '@cosmjs/stargate';

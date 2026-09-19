@@ -13,7 +13,7 @@ import { useQuery } from '@tanstack/react-query';
 import fetchReceiverView from './hooks';
 import { classifyTransaction } from '@penumbra-zone/perspective/transaction/classify';
 import { uint8ArrayToHex } from '@penumbra-zone/types/hex';
-import { ChainRegistryClient } from '@penumbra-labs/registry';
+import { ChainRegistryClient } from '@penumbrafi/registry';
 import { penumbra } from '../../penumbra';
 
 export enum TxDetailsTab {

@@ -29,7 +29,7 @@ import { ShieldOff } from 'lucide-react';
 import { useRegistry } from '@/shared/api/registry.tsx';
 import Image from 'next/image';
 import { bech32, bech32m } from 'bech32';
-import { Chain } from '@penumbra-labs/registry';
+import { Chain } from '@penumbrafi/registry';
 import { fromValueView } from '@penumbra-zone/types/amount';
 import { Dialog } from '@penumbra-zone/ui/Dialog';
 

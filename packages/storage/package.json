@@ -34,17 +34,17 @@
     "idb": "^8.0.0"
   },
   "devDependencies": {
-    "@penumbra-labs/registry": "github:penumbrafi/registry#rotko-release",
     "@penumbra-zone/protobuf": "workspace:*",
+    "@penumbrafi/registry": "^13.0.0",
     "fetch-mock": "10.0.7"
   },
   "peerDependencies": {
     "@bufbuild/protobuf": "^1.10.0",
-    "@penumbra-labs/registry": "github:penumbrafi/registry#rotko-release",
     "@penumbra-zone/bech32m": "workspace:*",
     "@penumbra-zone/getters": "workspace:*",
     "@penumbra-zone/protobuf": "workspace:*",
     "@penumbra-zone/types": "workspace:*",
-    "@penumbra-zone/wasm": "workspace:*"
+    "@penumbra-zone/wasm": "workspace:*",
+    "@penumbrafi/registry": "^13.0.0"
   }
 }
