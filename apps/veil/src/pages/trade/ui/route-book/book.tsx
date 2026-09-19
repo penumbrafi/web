@@ -459,14 +459,27 @@ export const RouteBook = observer(() => {
   }
 
   const showSpread = viewMode === 'both';
+  // One-sided book (a fresh pair with only bids or only asks) has no
+  // spread to compute, so SpreadRow renders null and the ladder
+  // collapses to a lonely one-row panel that reads as "broken". Track
+  // whether we have a real two-sided book so we can render an empty-
+  // side hint in place of the missing SpreadRow instead.
+  const bothSidesPresent = sellRows.length > 0 && buyRows.length > 0;
 
   // Grid-row bookkeeping for the DepthCurve SVGs. Row 1 = header;
-  // sells start at 2 and take n_sells rows; the spread row (if
-  // shown) then eats one row; buys follow. Same math the
-  // <SpreadRow> visually implies but explicit so the SVGs can span
-  // the correct rows via `grid-row: A / span B`.
+  // sells start at 2 and take n_sells rows; the spread row or its
+  // empty-side placeholder then eats one row (when the layout shows
+  // both sides); buys follow.
   const sellGridStart = 2;
   const buyGridStart = sellGridStart + sellRows.length + (showSpread ? 1 : 0);
+  const emptySide: 'buy' | 'sell' | null =
+    !showSpread || bothSidesPresent
+      ? null
+      : sellRows.length === 0 && buyRows.length === 0
+        ? 'buy'
+        : sellRows.length === 0
+          ? 'sell'
+          : 'buy';
 
   return (
       <>
@@ -519,7 +532,27 @@ export const RouteBook = observer(() => {
             />
           ))}
 
-          {showSpread && <SpreadRow sellOrders={multiHops.sell} buyOrders={multiHops.buy} />}
+          {showSpread &&
+            (bothSidesPresent ? (
+              <SpreadRow sellOrders={multiHops.sell} buyOrders={multiHops.buy} />
+            ) : (
+              <div
+                className='col-span-4 flex h-full items-center justify-center px-3 py-3 text-xs text-text-secondary'
+                title={
+                  emptySide === 'buy'
+                    ? `No bids yet for ${pair.baseSymbol} — post a buy limit order to become the first bid.`
+                    : emptySide === 'sell'
+                      ? `No asks yet for ${pair.baseSymbol} — post a sell limit order to become the first ask.`
+                      : `No liquidity yet on ${pair.baseSymbol}/${pair.quoteSymbol} — provide the first LP to bootstrap the pair.`
+                }
+              >
+                {emptySide === 'buy'
+                  ? `No bids yet · be the first to buy ${pair.baseSymbol}`
+                  : emptySide === 'sell'
+                    ? `No asks yet · be the first to sell ${pair.baseSymbol}`
+                    : `No liquidity · be the first LP on ${pair.baseSymbol}/${pair.quoteSymbol}`}
+              </div>
+            ))}
 
           {buyRows.map((trace, idx) => (
             <TradeRow
