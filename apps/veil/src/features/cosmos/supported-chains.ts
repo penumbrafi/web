@@ -1,9 +1,15 @@
-// Cosmos chains Penumbra exposes for IBC in veil. Scoped to Noble only for now:
-// Noble is Circle's USDC issuance + CCTP hub in Cosmos, so it is the single
-// gateway for the assets we support (USDC / USDY, plus native UM staying in
-// Penumbra). Shield in from Noble, hold private, unshield back to Noble, then
-// offramp on the Noble side. Penumbra also enforces "unshield only to the
-// asset's source chain", so Noble-sourced assets can only return to Noble anyway.
+// Cosmos chains Penumbra exposes for IBC in veil. Scoped to Injective + Noble:
+//
+// Injective (channel-18 on the Penumbra side, channel-494 on the Injective
+// side) is the recommended deposit path. It carries native USDC, AUSD, USDT
+// and INJ, and it is reachable directly from an exchange withdrawal, so it is
+// the shortest route in for most users.
+//
+// Noble is Circle's USDC issuance + CCTP hub in Cosmos and stays supported:
+// it is still the source chain for the USDC already shielded on Penumbra.
+// Penumbra enforces "unshield only to the asset's source chain", so
+// Noble-sourced assets can only return to Noble, and Injective-sourced assets
+// only to Injective.
 //
 // Importing per-chain instead of the `chain-registry` barrel saves ~3-4MB of
 // bundle (the barrel contains all ~250 Cosmos chains).
@@ -12,10 +18,11 @@
 // Penumbra has a live IBC connection (chain-provider.tsx filters out chains
 // with no connection at runtime).
 
+import * as injective from 'chain-registry/mainnet/injective';
 import * as noble from 'chain-registry/mainnet/noble';
 
 import type { Chain, AssetList } from '@chain-registry/types';
 
-export const SUPPORTED_CHAINS: Chain[] = [noble.chain];
+export const SUPPORTED_CHAINS: Chain[] = [injective.chain, noble.chain];
 
-export const SUPPORTED_ASSETS: AssetList[] = [noble.assets];
+export const SUPPORTED_ASSETS: AssetList[] = [injective.assets, noble.assets];

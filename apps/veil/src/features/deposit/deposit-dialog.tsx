@@ -11,6 +11,7 @@ import {
   DepositBackToPicker,
   type DepositRoute,
 } from './deposit-method-picker';
+import { ManualIbcDeposit } from './manual-ibc-deposit';
 
 const LazySkipWidget = lazy(() => import('@skip-go/widget').then(mod => ({ default: mod.Widget })));
 
@@ -36,12 +37,16 @@ const SkeletonFallback = () => (
  * Two-step deposit modal:
  *
  *  1. DepositMethodPicker — quick chips for the user's likely source
- *     chain (Cosmos Hub, Osmosis, Noble, Ethereum, …). Picking a
- *     chip pre-fills Skip's defaultRoute so the user lands on the right
- *     source chain + asset without scrolling Skip's chain list.
- *  2. Skip widget — embedded, with `connectedAddresses['penumbra-1']`
+ *     chain (Injective, Noble, Cosmos Hub, Osmosis, Ethereum, …).
+ *     Picking a chip pre-fills Skip's defaultRoute so the user lands on
+ *     the right source chain + asset without scrolling Skip's chain list.
+ *  2a. Skip widget — embedded, with `connectedAddresses['penumbra-1']`
  *     set to a freshly-rotated ephemeral address so the user never has
  *     to copy or paste a Penumbra address.
+ *  2b. ManualIbcDeposit — for sources Skip cannot route (today:
+ *     Injective, whose Penumbra-side denoms Skip does not index). Shows
+ *     the same ephemeral address for a plain ICS-20 transfer instead of
+ *     opening a widget that would dead-end on 'Dest token not found'.
  *
  * The user can always go back from the Skip view to re-pick. The
  * ephemeral address is regenerated each time the dialog reopens (60s
@@ -65,7 +70,7 @@ export const DepositDialog = observer(({ isOpen, onClose }: DepositDialogProps) 
 
   const skipDefaultRoute = useMemo(
     () =>
-      route
+      route?.kind === 'skip'
         ? {
             srcChainId: route.srcChainId,
             srcAssetDenom: route.srcAssetDenom,
@@ -79,6 +84,11 @@ export const DepositDialog = observer(({ isOpen, onClose }: DepositDialogProps) 
     <ShieldDialog isOpen={isOpen} onClose={onClose}>
       {!route ? (
         <DepositMethodPicker onPick={setRoute} />
+      ) : route.kind === 'manual' ? (
+        <div className='flex flex-col gap-3'>
+          <DepositBackToPicker onBack={() => setRoute(null)} />
+          <ManualIbcDeposit route={route} />
+        </div>
       ) : (
         <div className='flex flex-col gap-3'>
           <DepositBackToPicker onBack={() => setRoute(null)} />

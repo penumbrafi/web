@@ -8,6 +8,7 @@ import { theme as penumbraTheme } from '@penumbra-zone/ui/theme';
 import { UnshieldDialog } from '@/pages/portfolio/ui/unshield-dialog.tsx';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { ShieldDialog } from '@/pages/portfolio/ui/shield-dialog.tsx';
+import { DepositDialog } from '@/features/deposit/deposit-dialog';
 
 /** Lazily-loaded Skip widget */
 const LazySkipWidget = lazy(() => import('@skip-go/widget').then(mod => ({ default: mod.Widget })));
@@ -150,14 +151,14 @@ export function UnshieldButton({ asset }: { asset: ShieldedBalance }) {
   return <UnshieldDialog asset={asset} />;
 }
 
+/**
+ * Generic "Shield Assets" entry point. Opens the shared deposit picker rather
+ * than a hard-coded Skip route, so this button and the Deposit dialog offer
+ * the same sources (Injective first) and the same manual ICS-20 fallback for
+ * the ones Skip cannot route.
+ */
 export function GenericShieldButton() {
   const [isOpen, setIsOpen] = useState(false);
-
-  const defaultRoute = {
-    srcChainId: 'noble-1',
-    srcAssetDenom: 'uusdc',
-    destChainId: 'penumbra-1',
-  };
 
   return (
     <>
@@ -169,21 +170,7 @@ export function GenericShieldButton() {
       >
         Shield Assets
       </Button>
-      <ShieldDialog isOpen={isOpen} onClose={() => setIsOpen(false)}>
-        <Suspense fallback={<SkeletonFallback />}>
-          <LazySkipWidget
-            defaultRoute={defaultRoute}
-            filter={{
-              destination: {
-                'penumbra-1': undefined,
-              },
-            }}
-            theme={SKIP_THEME}
-            brandColor={SKIP_BRAND_COLOR}
-            enableAmplitudeAnalytics={false}
-          />
-        </Suspense>
-      </ShieldDialog>
+      <DepositDialog isOpen={isOpen} onClose={() => setIsOpen(false)} />
     </>
   );
 }
