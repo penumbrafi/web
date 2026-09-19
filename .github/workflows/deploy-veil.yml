@@ -73,8 +73,11 @@ jobs:
           find .next/standalone -maxdepth 3 -name '.env*' -print -delete
           # pnpm inside the nix devshell can compile native modules against
           # /nix/store libraries that do not exist on the Debian host.
-          if find .next/standalone -name '*.node' | read -r _; then
-            find .next/standalone -name '*.node' -exec ldd {} + > /tmp/nativedeps.txt 2>&1 || true
+          # musl-linked prebuilds (e.g. @img/sharp-linuxmusl-x64) ship alongside
+          # the glibc ones and are never loaded on the Debian host, but ldd always
+          # reports their libc.musl-*.so.1 as "not found". Check only what runs.
+          if find .next/standalone -name '*.node' -not -path '*musl*' | read -r _; then
+            find .next/standalone -name '*.node' -not -path '*musl*' -exec ldd {} + > /tmp/nativedeps.txt 2>&1 || true
             if grep -Eq '/nix/store|not found' /tmp/nativedeps.txt; then
               echo 'native module linked against paths absent on the deploy host:'
               grep -E '/nix/store|not found' /tmp/nativedeps.txt
