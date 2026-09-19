@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { JsonObject } from '@bufbuild/protobuf';
 import { AssetId } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { ChainRegistryClient } from '@penumbra-labs/registry';
+import { ChainRegistryClient } from '@penumbrafi/registry';
 import { serialize, Serialized } from '@/shared/utils/serializer';
 import { pindexer } from '@/shared/database';
 import { RecentExecutionsResponse, transformData } from './recent-executions';

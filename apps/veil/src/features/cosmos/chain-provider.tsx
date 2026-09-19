@@ -9,7 +9,7 @@ import { wallets as keplrWallets } from '@cosmos-kit/keplr-extension';
 import { wallets as leapWallets } from '@cosmos-kit/leap-extension';
 import { ReactNode, useMemo } from 'react';
 import type { Chain as CosmosChain } from '@chain-registry/types';
-import { Chain, Registry as PenumbraRegistry } from '@penumbra-labs/registry';
+import { Chain, Registry as PenumbraRegistry } from '@penumbrafi/registry';
 import '@interchain-ui/react/styles';
 
 import { SUPPORTED_CHAINS, SUPPORTED_ASSETS } from './supported-chains';

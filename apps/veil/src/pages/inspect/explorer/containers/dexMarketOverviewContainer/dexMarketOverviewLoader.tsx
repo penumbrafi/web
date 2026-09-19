@@ -1,7 +1,7 @@
 // istanbul ignore file
 import { FC } from 'react'
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb'
-import { ChainRegistryClient } from '@penumbra-labs/registry'
+import { ChainRegistryClient } from '@penumbrafi/registry'
 import { Surface } from '@/pages/inspect/explorer/components'
 import getTradingPairLiquidity from '@/pages/inspect/explorer/lib/data/getTradingPairLiquidity'
 import getTradingVolume24h from '@/pages/inspect/explorer/lib/data/getTradingVolume24h'

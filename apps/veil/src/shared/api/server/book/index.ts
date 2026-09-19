@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ChainRegistryClient } from '@penumbra-labs/registry';
+import { ChainRegistryClient } from '@penumbrafi/registry';
 import {
   SimulateTradeRequest,
   SimulateTradeResponse,

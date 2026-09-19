@@ -1,6 +1,6 @@
 import BigNumber from 'bignumber.js';
 import { NextRequest, NextResponse } from 'next/server';
-import { ChainRegistryClient, Registry } from '@penumbra-labs/registry';
+import { ChainRegistryClient, Registry } from '@penumbrafi/registry';
 import { AssetId } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { pnum } from '@penumbra-zone/types/pnum';
 import { serialize, Serialized } from '@/shared/utils/serializer';

@@ -50,7 +50,7 @@ import {
   DutchAuctionDescription,
 } from '@penumbra-zone/protobuf/penumbra/core/component/auction/v1/auction_pb';
 import { StateCommitment } from '@penumbra-zone/protobuf/penumbra/crypto/tct/v1/tct_pb';
-import { ChainRegistryClient, Registry } from '@penumbra-labs/registry';
+import { ChainRegistryClient, Registry } from '@penumbrafi/registry';
 import fetchMock from 'fetch-mock';
 import { uint8ArrayToBase64 } from '@penumbra-zone/types/base64';
 import { JsonValue } from '@bufbuild/protobuf';
@@ -89,7 +89,7 @@ const generateInitialProps = () => ({
   registryClient,
 });
 
-// Must track REGISTRY_BASE_URL in @penumbra-labs/registry: the client builds
+// Must track REGISTRY_BASE_URL in @penumbrafi/registry: the client builds
 // its remote requests from that, and fetch-mock matches on the exact URL.
 const registryEndpoint = 'https://raw.githubusercontent.com/penumbrafi/registry/main/registry';
 

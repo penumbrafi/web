@@ -2,7 +2,7 @@ import { ChainProvider } from '@cosmos-kit/react';
 import { assets, chains } from 'chain-registry';
 import { wallets } from 'cosmos-kit';
 import { ReactNode, useMemo } from 'react';
-import { Chain, Registry as PenumbraRegistry } from '@penumbra-labs/registry';
+import { Chain, Registry as PenumbraRegistry } from '@penumbrafi/registry';
 import '@interchain-ui/react/styles';
 
 interface IbcChainProviderProps {

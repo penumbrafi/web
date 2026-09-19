@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ChainRegistryClient } from '@penumbra-labs/registry';
+import { ChainRegistryClient } from '@penumbrafi/registry';
 import { AssetId } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { DurationWindow, durationWindows, isDurationWindow } from '@/shared/utils/duration.ts';
 import { combineDbCandles, insertEmptyCandles } from '@/shared/api/server/candles/utils.ts';

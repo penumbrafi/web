@@ -18,7 +18,7 @@ import { getAssetId } from '@penumbra-zone/getters/metadata';
 import { assetPatterns } from '@penumbra-zone/types/assets';
 import { bech32, bech32m } from 'bech32';
 import { errorToast } from '@penumbra-zone/ui-deprecated/lib/toast/presets';
-import { Chain } from '@penumbra-labs/registry';
+import { Chain } from '@penumbrafi/registry';
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { Channel } from '@penumbra-zone/protobuf/ibc/core/channel/v1/channel_pb';
 import { BLOCKS_PER_HOUR } from './constants';

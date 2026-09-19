@@ -14,7 +14,7 @@ import {
   PositionWithdrawalVV,
   VolumeAndFeesAll,
 } from '@/pages/inspect/lp/api/types.ts';
-import { Registry } from '@penumbra-labs/registry';
+import { Registry } from '@penumbrafi/registry';
 import { getValueView } from '@/shared/api/server/book/helpers.ts';
 import { useRegistry } from '@/shared/api/registry';
 

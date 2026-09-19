@@ -54,11 +54,18 @@
       "pinVersion": "workspace:*"
     },
     {
-      "label": "Use the penumbrafi/registry fork (community-maintained, updatable)",
+      "label": "Use the penumbrafi/registry fork from npm (community-maintained, updatable)",
+      "dependencies": [
+        "@penumbrafi/registry"
+      ],
+      "pinVersion": "^13.0.0"
+    },
+    {
+      "label": "Legacy @penumbra-labs/registry specifier resolves to the fork via alias",
       "dependencies": [
         "@penumbra-labs/registry"
       ],
-      "pinVersion": "github:penumbrafi/registry#rotko-release"
+      "pinVersion": "npm:@penumbrafi/registry@^13.0.0"
     },
     {
       "label": "@types packages should only be under devDependencies",
