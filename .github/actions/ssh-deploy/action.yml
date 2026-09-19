@@ -57,6 +57,28 @@ runs:
         PROXY_USER: ${{ inputs.proxy-user }}
       run: |
         set -euo pipefail
+
+        # `required: true` on a composite-action input only checks that the
+        # caller passed the key at all — an unset secret expands to the empty
+        # string and sails straight through. Without this guard the run gets
+        # an ssh config with `HostName ` and dies several steps later with an
+        # opaque "Could not resolve hostname" or, worse, a permission error
+        # that reads like a host-side problem. Fail here, naming the secret.
+        missing=()
+        [ -n "$SSH_KEY" ]     || missing+=("ssh-key (secrets.DEPLOY_SSH_KEY)")
+        [ -n "$KNOWN_HOSTS" ] || missing+=("known-hosts (secrets.DEPLOY_KNOWN_HOSTS)")
+        [ -n "$JUMP_HOST" ]   || missing+=("jump-host (secrets.DEPLOY_HOST)")
+        if [ -z "$TARGET_HOST" ] && [ -z "$PROXY_HOST" ]; then
+          missing+=("target-host (secrets.DEPLOY_CT) and/or proxy-host (secrets.DEPLOY_PROXY_CT) — at least one is required")
+        fi
+        if [ ${#missing[@]} -gt 0 ]; then
+          for m in "${missing[@]}"; do
+            echo "::error title=ssh-deploy: missing input::$m is empty"
+          done
+          echo "Set them under Settings -> Environments -> production (see deploy/README.md)." >&2
+          exit 1
+        fi
+
         install -m 700 -d ~/.ssh
         printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
         chmod 600 ~/.ssh/id_deploy

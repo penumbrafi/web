@@ -67,10 +67,36 @@ restricted to the two containers it's allowed to reach. The action verifies
 each hop it was given inputs for before anything is copied. It has no
 container numbers or IPs of its own — those come entirely from secrets.
 
-**This forwarding-only jump account does not exist today.** The only working
-path in is `ssh root@<proxmox host>` with full root, which is how deploys
-happen by hand right now. Creating the scoped jump account is a prerequisite
-for the workflow in this PR to actually run — see "what remains" below.
+**The forwarding-only jump account now exists.** It is a shell-less
+(`/usr/sbin/nologin`, `ForceCommand /usr/sbin/nologin`, no sudo) account on
+the Proxmox host, shared with `penumbrafi/penumbra-explorer` but keyed
+separately: each repo has its own keypair, and each key carries its own
+`permitopen` list, so the explorer key still reaches only the workload
+container while the veil key reaches the workload *and* front-proxy
+containers. A `from=` restriction is not usable — GitHub-hosted runners have
+no stable source addresses — so `permitopen` plus a matching `PermitOpen` in
+the host's `Match User deploy-jump` block is the whole confinement:
+
+```sh
+# authorized_keys options are comma-separated, one permitopen per host
+restrict,port-forwarding,permitopen="<WORKLOAD_HOST>:22",permitopen="<FRONT_PROXY_HOST>:22" ssh-ed25519 AAAA... 
+
+# sshd_config takes a SPACE-separated list, and the Match block must be the
+# LAST thing in the file — `Include /etc/ssh/sshd_config.d/*.conf` sits at the
+# top, so a Match in a drop-in would swallow every global keyword after it.
+Match User deploy-jump
+    AllowTcpForwarding local
+    PermitOpen <WORKLOAD_HOST>:22 <FRONT_PROXY_HOST>:22
+    PermitTTY no
+    X11Forwarding no
+    AllowAgentForwarding no
+    PermitTunnel no
+    ForceCommand /usr/sbin/nologin
+```
+
+Verify with `sshd -t && sshd -T -C user=deploy-jump | grep -i permitopen`, and
+prove the confinement by checking that a forward to any other host/port is
+refused with `administratively prohibited`.
 
 ## Secrets and variables to create
 
@@ -100,6 +126,24 @@ scoped to those repositories.
 
 `preview` environment secrets are documented in the per-PR previews section
 below.
+
+Repository **secrets** (not environment-scoped):
+
+| secret | value |
+| --- | --- |
+| `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` | `openssl rand -base64 32`, identical to the value in every colour's `.env.production.local` on the host |
+
+This one is deliberately repository-scoped rather than `production`-scoped.
+Next.js encrypts Server Action closures with it at **build** time and decrypts
+them with it at **runtime**; veil has ~15 `'use server'` modules, so a mismatch
+means every action 500s on the deployed bundle. The consumer is therefore the
+`build` job — and only the `deploy` job carries `environment: production`.
+Scoping the key to `production` would leave `build` expanding it to `""`,
+whereupon Next silently generates a fresh per-build key that no host copy can
+ever match; giving `build` the `production` environment instead would hand
+deployment credentials to a job that has no use for them. Rotating it means
+writing the new value to the repository secret **and** to both colours'
+`.env.production.local` in the same pass.
 
 ### Branch protection and tag rulesets (required)
 
@@ -148,7 +192,10 @@ be carried anywhere; if it is ever set, put the file next to that colour's
 **runtime** from `.env.production` / `.env.production.local` at
 `/opt/penumbra-veil/{blue,green}/.env.production*` — one level above each
 colour's `current` release symlink, alongside `env.port` (see the blue/green
-section). That placement matters: it's a sibling of the release tree, not
+section). Keep them `root:root 0600`: systemd reads `EnvironmentFile=` as PID 1
+before dropping to `User=web`, so the service account never needs read access
+to them, and the deploy account therefore cannot exfiltrate them over the same
+ssh key it uses to ship releases. That placement matters: it's a sibling of the release tree, not
 inside it, so it survives every deploy's `rsync --delete` and the build
 job's own stripping of `.env*` out of the artifact. There is no single
 shared directory across colours; each colour carries its own copy, kept in
@@ -302,9 +349,10 @@ chmod 644 /opt/penumbra-veil/{blue,green}/env.port
 # per-colour runtime env (values come from whatever the existing hand-managed
 # .env.production was — copy it to BOTH colours, they diverge only if you
 # deliberately want that)
-install -o web -g web -m 600 .env.production       /opt/penumbra-veil/blue/.env.production
-install -o web -g web -m 600 .env.production       /opt/penumbra-veil/green/.env.production
-# .env.production.local similarly, if one exists
+# root-owned: systemd reads EnvironmentFile= as PID 1, `web` never needs it
+install -o root -g root -m 600 .env.production.local /opt/penumbra-veil/blue/.env.production.local
+install -o root -g root -m 600 .env.production.local /opt/penumbra-veil/green/.env.production.local
+# .env.production similarly, if one exists
 
 # templated unit
 install -m 644 deploy/systemd/penumbra-veil@.service /etc/systemd/system/
@@ -585,21 +633,35 @@ Applied by hand, already live in production:
   `veil-upstream.conf`.
 * The staging `veil-upstream.conf` include mechanics (i.e. `veil_staging`
   always points at the standby colour).
+* The forwarding-only `deploy-jump` account, its per-repo keypair and
+  `permitopen`/`PermitOpen` confinement.
+* The `production` environment secrets (`DEPLOY_SSH_KEY`, `DEPLOY_HOST`,
+  `DEPLOY_CT`, `DEPLOY_PROXY_CT`, `DEPLOY_KNOWN_HOSTS`) and the repository
+  secret `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`.
+* The deploy account's `authorized_keys` in the workload container and in the
+  front-proxy container, and the `penumbra-deploy-veil` /
+  `penumbra-deploy-veil-swap` sudoers files.
+* Per-colour `releases/` directories and root-owned
+  `.env.production.local` beside each `current`.
+
+### Transitional drop-in
+
+Before CI owned this deploy, both colours' `current` pointed at one shared,
+hand-built *full workspace* checkout started with `npx next start`, not at a
+per-colour standalone tree started with `node server.js`. Installing the unit
+template above would therefore kill any colour that crash-restarts before its
+first CI deploy. Each colour carries a drop-in at
+`/etc/systemd/system/penumbra-veil@<colour>.service.d/legacy-checkout.conf`
+that runs `node server.js` when the release tree has one and falls back to
+`npx next start` when it does not, and re-reads the old in-tree env files.
+
+It is self-clearing in effect: the first CI deploy to a colour ships
+`server.js`, after which the drop-in only ever takes the `node server.js`
+branch. Delete it once both colours have had a CI deploy.
 
 Not yet applied — required before `gh workflow run deploy-veil.yml` will work
 end-to-end:
 
-* The forwarding-only jump account described above (today only a full-root
-  SSH path exists).
-* The `production` and `preview` GitHub Environments and their secrets,
-  including `DEPLOY_PROXY_CT` (this PR's workflows are the first thing that
-  needs to reach the front-proxy container separately from the workload
-  container — nothing before this automated the swap step).
-* The `penumbra-deploy-veil` / `penumbra-deploy-veil-swap` sudoers files
-  above, scoped to whatever account `DEPLOY_SSH_KEY` authenticates as.
-* Per-colour `.env.production*` living beside `current` rather than inside
-  it, if the host's current copies are not already there (verify before the
-  first CI-driven deploy, or the app will come up with empty runtime config).
 * node-status host setup (release dir exists nowhere, no vhost).
 * Everything under the per-PR previews section (dedicated user, wildcard
   vhost, wildcard cert, Cloudflare Access, sysctl reservation).

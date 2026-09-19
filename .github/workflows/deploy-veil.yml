@@ -59,6 +59,15 @@ jobs:
           # endpoint into the bundle.
           NEXT_PUBLIC_GRAPHQL_HOST: ${{ vars.NEXT_PUBLIC_GRAPHQL_HOST || 'api.explorer.rotko.net' }}
           NEXT_PUBLIC_COMETBFT_WS_URL: ${{ vars.NEXT_PUBLIC_COMETBFT_WS_URL || 'wss://penumbra.rotko.net/websocket' }}
+          # Server Actions are encrypted with this key at BUILD time and
+          # decrypted with it at runtime, so build and host must agree or every
+          # action 500s on the deployed bundle. It is therefore a *repository*
+          # secret, not a `production` environment one: only the deploy job
+          # carries `environment: production`, and giving the build job that
+          # environment would hand deployment credentials to a job that has no
+          # use for them. Unset it expands to "" and Next silently generates a
+          # fresh per-build key that the host copy will never match.
+          NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: ${{ secrets.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY }}
         run: nix develop --command pnpm turbo build --filter=penumbra-veil...
 
       - name: assemble standalone tree
@@ -239,7 +248,13 @@ jobs:
           # This request goes to :80/:443 via nginx on the front-proxy
           # container (not directly to the backend port on the workload
           # container), so it exercises the full path a user would hit.
-          ssh proxy 'curl -fsS -o /dev/null -w "post-swap %{http_code}\n" http://127.0.0.1/ -H "Host: penumbra.fi"'
+          # Hit :443, not :80 — the plain-HTTP vhost is a bare 301 to https
+          # that never touches the `veil` upstream, and `curl -f` treats a 3xx
+          # as success, so the old :80 probe passed even with every backend
+          # down. --resolve pins the name to the local nginx so SNI, the
+          # certificate and the proxy_pass to the freshly swapped colour are
+          # all exercised; -k because the pinned address is loopback.
+          ssh proxy 'curl -fsS -k -o /dev/null -w "post-swap %{http_code}\n" --resolve penumbra.fi:443:127.0.0.1 https://penumbra.fi/'
 
       - name: staging-only handoff message
         if: >-

@@ -65,7 +65,13 @@ ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectKernelLogs=true
 ProtectControlGroups=true
-ReadWritePaths=/opt/penumbra-veil/%i/current/apps/veil/.next/cache
+# Next writes its image-optimisation cache under .next/cache at runtime.
+# Point this at the colour's releases/ root, not at
+# current/apps/veil/.next/cache: the standalone artifact ships no cache
+# directory, and a ReadWritePaths= entry that does not exist at start
+# aborts namespace setup under ProtectSystem=strict. releases/ always
+# exists and covers whichever release current/ points at.
+ReadWritePaths=/opt/penumbra-veil/%i/releases
 
 [Install]
 WantedBy=multi-user.target
