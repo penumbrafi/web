@@ -1,6 +1,6 @@
 import { sql } from 'kysely';
 import { NextRequest, NextResponse } from 'next/server';
-import { ChainRegistryClient } from '@penumbra-labs/registry';
+import { ChainRegistryClient } from '@penumbrafi/registry';
 import { AssetId, Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { serialize, Serialized } from '@/shared/utils/serializer';
 import { LqtGauge } from '@/shared/database/schema';

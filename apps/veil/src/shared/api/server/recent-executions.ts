@@ -1,6 +1,6 @@
 import BigNumber from 'bignumber.js';
 import { NextRequest, NextResponse } from 'next/server';
-import { Registry } from '@penumbra-labs/registry';
+import { Registry } from '@penumbrafi/registry';
 import { getCachedRegistry } from '@/shared/api/fetch-registry';
 import { AssetId } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { pnum } from '@penumbra-zone/types/pnum';

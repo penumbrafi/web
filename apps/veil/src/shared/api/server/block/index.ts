@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pindexer } from '@/shared/database';
 import { AssetId } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { ChainRegistryClient, Registry } from '@penumbra-labs/registry';
+import { ChainRegistryClient, Registry } from '@penumbrafi/registry';
 import { getDisplayDenomExponent } from '@penumbra-zone/getters/metadata';
 import { pnum } from '@penumbra-zone/types/pnum';
 import { hexToUint8Array, base64ToHex } from '@penumbra-zone/types/hex';

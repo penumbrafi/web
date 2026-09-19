@@ -3,7 +3,7 @@ import { aminoTypes, registry as CosmosRegistry } from './config/defaults';
 import { assets, chains } from 'chain-registry';
 import { SignerOptions, wallets } from 'cosmos-kit';
 import { ReactNode, useMemo } from 'react';
-import { Registry as PenumbraRegistry } from '@penumbra-labs/registry';
+import { Registry as PenumbraRegistry } from '@penumbrafi/registry';
 
 import '@interchain-ui/react/styles';
 

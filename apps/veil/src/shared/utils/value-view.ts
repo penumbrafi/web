@@ -1,4 +1,4 @@
-import { Registry } from '@penumbra-labs/registry';
+import { Registry } from '@penumbrafi/registry';
 import {
   AssetId,
   Metadata,

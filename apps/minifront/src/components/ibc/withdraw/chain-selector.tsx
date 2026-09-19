@@ -7,7 +7,7 @@ import {
 } from '@penumbra-zone/ui-deprecated/components/ui/select';
 import { cn } from '@penumbra-zone/ui-deprecated/lib/utils';
 import { AllSlices } from '../../../state';
-import { Chain } from '@penumbra-labs/registry';
+import { Chain } from '@penumbrafi/registry';
 import { useStoreShallow } from '../../../utils/use-store-shallow';
 import { useChains } from '../../../state/ibc-out';
 

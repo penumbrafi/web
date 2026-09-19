@@ -1,4 +1,4 @@
-import { Chain, ChainRegistryClient, Registry } from '@penumbra-labs/registry';
+import { Chain, ChainRegistryClient, Registry } from '@penumbrafi/registry';
 import { useQuery } from '@tanstack/react-query';
 import { getChainId } from './chain-id';
 import { getAssetMetadataById } from './assets';

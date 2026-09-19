@@ -2,7 +2,7 @@
 
 import { QueryService } from '@penumbra-zone/protobuf/penumbra/core/component/community_pool/v1/community_pool_connect';
 import { createClient } from '@/shared/utils/protos/utils';
-import { ChainRegistryClient } from '@penumbra-labs/registry';
+import { ChainRegistryClient } from '@penumbrafi/registry';
 
 // Community-pool balance is NOT indexed by pindexer. `supply_total_unstaked.um`
 // folds the pool's genesis allocation and every funding-stream reward into

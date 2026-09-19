@@ -4,7 +4,7 @@ import {
   BalancesResponse,
   TransactionPlannerRequest,
 } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
-import { ChainRegistryClient } from '@penumbra-labs/registry';
+import { ChainRegistryClient } from '@penumbrafi/registry';
 import { chains } from 'chain-registry';
 import { bech32, bech32m } from 'bech32';
 import { BigNumber } from 'bignumber.js';
