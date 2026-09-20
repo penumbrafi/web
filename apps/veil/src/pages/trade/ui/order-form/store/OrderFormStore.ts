@@ -535,9 +535,32 @@ export class OrderFormStore {
       // transaction", now mapped centrally.
       //
       // Form state is deliberately left untouched so the user can adjust
-      // and retry without re-entering everything.
-      const { title, description } = describeTxError(e);
-      openToast({ type: 'error', message: title, description });
+      // and retry without re-entering everything — EXCEPT when the swap
+      // already went on-chain and the failure is only the swapClaim
+      // bookkeeping (view service hasn't indexed the SwapRecord yet):
+      // clear the amount so a follow-up submit doesn't broadcast a
+      // second swap by accident, and surface it as a warning, not an
+      // error, since nothing is broken.
+      const describe = describeTxError(e);
+      if (describe.txAlreadyOnChain) {
+        openToast({
+          type: 'warning',
+          message: describe.title,
+          description: describe.description,
+        });
+        // Wipe the amount fields so a stray double-click on submit
+        // can't rebuild the same swap plan. Prices/pair stay.
+        runInAction(() => {
+          if (this._whichForm === 'Market') {
+            this._market.setBaseInput('');
+            this._market.setQuoteInput('');
+          }
+        });
+        // Not a real failure — don't rethrow; the caller's toast
+        // pipeline would double-report.
+        return;
+      }
+      openToast({ type: 'error', message: describe.title, description: describe.description });
       throw e;
     } finally {
       runInAction(() => {

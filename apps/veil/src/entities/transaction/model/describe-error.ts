@@ -23,6 +23,15 @@ export interface DescribedError {
   description: string;
   /** Whether the user cancelled, so we can report it neutrally. */
   cancelled?: boolean;
+  /**
+   * The tx already reached the chain (or is committed on the chain-side)
+   * and the local failure is only about *post-tx* bookkeeping — most
+   * commonly a swapClaim that couldn't find the SwapRecord because the
+   * view service hasn't indexed the swap yet. Set so callers know NOT
+   * to invite the user to retry: hitting submit again would broadcast a
+   * second swap. The recovery is automatic — the wallet claims later.
+   */
+  txAlreadyOnChain?: boolean;
 }
 
 interface Rule {
@@ -31,6 +40,7 @@ interface Rule {
   title: string;
   description: string;
   cancelled?: boolean;
+  txAlreadyOnChain?: boolean;
 }
 
 const RULES: Rule[] = [
@@ -131,6 +141,19 @@ const RULES: Rule[] = [
     description: 'Enter an amount before submitting.',
   },
   {
+    // The swap already broadcast and is on chain; the swapClaim planner
+    // ran before the local view service indexed the SwapRecord, so it
+    // threw "Swap record not found". Without this rule the fallback
+    // told the user "your inputs have been kept, so you can adjust and
+    // retry" — a retry would broadcast a SECOND swap. `txAlreadyOnChain`
+    // signals to the caller not to reset the form for re-submit.
+    match: /swap record not found/i,
+    title: 'Swap confirmed — claim pending',
+    description:
+      'Your swap landed on-chain. Your wallet will finish the claim in the background — no action needed. Do NOT resubmit; that would broadcast a second swap.',
+    txAlreadyOnChain: true,
+  },
+  {
     match: /error filling route/i,
     title: 'Not enough liquidity',
     description:
@@ -165,7 +188,12 @@ export const describeTxError = (e: unknown): DescribedError => {
   const rule = RULES.find(r => r.match.test(text));
 
   if (rule) {
-    return { title: rule.title, description: rule.description, cancelled: rule.cancelled };
+    return {
+      title: rule.title,
+      description: rule.description,
+      cancelled: rule.cancelled,
+      txAlreadyOnChain: rule.txAlreadyOnChain,
+    };
   }
 
   // Unmapped: still better than a bare protobuf dump. Say plainly that
