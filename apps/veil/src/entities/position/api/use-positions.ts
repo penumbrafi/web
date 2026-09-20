@@ -12,6 +12,8 @@ import { AddressIndex } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys
 import { bech32mPositionId } from '@penumbra-zone/bech32m/plpid';
 import { queryClient } from '@/shared/const/queryClient';
 import { limitAsync } from '@/shared/utils/limit-async';
+import { useRefetchOnNewBlock } from '@/shared/api/compact-block';
+import { useOnPindexerTick } from '@/shared/api/pindexer-stream';
 
 const BASE_LIMIT = 20;
 const BASE_PAGE = 0;
@@ -72,7 +74,7 @@ const fetchQuery = async (
  * Must be used within the `observer` mobX HOC
  */
 export const usePositions = (subaccount = 0, stateFilter?: PositionState_PositionStateEnum[]) => {
-  return useInfiniteQuery<Map<string, Position>>({
+  const query = useInfiniteQuery<Map<string, Position>>({
     queryKey: ['positions', subaccount, stateFilter],
     initialPageParam: BASE_PAGE,
     getNextPageParam: (lastPage, _, lastPageParam) => {
@@ -81,8 +83,28 @@ export const usePositions = (subaccount = 0, stateFilter?: PositionState_Positio
     queryFn: ({ pageParam }) => fetchQuery(subaccount, pageParam as number, stateFilter),
     enabled: connectionStore.connected,
   });
+
+  // Third-party fills and auto-close (closeOnFill) mutate our positions
+  // without our own action. Without a block-tick refresh My Positions,
+  // the chart's position lines, and the drag overlay stay on the state
+  // that existed when the user last acted. Refresh on each new block AND
+  // on pindexer dex_ex commit so the view catches both the on-chain state
+  // (via view service) and dex_ex-observable close/fill events.
+  useRefetchOnNewBlock(
+    ['positions', subaccount, stateFilter],
+    query,
+    !connectionStore.connected,
+  );
+  useOnPindexerTick(['dex_ex'], ['positions', subaccount, stateFilter]);
+
+  return query;
 };
 
 export const updatePositionsQuery = async () => {
-  await queryClient.refetchQueries({ queryKey: ['positions'] });
+  // Invalidate, not refetch. `refetchQueries` forcibly re-runs every query
+  // whose key starts with 'positions' — including inactive portfolio
+  // summaries the user cannot see — which fires view-service RPCs the
+  // page doesn't need. `invalidateQueries` marks them stale and the
+  // active ones refetch themselves; the inactive ones refetch next mount.
+  await queryClient.invalidateQueries({ queryKey: ['positions'] });
 };

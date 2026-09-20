@@ -11,41 +11,64 @@ import { Client } from 'pg';
 type Subscriber = (payload: string) => void;
 
 let listenClient: Client | null = null;
+// In-flight connect promise. Without this, concurrent first requests each
+// build their own `new Client()` + LISTEN — the first to finish becomes
+// `listenClient`, the others are orphaned but their `on('notification')`
+// handlers keep firing, so every NOTIFY reaches subscribers N times
+// (duplicate ticks per pindexer commit). Cache the promise so parallel
+// callers share one connect.
+let connectPromise: Promise<Client> | null = null;
 let subs = new Set<Subscriber>();
 
 async function ensureListener(): Promise<void> {
   if (listenClient) return;
+  if (connectPromise) {
+    await connectPromise;
+    return;
+  }
   const connectionString = process.env['PENUMBRA_INDEXER_ENDPOINT'];
   if (!connectionString) {
     throw new Error('PENUMBRA_INDEXER_ENDPOINT not set');
   }
-  const client = new Client({ connectionString });
-  await client.connect();
+  connectPromise = (async () => {
+    const client = new Client({ connectionString });
+    await client.connect();
 
-  client.on('notification', msg => {
-    if (msg.channel !== 'pindexer_tick') return;
-    const payload = msg.payload ?? '';
-    for (const fn of subs) {
-      try {
-        fn(payload);
-      } catch {
-        // A single misbehaving subscriber must not take down the fan-out.
+    client.on('notification', msg => {
+      if (msg.channel !== 'pindexer_tick') return;
+      const payload = msg.payload ?? '';
+      for (const fn of subs) {
+        try {
+          fn(payload);
+        } catch {
+          // A single misbehaving subscriber must not take down the fan-out.
+        }
       }
-    }
-  });
+    });
 
-  client.on('error', err => {
-    // Node's pg Client won't auto-reconnect; if the socket dies we drop
-    // the singleton so the next request rebuilds it. Better than a
-    // silently-dead listener that has no upstream.
-    // eslint-disable-next-line no-console
-    console.error('[pindexer-stream] listener error, resetting', err);
-    void client.end().catch(() => {});
-    listenClient = null;
-  });
+    client.on('error', err => {
+      // Node's pg Client won't auto-reconnect; if the socket dies we drop
+      // the singleton so the next request rebuilds it. Better than a
+      // silently-dead listener that has no upstream.
+      // eslint-disable-next-line no-console
+      console.error('[pindexer-stream] listener error, resetting', err);
+      void client.end().catch(() => {});
+      listenClient = null;
+      connectPromise = null;
+    });
 
-  await client.query('LISTEN pindexer_tick');
-  listenClient = client;
+    await client.query('LISTEN pindexer_tick');
+    listenClient = client;
+    return client;
+  })();
+  try {
+    await connectPromise;
+  } catch (err) {
+    // Reset so the next request retries instead of pinning a rejected
+    // promise. The GET handler will fall through to emptyStream().
+    connectPromise = null;
+    throw err;
+  }
 }
 
 // Empty, immediately-closed SSE stream. Served when the upstream LISTEN

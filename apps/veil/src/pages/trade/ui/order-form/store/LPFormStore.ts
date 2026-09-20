@@ -285,10 +285,24 @@ export class LPFormStore {
     if (mid === null || this.lowerPriceInput === null || this.upperPriceInput === null) {
       return undefined;
     }
+    // One-sided funding on the wrong side of the range.
     if (this.lowerPriceInput >= mid && this.quoteLiquidity > 0 && this.baseLiquidity === 0) {
       return 'quote';
     }
     if (this.upperPriceInput <= mid && this.baseLiquidity > 0 && this.quoteLiquidity === 0) {
+      return 'base';
+    }
+    // Two-sided funding but the range sits wholly on one side of mid: the
+    // two-sided ladder path in `simpleLiquidityPositions` would silently
+    // drop the side whose rung count computes to 0. Report the *dropped*
+    // side so the user sees what would be ignored instead of finding out
+    // via a missing balance.
+    if (this.lowerPriceInput >= mid && this.baseLiquidity > 0 && this.quoteLiquidity > 0) {
+      // Range above mid → only base (ask) rungs would be built; quote is dropped.
+      return 'quote';
+    }
+    if (this.upperPriceInput <= mid && this.baseLiquidity > 0 && this.quoteLiquidity > 0) {
+      // Range below mid → only quote (bid) rungs would be built; base is dropped.
       return 'base';
     }
     return undefined;

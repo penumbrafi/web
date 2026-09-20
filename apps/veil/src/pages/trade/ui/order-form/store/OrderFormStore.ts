@@ -290,12 +290,20 @@ export class OrderFormStore {
       this._range.marketPrice = price;
       this._limit.marketPrice = price;
       this._lp.marketPrice = price;
+      return;
     }
 
-    // explicitly set to null to reset the lp price sliders
-    if (price === undefined) {
-      this._lp.marketPrice = null;
-    }
+    // Undefined means "no live mid" — on a pair switch, an empty book, or
+    // book fetch failure. Only `_lp` was being nulled; `_range` and
+    // `_limit` kept the previous pair's mid (defaulted to 1.0 at
+    // construction, then whatever the last live pair reported), so
+    // RangeLP's bid/ask split (`position.ts:307`) and Limit's "Market"
+    // multiplier both used the stale mid until the new pair's price
+    // resolved. Zero here means "no anchor"; downstream code already
+    // treats falsy marketPrice as "guard/return" in the affected paths.
+    this._lp.marketPrice = null;
+    this._range.marketPrice = 0;
+    this._limit.marketPrice = 0;
   }
 
   get marketPrice(): number | undefined {
