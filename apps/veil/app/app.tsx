@@ -5,7 +5,7 @@ import { enableStaticRendering, observer } from 'mobx-react-lite';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '@penumbra-zone/ui/Toast';
 import { TooltipProvider } from '@penumbra-zone/ui/Tooltip';
-import { Header, SyncBar } from '@/widgets/header';
+import { Header, SyncBar, WalletLockedBanner } from '@/widgets/header';
 import { Footer } from '@/widgets/footer';
 import { queryClient } from '@/shared/const/queryClient';
 import { connectionStore } from '@/shared/model/connection';
@@ -39,6 +39,7 @@ export const App = observer(({ clientEnv, children }: React.PropsWithChildren<Ap
               <main className='relative z-0 flex-1'>
                 <SyncBar />
                 <Header />
+                <WalletLockedBanner />
                 {children}
               </main>
               <Footer />

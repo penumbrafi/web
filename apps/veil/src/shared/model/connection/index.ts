@@ -17,6 +17,16 @@ class ConnectionStateStore {
   connectedLoading = true;
   clientEnv: ClientEnv | undefined;
   manifest: PenumbraManifest | undefined;
+  /**
+   * True when the wallet extension is present + our origin is granted but
+   * the extension itself is locked (no password entered since it started).
+   * ViewService calls throw `[unauthenticated]` in this state and the
+   * frontend would otherwise spin forever on `statusStore.setup` waiting
+   * for a status that will never come. Consumers use this to show a
+   * "click the extension icon and unlock" banner instead of a loading
+   * bar. Auto-clears once a call succeeds again (`markWalletUnlocked`).
+   */
+  walletLocked = false;
 
   /** Index of the selected subaccount */
   subaccount = 0;
@@ -31,6 +41,14 @@ class ConnectionStateStore {
 
   private setConnected(connected: boolean) {
     this.connected = connected;
+  }
+
+  markWalletLocked() {
+    if (!this.walletLocked) this.walletLocked = true;
+  }
+
+  markWalletUnlocked() {
+    if (this.walletLocked) this.walletLocked = false;
   }
 
   setSubaccount = (subaccount: string) => {
