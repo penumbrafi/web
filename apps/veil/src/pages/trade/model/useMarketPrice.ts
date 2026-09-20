@@ -43,11 +43,28 @@ export const useMarketPrice = (
   // Calculate spread which includes the midprice
   const spreadInfo = calculateSpread(sellOrders, buyOrders);
 
-  // Return the midprice from spread calculation
-  const marketPrice = spreadInfo ? parseFloat(spreadInfo.midPrice) : undefined;
+  // One-sided book fallback. calculateSpread bails when either side is
+  // empty, but the chart / summary / order form need a mid to have a
+  // coordinate system to anchor to — otherwise the whole price axis is
+  // undefined and the chart renders blank on any pair with only bids or
+  // only asks. Use the touch price of the populated side as the mid so
+  // the chart, LP-preview overlay and marketPrice-dependent UI all have
+  // a real number to work with. Spread is not defined in that case.
+  const lowestAsk = sellOrders.length
+    ? parseFloat(sellOrders[sellOrders.length - 1]!.price)
+    : undefined;
+  const highestBid = buyOrders.length ? parseFloat(buyOrders[0]!.price) : undefined;
+
+  const marketPrice = spreadInfo
+    ? parseFloat(spreadInfo.midPrice)
+    : lowestAsk !== undefined && Number.isFinite(lowestAsk) && lowestAsk > 0
+      ? lowestAsk
+      : highestBid !== undefined && Number.isFinite(highestBid) && highestBid > 0
+        ? highestBid
+        : undefined;
   const spreadPercentage = spreadInfo ? parseFloat(spreadInfo.percentage) : undefined;
-  const bestBid = spreadInfo ? parseFloat(spreadInfo.bestBid) : undefined;
-  const bestAsk = spreadInfo ? parseFloat(spreadInfo.bestAsk) : undefined;
+  const bestBid = spreadInfo ? parseFloat(spreadInfo.bestBid) : highestBid;
+  const bestAsk = spreadInfo ? parseFloat(spreadInfo.bestAsk) : lowestAsk;
 
   return {
     marketPrice,
