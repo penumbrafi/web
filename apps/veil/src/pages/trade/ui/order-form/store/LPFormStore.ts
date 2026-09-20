@@ -276,7 +276,7 @@ export class LPFormStore {
       !this._quoteAsset ||
       this.upperPrice === null ||
       this.lowerPrice === null ||
-      this.marketPrice === null
+      this.effectiveMarketPrice === null
     ) {
       return undefined;
     }
@@ -299,8 +299,13 @@ export class LPFormStore {
       quoteLiquidity: this.quoteLiquidity,
       upperPrice: this.upperPrice,
       lowerPrice: this.lowerPrice,
-      marketPrice: this.marketPrice,
-      feeBps: this.feeTierPercent * 100,
+      marketPrice: this.effectiveMarketPrice,
+      // feeBps is a uint32 on-chain and downstream conversion via
+      // simpleLiquidityPositions -> Position.phi.fee bails on a
+      // non-integer with "invalid uint 32: 57.99999999999999" when
+      // the fee slider's logarithmic interpolation produces a value
+      // like 0.5799999999999999. Round to the nearest bp.
+      feeBps: Math.round(this.feeTierPercent * 100),
       positions: this.positions,
       distributionShape: this.liquidityShape,
       customWeights: this.customWeights ?? undefined,
