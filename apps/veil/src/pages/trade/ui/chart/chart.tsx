@@ -518,21 +518,39 @@ export const Chart = observer(() => {
   // and slower). Once history arrives, latestCandles switches to incremental
   // series.update() so each block tick stops wiping pagination.
   const fullySeededRef = useRef(false);
+  // Distinguishes "seeded with a one-candle placeholder because history is
+  // empty" from "seeded with real history". The sentinel's time is `now`,
+  // not bucket-aligned, so when a real latest-candle tick arrives its time
+  // is less-than-or-equal to the sentinel's and the incremental update
+  // path throws it away — chart stays on the sentinel until reload. Track
+  // whether the sentinel is currently on-screen so the latest-candles
+  // effect can full-replace (not incrementally update) when real data
+  // finally lands.
+  const sentinelActiveRef = useRef(false);
 
-  // Reset on duration change — the chart container unmounts/remounts via the
-  // isLoading gate, so the ref must reset alongside that lifecycle.
+  // Reset on duration OR pair change — the chart container's isLoading gate
+  // does NOT unmount on pair switch (keepPreviousData keeps `isLoading`
+  // false), so without pairKey in deps the ref stays true, the history
+  // effect no-ops, and the sentinel is skipped: the OLD pair's candles
+  // stayed on screen when moving to an empty-history pair.
   useEffect(() => {
     fullySeededRef.current = false;
-  }, [duration]);
+    sentinelActiveRef.current = false;
+  }, [duration, pairKey]);
 
   useEffect(() => {
     if (!latestCandles?.length) {
       return;
     }
-    if (!fullySeededRef.current) {
-      // First paint: history hasn't arrived yet, seed with the latest few.
+    if (!fullySeededRef.current || sentinelActiveRef.current) {
+      // First paint OR still showing the sentinel candle. The sentinel's
+      // `time` is `now` (not bucket-aligned), so incremental
+      // `series.update()` would refuse the real ticks with `t < lastTime`.
+      // Full-replace here and clear the sentinel flag.
       setCandlesData(latestCandles);
       setVolumeData(latestCandles);
+      sentinelActiveRef.current = false;
+      fullySeededRef.current = true;
       return;
     }
     // History is already on screen. Push only the rightmost ticks so the
@@ -559,10 +577,25 @@ export const Chart = observer(() => {
       return;
     }
 
-    // pages need to be reversed, so that data is always in ASC order
-    const candles = historyCandles!.pages.toReversed().flat();
+    // pages need to be reversed, so that data is always in ASC order.
+    // Dedupe by time + resort as a safety belt: forward and reverse
+    // candle directions are paginated with independent offsets on the
+    // server, so a sparser direction can land later rows before the
+    // denser direction's earlier ones and page-2 rows can interleave
+    // page-1 times — lightweight-charts throws "data must be asc
+    // ordered by time" and the chart dies on scroll-back. Keep the
+    // latest occurrence per bucket (later pages are canonical).
+    const flat = historyCandles!.pages.toReversed().flat();
+    const byTime = new Map<number, (typeof flat)[number]>();
+    for (const c of flat) {
+      byTime.set(c.ohlc.time as unknown as number, c);
+    }
+    const candles = [...byTime.values()].sort(
+      (a, b) => (a.ohlc.time as unknown as number) - (b.ohlc.time as unknown as number),
+    );
     setCandlesData(candles);
     setVolumeData(candles);
+    sentinelActiveRef.current = false;
     fullySeededRef.current = true;
   }, [hasRealCandles, historyCandles, setCandlesData, setVolumeData]);
 
@@ -597,10 +630,12 @@ export const Chart = observer(() => {
     setCandlesData(seed);
     setVolumeData(seed);
     // Prevent repeated seeds if the query keeps refetching an empty
-    // history. When real data eventually arrives, the effect above
-    // clears fullySeededRef indirectly by paginated-history taking
-    // over on the same series (setCandlesData replaces the seed).
+    // history. `sentinelActiveRef` lets the latest-candles / history
+    // effects know the current data is a placeholder, so a real
+    // latest-candle tick full-replaces rather than incrementally
+    // updating (the sentinel's `time` is `now`, not bucket-aligned).
     fullySeededRef.current = true;
+    sentinelActiveRef.current = true;
   }, [isLoading, hasRealCandles, anchor, setCandlesData, setVolumeData]);
 
   // Stable across renders. Chart re-renders every block-tick via
