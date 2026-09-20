@@ -192,7 +192,16 @@ export class RangeOrderFormStore {
   };
 
   get positionCount(): undefined | number {
-    return parseNumber(this._positionCountInput);
+    // OrderInput is `type=number`, so parseNumber can return a float
+    // (`2.5` → 2 rungs at 80% of target), a negative
+    // (`Array.from({length:-1})` throws a RangeError inside `position.ts`),
+    // or an absurd value that freezes the tab (`100000`). Clamp before
+    // handing it downstream.
+    const parsed = parseNumber(this._positionCountInput);
+    if (parsed === undefined || !Number.isFinite(parsed)) {
+      return undefined;
+    }
+    return Math.max(MIN_POSITION_COUNT, Math.min(MAX_POSITION_COUNT, Math.floor(parsed)));
   }
 
   get plan(): PositionedLiquidity[] | undefined {
@@ -213,7 +222,10 @@ export class RangeOrderFormStore {
       upperPrice: this.upperPrice,
       lowerPrice: this.lowerPrice,
       marketPrice: this.marketPrice,
-      feeBps: this.feeTierPercent * 100,
+      // feeBps is a uint32 on-chain; unrounded `feeTierPercent * 100`
+      // produces `28.999...` for `0.29` and `Position.phi.fee` rejects
+      // with "invalid uint 32". Same fix as LPFormStore. Round to nearest bp.
+      feeBps: Math.round(this.feeTierPercent * 100),
       positions: this.positionCount,
       distributionShape: this._liquidityShape,
     });

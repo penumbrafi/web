@@ -58,7 +58,20 @@ export type WhichForm = 'Market' | 'Limit' | 'RangeLP' | 'LP';
  * variant currently mounted in the trade page.
  */
 const invalidateMarketDataQueries = () => {
-  const keys = ['book', 'recent-executions', 'latest-swaps', 'latest-candles', 'infinite-candles'];
+  // Every trade-page query that reflects post-tx state. `my-trades` and
+  // `my-executions` are the "my activity" panels (`latest-swaps` looked
+  // plausible but matches no key anywhere). `view-service-balances` is
+  // what the order form validates against — without it the balance stays
+  // pre-tx until the next unrelated refresh.
+  const keys = [
+    'book',
+    'recent-executions',
+    'my-trades',
+    'my-executions',
+    'latest-candles',
+    'infinite-candles',
+    'view-service-balances',
+  ];
   queryClient.invalidateQueries({
     predicate: q => typeof q.queryKey[0] === 'string' && keys.includes(q.queryKey[0]),
   });

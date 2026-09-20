@@ -57,7 +57,17 @@ export const useBook = (
     },
   });
 
-  useRefetchOnNewBlock('routeBook', query);
+  // Dedup id must vary with the query key. `'routeBook'` alone was shared
+  // by every mounted `useBook` (traceLimit undefined for useMarketPrice /
+  // depth-overlay, 100 for the ladder), so `lastRefetchedBlockHeights`
+  // recorded the first instance's tick and every other instance skipped
+  // — one variant froze until the user's own swap invalidated `book`.
+  // Include `traceLimit` so each variant refreshes on its own block tick.
+  useRefetchOnNewBlock(
+    ['routeBook', baseSymbol, quoteSymbol, traceLimit],
+    query,
+    !bothSymbolsPresent,
+  );
 
   return query;
 };

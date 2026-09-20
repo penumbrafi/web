@@ -34,7 +34,13 @@ export const useLatestCandles = (durationWindow: DurationWindow, linearTime = tr
     },
   });
 
-  useRefetchOnNewBlock('candles', query);
+  // Dedup id must vary per (pair, timeframe) so mounted instances for
+  // different durations don't starve each other — same class of bug as
+  // useBook's shared `'routeBook'` id.
+  useRefetchOnNewBlock(
+    ['candles', baseSymbol, quoteSymbol, durationWindow, linearTime],
+    query,
+  );
   // Push path: pindexer's dex_ex commit is the moment new candle
   // volume/high/low rows land — invalidate then, not later.
   useOnPindexerTick(['dex_ex'], [

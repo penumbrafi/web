@@ -90,8 +90,14 @@ const priceToPQ = (
     p = p.shiftedBy(-1);
     q = q.shiftedBy(-1);
   }
+  // Guard each coefficient against zero — the chain rejects a position
+  // whose trading function has p=0 or q=0 ("trading function coefficients
+  // must be nonzero"). Original code tested `p.isEqualTo(0)` twice, so `q`
+  // was never actually bumped; when the shift loop drives `q` to 0 (18-exp
+  // quote vs 6-exp base, price very close to a power of 10) the position
+  // shipped with q=0 and pd rejected the tx.
   p = p.plus(Number(p.isEqualTo(0)));
-  q = q.plus(Number(p.isEqualTo(0)));
+  q = q.plus(Number(q.isEqualTo(0)));
   return { p: pnum(BigInt(p.toFixed(0))).toAmount(), q: pnum(BigInt(q.toFixed(0))).toAmount() };
 };
 
@@ -101,6 +107,20 @@ const priceToPQ = (
  * Try using `rangeLiquidityPositions` or `limitOrderPosition` instead, with this method existing
  * as an escape hatch in case any of those use cases aren't sufficient.
  */
+// Convert a display-unit amount to a base-unit `Amount`, always rounding
+// TOWARDS ZERO. pnum's default rounding is half-up, so a ladder of N rungs
+// derived from `total / N` can sum to typed-total + ⌈N/2⌉ base units and the
+// user is told "insufficient funds" for a balance the form itself validated
+// as sufficient. Cosmos denom convention: never take more of the user's
+// asset than what they typed — round down at the base-denom boundary.
+const toBaseFloor = (display: number, exponent: number): Amount => {
+  if (!Number.isFinite(display) || display <= 0) {
+    return pnum(0n).toAmount();
+  }
+  const shifted = new BigNumber(display).shiftedBy(exponent);
+  return pnum(BigInt(shifted.toFixed(0, BigNumber.ROUND_DOWN))).toAmount();
+};
+
 export const planToPosition = (
   plan: PositionPlan,
   shape: LiquidityDistributionShape,
@@ -112,8 +132,8 @@ export const planToPosition = (
   );
   const rawA1 = plan.baseAsset;
   const rawA2 = plan.quoteAsset;
-  const rawR1 = pnum(plan.baseReserves, plan.baseAsset.exponent).toAmount();
-  const rawR2 = pnum(plan.quoteReserves, plan.quoteAsset.exponent).toAmount();
+  const rawR1 = toBaseFloor(plan.baseReserves, plan.baseAsset.exponent);
+  const rawR2 = toBaseFloor(plan.quoteReserves, plan.quoteAsset.exponent);
 
   const correctOrder = compareAssetId(plan.baseAsset.id, plan.quoteAsset.id) <= 0;
   const [[p, q], [r1, r2], [a1, a2]] = correctOrder
