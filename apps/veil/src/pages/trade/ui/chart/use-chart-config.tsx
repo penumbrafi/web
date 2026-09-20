@@ -627,22 +627,38 @@ export const useChartConfig = (
    * per pair.
    */
   const CENTER_MULTIPLIER = 1.15;
-  const centerPriceScaleOn = useCallback((mid: number) => {
+  const centerPriceScaleOn = useCallback((mid: number, extras?: readonly number[]) => {
     const series = seriesRef.current;
     if (!series) return;
     if (!Number.isFinite(mid) || mid <= 0) return;
-    const anchorMin = mid / CENTER_MULTIPLIER;
-    const anchorMax = mid * CENTER_MULTIPLIER;
+    // Base window: ±15% around mid so an empty (or trade-thin) chart still
+    // has a sensible Y range to hydrate against.
+    let anchorMin = mid / CENTER_MULTIPLIER;
+    let anchorMax = mid * CENTER_MULTIPLIER;
+    // `extras` are extra prices the camera must keep in view — most
+    // usefully the LP form's lower/upper bounds. As the user drags the
+    // range on the chart, these change and the anchor re-fits so the
+    // range never scrolls off-screen. A small headroom above/below the
+    // widened range keeps the price handles from sitting flush against
+    // the edge.
+    if (extras && extras.length > 0) {
+      const EDGE_PAD = 1.02;
+      for (const v of extras) {
+        if (!Number.isFinite(v) || v <= 0) continue;
+        if (v < anchorMin) anchorMin = v / EDGE_PAD;
+        if (v > anchorMax) anchorMax = v * EDGE_PAD;
+      }
+    }
     try {
-      // Union the fixed anchor window with the data's own autoscale range
-      // instead of pinning to a hard ±15%. The old provider ignored
+      // Union the anchor window with the data's own autoscale range
+      // instead of pinning to a hard strip. The old provider ignored
       // `original()` and clipped 1w / 1mo history to a strip around the
       // anchor; on a pair switch to a pair whose anchor is null it left
       // the previous pair's window applied and the new candles rendered
       // off-screen; "Reset chart view" re-enabled autoscale onto the
       // still-pinned strip. Take the min of mins and max of maxes so the
-      // anchor is always visible AND every candle in view is honestly
-      // scaled.
+      // anchor + range are always visible AND every candle in view is
+      // honestly scaled.
       series.applyOptions({
         autoscaleInfoProvider: original => {
           const src = original();
