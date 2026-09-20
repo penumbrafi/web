@@ -284,20 +284,29 @@ export const RouteBook = observer(() => {
   // so the fill walks real per-position inventory, not summarized totals.
   // Then bin the fills onto whatever level (raw or bucketed) is being
   // rendered so the highlight lands on the visible row.
+  //
+  // mobx tracking note: reads MUST happen in the render body — an observed
+  // read inside a `useMemo` callback that skips because its deps are equal
+  // never registers with mobx, so the store observer drops the dep and the
+  // fill highlight only updates when `multiHops` changes (once per block).
+  // Pull the values out here so mobx sees them on every render, then feed
+  // them to the memo as explicit deps.
+  const whichForm = tradeFormStore.whichForm;
+  const marketDirection = tradeFormStore.marketForm.direction;
+  const marketBaseInput = tradeFormStore.marketForm.baseInputAmount;
+  const limitPriceInput = tradeFormStore.limitForm.priceInput;
   const marketSim = useMemo(() => {
     if (
-      tradeFormStore.whichForm !== 'Market' ||
+      whichForm !== 'Market' ||
       !multiHops ||
       !multiHops.buy.length ||
       !multiHops.sell.length
     ) {
       return undefined;
     }
-    const market = tradeFormStore.marketForm;
-    const base = market.baseInputAmount;
-    if (!base || base <= 0) return undefined;
-    return simulateMarketBase(market.direction, base, multiHops.buy, multiHops.sell);
-  }, [multiHops]); // observer + market inputs pull re-render via mobx
+    if (!marketBaseInput || marketBaseInput <= 0) return undefined;
+    return simulateMarketBase(marketDirection, marketBaseInput, multiHops.buy, multiHops.sell);
+  }, [multiHops, whichForm, marketDirection, marketBaseInput]);
 
   // Project the fill fractions from raw prices onto the currently rendered
   // (possibly bucketed) rows. When bucketing is on, a bucket row is
@@ -323,17 +332,18 @@ export const RouteBook = observer(() => {
   }, [marketSim, multiHops, bucketSize]);
 
   // Limit form: highlight the row (bucket) the resting price sits in.
+  // Same mobx-in-useMemo hazard as `marketSim` — reads happen in the render
+  // body above so the observer registers them every render.
   const limitFillPrice = useMemo<string | undefined>(() => {
-    if (tradeFormStore.whichForm !== 'Limit') return undefined;
-    const raw = tradeFormStore.limitForm.priceInput;
-    const p = raw ? Number(raw) : NaN;
+    if (whichForm !== 'Limit') return undefined;
+    const p = limitPriceInput ? Number(limitPriceInput) : NaN;
     if (!Number.isFinite(p) || p <= 0) return undefined;
     if (bucketSize > 0) {
       const key = Math.round(p / bucketSize) * bucketSize;
       return String(key);
     }
     return String(p);
-  }, [bucketSize]);
+  }, [bucketSize, whichForm, limitPriceInput]);
 
   // Stable click handlers — without useCallback these would be fresh
   // function references on every render, busting any future memo() on

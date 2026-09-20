@@ -119,24 +119,15 @@ export const processSimulation = ({
     ? sortedTraces.slice(0, limit)
     : sortedTraces.slice(-limit).reverse();
 
-  let cumulativeTotal = new BigNumber(0);
-  // We want to return a collection of ordered traces, along with the cumulative amount of
-  // inventory available at each price point (from the tip).
-  return quote_to_base
-    ? traces
-        .map(trace => {
-          cumulativeTotal = cumulativeTotal.plus(trace.amount);
-          return {
-            ...trace,
-            total: removeTrailingZeros(cumulativeTotal.toString()),
-          };
-        })
-        .reverse()
-    : traces.map(trace => {
-        cumulativeTotal = cumulativeTotal.plus(trace.amount);
-        return {
-          ...trace,
-          total: removeTrailingZeros(cumulativeTotal.toString()),
-        };
-      });
+  // `total` is emitted PER-LEVEL (equal to amount) so the client owns the
+  // cumulative-vs-per-level toggle. Historically this cumulated on the
+  // server AND the client re-cumulated it in `accumulate()` and
+  // `bucketTraces()`, producing quadratic totals in the Σ column and an
+  // over-weighted depth staircase. Per-level here + accumulate() there is
+  // the single source of truth for cumulative.
+  const withTotal = traces.map(trace => ({
+    ...trace,
+    total: removeTrailingZeros(trace.amount),
+  }));
+  return quote_to_base ? withTotal.reverse() : withTotal;
 };
