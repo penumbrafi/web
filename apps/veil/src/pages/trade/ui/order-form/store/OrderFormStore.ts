@@ -57,7 +57,7 @@ export type WhichForm = 'Market' | 'Limit' | 'RangeLP' | 'LP';
  * Predicate-based so it hits every base/quote/traceLimit/durationWindow
  * variant currently mounted in the trade page.
  */
-const invalidateMarketDataQueries = () => {
+const invalidateMarketDataQueries = (pair?: { base?: string; quote?: string }) => {
   // Every trade-page query that reflects post-tx state. `my-trades` and
   // `my-executions` are the "my activity" panels (`latest-swaps` looked
   // plausible but matches no key anywhere). `view-service-balances` is
@@ -72,6 +72,31 @@ const invalidateMarketDataQueries = () => {
     'infinite-candles',
     'view-service-balances',
   ];
+
+  // Server has a 6s stale-while-revalidate cache on /api/book. A plain
+  // React Query invalidate → refetch will still hit that cache and read
+  // the pre-swap snapshot back, so the LP-panel mid and the ladder show
+  // the OLD price for up to 6s after the user's own swap. Prime the
+  // server cache with a `nocache=1` fetch first for the pair the user
+  // just traded on; when React Query refetches, it hits fresh data.
+  // Both known limits (default for useMarketPrice / depth-overlay, 100
+  // for the ladder) are primed. Fire-and-forget — the effect is a cache
+  // write; failures don't matter, the next block-tick refetch would
+  // catch us up anyway.
+  if (pair?.base && pair.quote) {
+    const q = new URLSearchParams({
+      baseAsset: pair.base,
+      quoteAsset: pair.quote,
+      nocache: '1',
+    });
+    for (const limit of [30, 100]) {
+      const params = new URLSearchParams(q);
+      params.set('traceLimit', String(limit));
+      // Same-origin fetch, no auth needed. Purely fire-and-forget.
+      void fetch(`/api/book?${params.toString()}`).catch(() => undefined);
+    }
+  }
+
   queryClient.invalidateQueries({
     predicate: q => typeof q.queryKey[0] === 'string' && keys.includes(q.queryKey[0]),
   });
@@ -578,10 +603,28 @@ export class OrderFormStore {
     runInAction(() => {
       this._submitting = true;
     });
+    // Pick the pair off whichever form was just submitted so the server's
+    // /api/book cache gets primed with fresh data before the client
+    // invalidations refetch — otherwise the 6s SWR cache reads back the
+    // pre-swap snapshot and the LP-panel mid/route-book stays stuck on
+    // the old price for up to a full TTL.
+    const activeForm =
+      this._whichForm === 'Market'
+        ? this._market
+        : this._whichForm === 'Limit'
+          ? this._limit
+          : this._whichForm === 'RangeLP'
+            ? this._range
+            : this._lp;
+    const pair = {
+      base: activeForm.baseAsset?.symbol,
+      quote: activeForm.quoteAsset?.symbol,
+    };
+
     try {
       const tx = await planBuildBroadcast(wasSwap ? 'swap' : 'positionOpen', plan);
       await updatePositionsQuery();
-      invalidateMarketDataQueries();
+      invalidateMarketDataQueries(pair);
 
       if (!wasSwap || !tx) {
         return;
@@ -593,7 +636,7 @@ export class OrderFormStore {
       });
       await planBuildBroadcast('swapClaim', req, { skipAuth: true });
       await updatePositionsQuery();
-      invalidateMarketDataQueries();
+      invalidateMarketDataQueries(pair);
     } catch (e) {
       // `planBuildBroadcast` already reports every planner/build/broadcast
       // failure through `describeTxError`, so anything landing here is from

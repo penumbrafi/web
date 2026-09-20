@@ -111,7 +111,13 @@ export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiRe
 
   const cacheKey = `${baseAssetSymbol.toLowerCase()}|${quoteAssetSymbol.toLowerCase()}|${limit}`;
   const now = Date.now();
-  const cached = cache.get(cacheKey);
+  // `nocache=1` bypasses the server-side SWR read (still writes fresh
+  // data back to the cache). The client sends this right after a user's
+  // own swap so the LP-panel mid / route-book reflect the just-landed
+  // trade rather than the pre-swap snapshot the 6s TTL was still
+  // serving. All non-owner traffic keeps the normal cached path.
+  const bypassRead = searchParams.get('nocache') === '1';
+  const cached = bypassRead ? undefined : cache.get(cacheKey);
 
   const startBackgroundRefresh = () => {
     if (inflight.has(cacheKey)) return;
