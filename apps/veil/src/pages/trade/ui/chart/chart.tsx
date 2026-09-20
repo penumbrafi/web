@@ -6,6 +6,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -397,6 +398,36 @@ export const Chart = observer(() => {
       : lpEffective != null && Number.isFinite(lpEffective) && lpEffective > 0
         ? lpEffective
         : null;
+
+  // Range bounds the camera should also keep in view — pulled per-render
+  // so mobx re-triggers this effect whenever the user drags a handle.
+  // Only fed to the anchor when the user is in an LP-shaped form, so
+  // Market / Limit views keep the plain mid-centered auto-fit.
+  const whichForm = tradeFormStore.whichForm;
+  const lpLower = tradeFormStore.lpForm.lowerPrice;
+  const lpUpper = tradeFormStore.lpForm.upperPrice;
+  const rangeLower = tradeFormStore.rangeForm?.lowerPrice;
+  const rangeUpper = tradeFormStore.rangeForm?.upperPrice;
+  const cameraExtras = useMemo<number[]>(() => {
+    const bounds: number[] = [];
+    if (whichForm === 'LP') {
+      if (typeof lpLower === 'number' && Number.isFinite(lpLower) && lpLower > 0) {
+        bounds.push(lpLower);
+      }
+      if (typeof lpUpper === 'number' && Number.isFinite(lpUpper) && lpUpper > 0) {
+        bounds.push(lpUpper);
+      }
+    } else if (whichForm === 'RangeLP') {
+      if (typeof rangeLower === 'number' && Number.isFinite(rangeLower) && rangeLower > 0) {
+        bounds.push(rangeLower);
+      }
+      if (typeof rangeUpper === 'number' && Number.isFinite(rangeUpper) && rangeUpper > 0) {
+        bounds.push(rangeUpper);
+      }
+    }
+    return bounds;
+  }, [whichForm, lpLower, lpUpper, rangeLower, rangeUpper]);
+
   // Drop the pinned autoscale window whenever we move to a new pair —
   // without this the previous pair's anchor strip stayed applied and the
   // new pair's candles were clipped or scrolled off-screen if its anchor
@@ -411,8 +442,12 @@ export const Chart = observer(() => {
   useEffect(() => {
     if (!chartReady) return;
     if (anchor == null) return;
-    centerPriceScaleOn(anchor);
-  }, [chartReady, pairKey, anchor, centerPriceScaleOn]);
+    // Re-fits whenever the user drags an LP handle (cameraExtras change)
+    // or the mid moves. lightweight-charts recomputes the Y axis on the
+    // next frame, so the camera glides toward the range instead of the
+    // range scrolling off the pane.
+    centerPriceScaleOn(anchor, cameraExtras);
+  }, [chartReady, pairKey, anchor, cameraExtras, centerPriceScaleOn]);
   const {
     drawings,
     add: addDrawing,
