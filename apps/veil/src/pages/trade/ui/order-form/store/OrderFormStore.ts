@@ -515,6 +515,8 @@ export class OrderFormStore {
 
     const wrongSideFunded =
       this._whichForm === 'LP' ? this._lp.wrongSideFunded : undefined;
+    const offMid =
+      this._whichForm === 'LP' ? this._lp.offMidWarning : undefined;
 
     // Range bounds are per-form. LP uses upper/lowerPrice on _lp; RangeLP
     // uses upper/lowerPrice on _range; Market and Limit have no range.
@@ -524,6 +526,41 @@ export class OrderFormStore {
         : this._whichForm === 'RangeLP'
           ? { lowerPrice: this._range.lowerPrice, upperPrice: this._range.upperPrice }
           : { lowerPrice: undefined, upperPrice: undefined };
+
+    // Build direction-explicit details for the one-sided warning so
+    // validator can say "you're bidding X to buy Y" rather than the
+    // abstract "quoting one side of the book".
+    let oneSidedDetails: undefined | {
+      fundedSide: 'base' | 'quote';
+      fundedAsset: AssetInfo;
+      receivedAsset: AssetInfo;
+      fundedAmount: number;
+    };
+    if (this._whichForm === 'LP' && this._lp.isOneSided && this._lp.baseAsset && this._lp.quoteAsset) {
+      const fundedSide: 'base' | 'quote' = this._lp.baseLiquidity > 0 ? 'base' : 'quote';
+      oneSidedDetails = {
+        fundedSide,
+        fundedAsset: fundedSide === 'base' ? this._lp.baseAsset : this._lp.quoteAsset,
+        receivedAsset: fundedSide === 'base' ? this._lp.quoteAsset : this._lp.baseAsset,
+        fundedAmount: fundedSide === 'base' ? this._lp.baseLiquidity : this._lp.quoteLiquidity,
+      };
+    }
+
+    let offMidWarning: undefined | {
+      kind: 'bids-above-mid' | 'asks-below-mid';
+      fundedAsset: AssetInfo;
+      counterAsset: AssetInfo;
+      midPrice: number;
+    };
+    if (offMid && this._lp.baseAsset && this._lp.quoteAsset && this._marketPrice) {
+      const fundedIsQuote = offMid === 'bids-above-mid';
+      offMidWarning = {
+        kind: offMid,
+        fundedAsset: fundedIsQuote ? this._lp.quoteAsset : this._lp.baseAsset,
+        counterAsset: fundedIsQuote ? this._lp.baseAsset : this._lp.quoteAsset,
+        midPrice: this._marketPrice,
+      };
+    }
 
     return validateOrder({
       requirements: this.requirements,
@@ -536,6 +573,7 @@ export class OrderFormStore {
       requiresMarketPrice: this._whichForm === 'LP',
       positionCount: lpPlan?.length,
       isOneSided: this._whichForm === 'LP' ? this._lp.isOneSided : undefined,
+      oneSidedDetails,
       wrongSide: wrongSideFunded
         ? {
             funded: wrongSideFunded,
@@ -543,6 +581,7 @@ export class OrderFormStore {
             quoteSymbol: this._lp.quoteAsset?.symbol ?? 'the quote asset',
           }
         : undefined,
+      offMidWarning,
       lowerPrice: rangeBounds.lowerPrice,
       upperPrice: rangeBounds.upperPrice,
     });

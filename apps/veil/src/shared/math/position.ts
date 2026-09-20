@@ -458,10 +458,18 @@ const oneSidedPositions = (
   plan: SimpleLiquidityPlan,
   side: 'base' | 'quote',
 ): PositionedLiquidity[] => {
-  // Base only → asks between max(mid, lower) and upper.
-  // Quote only → bids between lower and min(mid, upper).
-  const from = side === 'base' ? Math.max(plan.marketPrice, plan.lowerPrice) : plan.lowerPrice;
-  const to = side === 'base' ? plan.upperPrice : Math.min(plan.marketPrice, plan.upperPrice);
+  // Emit rungs across the FULL user range, not the "sensible" side of
+  // mid. Chain does not enforce this — you can bid above mid (offering
+  // to buy the base at a premium) or ask below mid (selling at a
+  // discount) — arbs may drain such positions immediately, but that is
+  // the user's call, not ours. The old shape clamped to `[lower, min(mid, upper)]`
+  // for quote / `[max(mid, lower), upper]` for base and returned []
+  // when the range was wholly on the "wrong" side of mid — which read
+  // as "amounts too small" to the user on wide-spread pairs where the
+  // mid is barely meaningful. Wide-spread / off-mid warnings live in
+  // the validator instead; the LP math just builds what was asked.
+  const from = plan.lowerPrice;
+  const to = plan.upperPrice;
   const span = to - from;
   const n = plan.positions;
   // Also bail on non-finite span or non-finite bounds — a NaN

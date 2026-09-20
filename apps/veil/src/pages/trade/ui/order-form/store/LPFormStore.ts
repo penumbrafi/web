@@ -272,38 +272,59 @@ export class LPFormStore {
   }
 
   /**
-   * Which side has been funded that cannot be quoted in the chosen range.
+   * Which side has been funded that gets DROPPED by the two-sided ladder
+   * planner because the range sits wholly on the other side of mid.
+   * BLOCKING: quiet fund loss, user should either widen the range or drop
+   * the ignored input.
    *
-   * A range entirely above mid can only quote asks, which are paid for in the
-   * base asset; a range entirely below mid can only quote bids, paid for in
-   * the quote asset. Funding the other one produces a ladder where every rung
-   * has zero reserves — so the plan comes back empty and the user, who has
-   * plainly entered an amount, would otherwise be told it is "too small".
+   * The one-sided-off-mid case (funded only quote/base with range on the
+   * opposite side) is NOT a bug any more — one-sided ladders now build
+   * across the full range regardless of where mid sits. That case surfaces
+   * as `offMidWarning` instead, letting the user proceed with a clear
+   * arb-risk hint.
    */
   get wrongSideFunded(): 'base' | 'quote' | undefined {
     const mid = this.marketPrice;
     if (mid === null || this.lowerPriceInput === null || this.upperPriceInput === null) {
       return undefined;
     }
-    // One-sided funding on the wrong side of the range.
-    if (this.lowerPriceInput >= mid && this.quoteLiquidity > 0 && this.baseLiquidity === 0) {
-      return 'quote';
-    }
-    if (this.upperPriceInput <= mid && this.baseLiquidity > 0 && this.quoteLiquidity === 0) {
-      return 'base';
-    }
     // Two-sided funding but the range sits wholly on one side of mid: the
-    // two-sided ladder path in `simpleLiquidityPositions` would silently
-    // drop the side whose rung count computes to 0. Report the *dropped*
+    // two-sided ladder path in `simpleLiquidityPositions` still silently
+    // drops the side whose rung count computes to 0. Report the *dropped*
     // side so the user sees what would be ignored instead of finding out
     // via a missing balance.
     if (this.lowerPriceInput >= mid && this.baseLiquidity > 0 && this.quoteLiquidity > 0) {
-      // Range above mid → only base (ask) rungs would be built; quote is dropped.
       return 'quote';
     }
     if (this.upperPriceInput <= mid && this.baseLiquidity > 0 && this.quoteLiquidity > 0) {
-      // Range below mid → only quote (bid) rungs would be built; base is dropped.
       return 'base';
+    }
+    return undefined;
+  }
+
+  /**
+   * One-sided LP where the funded side is on the "unfavourable" side of
+   * mid — e.g. quote-only above mid (paying above-market to buy base) or
+   * base-only below mid (selling base below market). The chain accepts it;
+   * arbitrageurs likely eat it immediately. Not a blocker, just a loud
+   * warning so users who mean it can proceed and users who fat-fingered
+   * the range can catch it.
+   */
+  get offMidWarning(): 'bids-above-mid' | 'asks-below-mid' | undefined {
+    const mid = this.marketPrice;
+    if (mid === null || this.lowerPriceInput === null || this.upperPriceInput === null) {
+      return undefined;
+    }
+    if (!this.isOneSided) return undefined;
+    if (this.lowerPriceInput >= mid && this.quoteLiquidity > 0) {
+      // Only quote funded, range above mid → bidding on base at
+      // above-market prices.
+      return 'bids-above-mid';
+    }
+    if (this.upperPriceInput <= mid && this.baseLiquidity > 0) {
+      // Only base funded, range below mid → offering base at
+      // below-market prices.
+      return 'asks-below-mid';
     }
     return undefined;
   }

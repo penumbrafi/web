@@ -79,10 +79,36 @@ export interface ValidationInput {
   /** True when the LP plan funds only one side of the book. */
   isOneSided?: boolean;
   /**
+   * For LP: what the one-sided position is quoting. Used to render a
+   * direction-explicit warning ("You are providing 78 USDC.inj as bids
+   * to buy USDC ...") instead of the vague old "quoting one side of
+   * the book" copy. Present only when isOneSided is true.
+   */
+  oneSidedDetails?: {
+    fundedSide: 'base' | 'quote';
+    fundedAsset: AssetInfo;
+    receivedAsset: AssetInfo;
+    fundedAmount: number;
+  };
+  /**
    * For LP: the side that was funded but cannot be quoted in the
    * chosen range, along with the symbols needed to explain it.
+   * Now reserved for the TWO-sided planner's silent-drop case only;
+   * one-sided-off-mid becomes `offMidWarning`.
    */
   wrongSide?: { funded: 'base' | 'quote'; baseSymbol: string; quoteSymbol: string };
+  /**
+   * For LP: warning shape when a one-sided position sits on the
+   * "unfavourable" side of mid — bidding above market, or offering base
+   * below market. Chain accepts it, arbitrageurs likely eat it; render
+   * as a loud warning so users who mean it can proceed.
+   */
+  offMidWarning?: {
+    kind: 'bids-above-mid' | 'asks-below-mid';
+    fundedAsset: AssetInfo;
+    counterAsset: AssetInfo;
+    midPrice: number;
+  };
   /**
    * For LP / RangeLP: the price bounds the user chose. Passed through so the
    * validator can reject non-finite, non-positive, or inverted ranges before
@@ -216,12 +242,47 @@ export const validateOrder = (input: ValidationInput): FormIssue[] => {
     }
   }
 
-  if (issues.length === 0 && input.isOneSided) {
-    issues.push({
-      severity: 'warning',
-      message:
-        'One-sided position: you are quoting only one side of the book, so it earns fees only once the market trades into your range.',
-    });
+  // Off-mid one-sided: user is bidding above market or offering base
+  // below market. Chain accepts it; arbitrageurs likely take it as free
+  // money. Loud warning so intent is confirmed but the submit stays open.
+  if (input.offMidWarning) {
+    const w = input.offMidWarning;
+    const midStr = w.midPrice.toPrecision(6);
+    if (w.kind === 'bids-above-mid') {
+      issues.push({
+        severity: 'warning',
+        message: `Off-mid position: you are offering to buy ${w.counterAsset.symbol} at prices ABOVE the current market (~${midStr} ${w.fundedAsset.symbol}/${w.counterAsset.symbol}). Arbitrageurs may fill and drain the position at first crossing. Proceed only if this is intentional (e.g. a specific price view).`,
+      });
+    } else {
+      issues.push({
+        severity: 'warning',
+        message: `Off-mid position: you are offering to sell ${w.fundedAsset.symbol} at prices BELOW the current market (~${midStr} ${w.counterAsset.symbol}/${w.fundedAsset.symbol}). Arbitrageurs may fill and drain the position at first crossing. Proceed only if this is intentional (e.g. a specific price view).`,
+      });
+    }
+  }
+
+  // Standard one-sided (on the conventional side of mid): direction-
+  // explicit copy instead of the old vague "quoting one side of the
+  // book". Names the fill mechanics so a user can predict what happens.
+  if (input.isOneSided && !input.offMidWarning) {
+    const d = input.oneSidedDetails;
+    if (d) {
+      const fundedAmount = d.fundedAsset.formatDisplayAmount(d.fundedAmount);
+      const isBids = d.fundedSide === 'quote';
+      issues.push({
+        severity: 'warning',
+        message: isBids
+          ? `Providing ${fundedAmount} ${d.fundedAsset.symbol} as bids to buy ${d.receivedAsset.symbol}. Fills earn ${d.receivedAsset.symbol} when the market trades DOWN into your range.`
+          : `Providing ${fundedAmount} ${d.fundedAsset.symbol} as asks to sell for ${d.receivedAsset.symbol}. Fills earn ${d.receivedAsset.symbol} when the market trades UP into your range.`,
+      });
+    } else {
+      // Fallback for callers that didn't pass details.
+      issues.push({
+        severity: 'warning',
+        message:
+          'One-sided position: only one side of the book will be quoted; fills happen when the market trades into your range.',
+      });
+    }
   }
 
   return issues;
