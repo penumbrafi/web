@@ -55,10 +55,15 @@ const DepthCurveImpl = ({ rows, relativeSizes, side, gridRowStart }: Props) => {
 
   if (n === 0) return null;
 
+  // Depth fill is a background hint, not the primary content — keep it
+  // muted enough that price / amount / total numbers stay legible in
+  // front of it. Previous 0.32 alpha overwhelmed the ladder and made
+  // rows read as blocks of colour; 0.14 keeps the depth-curve shape
+  // visible without swallowing the text.
   const fill =
     side === 'sell'
-      ? 'rgba(175, 38, 38, 0.32)' // matches TradeRow's SELL_BG_COLOR
-      : 'rgba(28, 121, 63, 0.32)'; // matches TradeRow buy bar
+      ? 'rgba(175, 38, 38, 0.14)'
+      : 'rgba(28, 121, 63, 0.14)';
 
   return (
     <svg
