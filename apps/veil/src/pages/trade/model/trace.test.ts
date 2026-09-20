@@ -1,14 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { calculateSpread } from './trace';
 import { Trace } from '@/shared/api/server/book/types';
-import { ValueView } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 
 describe('calculateSpread', () => {
   const createTrace = (price: string): Trace => ({
     price,
     amount: '1.0',
     total: '1.0',
-    hops: [] as ValueView[],
+    hops: [] as string[],
   });
 
   const createOrders = (prices: string[]): Trace[] => prices.map(price => createTrace(price));

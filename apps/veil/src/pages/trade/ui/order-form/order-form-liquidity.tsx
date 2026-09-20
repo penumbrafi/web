@@ -288,7 +288,9 @@ export const LPOrderForm = observer(
     // over a single empty position. Before that filter these were always
     // equal; now they diverge exactly when the amount is marginal — which is
     // precisely when the user needs the honest number.
-    const actualPositions = store.plan?.length ?? store.positions;
+    // `rungs`, not `plan`: same filtered count, without building the protos
+    // (and drawing a nonce per rung) on every mid-price tick.
+    const actualPositions = store.rungs?.length ?? store.positions;
 
     const confirmRows = useMemo<ConfirmInfoRow[]>(() => {
       const rows: ConfirmInfoRow[] = [];

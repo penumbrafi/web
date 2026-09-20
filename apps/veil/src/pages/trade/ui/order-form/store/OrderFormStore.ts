@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { makeAutoObservable, reaction, runInAction } from 'mobx';
+import { makeAutoObservable, observable, reaction, runInAction } from 'mobx';
 import { LimitOrderFormStore } from './LimitOrderFormStore';
 import { MarketOrderFormStore } from './MarketOrderFormStore';
 import { RangeOrderFormStore } from './RangeOrderFormStore';
@@ -39,12 +39,22 @@ import { LPFormStore, type OffMidWarningKind } from './LPFormStore';
 import { encodeLiquidityShape } from '@/shared/math/position';
 import {
   blockingIssue,
-  positionRequirements,
+  rungRequirements,
   validateOrder,
   type FormIssue,
   type Requirement,
 } from './validate';
 import { parseNumber } from '@/shared/utils/num';
+
+// Single frozen "no estimate" value. `resetGasFee` used to write a fresh
+// `{symbol, display}` literal on every call — and it was called from inside
+// the `plan` getter on every read — so `issues` / `blockingIssue` /
+// `formNotice` / `canSubmit` were notified per block even when the fee had
+// not changed. One shared identity lets mobx see "same value, no change".
+const EMPTY_FEE: { symbol: string; display: string } = Object.freeze({
+  symbol: 'UM',
+  display: '--',
+});
 
 export type WhichForm = 'Market' | 'Limit' | 'RangeLP' | 'LP';
 
@@ -141,7 +151,7 @@ export class OrderFormStore {
   // registry lookup. Set alongside `setFeeAsset` when UM is chosen at
   // mount, and never overwritten by `setAlternativeFee`.
   private _umFeeAsset?: AssetInfo;
-  private _gasFee: { symbol: string; display: string } = { symbol: 'UM', display: '--' };
+  private _gasFee: { symbol: string; display: string } = EMPTY_FEE;
   private _gasFeeLoading = false;
   /** The planner's own rejection of the current form, if it has one. */
   private _planError?: string;
@@ -149,7 +159,12 @@ export class OrderFormStore {
   highlight = false;
 
   constructor() {
-    makeAutoObservable(this);
+    // `_gasFee` must be a *reference* observable. The default (deep)
+    // annotation would copy any assigned object into a fresh observable
+    // proxy, so `this._gasFee === EMPTY_FEE` could never hold and the
+    // "only write when changed" guard in `resetGasFee` would be a no-op.
+    // Every write to it is a whole-object assignment, so `ref` is safe.
+    makeAutoObservable<this, '_gasFee'>(this, { _gasFee: observable.ref });
 
     // Watch a structural fingerprint, not `this.plan`'s reference. The
     // plan getter rebuilds a fresh array on every mid-price tick (because
@@ -159,25 +174,40 @@ export class OrderFormStore {
     // form fired planTransaction every block on a populated LP form
     // for an estimate that almost never changed; the new fingerprint
     // fires only when the shape of the transaction actually shifts.
+    const debouncedEstimate = debounce(() => void this.estimateGasFee(), GAS_DEBOUNCE_MS);
     reaction(
       () => {
-        const p = this.plan;
-        if (!p) return `none|${this._whichForm}|${this.inputFingerprint}`;
+        // `planShape`, not `plan`: the shape is derived from the cheap
+        // `rungs` / `hasPlan` getters, so evaluating this fingerprint on a
+        // mid-price tick does not build protos or draw nonces.
+        const shape = this.planShape;
+        if (!shape) {
+          return `none|${this._whichForm}|${this.inputFingerprint}`;
+        }
         // positionOpens is the LP path, swaps is the Market path,
         // swapClaims/positionCloses for the close/withdraw flows. Sum
         // gives a stable structural count that doesn't shift on per-
         // tick price re-allocation.
-        const opens = p.positionOpens?.length ?? 0;
-        const swaps = p.swaps?.length ?? 0;
+        //
         // The amounts the user typed are folded in as well, because this
         // call is no longer only a gas estimate — it is also the planner
         // dry-run that catches whatever `validateOrder` cannot enumerate,
         // and *that* has to re-run when the size changes even though the
         // transaction's shape does not. Mid-price ticks are still excluded,
         // so a populated LP form does not re-plan every block.
-        return `${opens}/${swaps}|${this._whichForm}|${this.inputFingerprint}`;
+        return `${shape.opens}/${shape.swaps}|${this._whichForm}|${this.inputFingerprint}`;
       },
-      debounce(() => void this.estimateGasFee(), GAS_DEBOUNCE_MS),
+      fingerprint => {
+        // The `plan` getter used to reset the fee as a side effect of
+        // being read with an incomplete form. A computed must not mutate
+        // observable state, so the reset lives here: the moment the plan
+        // goes away, clear the stale estimate synchronously (the debounced
+        // estimator would also do it, 320ms later).
+        if (fingerprint.startsWith('none|')) {
+          this.resetGasFee();
+        }
+        debouncedEstimate();
+      },
     );
 
     // When the wallet unlocks mid-session, re-fire the estimator so
@@ -223,7 +253,10 @@ export class OrderFormStore {
     // in-flight estimate can't "own" the current token and pin a
     // `_planError` for a plan the user has since cleared.
     const myToken = ++this._gasFeeToken;
-    if (!this.plan) {
+    // Read `plan` exactly once: it builds the positions (with fresh nonces)
+    // on every read now that it is no longer cached by an observer.
+    const plan = this.plan;
+    if (!plan) {
       this.resetGasFee();
       return;
     }
@@ -233,7 +266,7 @@ export class OrderFormStore {
       this._planError = undefined;
     });
     try {
-      const res = await planTransaction(this.plan);
+      const res = await planTransaction(plan);
       // If a fresher estimate started while we were in flight, drop
       // this response on the floor — writing back would clobber the
       // newer plan's verdict with stale state.
@@ -310,7 +343,7 @@ export class OrderFormStore {
         // Clear the stale estimate inline rather than via `resetGasFee`,
         // which also clears `_planError` — calling it here would wipe the
         // verdict we just recorded.
-        this._gasFee = { symbol: 'UM', display: '--' };
+        this._gasFee = EMPTY_FEE;
         this._planError = isWalletState ? undefined : described.description;
       });
       return undefined;
@@ -329,12 +362,20 @@ export class OrderFormStore {
 
   resetGasFee() {
     runInAction(() => {
-      this._gasFee = { symbol: 'UM', display: '--' };
-      this._gasFeeLoading = false;
+      // Only write when something actually changes — a no-op reset must
+      // not notify `gasFee` / `issues` / `canSubmit` observers.
+      if (this._gasFee !== EMPTY_FEE) {
+        this._gasFee = EMPTY_FEE;
+      }
+      if (this._gasFeeLoading) {
+        this._gasFeeLoading = false;
+      }
       // The planner's verdict belongs to the plan that produced it. Clearing
       // the estimate without clearing the rejection would leave a stale
       // blocking message pinned under the submit button.
-      this._planError = undefined;
+      if (this._planError !== undefined) {
+        this._planError = undefined;
+      }
     });
   }
 
@@ -384,7 +425,14 @@ export class OrderFormStore {
   setAssets(base: AssetInfo, quote: AssetInfo, unsetInputs: boolean) {
     this._market.setAssets(base, quote, unsetInputs);
     this._limit.setAssets(base, quote, unsetInputs);
-    this._range.setAssets(base, quote, unsetInputs);
+    // The RangeLP tab is retired (`form-tabs.tsx` normalizes a stored
+    // 'RangeLP' to 'LP' and `RangeLiquidityOrderForm` has no importers), but
+    // `rangeForm` is still read by the chart / LP-preview overlay, so the
+    // store stays. Only feed it while it is actually the active form — every
+    // other tick these writes just re-derived a dead plan.
+    if (this._whichForm === 'RangeLP') {
+      this._range.setAssets(base, quote, unsetInputs);
+    }
     this._lp.setAssets(base, quote, unsetInputs);
   }
 
@@ -392,7 +440,9 @@ export class OrderFormStore {
     this._marketPrice = price;
 
     if (price) {
-      this._range.marketPrice = price;
+      if (this._whichForm === 'RangeLP') {
+        this._range.marketPrice = price;
+      }
       this._limit.marketPrice = price;
       this._lp.marketPrice = price;
       return;
@@ -407,7 +457,9 @@ export class OrderFormStore {
     // resolved. Zero here means "no anchor"; downstream code already
     // treats falsy marketPrice as "guard/return" in the affected paths.
     this._lp.marketPrice = null;
-    this._range.marketPrice = 0;
+    if (this._whichForm === 'RangeLP') {
+      this._range.marketPrice = 0;
+    }
     this._limit.marketPrice = 0;
   }
 
@@ -458,6 +510,56 @@ export class OrderFormStore {
     return this._lp;
   }
 
+  /** The active LP-style form (RangeLP is retired; see `setAssets`). */
+  private get activeLpForm(): LPFormStore | RangeOrderFormStore {
+    return this._whichForm === 'RangeLP' ? this._range : this._lp;
+  }
+
+  /**
+   * Whether `plan` would be defined — WITHOUT building it.
+   *
+   * `plan` constructs protobufs (and, for the position forms, a fresh nonce
+   * per rung), so `issues` / `canSubmit` / the fingerprint reaction must not
+   * read it just to test for `undefined`. Mirrors `plan`'s guards exactly.
+   */
+  get hasPlan(): boolean {
+    if (!this.address || !this.subAccountIndex) {
+      return false;
+    }
+    if (this._whichForm === 'Market') {
+      return this._market.plan !== undefined;
+    }
+    if (this._whichForm === 'Limit') {
+      return this._limit.hasPlan;
+    }
+    return this.activeLpForm.rungs !== undefined;
+  }
+
+  /**
+   * Structural shape of the transaction `plan` would produce — how many
+   * position opens and swaps — derived from the cheap getters. Undefined
+   * when there is no plan.
+   */
+  get planShape(): undefined | { opens: number; swaps: number } {
+    if (!this.hasPlan) {
+      return undefined;
+    }
+    if (this._whichForm === 'Market') {
+      return { opens: 0, swaps: 1 };
+    }
+    if (this._whichForm === 'Limit') {
+      return { opens: 1, swaps: 0 };
+    }
+    return { opens: this.activeLpForm.rungs?.length ?? 0, swaps: 0 };
+  }
+
+  /**
+   * The transaction to plan. Expensive: builds the protos and, for the
+   * position forms, draws a nonce per rung. Only `estimateGasFee` (the
+   * dry-run) and `submit` (the broadcast) should read it — everything else
+   * wants `hasPlan` / `planShape` / the forms' `rungs`. Pure: no side
+   * effects on store state.
+   */
   get plan(): undefined | TransactionPlannerRequest {
     if (!this.address || !this.subAccountIndex) {
       return undefined;
@@ -465,7 +567,6 @@ export class OrderFormStore {
     if (this._whichForm === 'Market') {
       const plan = this._market.plan;
       if (!plan) {
-        this.resetGasFee();
         return undefined;
       }
       return new TransactionPlannerRequest({
@@ -476,7 +577,6 @@ export class OrderFormStore {
     if (this._whichForm === 'Limit') {
       const plan = this._limit.plan;
       if (!plan) {
-        this.resetGasFee();
         return undefined;
       }
       return new TransactionPlannerRequest({
@@ -487,9 +587,8 @@ export class OrderFormStore {
       });
     }
 
-    const plan = this._whichForm === 'RangeLP' ? this._range.plan : this._lp.plan;
+    const plan = this.activeLpForm.plan;
     if (!plan) {
-      this.resetGasFee();
       return undefined;
     }
     const LpPlan = new TransactionPlannerRequest({
@@ -524,17 +623,15 @@ export class OrderFormStore {
       return asset && amount ? [{ asset, amount }] : [];
     }
 
-    const form = this._whichForm === 'RangeLP' ? this._range : this._lp;
+    const form = this.activeLpForm;
     const { baseAsset, quoteAsset } = form;
-    const plan = form.plan;
-    if (!plan || !baseAsset || !quoteAsset) {
+    // `rungs` carry the base-unit-quantised amounts, so this is the same
+    // total the built positions would report — without building them.
+    const rungs = form.rungs;
+    if (!rungs || !baseAsset || !quoteAsset) {
       return [];
     }
-    return positionRequirements(
-      plan.map(p => p.position),
-      baseAsset,
-      quoteAsset,
-    );
+    return rungRequirements(rungs, baseAsset, quoteAsset);
   }
 
   /**
@@ -546,9 +643,7 @@ export class OrderFormStore {
    */
   get issues(): FormIssue[] {
     const isLP = this._whichForm === 'RangeLP' || this._whichForm === 'LP';
-    const lpPlan = isLP
-      ? (this._whichForm === 'RangeLP' ? this._range : this._lp).plan
-      : undefined;
+    const lpRungs = isLP ? this.activeLpForm.rungs : undefined;
 
     const wrongSideFunded =
       this._whichForm === 'LP' ? this._lp.wrongSideFunded : undefined;
@@ -612,7 +707,7 @@ export class OrderFormStore {
       requirements: this.requirements,
       feeAsset: this._feeAsset,
       gasFee: parseNumber(this._gasFee.display),
-      hasPlan: this.plan !== undefined,
+      hasPlan: this.hasPlan,
       // LP anchors to the reference-aware mid: a fresh pair with no book
       // but a user-typed reference price has everything it needs, and the
       // raw `_marketPrice` would wrongly block it. Other forms keep live.
@@ -623,7 +718,7 @@ export class OrderFormStore {
       // Only LP lays positions out around the mid; RangeLP takes
       // explicit bounds and Market/Limit don't need one at all.
       requiresMarketPrice: this._whichForm === 'LP',
-      positionCount: lpPlan?.length,
+      positionCount: lpRungs?.length,
       isOneSided: this._whichForm === 'LP' ? this._lp.isOneSided : undefined,
       oneSidedDetails,
       wrongSide: wrongSideFunded
@@ -676,7 +771,7 @@ export class OrderFormStore {
     return (
       !this._submitting &&
       !this._gasFeeLoading &&
-      this.plan !== undefined &&
+      this.hasPlan &&
       !this.blockingIssue
     );
   }
@@ -900,7 +995,22 @@ export const useOrderFormStore = () => {
       );
 
       if (baseAssetInfo && quoteAssetInfo) {
-        orderFormStore.setAssets(baseAssetInfo, quoteAssetInfo, isChangingAssetPair);
+        // `balances` refetches every block, so this effect fires per block
+        // with freshly-minted AssetInfo objects even when nothing the form
+        // cares about moved. Pushing them through `setAssets` regardless
+        // notified every `baseAsset` / `quoteAsset` observer and rebuilt
+        // the LP ladder for no visible change. Every child form receives
+        // the same pair from `setAssets`, so the active one is
+        // representative: bail unless a symbol or a balance really differs.
+        const unchanged =
+          !isChangingAssetPair &&
+          prevBaseAssetInfo?.symbol === baseAssetInfo.symbol &&
+          prevBaseAssetInfo.balance === baseAssetInfo.balance &&
+          prevQuoteAssetInfo?.symbol === quoteAssetInfo.symbol &&
+          prevQuoteAssetInfo.balance === quoteAssetInfo.balance;
+        if (!unchanged) {
+          orderFormStore.setAssets(baseAssetInfo, quoteAssetInfo, isChangingAssetPair);
+        }
       }
     }
   }, [baseAsset, quoteAsset, balances, balanceFinder]);

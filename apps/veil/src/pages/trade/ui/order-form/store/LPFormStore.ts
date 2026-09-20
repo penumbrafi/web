@@ -3,29 +3,14 @@ import { openToast } from '@penumbra-zone/ui/Toast';
 import { AssetInfo } from '@/pages/trade/model/AssetInfo';
 import {
   LiquidityDistributionShape,
+  LiquidityRung,
   PositionedLiquidity,
-  simpleLiquidityPositions,
+  rungsToPositions,
+  simpleLiquidityRungs,
 } from '@/shared/math/position';
 import { parseNumber } from '@/shared/utils/num';
-import { Position } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
-import { pnum } from '@penumbra-zone/types/pnum';
 import { makeAutoObservable } from 'mobx';
 import { round } from '@penumbra-zone/types/round';
-
-const extractAmount = (positions: Position[], asset: AssetInfo): number => {
-  let out = 0.0;
-  for (const position of positions) {
-    const asset1 = position.phi?.pair?.asset1;
-    const asset2 = position.phi?.pair?.asset2;
-    if (asset1?.equals(asset.id)) {
-      out += pnum(position.reserves?.r1, asset.exponent).toNumber();
-    }
-    if (asset2?.equals(asset.id)) {
-      out += pnum(position.reserves?.r2, asset.exponent).toNumber();
-    }
-  }
-  return out;
-};
 
 const DEFAULT_POSITION_COUNT = 10;
 export const DEFAULT_PRICE_SPREAD = 0.05;
@@ -403,7 +388,17 @@ export class LPFormStore {
     return undefined;
   }
 
-  get plan(): PositionedLiquidity[] | undefined {
+  /**
+   * The ladder as cheap plain data: one `{price, reserves}` per position
+   * that will actually be opened (zero-reserve rungs already dropped).
+   *
+   * This is what the preview overlay, validator and confirm modal read.
+   * It is a mobx computed, so it only recomputes when an input or the mid
+   * moves — and even then it is a handful of float ops, no protobuf
+   * construction and no `crypto.getRandomValues`. See `plan` for the
+   * expensive half.
+   */
+  get rungs(): LiquidityRung[] | undefined {
     if (
       !this._baseAsset ||
       !this._quoteAsset ||
@@ -425,7 +420,7 @@ export class LPFormStore {
       return undefined;
     }
 
-    return simpleLiquidityPositions({
+    return simpleLiquidityRungs({
       baseAsset: this._baseAsset,
       quoteAsset: this._quoteAsset,
       baseLiquidity: this.baseLiquidity,
@@ -445,26 +440,35 @@ export class LPFormStore {
     });
   }
 
-  get baseAssetAmount(): string | undefined {
-    const baseAsset = this._baseAsset;
-    const plan = this.plan;
-    if (!plan || !baseAsset) {
+  /**
+   * The on-chain positions for `rungs` — trading function + a fresh 32-byte
+   * nonce each. Expensive and non-deterministic, so ONLY the gas dry-run and
+   * the real submit should read it; everything else wants `rungs`.
+   */
+  get plan(): PositionedLiquidity[] | undefined {
+    const rungs = this.rungs;
+    if (!rungs || !this._baseAsset || !this._quoteAsset) {
       return undefined;
     }
-    const positions: Position[] = plan.map(p => p.position);
+    return rungsToPositions(rungs, this._baseAsset, this._quoteAsset, this.liquidityShape);
+  }
 
-    return baseAsset.formatDisplayAmount(extractAmount(positions, baseAsset));
+  get baseAssetAmount(): string | undefined {
+    const baseAsset = this._baseAsset;
+    const rungs = this.rungs;
+    if (!rungs || !baseAsset) {
+      return undefined;
+    }
+    return baseAsset.formatDisplayAmount(sumBy(rungs, r => r.baseAmount));
   }
 
   get quoteAssetAmount(): string | undefined {
     const quoteAsset = this._quoteAsset;
-    const plan = this.plan;
-    if (!plan || !quoteAsset) {
+    const rungs = this.rungs;
+    if (!rungs || !quoteAsset) {
       return undefined;
     }
-    const positions: Position[] = plan.map(p => p.position);
-
-    return quoteAsset.formatDisplayAmount(extractAmount(positions, quoteAsset));
+    return quoteAsset.formatDisplayAmount(sumBy(rungs, r => r.quoteAmount));
   }
 
   setAssets(base: AssetInfo, quote: AssetInfo, resetInputs = false) {
@@ -526,6 +530,14 @@ export class LPFormStore {
     this.customWeights = null;
   };
 }
+
+const sumBy = (rungs: LiquidityRung[], pick: (r: LiquidityRung) => number): number => {
+  let out = 0.0;
+  for (const r of rungs) {
+    out += pick(r);
+  }
+  return out;
+};
 
 // Local mirror of the shape → weights fallback used when the user first
 // drags a bar and there's no prior customWeights snapshot. Kept in-store

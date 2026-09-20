@@ -4,7 +4,7 @@ import {
   SimulateTradeResponse,
   SwapExecution_Trace,
 } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
-import { Trace, TraceIndex } from '@/shared/api/server/book/types.ts';
+import { ServerTrace, TraceIndex } from '@/shared/api/server/book/types.ts';
 import { getAssetIdFromValueView } from '@penumbra-zone/getters/value-view';
 import { Value, ValueView } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { removeTrailingZeros } from '@penumbra-zone/types/shortify';
@@ -13,7 +13,7 @@ import { registryView } from '@/shared/utils/value-view';
 
 // Build an index for this trace based on the price and the hops.
 // The index is a concatenation of the price and the asset IDs of each hops.
-const computeTraceIndex = (trace: Trace): TraceIndex => {
+const computeTraceIndex = (trace: ServerTrace): TraceIndex => {
   const hopsHash = trace.hops.map(h => getAssetIdFromValueView(h).toJsonString()).join('-');
   return `${trace.price}-${hopsHash}`;
 };
@@ -40,7 +40,7 @@ export const buildTrace = (
   trace: SwapExecution_Trace,
   registry: Registry,
   quote_to_base: boolean,
-): Trace => {
+): ServerTrace => {
   // First, we record the first and last hops.
   const firstHop = trace.value[0];
   const lastHop = trace.value[trace.value.length - 1];
@@ -90,8 +90,8 @@ export const processSimulation = ({
   registry: Registry;
   limit: number;
   quote_to_base?: boolean;
-}): Trace[] => {
-  const tracesByPrice = new Map<TraceIndex, Trace>();
+}): ServerTrace[] => {
+  const tracesByPrice = new Map<TraceIndex, ServerTrace>();
 
   // We consolidate the traces by price and number of hops.
   // This allows us to aggregate the amount available at each price point, while

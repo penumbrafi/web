@@ -1,6 +1,7 @@
 import { Position } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
 import { pnum } from '@penumbra-zone/types/pnum';
 import { AssetInfo } from '@/pages/trade/model/AssetInfo';
+import type { LiquidityRung } from '@/shared/math/position';
 import type { OffMidWarningKind } from './LPFormStore';
 
 /**
@@ -21,6 +22,36 @@ export interface Requirement {
   /** In display units. */
   amount: number;
 }
+
+/**
+ * Sum the reserves an LP ladder commits, per asset, from its cheap `rungs`.
+ *
+ * `LiquidityRung.baseAmount` / `quoteAmount` are already quantised down to
+ * base units exactly as the built `Position.reserves` would be, so this is
+ * byte-for-byte what `positionRequirements` computes off the protos — minus
+ * the proto construction (and the per-rung nonce) on every mid-price tick.
+ * Output order matches: base first, then quote, zero totals dropped.
+ */
+export const rungRequirements = (
+  rungs: LiquidityRung[],
+  base: AssetInfo,
+  quote: AssetInfo,
+): Requirement[] => {
+  let baseTotal = 0;
+  let quoteTotal = 0;
+  for (const rung of rungs) {
+    baseTotal += rung.baseAmount;
+    quoteTotal += rung.quoteAmount;
+  }
+  const out: Requirement[] = [];
+  if (baseTotal > 0) {
+    out.push({ asset: base, amount: baseTotal });
+  }
+  if (quoteTotal > 0) {
+    out.push({ asset: quote, amount: quoteTotal });
+  }
+  return out;
+};
 
 /**
  * Sum the reserves an LP plan commits, per asset.
