@@ -224,13 +224,49 @@ jobs:
           # need — this instance is NOT serving user traffic yet.
           for _ in $(seq 1 60); do
             if curl -fsS -m 2 -o /dev/null "http://127.0.0.1:${PORT}/"; then
-              exit 0
+              break
             fi
             sleep 2
           done
-          echo "target ${TARGET} did not answer within 120s" >&2
-          systemctl status "penumbra-veil@${TARGET}.service" --no-pager >&2 || true
-          exit 1
+          if ! curl -fsS -m 2 -o /dev/null "http://127.0.0.1:${PORT}/"; then
+            echo "target ${TARGET} did not answer within 120s" >&2
+            systemctl status "penumbra-veil@${TARGET}.service" --no-pager >&2 || true
+            exit 1
+          fi
+          # Content check: a 200 alone is not proof this is the NEW
+          # build — a stale process still bound to the port, or a
+          # release symlink that didn't flip, both return 200 with old
+          # bytes. The rendered HTML must reference chunk names that
+          # actually exist under this release's .next/static/chunks
+          # directory. If not — abort so the deploy fails LOUDLY
+          # instead of silently serving the previous release.
+          release_chunks="/opt/penumbra-veil/${TARGET}/current/apps/veil/.next/static/chunks"
+          if [ ! -d "$release_chunks" ]; then
+            echo "release chunk dir missing: $release_chunks" >&2
+            ls -la "/opt/penumbra-veil/${TARGET}/current/apps/veil/.next/" >&2 || true
+            exit 1
+          fi
+          html=$(curl -fsS -m 5 "http://127.0.0.1:${PORT}/") || {
+            echo "could not fetch served HTML" >&2
+            exit 1
+          }
+          served_chunk=$(printf '%s' "$html" | grep -oE '/_next/static/chunks/[a-z0-9_-]+\.js' | head -n1 | sed 's#^/_next/static/chunks/##')
+          if [ -z "$served_chunk" ]; then
+            echo "served HTML has no chunk references — cannot verify build freshness" >&2
+            exit 1
+          fi
+          if [ ! -f "$release_chunks/$served_chunk" ]; then
+            echo "STALE BUILD: served chunk $served_chunk is NOT in this release's chunk dir" >&2
+            echo "systemd may still be running the previous process, or the symlink flip failed." >&2
+            echo "current -> $(readlink /opt/penumbra-veil/${TARGET}/current)" >&2
+            echo "expected SHA: $SHA" >&2
+            systemctl show "penumbra-veil@${TARGET}.service" --value \
+              -p MainPID -p ExecMainStartTimestamp -p ActiveEnterTimestamp \
+              -p FragmentPath >&2 || true
+            exit 1
+          fi
+          echo "verified: served chunk $served_chunk is in this release" >&2
+          exit 0
           REMOTE
 
       - name: flip nginx upstream to target colour

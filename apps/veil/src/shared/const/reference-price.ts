@@ -35,8 +35,18 @@ export const REFERENCE_PRICES: Record<string, ReferencePriceSource> = {
   DAI: { kind: 'fixed', usd: 1 },
   PYUSD: { kind: 'fixed', usd: 1 },
 
-  // Live price sources.
-  UM: { kind: 'coingecko', id: 'penumbra' },
+  // Live price sources. UM (`penumbra` on CoinGecko) is intentionally
+  // OMITTED: CoinGecko itself flags the listing as inactive/deactivated
+  // ("Penumbra (UM) has been inactive and is deactivated"). The only
+  // tracked market was via the Osmosis bridge, which went cold. Any
+  // returned price is a stale last-known ~$0.00136 that would silently
+  // anchor an LP ladder to a wrong number — worse than no anchor.
+  // Users trading UM/X still get the live route-book mid as the
+  // fallback suggestion. Restore this entry when UM relists on a live
+  // venue CoinGecko tracks:
+  //   UM: { kind: 'coingecko', id: 'penumbra' },
+  // (Note: /api/um-price still fetches this same deactivated listing
+  // for the header chip — flagged for follow-up, not scoped here.)
   INJ: { kind: 'coingecko', id: 'injective-protocol' },
   BTC: { kind: 'coingecko', id: 'bitcoin' },
   WBTC: { kind: 'coingecko', id: 'wrapped-bitcoin' },
