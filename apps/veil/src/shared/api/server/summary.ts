@@ -145,22 +145,42 @@ export async function fetchSummary(
   const start = deserialize<AssetId>(startAsset);
   const end = deserialize<AssetId>(endAsset);
   const indexingAssetP = indexingAsset();
+  // `executeTakeFirstOrThrow` here 500'd the whole trade page for any pair
+  // pindexer hasn't seen swap activity on in the requested window — most
+  // thin/new pairs. Fall back to a zeroed Summary so the UI renders and
+  // the user can still interact (LP form works, book shows, etc.). Same
+  // fix we shipped once before; this row survived a merge.
   const data = await basicQuery(theWindow)
     .where('d.asset_start', '=', Buffer.from(start.inner))
     .where('d.asset_end', '=', Buffer.from(end.inner))
-    .executeTakeFirstOrThrow();
+    .executeTakeFirst();
   const theIndexingAsset = await indexingAssetP;
+  if (!data) {
+    return serialize({
+      liquidity: new Value({ amount: pnum(0).toAmount(), assetId: theIndexingAsset }),
+      volume: new Value({ amount: pnum(0).toAmount(), assetId: theIndexingAsset }),
+      price: 0,
+      priceDelta: 0,
+      priceChangePercent: 0,
+      high: 0,
+      low: 0,
+    });
+  }
+  // Guard divides so a summary row where `price_then === 0` doesn't
+  // produce Infinity / NaN and blow up JSON serialization downstream.
+  const priceThen = Number(data.price_then) || 0;
+  const priceChangePercent = priceThen > 0 ? 100 * (data.price / priceThen - 1.0) : 0;
   return serialize({
     liquidity: new Value({
       amount: pnum(data.liquidity ?? 0.0).toAmount(),
       assetId: theIndexingAsset,
     }),
     volume: new Value({ amount: pnum(data.volume ?? 0.0).toAmount(), assetId: theIndexingAsset }),
-    price: data.price,
-    priceDelta: data.price - data.price_then,
-    priceChangePercent: 100 * (data.price / data.price_then - 1.0),
-    high: data.high,
-    low: data.low,
+    price: data.price ?? 0,
+    priceDelta: (data.price ?? 0) - priceThen,
+    priceChangePercent,
+    high: data.high ?? 0,
+    low: data.low ?? 0,
   });
 }
 
