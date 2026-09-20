@@ -27,6 +27,14 @@ type Listener = (tick: PindexerTick) => void;
 const listeners = new Set<Listener>();
 let source: EventSource | null = null;
 let refCount = 0;
+// Exponential-backoff reconnect state. When the server returns the
+// `X-Fallback: empty` stream (indexer DB unreachable) it closes
+// immediately; the browser's default 3s auto-reconnect would then hammer
+// the API. Track a delay that grows on each consecutive close and
+// resets on a successful `tick`.
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let reconnectDelayMs = 1_000;
+const MAX_RECONNECT_DELAY_MS = 30_000;
 
 const parse = (raw: string): PindexerTick | null => {
   try {
@@ -44,6 +52,9 @@ const ensureConnected = () => {
   if (source) return;
   const es = new EventSource('/api/pindexer-stream');
   es.addEventListener('tick', ev => {
+    // A live tick means the upstream is healthy — reset backoff so the
+    // next transient close reconnects quickly.
+    reconnectDelayMs = 1_000;
     const tick = parse((ev as MessageEvent).data as string);
     if (!tick) return;
     for (const fn of listeners) {
@@ -55,18 +66,49 @@ const ensureConnected = () => {
     }
   });
   es.onerror = () => {
-    // Browsers auto-reconnect EventSource with backoff; nothing to do.
-    // Log so a persistent breakage surfaces in devtools.
-    // eslint-disable-next-line no-console
-    console.warn('[pindexer-stream] connection error; auto-reconnecting');
+    // EventSource's default auto-reconnect fires ~3s after every close.
+    // When the server's serving its `X-Fallback: empty` stream (indexer
+    // DB unreachable) that closes immediately, so unchecked auto-reconnect
+    // hammers /api/pindexer-stream every ~3s per open tab indefinitely.
+    // Close ours + reopen on an exponential backoff instead. Reset
+    // happens on the next successful `tick`.
+    if (es.readyState === EventSource.CLOSED) {
+      es.close();
+      if (source === es) source = null;
+      if (refCount > 0 && !reconnectTimer) {
+        const delay = reconnectDelayMs;
+        // eslint-disable-next-line no-console
+        console.warn(`[pindexer-stream] connection closed; retrying in ${delay}ms`);
+        reconnectTimer = setTimeout(() => {
+          reconnectTimer = null;
+          reconnectDelayMs = Math.min(reconnectDelayMs * 2, MAX_RECONNECT_DELAY_MS);
+          ensureConnected();
+        }, delay);
+      }
+    } else {
+      // eslint-disable-next-line no-console
+      console.warn('[pindexer-stream] connection error; browser will auto-reconnect');
+    }
   };
   source = es;
 };
 
 const teardownIfIdle = () => {
-  if (refCount > 0 || !source) return;
+  if (refCount > 0 || !source) {
+    // Nothing to close, but cancel a pending reconnect if we're now idle
+    // — otherwise the tab holds a timer that reconnects to nobody.
+    if (refCount <= 0 && reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+    return;
+  }
   source.close();
   source = null;
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
 };
 
 const subscribe = (fn: Listener): (() => void) => {
