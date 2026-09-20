@@ -223,10 +223,28 @@ export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiRe
       },
     });
   } catch (err) {
-    // pd unreachable, slow, or throwing. Return an empty book so the UI
-    // renders the trade page shell instead of the ErrorBoundary. The
-    // client-side useBook keeps polling; the next successful compute
-    // will populate the cache and future requests will get real data.
+    // pd unreachable, slow, or throwing. Prefer the last-known cache
+    // entry to `EMPTY_BOOK` — the user seeing a slightly-stale book is a
+    // much better degradation than an empty ladder while pd recovers,
+    // especially during the grosslyStale window when we already paid the
+    // full timeout. The fallback below stays as a last resort for when
+    // we've never had a successful compute.
+    const salvage = cache.get(cacheKey);
+    if (salvage) {
+      console.error('[book] compute failed, serving stale fallback', {
+        cacheKey,
+        ageMs: Date.now() - (salvage.expiresAt - CACHE_TTL_MS),
+        err,
+      });
+      return NextResponse.json(salvage.data, {
+        status: 200,
+        headers: {
+          'Cache-Control': 'no-store',
+          'X-Cache': 'STALE-FAIL',
+          'X-Book-Fallback': 'stale',
+        },
+      });
+    }
     console.error('[book] compute failed, serving empty fallback', {
       cacheKey,
       err,

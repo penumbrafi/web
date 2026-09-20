@@ -83,6 +83,14 @@ export interface ValidationInput {
    * chosen range, along with the symbols needed to explain it.
    */
   wrongSide?: { funded: 'base' | 'quote'; baseSymbol: string; quoteSymbol: string };
+  /**
+   * For LP / RangeLP: the price bounds the user chose. Passed through so the
+   * validator can reject non-finite, non-positive, or inverted ranges before
+   * they reach the LP math (where they become NaN prices, empty plans, or
+   * "invalid uint32" crashes downstream).
+   */
+  lowerPrice?: number | null;
+  upperPrice?: number | null;
 }
 
 const formatAmount = (asset: AssetInfo, amount: number): string =>
@@ -103,6 +111,38 @@ export const validateOrder = (input: ValidationInput): FormIssue[] => {
         'No live market price for this pair yet, so the price range has nothing to anchor to. Pick a pair with an active route book, or use the Limit tab to name your own price.',
     });
     return issues;
+  }
+
+  // Range sanity — reject non-finite, non-positive, or inverted bounds
+  // before the LP math sees them. Without this: lower==upper yields 0/0
+  // NaN prices, negatives produce garbage `hi`/`lo` splits, and NaN prices
+  // reach `priceToPQ` where destructuring `basePrice.toFraction()` on a
+  // non-iterable used to throw the cryptic "n.default is not iterable".
+  // Both `lowerPrice` and `upperPrice` are pass-through nullable — the
+  // form's own "range not set" gates apply first, so we only judge them
+  // once both are numeric.
+  if (input.lowerPrice != null && input.upperPrice != null) {
+    if (!Number.isFinite(input.lowerPrice) || !Number.isFinite(input.upperPrice)) {
+      issues.push({
+        severity: 'blocking',
+        message: 'Price range must be finite numbers. Adjust the lower and upper bounds.',
+      });
+      return issues;
+    }
+    if (input.lowerPrice <= 0 || input.upperPrice <= 0) {
+      issues.push({
+        severity: 'blocking',
+        message: 'Prices must be positive. Set a lower and upper bound above zero.',
+      });
+      return issues;
+    }
+    if (input.lowerPrice >= input.upperPrice) {
+      issues.push({
+        severity: 'blocking',
+        message: 'Upper price must be greater than lower price.',
+      });
+      return issues;
+    }
   }
 
   // Checked before `positionCount === 0`, which it would otherwise be

@@ -58,10 +58,17 @@ export const buildTrace = (
   const baseValueView = registryView(registry, baseValue);
   const quoteValueView = registryView(registry, quoteValue);
 
-  const price = pnum(quoteValueView)
+  // `toFormat(6)` truncates prices under 5e-7 to "0.000000" and loses >2%
+  // precision at ~1e-5 (both plausible on low-priced tokens paired with a
+  // stable). All zero-formatted rows then merge under the "0-…" trace
+  // index and are skipped by `bucketTraces` / `useMarketPrice` — a whole
+  // market vanishes for those pairs. Use 6 significant figures instead,
+  // so 3.14e-9 stays "0.00000000314" and 1.23456789e-5 keeps meaningful
+  // decimals.
+  const priceRaw = pnum(quoteValueView)
     .toBigNumber()
-    .dividedBy(pnum(baseValueView).toBigNumber())
-    .toFormat(6);
+    .dividedBy(pnum(baseValueView).toBigNumber());
+  const price = priceRaw.isZero() ? '0' : priceRaw.precision(6).toFixed();
 
   return {
     price: removeTrailingZeros(price),

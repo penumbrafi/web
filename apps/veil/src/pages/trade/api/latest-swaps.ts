@@ -57,7 +57,7 @@ export const useLatestSwaps = (subaccount?: number) => {
     queryKey: [MY_TRADES_KEY, subaccount, baseSymbol, quoteSymbol],
     staleTime: Infinity,
     queryFn: () => fetchQuery(subaccount, baseAsset?.penumbraAssetId, quoteAsset?.penumbraAssetId),
-    enabled: connectionStore.connected,
+    enabled: connectionStore.connected && !!baseSymbol && !!quoteSymbol,
   });
 
   /**
@@ -73,9 +73,18 @@ export const useLatestSwaps = (subaccount?: number) => {
     return myTradesQuery.data?.length !== data?.length ? 5000 : 0;
   };
 
-  // Pindexer query – will not run if `myTradesQuery` data didn't change
+  // Pindexer query – will not run if `myTradesQuery` data didn't change.
+  // Cache key MUST include subaccount + pair, else switching pairs (or
+  // accounts) with equal swap counts serves the previous pair's data
+  // forever — length alone collides across pairs.
   const myExecutionsQuery = useQuery({
-    queryKey: [MY_EXECUTIONS_KEY, myTradesQuery.data?.length ?? 0],
+    queryKey: [
+      MY_EXECUTIONS_KEY,
+      subaccount,
+      baseSymbol,
+      quoteSymbol,
+      myTradesQuery.data?.length ?? 0,
+    ],
     enabled: typeof myTradesQuery.data !== 'undefined',
     staleTime: Infinity,
     refetchInterval: getRefetchInterval,
@@ -104,7 +113,16 @@ export const useLatestSwaps = (subaccount?: number) => {
     },
   });
 
-  useRefetchOnNewBlock(MY_TRADES_KEY, myTradesQuery);
+  // Pass a per-instance key + `disabled` so a page-2 mount (or a second
+  // subaccount) doesn't race the first over the module-global
+  // `lastRefetchedBlockHeights` map, and so `refetch()` doesn't fire the
+  // view-service call while disconnected — React Query's `enabled: false`
+  // does not gate an imperative refetch.
+  useRefetchOnNewBlock(
+    [MY_TRADES_KEY, subaccount, baseSymbol, quoteSymbol],
+    myTradesQuery,
+    !connectionStore.connected || !baseSymbol || !quoteSymbol,
+  );
 
   return {
     ...myExecutionsQuery,

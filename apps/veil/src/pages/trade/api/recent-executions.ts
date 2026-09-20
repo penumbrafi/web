@@ -10,8 +10,11 @@ const LIMIT = 10;
 export const useRecentExecutions = () => {
   const { baseSymbol, quoteSymbol } = usePathSymbols();
 
+  const bothSymbolsPresent = !!baseSymbol && !!quoteSymbol;
+
   const query = useQuery({
     queryKey: ['recent-executions', baseSymbol, quoteSymbol],
+    enabled: bothSymbolsPresent,
     // Refetch on every new block via the compact-block stream instead of
     // a fixed 10s poll. Matches the book / candles / my-trades cadence
     // and keeps the trade tape at Penumbra's block rhythm (~5s).
@@ -25,7 +28,11 @@ export const useRecentExecutions = () => {
     },
   });
 
-  useRefetchOnNewBlock(['recent-executions', baseSymbol, quoteSymbol], query);
+  useRefetchOnNewBlock(
+    ['recent-executions', baseSymbol, quoteSymbol],
+    query,
+    !bothSymbolsPresent,
+  );
   // Push path: refetch the instant pindexer's dex_ex indexer commits a
   // new batch, rather than waiting for the compact-block gRPC stream
   // to tick and then racing to hit the API before pindexer has landed

@@ -448,6 +448,15 @@ export class OrderFormStore {
     const wrongSideFunded =
       this._whichForm === 'LP' ? this._lp.wrongSideFunded : undefined;
 
+    // Range bounds are per-form. LP uses upper/lowerPrice on _lp; RangeLP
+    // uses upper/lowerPrice on _range; Market and Limit have no range.
+    const rangeBounds =
+      this._whichForm === 'LP'
+        ? { lowerPrice: this._lp.lowerPrice, upperPrice: this._lp.upperPrice }
+        : this._whichForm === 'RangeLP'
+          ? { lowerPrice: this._range.lowerPrice, upperPrice: this._range.upperPrice }
+          : { lowerPrice: undefined, upperPrice: undefined };
+
     return validateOrder({
       requirements: this.requirements,
       feeAsset: this._feeAsset,
@@ -466,6 +475,8 @@ export class OrderFormStore {
             quoteSymbol: this._lp.quoteAsset?.symbol ?? 'the quote asset',
           }
         : undefined,
+      lowerPrice: rangeBounds.lowerPrice,
+      upperPrice: rangeBounds.upperPrice,
     });
   }
 
