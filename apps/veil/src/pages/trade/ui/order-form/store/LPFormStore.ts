@@ -242,6 +242,30 @@ export class LPFormStore {
     return parseNumber(this.quoteInput) ?? 0;
   }
 
+  /**
+   * The mid price the plan should anchor to. Prefer the live `marketPrice`
+   * (from the route book), but fall back to the midpoint of the user's chosen
+   * range when the book is empty — the same bootstrap value the rest of the
+   * form uses. Returns `null` only when we truly have nothing (no live price
+   * AND either range bound missing).
+   *
+   * Without this, the plan gate and `simpleLiquidityPositions` receive
+   * `undefined`, `Math.min(undefined, x)` returns NaN in `oneSidedPositions`,
+   * `!Number.isFinite(span)` bails to `[]`, and the form reports "amounts too
+   * small" even for perfectly-sized LPs on a fresh pair.
+   */
+  get effectiveMarketPrice(): number | null {
+    if (this.marketPrice !== null && Number.isFinite(this.marketPrice)) {
+      return this.marketPrice;
+    }
+    const lo = this.lowerPriceInput;
+    const hi = this.upperPriceInput;
+    if (lo === null || hi === null || !Number.isFinite(lo) || !Number.isFinite(hi)) {
+      return null;
+    }
+    return (lo + hi) / 2;
+  }
+
   /** True when only one of the two assets is being provisioned. */
   get isOneSided(): boolean {
     return this.baseLiquidity > 0 !== this.quoteLiquidity > 0;

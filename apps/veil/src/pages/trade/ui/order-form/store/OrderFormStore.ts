@@ -34,6 +34,7 @@ import { isMetadataEqual } from '@/shared/utils/is-metadata-equal';
 import { AssetId, Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { getAssetMetadataById } from '@/shared/api/metadata';
 import { updatePositionsQuery } from '@/entities/position';
+import { queryClient } from '@/shared/const/queryClient';
 import { LPFormStore } from './LPFormStore';
 import { encodeLiquidityShape } from '@/shared/math/position';
 import {
@@ -46,6 +47,22 @@ import {
 import { parseNumber } from '@/shared/utils/num';
 
 export type WhichForm = 'Market' | 'Limit' | 'RangeLP' | 'LP';
+
+/**
+ * Kick the trade-page market-data queries after a local swap or LP action so
+ * the book, tape and chart reflect the just-landed change immediately, rather
+ * than waiting for the next block tick (~5s) or pindexer tick to bring them
+ * in. The user's own action is strictly a later event than the block that
+ * carried it, so re-fetching now is safe — it can only see the post-tx state.
+ * Predicate-based so it hits every base/quote/traceLimit/durationWindow
+ * variant currently mounted in the trade page.
+ */
+const invalidateMarketDataQueries = () => {
+  const keys = ['book', 'recent-executions', 'latest-swaps', 'latest-candles', 'infinite-candles'];
+  queryClient.invalidateQueries({
+    predicate: q => typeof q.queryKey[0] === 'string' && keys.includes(q.queryKey[0]),
+  });
+};
 
 export const isWhichForm = (x: string): x is WhichForm => {
   return x === 'Market' || x === 'Limit' || x === 'RangeLP' || x === 'LP';
@@ -479,6 +496,7 @@ export class OrderFormStore {
     try {
       const tx = await planBuildBroadcast(wasSwap ? 'swap' : 'positionOpen', plan);
       await updatePositionsQuery();
+      invalidateMarketDataQueries();
 
       if (!wasSwap || !tx) {
         return;
@@ -490,6 +508,7 @@ export class OrderFormStore {
       });
       await planBuildBroadcast('swapClaim', req, { skipAuth: true });
       await updatePositionsQuery();
+      invalidateMarketDataQueries();
     } catch (e) {
       // `planBuildBroadcast` already reports every planner/build/broadcast
       // failure through `describeTxError`, so anything landing here is from
