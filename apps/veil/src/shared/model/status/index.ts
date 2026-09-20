@@ -38,6 +38,10 @@ class StatusState {
   async setup() {
     try {
       const status = await penumbra.service(ViewService).status({});
+      // First success after a period of [unauthenticated] means the
+      // extension is unlocked again — clear the flag so the wallet-locked
+      // banner disappears automatically without a page reload.
+      connectionStore.markWalletUnlocked();
       this.setUnaryStatus(status);
 
       const stream = penumbra.service(ViewService).statusStream({});
@@ -45,10 +49,24 @@ class StatusState {
         this.setStreamedStatus(status);
       }
     } catch (error) {
+      const isLocked =
+        error instanceof Error && /\[unauthenticated\]/i.test(error.message);
       runInAction(() => {
         this.error = error instanceof Error ? `${error.name}: ${error.message}` : 'Streaming error';
+        // Stop showing the sync-bar's indeterminate loading state — it
+        // would otherwise sit at 0% "loading" forever. `loading=false`
+        // hands control to the wallet-locked banner, which is a
+        // meaningful signal the user can act on.
+        if (isLocked) this.loading = false;
       });
-      setTimeout(() => void this.setup(), 1000);
+      if (isLocked) {
+        connectionStore.markWalletLocked();
+      }
+      // Longer retry interval when locked — polling every 1s to
+      // discover we're still locked is wasted noise. The user needs to
+      // physically click the extension icon and enter a password;
+      // 3s is plenty snappy for detecting the unlock.
+      setTimeout(() => void this.setup(), isLocked ? 3000 : 1000);
     }
   }
 
