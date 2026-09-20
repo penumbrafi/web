@@ -25,6 +25,52 @@ import { useIsLqtEligible, LQT_ENABLED } from '@/shared/utils/is-lqt-eligible';
 import { LiquidityDistributionShape } from '@/shared/math/position';
 import { ConfirmInfoRow, ConfirmOrderModal, ConfirmWarning } from './confirm-order-modal';
 import { FormIssueNotice } from './form-issue';
+import { useReferencePrice } from '@/pages/trade/model/useReferencePrice';
+import type { LPFormStore } from './store/LPFormStore';
+
+/**
+ * Tiny hint-chip under the reference-price input: "Suggested: 1.00 (peg)"
+ * or "Suggested: 43,120 USDC.inj (BTC/USDC.inj via CoinGecko)". Click to
+ * apply. Hidden when we have no intel — user just sees the input's
+ * placeholder ("live mid") in that case.
+ *
+ * Rendered as its own observer component so the price fetch's setState
+ * doesn't re-render the whole LP form on every 60s cache refresh.
+ */
+const SuggestedRefPrice = observer(
+  ({
+    store,
+    decimals,
+    quoteSym,
+  }: {
+    store: LPFormStore;
+    decimals: number;
+    quoteSym: string;
+  }) => {
+    const baseSym = store.baseAsset?.symbol;
+    const quoteSymForHook = store.quoteAsset?.symbol;
+    const { price, source } = useReferencePrice(baseSym, quoteSymForHook);
+    if (price === undefined) return null;
+    const label = source === 'fixed' ? 'stablecoin peg' : source === 'coingecko' ? 'CoinGecko' : 'CoinGecko / peg';
+    const current = store.userReferencePrice;
+    const already = current !== null && Math.abs(current - price) / price < 0.001;
+    const formatted = roundToDecimals(price, decimals);
+    return (
+      <div className='mt-1 flex items-center gap-1 text-xs text-text-muted'>
+        <span>Suggested: {formatted} {quoteSym} ({label})</span>
+        {!already && (
+          <button
+            type='button'
+            onClick={() => store.setUserReferencePriceInput(String(formatted))}
+            className='ml-auto rounded-sm border border-other-tonal-stroke px-1.5 py-0.5 text-text-secondary hover:border-orange-500 hover:text-text-primary'
+          >
+            Use
+          </button>
+        )}
+      </div>
+    );
+  },
+);
 import ConcentratedDefault from '@/shared/assets/liquidity-shapes/Type=Concentrated, State=Default.svg';
 import ConcentratedSelected from '@/shared/assets/liquidity-shapes/Type=Concentrated, State=Selected.svg';
 import StablekindDefault from '@/shared/assets/liquidity-shapes/Type=Stablekind, State=Default.svg';
@@ -532,6 +578,7 @@ export const LPOrderForm = observer(
             className='w-full rounded-sm border border-other-tonal-stroke bg-transparent px-2 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:border-orange-500 focus:outline-none'
             aria-label='Reference price for LP'
           />
+          <SuggestedRefPrice store={store} decimals={decimals} quoteSym={quoteSym} />
         </div>
 
         {/* Price Range — header collapses to label on the left, More menu
