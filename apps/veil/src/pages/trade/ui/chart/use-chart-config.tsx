@@ -631,14 +631,48 @@ export const useChartConfig = (
     const series = seriesRef.current;
     if (!series) return;
     if (!Number.isFinite(mid) || mid <= 0) return;
-    const minValue = mid / CENTER_MULTIPLIER;
-    const maxValue = mid * CENTER_MULTIPLIER;
+    const anchorMin = mid / CENTER_MULTIPLIER;
+    const anchorMax = mid * CENTER_MULTIPLIER;
     try {
+      // Union the fixed anchor window with the data's own autoscale range
+      // instead of pinning to a hard ±15%. The old provider ignored
+      // `original()` and clipped 1w / 1mo history to a strip around the
+      // anchor; on a pair switch to a pair whose anchor is null it left
+      // the previous pair's window applied and the new candles rendered
+      // off-screen; "Reset chart view" re-enabled autoscale onto the
+      // still-pinned strip. Take the min of mins and max of maxes so the
+      // anchor is always visible AND every candle in view is honestly
+      // scaled.
       series.applyOptions({
-        autoscaleInfoProvider: () => ({
-          priceRange: { minValue, maxValue },
-        }),
+        autoscaleInfoProvider: original => {
+          const src = original();
+          const dataMin = src?.priceRange?.minValue;
+          const dataMax = src?.priceRange?.maxValue;
+          const minValue =
+            Number.isFinite(dataMin) ? Math.min(anchorMin, dataMin as number) : anchorMin;
+          const maxValue =
+            Number.isFinite(dataMax) ? Math.max(anchorMax, dataMax as number) : anchorMax;
+          const margins = src?.margins;
+          return margins ? { priceRange: { minValue, maxValue }, margins } : { priceRange: { minValue, maxValue } };
+        },
       });
+      series.priceScale().applyOptions({ autoScale: true });
+    } catch {
+      // chart torn down
+    }
+  }, []);
+
+  /**
+   * Clear the pinned anchor so the price axis reverts to lightweight-charts'
+   * own auto-fit for whatever data is on screen. Called on pair change: the
+   * new pair's mid may be null, and re-using the previous pair's anchor
+   * strip clips or off-screens the new candles.
+   */
+  const clearPriceAnchor = useCallback(() => {
+    const series = seriesRef.current;
+    if (!series) return;
+    try {
+      series.applyOptions({ autoscaleInfoProvider: undefined });
       series.priceScale().applyOptions({ autoScale: true });
     } catch {
       // chart torn down
@@ -650,7 +684,8 @@ export const useChartConfig = (
    * autoscale on the price axis. Mirrors what lightweight-charts'
    * own controls do — but exposed so the right-click menu can offer
    * 'Reset chart view' without the user hunting for the chart's
-   * native UI.
+   * native UI. Also drops the pinned autoscale provider so the reset
+   * fits actual data, not a stale ±15% strip.
    */
   const resetView = useCallback(() => {
     const chart = chartRef.current;
@@ -658,6 +693,7 @@ export const useChartConfig = (
     if (!chart || !series) return;
     try {
       chart.timeScale().fitContent();
+      series.applyOptions({ autoscaleInfoProvider: undefined });
       series.priceScale().applyOptions({ autoScale: true });
     } catch {
       // chart torn down
@@ -799,6 +835,7 @@ export const useChartConfig = (
     chartReady,
     resetView,
     centerPriceScaleOn,
+    clearPriceAnchor,
     subscribeRedraw,
     subscribeHover,
     subscribeChartClick,

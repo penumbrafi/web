@@ -94,6 +94,11 @@ export class OrderFormStore {
   address?: Address;
   subAccountIndex?: AddressIndex;
   private _feeAsset?: AssetInfo;
+  // Cached reference to the staking-token (UM) AssetInfo so the fee-reset
+  // branch in `estimateGasFee` can restore the default without an async
+  // registry lookup. Set alongside `setFeeAsset` when UM is chosen at
+  // mount, and never overwritten by `setAlternativeFee`.
+  private _umFeeAsset?: AssetInfo;
   private _gasFee: { symbol: string; display: string } = { symbol: 'UM', display: '--' };
   private _gasFeeLoading = false;
   /** The planner's own rejection of the current form, if it has one. */
@@ -171,11 +176,22 @@ export class OrderFormStore {
         return;
       }
       await runInAction(async () => {
-        // If the fee asset is the staking token, do nothing since it’s already handled in the useEffect
-        // below. Otherwise, set the fee to an alternative asset.
+        // Protocol convention (per `fee.rs`): `Fee.asset_id` is None when
+        // the fee is paid in UM (the staking token). It's set only when
+        // the planner routed to an alternative asset because the user
+        // couldn't cover UM gas from their notes. Historically we only
+        // handled the "set → switch to alt" direction; the reverse
+        // ("cleared → revert to UM") was silently ignored, so once the
+        // planner picked (say) USDC gas for one plan, `_feeAsset` stayed
+        // on USDC on every subsequent plan even when the on-chain fee
+        // was back in UM — the display showed the wrong symbol and
+        // exponent, and validation used the wrong asset's balance.
         const feeAssetId = res.transactionParameters?.fee?.assetId;
         if (feeAssetId) {
           await this.setAlternativeFee(feeAssetId);
+        } else if (this._umFeeAsset && !this._feeAsset?.id.equals(this._umFeeAsset.id)) {
+          // Revert to UM whenever the planner didn't specify an alt.
+          this._feeAsset = this._umFeeAsset;
         }
 
         if (!this._feeAsset) {
@@ -239,6 +255,10 @@ export class OrderFormStore {
 
   setFeeAsset = (x: AssetInfo) => {
     this._feeAsset = x;
+  };
+
+  setUmFeeAsset = (x: AssetInfo) => {
+    this._umFeeAsset = x;
   };
 
   setSubAccountIndex = (x: AddressIndex) => {
@@ -706,9 +726,12 @@ export const useOrderFormStore = () => {
 
       const umAsset = AssetInfo.fromMetadata(registryUM);
 
-      if (umAsset && orderFormStore.feeAsset?.symbol !== umAsset.symbol) {
-        orderFormStore.setFeeAsset(umAsset);
-        orderFormStore.resetGasFee();
+      if (umAsset) {
+        orderFormStore.setUmFeeAsset(umAsset);
+        if (orderFormStore.feeAsset?.symbol !== umAsset.symbol) {
+          orderFormStore.setFeeAsset(umAsset);
+          orderFormStore.resetGasFee();
+        }
       }
     }
   }, [address, addressIndex, registryUM]);

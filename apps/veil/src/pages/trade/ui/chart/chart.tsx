@@ -340,6 +340,7 @@ export const Chart = observer(() => {
     chartReady,
     resetView,
     centerPriceScaleOn,
+    clearPriceAnchor,
     timeAtX,
     subscribeRedraw,
     subscribeHover,
@@ -396,11 +397,20 @@ export const Chart = observer(() => {
       : lpEffective != null && Number.isFinite(lpEffective) && lpEffective > 0
         ? lpEffective
         : null;
+  // Drop the pinned autoscale window whenever we move to a new pair —
+  // without this the previous pair's anchor strip stayed applied and the
+  // new pair's candles were clipped or scrolled off-screen if its anchor
+  // hadn't yet resolved. `centerPriceScaleOn` reinstalls a fresh anchor
+  // as soon as one becomes available.
+  useEffect(() => {
+    if (!chartReady) return;
+    if (centeredForPairRef.current === pairKey) return;
+    centeredForPairRef.current = pairKey;
+    clearPriceAnchor();
+  }, [chartReady, pairKey, clearPriceAnchor]);
   useEffect(() => {
     if (!chartReady) return;
     if (anchor == null) return;
-    if (centeredForPairRef.current === pairKey) return;
-    centeredForPairRef.current = pairKey;
     centerPriceScaleOn(anchor);
   }, [chartReady, pairKey, anchor, centerPriceScaleOn]);
   const {
