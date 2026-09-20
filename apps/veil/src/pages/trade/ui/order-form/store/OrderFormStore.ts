@@ -179,6 +179,24 @@ export class OrderFormStore {
       },
       debounce(() => void this.estimateGasFee(), GAS_DEBOUNCE_MS),
     );
+
+    // When the wallet unlocks mid-session, re-fire the estimator so
+    // gas / fee-asset / _planError all recover without the user having
+    // to edit an input. Otherwise the sync bar clears, the amber
+    // banner disappears, but `_gasFee` sticks at "--" — which then
+    // silently bypasses the fee-headroom check in validate.ts
+    // (`parseNumber('--')` returns undefined) and a MAX order can be
+    // submitted while the wallet is still catching up. Invalidate
+    // balances too, since those queries all errored while locked and
+    // won't retry until something triggers them.
+    connectionStore.onWalletUnlock(() => {
+      queryClient.invalidateQueries({
+        predicate: q =>
+          typeof q.queryKey[0] === 'string' &&
+          ['view-service-balances', 'positions', 'my-trades'].includes(q.queryKey[0]),
+      });
+      void this.estimateGasFee();
+    });
   }
 
   /**
