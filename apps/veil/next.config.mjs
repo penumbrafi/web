@@ -6,17 +6,39 @@ const withBundleAnalyzer = bundleAnalyzer({
 });
 
 // Look up the specific git commit for the app, to include in the footer.
+//
+// Precedence: CI-provided `GITHUB_SHA` (the exact commit the workflow
+// checked out, guaranteed to exist on the remote) over local
+// `git rev-parse HEAD` (which after a `git pull --rebase` can point at
+// an orphaned pre-rebase SHA GitHub 404s on). CI also gets
+// GITHUB_SERVER_URL + GITHUB_REPOSITORY, which together always resolve
+// to a real "…/commit/<sha>" that lands on a real page — no more dead
+// footer links on the deployed build.
 const getCommitInfo = () => {
   try {
-    const commitHash = execSync('git rev-parse HEAD').toString().trim();
-    const commitDate = execSync('git log -1 --format=%cI').toString().trim();
-    let gitOriginUrl = execSync('git remote get-url origin')
-      .toString()
-      .trim()
-      .replace(/\.git$/, '');
+    const ciSha = process.env.GITHUB_SHA?.trim();
+    const commitHash = ciSha || execSync('git rev-parse HEAD').toString().trim();
 
-    if (gitOriginUrl.startsWith('git@github.com:')) {
-      gitOriginUrl = gitOriginUrl.replace('git@github.com:', 'https://github.com/');
+    // Date from CI's SHA if we have it, else local git. `git show -s`
+    // reads any object in the local repo, so it works for both.
+    let commitDate;
+    try {
+      commitDate = execSync(`git show -s --format=%cI ${commitHash}`).toString().trim();
+    } catch {
+      commitDate = execSync('git log -1 --format=%cI').toString().trim();
+    }
+
+    let gitOriginUrl;
+    if (process.env.GITHUB_SERVER_URL && process.env.GITHUB_REPOSITORY) {
+      gitOriginUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}`;
+    } else {
+      gitOriginUrl = execSync('git remote get-url origin')
+        .toString()
+        .trim()
+        .replace(/\.git$/, '');
+      if (gitOriginUrl.startsWith('git@github.com:')) {
+        gitOriginUrl = gitOriginUrl.replace('git@github.com:', 'https://github.com/');
+      }
     }
 
     return {
