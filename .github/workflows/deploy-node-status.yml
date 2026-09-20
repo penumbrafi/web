@@ -25,9 +25,9 @@ permissions:
 jobs:
   build:
     name: build node-status
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: setup nix
         uses: ./.github/actions/setup-nix
@@ -50,7 +50,7 @@ jobs:
           INFO
           tar --zstd -C apps/node-status/dist -cf "node-status-${{ github.sha }}.tar.zst" .
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: node-status-${{ github.sha }}
           path: node-status-${{ github.sha }}.tar.zst
@@ -63,13 +63,13 @@ jobs:
   deploy:
     name: deploy node-status
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: production
     env:
       APP_DIR: /opt/penumbra-node-status
       SHA: ${{ github.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # Pin the deploy job to main-branch workflow logic — same
           # rationale as deploy-veil.yml. Build produced its artifact
@@ -78,7 +78,7 @@ jobs:
           ref: refs/heads/main
           persist-credentials: false
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: node-status-${{ github.sha }}
 
