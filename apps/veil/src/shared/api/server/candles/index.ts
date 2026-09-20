@@ -14,39 +14,89 @@ const MAINNET_CHAIN_ID = 'penumbra-1';
 // (no chart data yet) rather than crashing.
 const EMPTY_CANDLES: CandleApiResponse = [];
 
-const getCandlesOneDirection = async ({
+const getCandlesForTimes = async ({
   assetStart,
   assetEnd,
   window,
   chainId,
-  page,
-  limit,
+  startTimes,
 }: {
   assetStart: AssetId;
   assetEnd: AssetId;
   window: DurationWindow;
-  limit?: number;
-  page?: number;
   chainId: string;
+  startTimes: Date[];
 }): Promise<DbCandle[]> => {
-  const filteredCandles = pindexerDb
+  if (startTimes.length === 0) return [];
+  return pindexerDb
     .selectFrom('dex_ex_price_charts')
     .select(['start_time', 'open', 'close', 'low', 'high', 'swap_volume', 'direct_volume'])
     .where('the_window', '=', window)
     .where('asset_start', '=', Buffer.from(assetStart.inner))
     .where('asset_end', '=', Buffer.from(assetEnd.inner))
-    .orderBy('start_time', 'desc')
     .$if(chainId === MAINNET_CHAIN_ID, qb => qb.where('start_time', '>=', new Date('2024-08-06')))
+    .where('start_time', 'in', startTimes)
+    .orderBy('start_time', 'asc')
+    .execute();
+};
+
+/**
+ * Distinct `start_time` values across both trade directions for this pair,
+ * paged from the tip going back. Historically each direction was paginated
+ * independently (LIMIT/OFFSET per direction), then merged by time — a
+ * sparser direction's page-1 reached further back than the denser one's,
+ * so page-2 rows interleaved with page-1 times and the merged array was
+ * non-monotonic. lightweight-charts then threw "data must be asc ordered
+ * by time" on scroll-back. Union-first pagination guarantees both
+ * directions return rows for the same window and merging stays monotonic.
+ */
+const getPagedBucketTimes = async ({
+  assetStart,
+  assetEnd,
+  window,
+  chainId,
+  limit,
+  page,
+}: {
+  assetStart: AssetId;
+  assetEnd: AssetId;
+  window: DurationWindow;
+  chainId: string;
+  limit?: number;
+  page?: number;
+}): Promise<Date[]> => {
+  // Union both direction's start_times, then paginate on the distinct
+  // set. Direction is captured only via the two WHERE branches; the
+  // outer query only cares about time.
+  const forward = pindexerDb
+    .selectFrom('dex_ex_price_charts')
+    .select('start_time')
+    .where('the_window', '=', window)
+    .where('asset_start', '=', Buffer.from(assetStart.inner))
+    .where('asset_end', '=', Buffer.from(assetEnd.inner))
+    .$if(chainId === MAINNET_CHAIN_ID, qb => qb.where('start_time', '>=', new Date('2024-08-06')));
+  const reverse = pindexerDb
+    .selectFrom('dex_ex_price_charts')
+    .select('start_time')
+    .where('the_window', '=', window)
+    .where('asset_start', '=', Buffer.from(assetEnd.inner))
+    .where('asset_end', '=', Buffer.from(assetStart.inner))
+    .$if(chainId === MAINNET_CHAIN_ID, qb => qb.where('start_time', '>=', new Date('2024-08-06')));
+
+  const q = forward
+    .union(reverse)
+    .as('u');
+  const rows = await pindexerDb
+    .selectFrom(q)
+    .select('start_time')
+    .distinct()
+    .orderBy('start_time', 'desc')
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- Kysely limitation
     .$if(limit !== undefined, qb => qb.limit(limit!))
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- Kysely limitation
-    .$if(page !== undefined && limit !== undefined, qb => qb.offset(limit! * (page! - 1)));
-
-  return pindexerDb
-    .selectFrom(filteredCandles.as('candles'))
-    .selectAll()
-    .orderBy('start_time', 'asc')
+    .$if(page !== undefined && limit !== undefined, qb => qb.offset(limit! * (page! - 1)))
     .execute();
+  return rows.map(r => r.start_time);
 };
 
 export const GET = withApiFallback(handleGet, {
@@ -107,27 +157,39 @@ async function handleGet(req: NextRequest): Promise<NextResponse<CandleApiRespon
     );
   }
 
-  // Query both directions in parallel: pindexer's dex_ex_price_charts is
-  // direction-keyed, so (base→quote) holds taker-sell candles and
-  // (quote→base) holds taker-buy candles. Merging the two by start_time
-  // gives a single candle per bucket with split buy/sell volume.
+  // Two-step: first take the distinct start_times to fetch this page (a
+  // UNION across both direction keys, paginated). Then fetch every row
+  // for those exact times in each direction. Both directions return
+  // candles for the SAME window, so the merged output is guaranteed
+  // monotonic in time — no more page-2 interleaving with page-1 that
+  // used to crash lightweight-charts on scroll-back.
+  const startTimes = await withTimeout(
+    getPagedBucketTimes({
+      assetStart: baseAssetMetadata.penumbraAssetId,
+      assetEnd: quoteAssetMetadata.penumbraAssetId,
+      window: durationWindow,
+      chainId,
+      limit,
+      page,
+    }),
+    DEFAULT_TIMEOUT_MS,
+    'candles pindexer paged times',
+  );
   const [forwardRows, reverseRows] = await withTimeout(
     Promise.all([
-      getCandlesOneDirection({
+      getCandlesForTimes({
         assetStart: baseAssetMetadata.penumbraAssetId,
         assetEnd: quoteAssetMetadata.penumbraAssetId,
         window: durationWindow,
         chainId,
-        limit,
-        page,
+        startTimes,
       }),
-      getCandlesOneDirection({
+      getCandlesForTimes({
         assetStart: quoteAssetMetadata.penumbraAssetId,
         assetEnd: baseAssetMetadata.penumbraAssetId,
         window: durationWindow,
         chainId,
-        limit,
-        page,
+        startTimes,
       }),
     ]),
     DEFAULT_TIMEOUT_MS,
