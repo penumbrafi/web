@@ -65,19 +65,28 @@ const DepthCurveImpl = ({ rows, relativeSizes, side, gridRowStart }: Props) => {
       ? 'rgba(175, 38, 38, 0.14)'
       : 'rgba(28, 121, 63, 0.14)';
 
+  // Absolutely positioned relative to the parent grid so the SVG does
+  // NOT claim grid cells — CSS Grid auto-placement treats explicitly-
+  // positioned items as occupying their cells and auto-flow then skips
+  // past those cells, pushing the actual TradeRows down instead of
+  // overlapping the SVG. That produced the "two disconnected colored
+  // blocks at the top with rows floating separately below" bug. With
+  // absolute positioning the SVG floats over the ladder without
+  // participating in the row cursor.
+  //
+  // Row offset: grid row 1 = header (32px). SVG's top is at
+  // `(gridRowStart - 1) * 32` from the container's top edge. Height
+  // stays `n * ROW_PX` to cover exactly its side's rows.
+  const topPx = (gridRowStart - 1) * ROW_PX;
   return (
     <svg
       aria-hidden
-      className='pointer-events-none'
+      className='pointer-events-none absolute'
       style={{
-        gridColumn: '1 / -1',
-        gridRow: `${gridRowStart} / span ${n}`,
-        // Match the row grid: SVG stretches to the same total height
-        // the rows occupy, so the step-after path lines up 1:1 with row
-        // boundaries.
-        width: '100%',
+        left: 0,
+        right: 0,
+        top: topPx,
         height: n * ROW_PX,
-        alignSelf: 'stretch',
       }}
       viewBox={`0 0 100 ${n}`}
       preserveAspectRatio='none'

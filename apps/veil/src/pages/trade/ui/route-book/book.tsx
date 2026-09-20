@@ -484,7 +484,7 @@ export const RouteBook = observer(() => {
   return (
       <>
         {controls}
-        <div className='mt-2 grid w-full auto-rows-[32px] grid-cols-[1fr_1fr_1fr_1fr] items-center gap-x-2'>
+        <div className='relative mt-2 grid w-full auto-rows-[32px] grid-cols-[1fr_1fr_1fr_1fr] items-center gap-x-2'>
           <RouteBookHeader
             quote={pair.quoteSymbol}
             base={pair.baseSymbol}
