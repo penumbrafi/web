@@ -380,14 +380,29 @@ export const Chart = observer(() => {
   // the view doesn't lurch around every block as the mid ticks; the user's
   // subsequent pan/zoom is preserved (dragging the price axis flips
   // autoScale off, at which point the provider stops applying).
+  //
+  // Empty-book fallback: on a fresh pair with no trades and no LPs yet,
+  // marketPrice stays null and the price axis is undefined, so the LP-
+  // preview overlay has no coordinates and the chart looks empty even
+  // once the user fills in a range. When the LP form has a derived mid
+  // (mean of user-entered lower/upper bounds), use that as the anchor
+  // instead — the chart then shows the user's own range as its Y-scale
+  // and the LP overlay renders normally.
   const centeredForPairRef = useRef<string | null>(null);
+  const lpEffective = tradeFormStore.lpForm.effectiveMarketPrice;
+  const anchor =
+    marketPrice != null && Number.isFinite(marketPrice) && marketPrice > 0
+      ? marketPrice
+      : lpEffective != null && Number.isFinite(lpEffective) && lpEffective > 0
+        ? lpEffective
+        : null;
   useEffect(() => {
     if (!chartReady) return;
-    if (marketPrice == null || !Number.isFinite(marketPrice) || marketPrice <= 0) return;
+    if (anchor == null) return;
     if (centeredForPairRef.current === pairKey) return;
     centeredForPairRef.current = pairKey;
-    centerPriceScaleOn(marketPrice);
-  }, [chartReady, pairKey, marketPrice, centerPriceScaleOn]);
+    centerPriceScaleOn(anchor);
+  }, [chartReady, pairKey, anchor, centerPriceScaleOn]);
   const {
     drawings,
     add: addDrawing,
