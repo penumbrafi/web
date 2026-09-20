@@ -166,14 +166,18 @@ export const validateOrder = (input: ValidationInput): FormIssue[] => {
   // shadowed by: the LP planners drop rungs whose reserves round to zero base
   // units (the chain rejects the whole transaction over a single empty
   // position), so when *every* rung is dropped the plan is an empty array and
-  // there are no requirements to report. The user has plainly entered
-  // amounts, so "Enter an amount to continue" would be nonsense — the real
-  // problem is that the amounts are too small to survive the split.
+  // there are no requirements to report. Message is deliberately concrete
+  // about the most common causes — "amounts are too small" alone reads as
+  // an accusation for someone who plainly typed a real amount, when the
+  // real culprit is usually a stale/missing mid or a range on the wrong
+  // side of it.
   if (input.positionCount === 0) {
+    const hint = input.marketPrice === undefined
+      ? 'Likely cause: no live market price for this pair yet, so the range has no anchor. Try the Limit tab, or wait for the book to populate.'
+      : 'Common causes: the price range sits entirely on one side of the current market, so no rung could be built on the funded side; or the number of positions is too high for these amounts. Try widening the range across the mid, or reducing positions.';
     issues.push({
       severity: 'blocking',
-      message:
-        'These amounts are too small to open a position — after splitting across the range, every position would round to zero. Increase the amount or reduce the number of positions.',
+      message: `Could not build any positions from these inputs. ${hint}`,
     });
     return issues;
   }
