@@ -30,6 +30,7 @@ import { PriceContextMenu, PriceMenuItem } from './price-context-menu';
 import { tradeFormStore } from '../order-form/store/OrderFormStore';
 import { DepthOverlay } from './depth-overlay';
 import { MidPriceOverlay } from './mid-price-overlay';
+import { ReferencePriceOverlay } from './reference-price-overlay';
 import { LpPreviewOverlay } from './lp-preview-overlay';
 import { OwnPositionsDragOverlay } from './own-positions-drag-overlay';
 import { LimitPreviewOverlay } from './limit-preview-overlay';
@@ -1176,6 +1177,18 @@ export const Chart = observer(() => {
                   quoteSymbol={quoteSymbol}
                 />
               )}
+              {/* Reference-price line + drag handle for LP forms. Renders
+                  only when whichForm is LP or RangeLP; sits above the
+                  live-mid line so users can drag their "personal mid" up
+                  and down without touching the market's mid, and click
+                  the pill to snap to a peg/CoinGecko suggestion. */}
+              <ReferencePriceOverlay
+                yAtPrice={yAtPrice}
+                priceAtY={priceAtY}
+                subscribeRedraw={subscribeRedraw}
+                quoteSymbol={quoteSymbol}
+              />
+
               <DrawingsOverlay
                 drawings={drawings}
                 yAtPrice={yAtPrice}
