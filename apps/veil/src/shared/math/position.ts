@@ -68,6 +68,14 @@ const priceToPQ = (
   pExponent: number,
   qExponent: number,
 ): { p: Amount; q: Amount } => {
+  // Guard against non-finite inputs: BigNumber(NaN|Infinity).toFraction()
+  // returns a non-iterable value in some bundler builds, which surfaces
+  // as the cryptic "n.default is not iterable" destructuring error at
+  // the `let [p, q] = ...` line below. Better to short-circuit to a
+  // canonical (1, 1) than to crash the whole LP form.
+  if (!Number.isFinite(price) || !Number.isFinite(pExponent) || !Number.isFinite(qExponent)) {
+    return { p: pnum(1n).toAmount(), q: pnum(1n).toAmount() };
+  }
   // e.g. price     = X USD / UM
   //      basePrice = Y uUM / uUSD = X USD / UM * uUSD / USD * UM / uUM
   //                = X * 10 ** qExponent * 10 ** -pExponent
@@ -436,7 +444,20 @@ const oneSidedPositions = (
   const to = side === 'base' ? plan.upperPrice : Math.min(plan.marketPrice, plan.upperPrice);
   const span = to - from;
   const n = plan.positions;
-  if (span <= 0 || n <= 0) return [];
+  // Also bail on non-finite span or non-finite bounds — a NaN
+  // marketPrice or bound would silently produce NaN prices below and
+  // crash priceToPQ inside BigNumber.toFraction with the cryptic
+  // "n.default is not iterable" destructuring error. Better a
+  // no-op empty plan than a hard crash.
+  if (
+    span <= 0 ||
+    n <= 0 ||
+    !Number.isFinite(span) ||
+    !Number.isFinite(from) ||
+    !Number.isFinite(to)
+  ) {
+    return [];
+  }
 
   // One-sided always uses the volatile / INVERTED_PYRAMID growth (light
   // near mid, rising to the far edge), regardless of the shape the
