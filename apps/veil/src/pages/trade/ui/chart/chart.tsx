@@ -559,6 +559,37 @@ export const Chart = observer(() => {
     fullySeededRef.current = true;
   }, [historyCandles, setCandlesData, setVolumeData]);
 
+  // Empty-history fallback: lightweight-charts refuses to render axes
+  // when the candle series has zero data points — no candles = no
+  // price axis = the whole chart is blank even when we have a real
+  // marketPrice (touch price of a one-sided book, or LP-form mid).
+  // Seed a single "no-move" candle at the anchor so the coordinate
+  // system exists; the price axis and grid then render normally and
+  // the LP-preview overlay has real coordinates to draw against.
+  // Only fires when the candles query has completed (isLoading false)
+  // AND returned zero pages, so we do not race the real history load.
+  useEffect(() => {
+    if (isLoading) return;
+    if (historyCandles?.pages.length) return;
+    if (anchor == null) return;
+    if (fullySeededRef.current) return;
+    const time = Math.floor(Date.now() / 1000) as unknown as number;
+    const seed = [
+      {
+        ohlc: {
+          time,
+          open: anchor,
+          high: anchor,
+          low: anchor,
+          close: anchor,
+        },
+        volume: 0,
+      },
+    ] as Parameters<typeof setCandlesData>[0];
+    setCandlesData(seed);
+    setVolumeData(seed);
+  }, [isLoading, historyCandles, anchor, setCandlesData, setVolumeData]);
+
   // Stable across renders. Chart re-renders every block-tick via
   // marketPrice; without useCallback the volume divider <div> and the
   // chart container <div> would have their event listeners swapped each
