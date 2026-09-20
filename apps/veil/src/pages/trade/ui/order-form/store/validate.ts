@@ -1,6 +1,7 @@
 import { Position } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
 import { pnum } from '@penumbra-zone/types/pnum';
 import { AssetInfo } from '@/pages/trade/model/AssetInfo';
+import type { OffMidWarningKind } from './LPFormStore';
 
 /**
  * A single thing standing between the user and a successful transaction.
@@ -104,7 +105,8 @@ export interface ValidationInput {
    * as a loud warning so users who mean it can proceed.
    */
   offMidWarning?: {
-    kind: 'bids-above-mid' | 'asks-below-mid';
+    kind: OffMidWarningKind;
+    fundedSide: 'base' | 'quote';
     fundedAsset: AssetInfo;
     counterAsset: AssetInfo;
     midPrice: number;
@@ -200,7 +202,7 @@ export const validateOrder = (input: ValidationInput): FormIssue[] => {
   if (input.positionCount === 0) {
     const hint = input.marketPrice === undefined
       ? 'Likely cause: no live market price for this pair yet, so the range has no anchor. Try the Limit tab, or wait for the book to populate.'
-      : 'Common causes: the price range sits entirely on one side of the current market, so no rung could be built on the funded side; or the number of positions is too high for these amounts. Try widening the range across the mid, or reducing positions.';
+      : "Range and mid don't produce any rungs on the funded side — check your bounds or reference price. Alternatively the number of positions is too high for these amounts; try reducing positions.";
     issues.push({
       severity: 'blocking',
       message: `Could not build any positions from these inputs. ${hint}`,
@@ -248,7 +250,15 @@ export const validateOrder = (input: ValidationInput): FormIssue[] => {
   if (input.offMidWarning) {
     const w = input.offMidWarning;
     const midStr = w.midPrice.toPrecision(6);
-    if (w.kind === 'bids-above-mid') {
+    if (w.kind === 'partial-straddle') {
+      // One-sided funding, range crosses mid. The planner clamps to the
+      // funded side's half; the rest of the range is dropped, not quoted.
+      const side = w.fundedSide === 'quote' ? 'bid' : 'ask';
+      issues.push({
+        severity: 'warning',
+        message: `Range partially crosses mid (~${midStr}) — only the ${side} portion will be quoted; the other portion is dropped.`,
+      });
+    } else if (w.kind === 'bids-above-mid') {
       issues.push({
         severity: 'warning',
         message: `Off-mid position: you are offering to buy ${w.counterAsset.symbol} at prices ABOVE the current market (~${midStr} ${w.fundedAsset.symbol}/${w.counterAsset.symbol}). Arbitrageurs may fill and drain the position at first crossing. Proceed only if this is intentional (e.g. a specific price view).`,

@@ -458,18 +458,33 @@ const oneSidedPositions = (
   plan: SimpleLiquidityPlan,
   side: 'base' | 'quote',
 ): PositionedLiquidity[] => {
-  // Emit rungs across the FULL user range, not the "sensible" side of
-  // mid. Chain does not enforce this — you can bid above mid (offering
-  // to buy the base at a premium) or ask below mid (selling at a
-  // discount) — arbs may drain such positions immediately, but that is
-  // the user's call, not ours. The old shape clamped to `[lower, min(mid, upper)]`
-  // for quote / `[max(mid, lower), upper]` for base and returned []
-  // when the range was wholly on the "wrong" side of mid — which read
-  // as "amounts too small" to the user on wide-spread pairs where the
-  // mid is barely meaningful. Wide-spread / off-mid warnings live in
-  // the validator instead; the LP math just builds what was asked.
-  const from = plan.lowerPrice;
-  const to = plan.upperPrice;
+  // Two regimes, keyed on whether mid sits INSIDE the user's range:
+  //
+  //  - Mid outside [lower, upper]: emit rungs across the FULL range.
+  //    The user has explicitly placed the whole ladder off-mid (bidding
+  //    above market / asking below it). Chain does not enforce a mid;
+  //    arbs may drain such positions, but it is the user's call and the
+  //    validator surfaces an advisory off-mid warning. Clamping here
+  //    used to return [] and read as "amounts too small" on wide-spread
+  //    pairs where the mid is barely meaningful.
+  //
+  //  - Mid inside [lower, upper] (straddle): clamp the funded side to
+  //    its sensible half — base → [mid, upper], quote → [lower, mid].
+  //    Without this a base-only ladder on [0.9, 1.2] with mid 1.0 would
+  //    post asks at 0.9–1.0, i.e. sell base BELOW live market: instant
+  //    arb food, silently. The dropped portion is reported by
+  //    `LPFormStore.offMidWarning` ('partial-straddle').
+  const { lowerPrice: lower, upperPrice: upper, marketPrice: mid } = plan;
+  const midInRange = mid >= lower && mid <= upper;
+  let from = lower;
+  let to = upper;
+  if (midInRange) {
+    if (side === 'base') {
+      from = Math.max(mid, lower);
+    } else {
+      to = Math.min(mid, upper);
+    }
+  }
   const span = to - from;
   const n = plan.positions;
   // Also bail on non-finite span or non-finite bounds — a NaN

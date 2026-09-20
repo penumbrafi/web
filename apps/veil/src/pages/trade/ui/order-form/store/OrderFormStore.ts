@@ -35,7 +35,7 @@ import { AssetId, Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v
 import { getAssetMetadataById } from '@/shared/api/metadata';
 import { updatePositionsQuery } from '@/entities/position';
 import { queryClient } from '@/shared/const/queryClient';
-import { LPFormStore } from './LPFormStore';
+import { LPFormStore, type OffMidWarningKind } from './LPFormStore';
 import { encodeLiquidityShape } from '@/shared/math/position';
 import {
   blockingIssue,
@@ -584,18 +584,27 @@ export class OrderFormStore {
     }
 
     let offMidWarning: undefined | {
-      kind: 'bids-above-mid' | 'asks-below-mid';
+      kind: OffMidWarningKind;
+      fundedSide: 'base' | 'quote';
       fundedAsset: AssetInfo;
       counterAsset: AssetInfo;
       midPrice: number;
     };
-    if (offMid && this._lp.baseAsset && this._lp.quoteAsset && this._marketPrice) {
-      const fundedIsQuote = offMid === 'bids-above-mid';
+    // The wholly-off kinds are judged against the live mid; the straddle
+    // clamp trims against the effective (reference-aware) mid, so report
+    // that one for `partial-straddle` — it's the anchor the plan splits on.
+    const offMidAnchor =
+      offMid === 'partial-straddle'
+        ? (this._lp.effectiveMarketPrice ?? undefined)
+        : this._marketPrice;
+    if (offMid && this._lp.baseAsset && this._lp.quoteAsset && offMidAnchor) {
+      const fundedIsQuote = this._lp.quoteLiquidity > 0;
       offMidWarning = {
         kind: offMid,
+        fundedSide: fundedIsQuote ? 'quote' : 'base',
         fundedAsset: fundedIsQuote ? this._lp.quoteAsset : this._lp.baseAsset,
         counterAsset: fundedIsQuote ? this._lp.baseAsset : this._lp.quoteAsset,
-        midPrice: this._marketPrice,
+        midPrice: offMidAnchor,
       };
     }
 
@@ -604,8 +613,14 @@ export class OrderFormStore {
       feeAsset: this._feeAsset,
       gasFee: parseNumber(this._gasFee.display),
       hasPlan: this.plan !== undefined,
-      marketPrice: this._marketPrice,
-      // Only LP lays positions out around the live mid; RangeLP takes
+      // LP anchors to the reference-aware mid: a fresh pair with no book
+      // but a user-typed reference price has everything it needs, and the
+      // raw `_marketPrice` would wrongly block it. Other forms keep live.
+      marketPrice:
+        this._whichForm === 'LP'
+          ? (this._lp.effectiveMarketPrice ?? undefined)
+          : this._marketPrice,
+      // Only LP lays positions out around the mid; RangeLP takes
       // explicit bounds and Market/Limit don't need one at all.
       requiresMarketPrice: this._whichForm === 'LP',
       positionCount: lpPlan?.length,

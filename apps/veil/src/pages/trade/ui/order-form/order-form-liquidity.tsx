@@ -71,6 +71,47 @@ const SuggestedRefPrice = observer(
     );
   },
 );
+
+/**
+ * The reference-price text input plus its suggestion chip. Its own
+ * observer so the mobx reads of `userReferencePriceInput` / `marketPrice`
+ * subscribe HERE, not on the whole LPOrderForm — a keystroke that doesn't
+ * change the parsed value (e.g. "1" → "1.") then re-renders only this
+ * small component rather than the entire form + confirm modal.
+ *
+ * Note: a keystroke that DOES change the parsed value moves
+ * `effectiveMarketPrice`, which the parent legitimately observes (it has
+ * to — the plan, confirm rows and overlay all rebuild against it). This
+ * split trims the redundant re-renders, not the necessary ones.
+ */
+const ReferencePriceInput = observer(
+  ({
+    store,
+    decimals,
+    quoteSym,
+  }: {
+    store: LPFormStore;
+    decimals: number;
+    quoteSym: string;
+  }) => (
+    <>
+      <input
+        type='text'
+        inputMode='decimal'
+        value={store.userReferencePriceInput}
+        onChange={e => store.setUserReferencePriceInput(e.target.value)}
+        placeholder={
+          store.marketPrice
+            ? `${roundToDecimals(store.marketPrice, decimals)} (live mid)`
+            : 'e.g. 1'
+        }
+        className='w-full rounded-sm border border-other-tonal-stroke bg-transparent px-2 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:border-orange-500 focus:outline-none'
+        aria-label='Reference price for LP'
+      />
+      <SuggestedRefPrice store={store} decimals={decimals} quoteSym={quoteSym} />
+    </>
+  ),
+);
 import ConcentratedDefault from '@/shared/assets/liquidity-shapes/Type=Concentrated, State=Default.svg';
 import ConcentratedSelected from '@/shared/assets/liquidity-shapes/Type=Concentrated, State=Selected.svg';
 import StablekindDefault from '@/shared/assets/liquidity-shapes/Type=Stablekind, State=Default.svg';
@@ -232,7 +273,12 @@ export const LPOrderForm = observer(
     const decimals = store.quoteAsset?.exponent ?? defaultDecimals;
     const lo = priceRanges[0];
     const hi = priceRanges[1];
-    const mid = store.marketPrice;
+    // The anchor the plan actually splits on (user reference price →
+    // live mid → range midpoint). Everything derived from `mid` below —
+    // confirm rows, range-width %, off-mid warnings — describes the
+    // ladder being submitted, so it must use the same source.
+    const mid = store.effectiveMarketPrice;
+    const liveMid = store.marketPrice;
     const rangeCoversMid =
       mid != null && lo !== undefined && hi !== undefined && mid >= lo && mid <= hi;
 
@@ -250,6 +296,14 @@ export const LPOrderForm = observer(
         rows.push({
           label: 'Anchor mid',
           value: `${roundToDecimals(mid, decimals)} ${quoteSym}`,
+        });
+      }
+      // When a reference price overrides the live mid, show both so the
+      // user sees what the ladder is anchored to vs. where the market is.
+      if (liveMid != null && liveMid !== mid) {
+        rows.push({
+          label: 'Live market mid',
+          value: `${roundToDecimals(liveMid, decimals)} ${quoteSym}`,
         });
       }
       if (lo !== undefined && hi !== undefined) {
@@ -294,6 +348,7 @@ export const LPOrderForm = observer(
       return rows;
     }, [
       mid,
+      liveMid,
       lo,
       hi,
       decimals,
@@ -565,20 +620,7 @@ export const LPOrderForm = observer(
               <Icon IconComponent={InfoIcon} size='sm' color='text.secondary' />
             </Tooltip>
           </div>
-          <input
-            type='text'
-            inputMode='decimal'
-            value={store.userReferencePriceInput}
-            onChange={e => store.setUserReferencePriceInput(e.target.value)}
-            placeholder={
-              store.marketPrice
-                ? `${roundToDecimals(store.marketPrice, decimals)} (live mid)`
-                : 'e.g. 1'
-            }
-            className='w-full rounded-sm border border-other-tonal-stroke bg-transparent px-2 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:border-orange-500 focus:outline-none'
-            aria-label='Reference price for LP'
-          />
-          <SuggestedRefPrice store={store} decimals={decimals} quoteSym={quoteSym} />
+          <ReferencePriceInput store={store} decimals={decimals} quoteSym={quoteSym} />
         </div>
 
         {/* Price Range — header collapses to label on the left, More menu

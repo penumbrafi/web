@@ -51,6 +51,14 @@ export enum LPFeeTierOptions {
   Exotic = '1%',
 }
 
+/**
+ * Shape of `LPFormStore.offMidWarning`. The two wholly-off kinds are
+ * advisory (the full range is built); `partial-straddle` means the
+ * one-sided planner clamped the range to the funded side and the other
+ * portion was dropped.
+ */
+export type OffMidWarningKind = 'bids-above-mid' | 'asks-below-mid' | 'partial-straddle';
+
 export const LP_FEE_TIER_PERCENTS: Record<LPFeeTierOptions, string> = {
   [LPFeeTierOptions.Stable]: '0.05',
   [LPFeeTierOptions.Standard]: '0.1',
@@ -187,11 +195,12 @@ export class LPFormStore {
   setLowerPriceInput = (x: number) => {
     this.lowerPriceInput = x;
 
-    if (
-      this.lastTouchedInput === 'quote' &&
-      this.marketPrice &&
-      this.lowerPriceInput > this.marketPrice
-    ) {
+    // Compare against the EFFECTIVE mid: with a user reference price set,
+    // the plan splits on that, so testing the live mid here would fire
+    // "asks only" and wipe the quote input for a range the plan treats
+    // as perfectly two-sided.
+    const mid = this.effectiveMarketPrice;
+    if (this.lastTouchedInput === 'quote' && mid && this.lowerPriceInput > mid) {
       if (this.quoteInput !== '') {
         openToast({
           type: 'warning',
@@ -213,11 +222,9 @@ export class LPFormStore {
   setUpperPriceInput = (x: number) => {
     this.upperPriceInput = x;
 
-    if (
-      this.lastTouchedInput === 'base' &&
-      this.marketPrice &&
-      this.upperPriceInput < this.marketPrice
-    ) {
+    // Effective mid, same reasoning as setLowerPriceInput.
+    const mid = this.effectiveMarketPrice;
+    if (this.lastTouchedInput === 'base' && mid && this.upperPriceInput < mid) {
       if (this.baseInput !== '') {
         openToast({
           type: 'warning',
@@ -274,6 +281,9 @@ export class LPFormStore {
 
   setUserReferencePriceInput = (x: string) => {
     this.userReferencePriceInput = x;
+    // The auto-filled side was computed against the previous mid; redo
+    // it so the opposite input tracks the new anchor.
+    this.updateOppositeInput();
   };
 
   /**
@@ -314,10 +324,10 @@ export class LPFormStore {
    * BLOCKING: quiet fund loss, user should either widen the range or drop
    * the ignored input.
    *
-   * The one-sided-off-mid case (funded only quote/base with range on the
-   * opposite side) is NOT a bug any more — one-sided ladders now build
-   * across the full range regardless of where mid sits. That case surfaces
-   * as `offMidWarning` instead, letting the user proceed with a clear
+   * The one-sided-off-mid case (funded only quote/base with range wholly
+   * on the opposite side) is NOT a bug any more — one-sided ladders build
+   * across the full range when mid is outside it. That case surfaces as
+   * `offMidWarning` instead, letting the user proceed with a clear
    * arb-risk hint.
    */
   get wrongSideFunded(): 'base' | 'quote' | undefined {
@@ -350,27 +360,45 @@ export class LPFormStore {
    * arbitrageurs likely eat it immediately. Not a blocker, just a loud
    * warning so users who mean it can proceed and users who fat-fingered
    * the range can catch it.
+   *
+   * Third case, `partial-straddle`: one-sided funding with a range that
+   * CROSSES the anchor mid. `oneSidedPositions` clamps the ladder to the
+   * funded side's half (base → [mid, upper], quote → [lower, mid]) so no
+   * rung is quoted at a loss; the other half is silently dropped. Warn
+   * so the user knows their range is being trimmed.
    */
-  get offMidWarning(): 'bids-above-mid' | 'asks-below-mid' | undefined {
-    // Use the LIVE mid (not effective) — the user-supplied reference
-    // price is precisely them saying "for my purposes 1.0 IS mid," so
-    // no off-mid warning is appropriate for a range that straddles
-    // their choice. Warning fires only when a one-sided range diverges
-    // from the actual live market they're posting into.
-    const mid = this.marketPrice;
-    if (mid === null || this.lowerPriceInput === null || this.upperPriceInput === null) {
+  get offMidWarning(): OffMidWarningKind | undefined {
+    if (this.lowerPriceInput === null || this.upperPriceInput === null) {
       return undefined;
     }
     if (!this.isOneSided) return undefined;
-    if (this.lowerPriceInput >= mid && this.quoteLiquidity > 0) {
-      // Only quote funded, range above mid → bidding on base at
-      // above-market prices.
-      return 'bids-above-mid';
+
+    // Wholly-off cases use the LIVE mid (not effective) — the user-
+    // supplied reference price is precisely them saying "for my purposes
+    // 1.0 IS mid," so no off-mid warning is appropriate for a range that
+    // sits to one side of their choice. Warning fires only when a one-
+    // sided range diverges from the actual live market they're posting
+    // into.
+    const live = this.marketPrice;
+    if (live !== null) {
+      if (this.lowerPriceInput >= live && this.quoteLiquidity > 0) {
+        // Only quote funded, range above mid → bidding on base at
+        // above-market prices.
+        return 'bids-above-mid';
+      }
+      if (this.upperPriceInput <= live && this.baseLiquidity > 0) {
+        // Only base funded, range below mid → offering base at
+        // below-market prices.
+        return 'asks-below-mid';
+      }
     }
-    if (this.upperPriceInput <= mid && this.baseLiquidity > 0) {
-      // Only base funded, range below mid → offering base at
-      // below-market prices.
-      return 'asks-below-mid';
+
+    // Straddle uses the EFFECTIVE mid — that is what `oneSidedPositions`
+    // receives as `plan.marketPrice`, so it is the anchor the clamp
+    // actually trims against.
+    const mid = this.effectiveMarketPrice;
+    if (mid !== null && this.lowerPriceInput < mid && this.upperPriceInput > mid) {
+      return 'partial-straddle';
     }
     return undefined;
   }
@@ -447,6 +475,9 @@ export class LPFormStore {
       this.lowerPriceInput = null;
       this.baseInput = '';
       this.quoteInput = '';
+      // A reference price is per-pair intent ("treat 1.0 as mid for this
+      // peg"). Carrying it into UM/USDC would anchor that ladder to 1.0.
+      this.userReferencePriceInput = '';
     }
   }
 
