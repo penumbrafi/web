@@ -90,6 +90,13 @@ export class OrderFormStore {
   private _lp = new LPFormStore();
   private _whichForm: WhichForm = 'Market';
   private _submitting = false;
+  // Monotonically-increasing token for the debounced gas-fee estimator.
+  // Every invocation captures the token at start; only the LATEST
+  // invocation's response is allowed to write back to `_gasFee` /
+  // `_planError`. Without this, a slow first plan's rejection can arrive
+  // after a fresh plan's success and pin an outdated blocking error
+  // under the submit button until the user changes an input.
+  private _gasFeeToken = 0;
   private _marketPrice: number | undefined = undefined;
   address?: Address;
   subAccountIndex?: AddressIndex;
@@ -164,12 +171,17 @@ export class OrderFormStore {
       return;
     }
 
+    const myToken = ++this._gasFeeToken;
     runInAction(() => {
       this._gasFeeLoading = true;
       this._planError = undefined;
     });
     try {
       const res = await planTransaction(this.plan);
+      // If a fresher estimate started while we were in flight, drop
+      // this response on the floor — writing back would clobber the
+      // newer plan's verdict with stale state.
+      if (myToken !== this._gasFeeToken) return;
       const fee = res.transactionParameters?.fee;
       if (!fee) {
         this.resetGasFee();
@@ -214,6 +226,11 @@ export class OrderFormStore {
       // Wallet-state errors are excluded. A locked or disconnected
       // extension is not a problem with the order, and pinning a blocking
       // message about it under the submit button would be misleading.
+      //
+      // Sequence guard: only the latest in-flight estimate is allowed to
+      // pin an error — otherwise a slow first plan's rejection lands
+      // after a fresh plan's success and wedges the submit button.
+      if (myToken !== this._gasFeeToken) return;
       const described = describeTxError(e);
       const isWalletState =
         described.cancelled === true ||
@@ -236,9 +253,15 @@ export class OrderFormStore {
       });
       return undefined;
     } finally {
-      runInAction(() => {
-        this._gasFeeLoading = false;
-      });
+      // Only the latest estimate flips `_gasFeeLoading` back to false —
+      // an older estimate's finalizer landing after a fresh one started
+      // would say "we're done" while a fresh estimate is still in flight,
+      // re-enabling the submit button on stale headroom.
+      if (myToken === this._gasFeeToken) {
+        runInAction(() => {
+          this._gasFeeLoading = false;
+        });
+      }
     }
   };
 
@@ -529,7 +552,17 @@ export class OrderFormStore {
   }
 
   get canSubmit(): boolean {
-    return !this._submitting && this.plan !== undefined && !this.blockingIssue;
+    // Gate on `_gasFeeLoading` too — the debounced estimate is what
+    // supplies the headroom check in `validateOrder`. While it's in
+    // flight, `gasFee` is still the previous plan's estimate and
+    // MAX-sized orders can slip past the "leaves nothing for fee"
+    // clause. Better a briefly-disabled submit than "ran out of notes".
+    return (
+      !this._submitting &&
+      !this._gasFeeLoading &&
+      this.plan !== undefined &&
+      !this.blockingIssue
+    );
   }
 
   async submit() {

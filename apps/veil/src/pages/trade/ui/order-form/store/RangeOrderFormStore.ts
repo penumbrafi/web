@@ -74,7 +74,12 @@ export class RangeOrderFormStore {
   lowerPriceInput = '';
   upperPriceInputOption: UpperBoundOptions | undefined;
   lowerPriceInputOption: LowerBoundOptions | undefined;
-  feeTierPercentInput = '';
+  // Default to the "Standard" tier (0.1%). Empty string here meant a
+  // silent 0 bps fee whenever the user opened the form without touching
+  // the slider, which is a real footgun on RangeLP — a 0-fee position
+  // gets consumed by any taker with no earnings for the LP. LPFormStore
+  // already defaults to 0.1% via DEFAULT_FEE_TIER_PERCENT; mirror it here.
+  feeTierPercentInput = '0.1';
   feeTierPercentInputOption: FeeTierOptions | undefined;
   private _positionCountInput = '10';
   private _positionCountSlider = 10;
