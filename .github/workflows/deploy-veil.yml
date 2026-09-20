@@ -250,7 +250,11 @@ jobs:
             echo "could not fetch served HTML" >&2
             exit 1
           }
-          served_chunk=$(printf '%s' "$html" | grep -oE '/_next/static/chunks/[a-z0-9_-]+\.js' | head -n1 | sed 's#^/_next/static/chunks/##')
+          # `grep -m1` stops at the first match itself — safer than
+          # piping into `head -n1`, which closes the pipe early and
+          # SIGPIPEs `grep` back under `set -o pipefail` (exit 141).
+          served_chunk_path=$(printf '%s' "$html" | grep -oE -m1 '/_next/static/chunks/[a-z0-9_-]+\.js' || true)
+          served_chunk="${served_chunk_path##*/}"
           if [ -z "$served_chunk" ]; then
             echo "served HTML has no chunk references — cannot verify build freshness" >&2
             exit 1
