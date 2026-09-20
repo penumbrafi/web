@@ -307,7 +307,10 @@ export const Chart = observer(() => {
 
   // we need two queries to avoid overfetching. if we leave only the infinite query, it will
   // be requested PAGE times on each block, causing many unnecessary requests.
-  const { data: latestCandles } = useLatestCandles(duration, prefs.linearTime);
+  const { data: latestCandles, isPlaceholderData: latestIsPlaceholder } = useLatestCandles(
+    duration,
+    prefs.linearTime,
+  );
   const { data: historyCandles, isLoading, error, fetchNextPage } = useInfiniteCandles(
     duration,
     prefs.linearTime,
@@ -377,11 +380,12 @@ export const Chart = observer(() => {
   } = usePriceAlerts(pairKey);
   useAlertWatcher({ marketPrice, alerts: pairAlerts, onFire: markAlertTriggered });
 
-  // Auto-center the price scale on the live chain mid — once per pair. We
-  // only fire on the first finite marketPrice we see for a given pair so
-  // the view doesn't lurch around every block as the mid ticks; the user's
-  // subsequent pan/zoom is preserved (dragging the price axis flips
-  // autoScale off, at which point the provider stops applying).
+  // Auto-center the price scale on the live chain mid. The autoscale
+  // provider is re-installed every block so the union window tracks the
+  // moving mid, but `autoScale: true` is only forced on the first anchor
+  // for a pair and whenever the LP range bounds change — otherwise a
+  // manual price-axis zoom (which flips autoScale off) would be undone
+  // ~6s later by the next tick.
   //
   // Empty-book fallback: on a fresh pair with no trades and no LPs yet,
   // marketPrice stays null and the price axis is undefined, so the LP-
@@ -439,14 +443,22 @@ export const Chart = observer(() => {
     centeredForPairRef.current = pairKey;
     clearPriceAnchor();
   }, [chartReady, pairKey, clearPriceAnchor]);
+  // Signature of the last (pair, range-bounds) combination we forced
+  // autoscale for. Survives the per-block anchor re-installs so those
+  // only swap the provider and leave the user's zoom alone.
+  const anchorInstalledForRef = useRef<string | null>(null);
   useEffect(() => {
     if (!chartReady) return;
     if (anchor == null) return;
     // Re-fits whenever the user drags an LP handle (cameraExtras change)
-    // or the mid moves. lightweight-charts recomputes the Y axis on the
-    // next frame, so the camera glides toward the range instead of the
-    // range scrolling off the pane.
-    centerPriceScaleOn(anchor, cameraExtras);
+    // or the anchor is first installed on a pair. lightweight-charts
+    // recomputes the Y axis on the next frame, so the camera glides toward
+    // the range instead of the range scrolling off the pane. Plain mid
+    // moves only refresh the provider — no forced autoscale.
+    const signature = `${pairKey}|${cameraExtras.join(',')}`;
+    const forceAutoScale = anchorInstalledForRef.current !== signature;
+    anchorInstalledForRef.current = signature;
+    centerPriceScaleOn(anchor, cameraExtras, { forceAutoScale });
   }, [chartReady, pairKey, anchor, cameraExtras, centerPriceScaleOn]);
   const {
     drawings,
@@ -572,6 +584,20 @@ export const Chart = observer(() => {
   // effect can full-replace (not incrementally update) when real data
   // finally lands.
   const sentinelActiveRef = useRef(false);
+  // Anchor the sentinel was last seeded at, so the seed effect can re-fire
+  // when the mid moves while the sentinel is still on screen (otherwise
+  // the union autoscale keeps the stale sentinel price in the window
+  // while the mid marker walks away from it).
+  const lastSeededAnchorRef = useRef<number | null>(null);
+  // Latest-candles tail, read (not depended on) by the history effect so a
+  // history page landing doesn't wipe the live bars appended since mount.
+  // A ref rather than a dep: listing latestCandles would turn every block
+  // tick into a full setData, which the incremental path exists to avoid.
+  const latestCandlesRef = useRef<{
+    candles: typeof latestCandles;
+    placeholder: boolean;
+  }>({ candles: undefined, placeholder: false });
+  latestCandlesRef.current = { candles: latestCandles, placeholder: latestIsPlaceholder };
 
   // Reset on duration OR pair change — the chart container's isLoading gate
   // does NOT unmount on pair switch (keepPreviousData keeps `isLoading`
@@ -581,6 +607,7 @@ export const Chart = observer(() => {
   useEffect(() => {
     fullySeededRef.current = false;
     sentinelActiveRef.current = false;
+    lastSeededAnchorRef.current = null;
   }, [duration, pairKey]);
 
   useEffect(() => {
@@ -635,6 +662,19 @@ export const Chart = observer(() => {
     for (const c of flat) {
       byTime.set(c.ohlc.time as unknown as number, c);
     }
+    // Merge the live tail on top. History pages are a snapshot from
+    // whenever they were fetched; bars appended via updateLatestCandles
+    // since then would otherwise vanish on scroll-back, and the next tick
+    // only restores the 5 newest — a permanent hole once more than 5
+    // buckets have elapsed. Latest wins over history for the same bucket.
+    // Skip while latest is still keepPreviousData from another timeframe:
+    // its buckets wouldn't align with this history's.
+    const { candles: tail, placeholder } = latestCandlesRef.current;
+    if (tail && !placeholder) {
+      for (const c of tail) {
+        byTime.set(c.ohlc.time as unknown as number, c);
+      }
+    }
     const candles = [...byTime.values()].sort(
       (a, b) => (a.ohlc.time as unknown as number) - (b.ohlc.time as unknown as number),
     );
@@ -658,7 +698,14 @@ export const Chart = observer(() => {
     if (isLoading) return;
     if (hasRealCandles) return;
     if (anchor == null) return;
-    if (fullySeededRef.current) return;
+    // Already seeded — unless the sentinel is still the only thing on
+    // screen and the anchor has moved since, in which case re-seed so the
+    // placeholder follows the mid instead of pinning a stale price into
+    // the autoscale window.
+    if (fullySeededRef.current) {
+      if (!sentinelActiveRef.current) return;
+      if (lastSeededAnchorRef.current === anchor) return;
+    }
     const time = Math.floor(Date.now() / 1000) as unknown as number;
     const seed = [
       {
@@ -681,6 +728,7 @@ export const Chart = observer(() => {
     // updating (the sentinel's `time` is `now`, not bucket-aligned).
     fullySeededRef.current = true;
     sentinelActiveRef.current = true;
+    lastSeededAnchorRef.current = anchor;
   }, [isLoading, hasRealCandles, anchor, setCandlesData, setVolumeData]);
 
   // Stable across renders. Chart re-renders every block-tick via

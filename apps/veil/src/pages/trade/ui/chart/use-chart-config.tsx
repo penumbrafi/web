@@ -136,6 +136,19 @@ export const useChartConfig = (
   // 'drawings tool does nothing' bug.
   const [chartReady, setChartReady] = useState(false);
 
+  // Per-subscriber rAF-coalesced handlers registered via subscribeRedraw.
+  // lightweight-charts only tells us about crosshair / logical-range /
+  // resize changes — a Y-rescale caused by our own setData / update /
+  // autoscale-provider swap emits nothing, so overlays hold stale pixel
+  // coordinates until the pointer next crosses the canvas (and during an
+  // LP handle drag the pointer is captured, so it never does). The data
+  // mutators below call `redrawTick` so every overlay repaints on the
+  // same frame the chart does.
+  const redrawHandlersRef = useRef<Set<() => void>>(new Set());
+  const redrawTick = useCallback(() => {
+    for (const handler of redrawHandlersRef.current) handler();
+  }, []);
+
   const setOwnPositionLines = useCallback((lines: OwnPositionLine[]) => {
     const series = seriesRef.current;
     if (!series) return;
@@ -284,7 +297,8 @@ export const useChartConfig = (
         });
       }
     }
-  }, []);
+    redrawTick();
+  }, [redrawTick]);
 
   const setVolumeData = useCallback((candles: CandleWithVolume[] = []) => {
     volumeSeriesRef.current?.setData(
@@ -345,7 +359,8 @@ export const useChartConfig = (
         }
       }
     }
-  }, []);
+    redrawTick();
+  }, [redrawTick]);
 
   const setCloseLineVisible = useCallback((visible: boolean) => {
     closeLineSeriesRef.current?.applyOptions({ visible });
@@ -368,7 +383,8 @@ export const useChartConfig = (
         // Same as updateLatestCandles: skip stale bars.
       }
     }
-  }, []);
+    redrawTick();
+  }, [redrawTick]);
 
   const setChartRef = useCallback((node: HTMLDivElement | null) => {
     // unmount when node is null
@@ -621,16 +637,24 @@ export const useChartConfig = (
    * chart stops consulting it the moment the user drags the price axis
    * (that toggles autoScale off), so user pan/zoom is preserved.
    *
-   * We deliberately do NOT refresh this on every block-tick — marketPrice
-   * moves each block and yanking the view around would be hostile. The
-   * caller in chart.tsx gates on a per-pair ref so this fires exactly once
-   * per pair.
+   * The provider itself IS refreshed every block (so the union window
+   * tracks the live mid), but `autoScale: true` is only forced when the
+   * caller says so — chart.tsx passes `forceAutoScale: false` for the
+   * per-block re-installs on an already-anchored pair, so a manual
+   * price-axis zoom isn't stomped every ~6s. First install on a pair and
+   * any change to `extras` (the LP range bounds) re-enable autoscale so
+   * the camera actually glides to the new window.
    */
   const CENTER_MULTIPLIER = 1.15;
-  const centerPriceScaleOn = useCallback((mid: number, extras?: readonly number[]) => {
+  const centerPriceScaleOn = useCallback((
+    mid: number,
+    extras?: readonly number[],
+    opts?: { forceAutoScale?: boolean },
+  ) => {
     const series = seriesRef.current;
     if (!series) return;
     if (!Number.isFinite(mid) || mid <= 0) return;
+    const forceAutoScale = opts?.forceAutoScale ?? true;
     // Base window: ±15% around mid so an empty (or trade-thin) chart still
     // has a sensible Y range to hydrate against.
     let anchorMin = mid / CENTER_MULTIPLIER;
@@ -672,11 +696,14 @@ export const useChartConfig = (
           return margins ? { priceRange: { minValue, maxValue }, margins } : { priceRange: { minValue, maxValue } };
         },
       });
-      series.priceScale().applyOptions({ autoScale: true });
+      if (forceAutoScale) {
+        series.priceScale().applyOptions({ autoScale: true });
+      }
     } catch {
       // chart torn down
     }
-  }, []);
+    redrawTick();
+  }, [redrawTick]);
 
   /**
    * Clear the pinned anchor so the price axis reverts to lightweight-charts'
@@ -693,7 +720,8 @@ export const useChartConfig = (
     } catch {
       // chart torn down
     }
-  }, []);
+    redrawTick();
+  }, [redrawTick]);
 
   /**
    * Reset zoom/pan: fit all data on the time axis and re-enable
@@ -823,11 +851,16 @@ export const useChartConfig = (
     chart.timeScale().subscribeVisibleLogicalRangeChange(handler);
     const ro = new ResizeObserver(handler);
     ro.observe(node);
+    // Internal Y-rescale signal (setData / update / anchor swap) — see
+    // redrawTick above. Same coalescer, so at most one cb per frame.
+    const handlers = redrawHandlersRef.current;
+    handlers.add(handler);
 
     // Fire once so the overlay paints on mount.
     handler();
 
     return () => {
+      handlers.delete(handler);
       cancelAnimationFrame(raf);
       chart.unsubscribeCrosshairMove(handler);
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(handler);
@@ -853,6 +886,7 @@ export const useChartConfig = (
     centerPriceScaleOn,
     clearPriceAnchor,
     subscribeRedraw,
+    redrawTick,
     subscribeHover,
     subscribeChartClick,
     setCloseLineVisible,
