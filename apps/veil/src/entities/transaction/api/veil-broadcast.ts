@@ -13,6 +13,31 @@ import { TransactionId } from '@penumbra-zone/protobuf/penumbra/core/txhash/v1/t
 export interface VeilBroadcastResult {
   txHash: string;
   detectionHeight?: bigint;
+  /**
+   * `true` when the local wallet's view service has observed the tx.
+   * When this is `false` after `awaitDetection`, the tx probably IS on
+   * chain (tendermint accepted it) but the wallet hasn't scanned that
+   * block yet — the caller must NOT plan a swapClaim off it, and MUST
+   * NOT let the user resubmit (double-swap risk).
+   */
+  viewSeen: boolean;
+}
+
+/**
+ * The broadcast reached tendermint AND tendermint's response is final —
+ * either it committed to a block or was rejected outright (code≠0,
+ * mismatched hash). The transaction is either on chain or definitively
+ * not, so retrying via the wallet would just double-broadcast an
+ * already-landed tx or repeat a stateless-check failure. `planBuildBroadcast`
+ * uses this to skip the wallet fallback for terminal cases.
+ */
+export class VeilBroadcastTerminalError extends Error {
+  readonly kind: 'rejected' | 'hash-mismatch' | 'landed';
+  constructor(kind: 'rejected' | 'hash-mismatch' | 'landed', message: string) {
+    super(message);
+    this.name = 'VeilBroadcastTerminalError';
+    this.kind = kind;
+  }
 }
 
 const isSuccess = (json: BroadcastApiResponse): json is BroadcastApiSuccess => 'hash' in json;
@@ -101,24 +126,35 @@ export const veilBroadcastTransaction = async (
   });
 
   if (!res.ok) {
+    // Transport-level failure — safe to fall back to the wallet path.
     const body = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(body.error ?? `veil broadcast failed: HTTP ${res.status}`);
   }
 
   const body = (await res.json()) as BroadcastApiResponse;
   if (!isSuccess(body)) {
+    // Server-side broadcast error before tendermint had a chance to accept.
     throw new Error(body.error);
   }
 
   const returnedHashHex = body.hash.toLowerCase();
   if (returnedHashHex !== expectedHashHex) {
-    throw new Error(
+    // Something is deeply wrong — DON'T fall back and re-broadcast, that
+    // would just try again with the same bytes and hit the same mismatch,
+    // OR broadcast a tx we can't identify. Terminal.
+    throw new VeilBroadcastTerminalError(
+      'hash-mismatch',
       `broadcast transaction id disagrees: expected ${expectedHashHex} but tendermint ${returnedHashHex}`,
     );
   }
 
   if (body.code !== 0) {
-    throw new Error(
+    // Tendermint rejected the tx (stateless check failure, insufficient
+    // fee, etc.). Retrying via the wallet would produce the same rejection
+    // OR — if tendermint's cache still has it — "tx already exists in
+    // cache". Neither is recoverable. Terminal.
+    throw new VeilBroadcastTerminalError(
+      'rejected',
       `tendermint rejected transaction (code ${body.code}${body.codespace ? `/${body.codespace}` : ''}): ${body.log}`,
     );
   }
@@ -126,18 +162,22 @@ export const veilBroadcastTransaction = async (
   options.onBroadcastSuccess?.(expectedHashHex);
 
   if (!options.awaitDetection) {
-    return { txHash: expectedHashHex };
+    return { txHash: expectedHashHex, viewSeen: false };
   }
 
-  // Two-phase detection: veil's server DB confirms the tx is on-chain
-  // (gives us `detectionHeight`), the local view service confirms the
-  // wallet has scanned the block containing it. The claim step needs
-  // BOTH — the height for the receipt toast, the view-service scan so
-  // the planner can find the SwapRecord. Run them in parallel; the
-  // slower one (usually the view service) sets our floor.
-  const [detectionHeight] = await Promise.all([
-    pollDetection(expectedHashHex, options.signal),
-    pollViewService(expectedHashHex, options.signal),
-  ]);
-  return { txHash: expectedHashHex, detectionHeight };
+  // Two-phase detection:
+  // 1. LOCAL view service (fast, ~2-4s) — this is what the swapClaim
+  //    planner needs; without it "Swap record not found" fires.
+  // 2. veil server DB — gives us `detectionHeight` for the receipt toast.
+  //
+  // Historically this was `Promise.all`, which floors on the SLOWER path —
+  // when pindexer lags (it does, per ops notes), every swap sat 60s
+  // waiting on `pollDetection` even though the wallet saw the tx in one
+  // block and could have issued the claim immediately. Fire both, keep
+  // whichever `detectionHeight` we can get, but let the view-service
+  // observation gate `viewSeen`.
+  const detectionP = pollDetection(expectedHashHex, options.signal).catch(() => undefined);
+  const viewSeen = await pollViewService(expectedHashHex, options.signal);
+  const detectionHeight = await detectionP;
+  return { txHash: expectedHashHex, detectionHeight, viewSeen };
 };
