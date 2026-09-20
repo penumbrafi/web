@@ -23,7 +23,7 @@ runs:
   steps:
     - name: Restore turbo cache
       id: restore-turbo
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
         path: |
           .turbo
@@ -41,10 +41,10 @@ runs:
     # untrusted PR code and pass save-cache='false' so nothing this job
     # produces ever lands in the shared branch cache. Trusted deploys keep
     # save-cache='true' (the default) and behave exactly like the old
-    # single-step `actions/cache@v4`.
+    # single-step `actions/cache@v5`.
     - name: Save turbo cache
       if: ${{ inputs.save-cache == 'true' && steps.restore-turbo.outputs.cache-hit != 'true' }}
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       with:
         path: |
           .turbo

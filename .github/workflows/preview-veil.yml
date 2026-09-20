@@ -79,7 +79,7 @@ jobs:
       (github.event.action == 'closed' ||
        github.event.action == 'converted_to_draft' ||
        github.event.pull_request.draft == false)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       pr: ${{ steps.pr.outputs.pr }}
       port: ${{ steps.pr.outputs.port }}
@@ -102,13 +102,13 @@ jobs:
       github.event.action != 'closed' &&
       github.event.action != 'converted_to_draft'
     needs: guard
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # No secrets, no writable tokens. The artifact is the only thing that
     # crosses the trust boundary out of this job.
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # Explicit head-ref checkout — pull_request_target defaults to
           # the base ref, but the whole point of the preview is to
@@ -186,7 +186,7 @@ jobs:
           tar --zstd -C apps/veil/.next/standalone -cf "veil-preview-${SHA}.tar.zst" .
           ls -lh "veil-preview-${SHA}.tar.zst"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: veil-preview-${{ github.event.pull_request.head.sha }}
           path: veil-preview-${{ github.event.pull_request.head.sha }}.tar.zst
@@ -201,7 +201,7 @@ jobs:
       github.event.action != 'closed' &&
       github.event.action != 'converted_to_draft'
     needs: [guard, build]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: preview
     permissions:
       contents: read
@@ -217,12 +217,12 @@ jobs:
       # DEPLOY_SSH_KEY once the environment secret is injected. Building
       # from base means the workflow logic (and every composite action it
       # calls) is always what the maintainers already merged.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ needs.guard.outputs.base_sha }}
           persist-credentials: false
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: veil-preview-${{ github.event.pull_request.head.sha }}
 
@@ -314,7 +314,7 @@ jobs:
        github.event.action == 'converted_to_draft') &&
       github.event.pull_request.head.repo.full_name == github.repository
     needs: guard
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: preview
     permissions:
       contents: read
@@ -323,7 +323,7 @@ jobs:
       PR: ${{ needs.guard.outputs.pr }}
     steps:
       # Base-ref checkout, same reason as `deploy` above.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ needs.guard.outputs.base_sha }}
           persist-credentials: false

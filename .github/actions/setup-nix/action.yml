@@ -31,7 +31,7 @@ runs:
     # store back into the cache scope after the job.
     - name: Setup Nix Cache (with save)
       if: ${{ inputs.save-cache == 'true' }}
-      uses: nix-community/cache-nix-action@v6
+      uses: nix-community/cache-nix-action@v7
       with:
         primary-key: ${{ inputs.primary-key }}
         restore-prefixes-first-match: ${{ inputs.restore-prefix }}
@@ -42,7 +42,7 @@ runs:
     # in the shared branch cache.
     - name: Setup Nix Cache (restore only)
       if: ${{ inputs.save-cache != 'true' }}
-      uses: nix-community/cache-nix-action@v6
+      uses: nix-community/cache-nix-action@v7
       with:
         primary-key: ${{ inputs.primary-key }}
         restore-prefixes-first-match: ${{ inputs.restore-prefix }}

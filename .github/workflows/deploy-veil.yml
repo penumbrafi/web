@@ -36,9 +36,9 @@ permissions:
 jobs:
   build:
     name: build veil
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # next.config.mjs reads git metadata for the version footer
           fetch-depth: 0
@@ -121,7 +121,7 @@ jobs:
           tar --zstd -C apps/veil/.next/standalone -cf "veil-${{ github.sha }}.tar.zst" .
           ls -lh "veil-${{ github.sha }}.tar.zst"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: veil-${{ github.sha }}
           path: veil-${{ github.sha }}.tar.zst
@@ -135,7 +135,7 @@ jobs:
   deploy:
     name: deploy veil (blue/green)
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: production
     env:
       APP_DIR: /opt/penumbra-veil
@@ -152,12 +152,12 @@ jobs:
       #
       # Admin note: pair this with a repository ruleset restricting `v*`
       # tag pushes to maintainers only (Settings -> Rules -> New).
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: refs/heads/main
           persist-credentials: false
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: veil-${{ github.sha }}
 
@@ -250,7 +250,11 @@ jobs:
             echo "could not fetch served HTML" >&2
             exit 1
           }
-          served_chunk=$(printf '%s' "$html" | grep -oE '/_next/static/chunks/[a-z0-9_-]+\.js' | head -n1 | sed 's#^/_next/static/chunks/##')
+          # `grep -m1` stops at the first match itself — safer than
+          # piping into `head -n1`, which closes the pipe early and
+          # SIGPIPEs `grep` back under `set -o pipefail` (exit 141).
+          served_chunk_path=$(printf '%s' "$html" | grep -oE -m1 '/_next/static/chunks/[a-z0-9_-]+\.js' || true)
+          served_chunk="${served_chunk_path##*/}"
           if [ -z "$served_chunk" ]; then
             echo "served HTML has no chunk references — cannot verify build freshness" >&2
             exit 1
