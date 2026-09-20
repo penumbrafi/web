@@ -13,6 +13,8 @@ import { SimulationService } from '@penumbra-zone/protobuf';
 import { Client } from '@connectrpc/connect';
 import { createClient } from '@/shared/utils/protos/utils.ts';
 
+type Registry = Awaited<ReturnType<ChainRegistryClient['remote']['get']>>;
+
 export const VERY_HIGH_AMOUNT = new Amount({ hi: 10000n }); // Used as default to generate sufficient amount of traces
 export const TRACE_LIMIT_DEFAULT = 30;
 
@@ -32,7 +34,40 @@ const EMPTY_BOOK: RouteBookResponseJson = {
 // or a next-server request slot. The route-book UI polls every block
 // anyway; a couple of dropped refreshes are cheap compared to a wedged
 // response queue.
-const PD_TIMEOUT_MS = 4_500;
+// pd's simulate itself takes ~0.85s p50 for real routes on a fully synced
+// mainnet node (bench: 5x grpcurl runs from inside CT1102). Two parallel
+// simulates cap around 0.85s. The remainder of the budget covers TLS +
+// registry lookup + serialization. Held generous so a page hiccup (JIT,
+// GC, momentary rocksdb page miss) doesn't wedge the book cache.
+const PD_TIMEOUT_MS = 10_000;
+
+// Module-scope singletons. Endpoint + chainId come from env vars baked at
+// process start — they don't change over a next-server lifetime, so we can
+// safely reuse one Connect transport (keeps the HTTP/2 connection to nginx
+// alive across requests, killing the ~1s TLS handshake per book refresh)
+// and one registry (its `remote.get(chainId)` fetches the mainnet registry
+// over WAN — cache it indefinitely; a registry change requires a rolling
+// deploy anyway).
+let cachedClient: Client<typeof SimulationService> | undefined;
+const getSimClient = (endpoint: string): Client<typeof SimulationService> => {
+  if (!cachedClient) {
+    cachedClient = createClient(endpoint, SimulationService);
+  }
+  return cachedClient;
+};
+
+let registryPromise: Promise<Registry> | undefined;
+const getRegistry = (chainId: string): Promise<Registry> => {
+  if (!registryPromise) {
+    registryPromise = new ChainRegistryClient().remote.get(chainId).catch(err => {
+      // Clear on failure so the next request retries instead of pinning a
+      // rejected promise forever.
+      registryPromise = undefined;
+      throw err;
+    });
+  }
+  return registryPromise;
+};
 
 // Server-side cache for route book responses. pd's simulateTrade is
 // CPU-expensive (walks all liquidity positions) so we cache identical
@@ -216,8 +251,7 @@ async function computeRouteBook(
   quoteAssetSymbol: string,
   limit: number,
 ): Promise<RouteBookResponseJson> {
-  const registryClient = new ChainRegistryClient();
-  const registry = await registryClient.remote.get(chainId);
+  const registry = await getRegistry(chainId);
 
   const allAssets = registry.getAllAssets();
   const baseAssetMetadata = allAssets.find(
@@ -246,7 +280,7 @@ async function computeRouteBook(
     output: baseAssetMetadata.penumbraAssetId,
   });
 
-  const client = createClient(grpcEndpoint, SimulationService);
+  const client = getSimClient(grpcEndpoint);
   // Race each side against a hard timeout so a hanging pd request cannot
   // pin a next-server request slot (or the in-flight promise) for longer
   // than one block. On timeout we surface a plain Error the outer catch
