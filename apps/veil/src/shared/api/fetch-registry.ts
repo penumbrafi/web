@@ -18,6 +18,63 @@ export async function fetchRegistry(chainId: string): Promise<Registry> {
   return await CLIENT.remote.getWithBundledBackup(chainId);
 }
 
+// Process-wide memoized registry for server routes. `remote.get` is a WAN
+// fetch of a ~250KB JSON (GitHub raw); doing it per request put a round
+// trip + parse on the critical path of /api/book, /api/candles,
+// /api/recent-executions, ... on every poll. The registry changes rarely,
+// so: resolve once per chainId, serve the same promise to every caller,
+// and refresh in the background once the entry is older than
+// `REGISTRY_TTL_MS` (a registry bump then lands without a redeploy). A
+// cold failure clears the slot so the next request retries instead of
+// pinning a rejected promise; a refresh failure keeps serving the old
+// registry. Falls back to the bundled registry when the remote is
+// unreachable (same as `fetchRegistry`).
+const REGISTRY_TTL_MS = 60 * 60 * 1000;
+interface CachedRegistry {
+  promise: Promise<Registry>;
+  fetchedAt: number;
+  refreshing: boolean;
+}
+const registryCache = new Map<string, CachedRegistry>();
+
+export function getCachedRegistry(chainId: string): Promise<Registry> {
+  const now = Date.now();
+  const cached = registryCache.get(chainId);
+  if (cached) {
+    if (now - cached.fetchedAt > REGISTRY_TTL_MS && !cached.refreshing) {
+      cached.refreshing = true;
+      fetchRegistry(chainId)
+        .then(registry => {
+          registryCache.set(chainId, {
+            promise: Promise.resolve(registry),
+            fetchedAt: Date.now(),
+            refreshing: false,
+          });
+        })
+        .catch(err => {
+          cached.refreshing = false;
+          console.warn('[registry-cache] background refresh failed, keeping cached', {
+            chainId,
+            err,
+          });
+        });
+    }
+    return cached.promise;
+  }
+  const entry: CachedRegistry = {
+    promise: fetchRegistry(chainId).catch((err: unknown) => {
+      if (registryCache.get(chainId) === entry) {
+        registryCache.delete(chainId);
+      }
+      throw err;
+    }),
+    fetchedAt: now,
+    refreshing: false,
+  };
+  registryCache.set(chainId, entry);
+  return entry.promise;
+}
+
 async function fetchJsonRegistry(chainId: string): Promise<JsonRegistry> {
   const registry = await fetchRegistry(chainId);
   // We use type-foo because this type isn't exported.

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { JsonObject } from '@bufbuild/protobuf';
 import { AssetId } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { ChainRegistryClient } from '@penumbra-labs/registry';
+import { getCachedRegistry } from '@/shared/api/fetch-registry';
 import { serialize, Serialized } from '@/shared/utils/serializer';
 import { pindexer } from '@/shared/database';
 import { RecentExecutionsResponse, transformData } from './recent-executions';
@@ -44,8 +44,6 @@ async function handlePost(
     return NextResponse.json({ error: 'PENUMBRA_CHAIN_ID is not set' }, { status: 500 });
   }
 
-  const registryClient = new ChainRegistryClient();
-
   const body = (await req.json()) as MyExecutionsRequestBody[];
   if (!Array.isArray(body)) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
@@ -53,7 +51,7 @@ async function handlePost(
 
   const [registry, results] = await withTimeout(
     Promise.all([
-      registryClient.remote.get(chainId),
+      getCachedRegistry(chainId),
       pindexer.myTrades(
         body.map(swap => ({
           base: AssetId.fromJson(swap.base),

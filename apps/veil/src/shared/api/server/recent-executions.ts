@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 import { NextRequest, NextResponse } from 'next/server';
-import { ChainRegistryClient, Registry } from '@penumbra-labs/registry';
+import { Registry } from '@penumbra-labs/registry';
+import { getCachedRegistry } from '@/shared/api/fetch-registry';
 import { AssetId } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { pnum } from '@penumbra-zone/types/pnum';
 import { serialize, Serialized } from '@/shared/utils/serializer';
@@ -114,9 +115,8 @@ async function handleGet(
     );
   }
 
-  const registryClient = new ChainRegistryClient();
   const registry = await withTimeout(
-    registryClient.remote.get(chainId),
+    getCachedRegistry(chainId),
     DEFAULT_TIMEOUT_MS,
     'recent-executions registry.get',
   );

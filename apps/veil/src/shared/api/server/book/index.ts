@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ChainRegistryClient } from '@penumbra-labs/registry';
+import { Registry } from '@penumbra-labs/registry';
 import {
   SimulateTradeRequest,
   SimulateTradeResponse,
@@ -12,8 +12,8 @@ import { serializeResponse } from '@/shared/api/server/book/serialization.ts';
 import { SimulationService } from '@penumbra-zone/protobuf';
 import { Client } from '@connectrpc/connect';
 import { createClient } from '@/shared/utils/protos/utils.ts';
-
-type Registry = Awaited<ReturnType<ChainRegistryClient['remote']['get']>>;
+import { getCachedRegistry } from '@/shared/api/fetch-registry';
+import { withApiFallback } from '@/shared/api/server/with-api-fallback.ts';
 
 export const VERY_HIGH_AMOUNT = new Amount({ hi: 10000n }); // Used as default to generate sufficient amount of traces
 export const TRACE_LIMIT_DEFAULT = 30;
@@ -62,13 +62,11 @@ const EMPTY_BOOK: RouteBookResponseJson = {
 // GC, momentary rocksdb page miss) doesn't wedge the book cache.
 const PD_TIMEOUT_MS = 10_000;
 
-// Module-scope singletons. Endpoint + chainId come from env vars baked at
-// process start — they don't change over a next-server lifetime, so we can
-// safely reuse one Connect transport (keeps the HTTP/2 connection to nginx
-// alive across requests, killing the ~1s TLS handshake per book refresh)
-// and one registry (its `remote.get(chainId)` fetches the mainnet registry
-// over WAN — cache it indefinitely; a registry change requires a rolling
-// deploy anyway).
+// Module-scope singleton. Endpoint comes from env vars baked at process
+// start — it doesn't change over a next-server lifetime, so we can safely
+// reuse one Connect transport (keeps the HTTP/2 connection to nginx alive
+// across requests, killing the ~1s TLS handshake per book refresh). The
+// registry is likewise process-wide via `getCachedRegistry`.
 let cachedClient: Client<typeof SimulationService> | undefined;
 const getSimClient = (endpoint: string): Client<typeof SimulationService> => {
   if (!cachedClient) {
@@ -77,27 +75,13 @@ const getSimClient = (endpoint: string): Client<typeof SimulationService> => {
   return cachedClient;
 };
 
-let registryPromise: Promise<Registry> | undefined;
-const getRegistry = (chainId: string): Promise<Registry> => {
-  if (!registryPromise) {
-    registryPromise = new ChainRegistryClient().remote.get(chainId).catch(err => {
-      // Clear on failure so the next request retries instead of pinning a
-      // rejected promise forever.
-      registryPromise = undefined;
-      throw err;
-    });
-  }
-  return registryPromise;
-};
-
 // Server-side cache for route book responses. pd's simulateTrade is
 // CPU-expensive (walks all liquidity positions) so we cache identical
 // queries for ~6s (one block). Keyed by base+quote+limit. Concurrent
-// requests for the same key share a single in-flight promise so we
-// never hammer pd with duplicate work.
+// requests for the same key share a single in-flight compute so we never
+// hammer pd with duplicate work.
 type CacheEntry = { data: RouteBookResponseJson; expiresAt: number; refreshing: boolean };
 const cache = new Map<string, CacheEntry>();
-const inflight = new Map<string, Promise<RouteBookResponseJson>>();
 const CACHE_TTL_MS = 6_000;
 // When a request comes in and cache is older than this, return the stale
 // data immediately and refresh in background. This means most users never
@@ -105,7 +89,64 @@ const CACHE_TTL_MS = 6_000;
 // background fetch updates the cache.
 const STALE_THRESHOLD_MS = 4_000;
 
-export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiResponse>> {
+// One in-flight pd compute per cache key. `controller` lets us really
+// cancel the upstream simulate (not just stop waiting for it): before,
+// `withTimeout` rejected our promise while pd kept walking positions for
+// a client that had already gone away, so under load pd accumulated
+// zombie compute jobs. `waiters` counts requests awaiting this compute;
+// when `cancelOnIdle` is set and the last one disconnects we abort so pd
+// stops too. Background SWR refreshes have no waiters and never cancel
+// on disconnect — they exist precisely to warm the cache for the next
+// poll.
+interface InflightCompute {
+  promise: Promise<RouteBookResponseJson>;
+  controller: AbortController;
+  waiters: number;
+  cancelOnIdle: boolean;
+}
+const inflight = new Map<string, InflightCompute>();
+
+// Await an in-flight compute on behalf of a request. If the request's own
+// signal aborts (tab closed, fetch cancelled) we drop the waiter and, when
+// nobody else is waiting, abort the upstream simulate.
+const awaitAsWaiter = async (
+  entry: InflightCompute,
+  reqSignal: AbortSignal,
+): Promise<RouteBookResponseJson> => {
+  entry.waiters += 1;
+  const onAbort = () => {
+    entry.waiters -= 1;
+    if (entry.waiters <= 0 && entry.cancelOnIdle && !entry.controller.signal.aborted) {
+      entry.controller.abort(new Error('all requesters disconnected'));
+    }
+  };
+  reqSignal.addEventListener('abort', onAbort, { once: true });
+  try {
+    return await entry.promise;
+  } finally {
+    reqSignal.removeEventListener('abort', onAbort);
+    if (!reqSignal.aborted) {
+      entry.waiters -= 1;
+    }
+  }
+};
+
+const cacheHeaders = (cached: CacheEntry, now: number, age: number) => ({
+  'Cache-Control': 'no-store',
+  'X-Cache': cached.expiresAt > now ? 'HIT' : 'STALE',
+  'X-Cache-Age-Ms': String(age),
+});
+
+// Outer belt: the handler already degrades every pd failure to a 200 +
+// `X-Book-Fallback` itself; this only catches the unexpected (a throw
+// before we reach the compute path) so it can never surface as a 500,
+// and adds `X-Served-Ms` timing for the route.
+export const GET = withApiFallback<[NextRequest], RouteBookApiResponse>(handleGet, {
+  emptyResponse: EMPTY_BOOK,
+  logTag: 'book',
+});
+
+async function handleGet(req: NextRequest): Promise<NextResponse<RouteBookApiResponse>> {
   // Prefer a server-only internal endpoint (localhost / private network) to
   // skip TLS, NAT, and reverse-proxy overhead. Falls back to public endpoint.
   const grpcEndpoint =
@@ -136,19 +177,21 @@ export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiRe
   // data back to the cache). The client sends this right after a user's
   // own swap so the LP-panel mid / route-book reflect the just-landed
   // trade rather than the pre-swap snapshot the 6s TTL was still
-  // serving. All non-owner traffic keeps the normal cached path.
+  // serving. All non-owner traffic keeps the normal cached path. It does
+  // NOT bypass single-flight below: two simultaneous primes for the same
+  // key share one pd compute.
   const bypassRead = searchParams.get('nocache') === '1';
   const cached = bypassRead ? undefined : cache.get(cacheKey);
 
-  const startBackgroundRefresh = () => {
-    if (inflight.has(cacheKey)) return;
-    if (cached) cached.refreshing = true;
-    const refresh = computeRouteBook(
+  const startCompute = (cancelOnIdle: boolean): InflightCompute => {
+    const controller = new AbortController();
+    const promise = computeRouteBook(
       grpcEndpoint,
       chainId,
       baseAssetSymbol,
       quoteAssetSymbol,
       limit,
+      controller.signal,
     )
       .then(data => {
         cache.set(cacheKey, {
@@ -158,24 +201,34 @@ export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiRe
         });
         return data;
       })
-      .catch(err => {
-        // A rejected background refresh must clear `refreshing` on the
-        // existing entry — otherwise the flag is wedged as `true` forever
-        // and subsequent requests skip refresh entirely, pinning the
-        // stale entry indefinitely. Log so the failure is visible.
+      .catch((err: unknown) => {
+        // A rejected refresh must clear `refreshing` on the existing
+        // entry — otherwise the flag is wedged as `true` forever and
+        // subsequent requests skip refresh entirely, pinning the stale
+        // entry indefinitely.
         const c = cache.get(cacheKey);
         if (c) c.refreshing = false;
-        console.error('[book] background refresh failed', { cacheKey, err });
         throw err;
       })
       .finally(() => {
-        inflight.delete(cacheKey);
+        if (inflight.get(cacheKey) === entry) {
+          inflight.delete(cacheKey);
+        }
       });
-    inflight.set(cacheKey, refresh);
-    // The SWR path never awaits `refresh`; the rethrow above (kept so an
-    // INFLIGHT waiter sees the failure) would otherwise surface as an
-    // unhandledRejection on every pd timeout during an outage.
-    refresh.catch(() => undefined);
+    const entry: InflightCompute = { promise, controller, waiters: 0, cancelOnIdle };
+    inflight.set(cacheKey, entry);
+    return entry;
+  };
+
+  const startBackgroundRefresh = () => {
+    if (inflight.has(cacheKey)) return;
+    if (cached) cached.refreshing = true;
+    const entry = startCompute(false);
+    // The SWR path never awaits the compute; without this handler every
+    // pd timeout during an outage surfaces as an unhandledRejection.
+    entry.promise.catch((err: unknown) => {
+      console.error('[book] background refresh failed', { cacheKey, err });
+    });
   };
 
   // Stale-while-revalidate: if we have ANY cached entry, serve it
@@ -188,65 +241,40 @@ export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiRe
     const grosslyStale = age > CACHE_TTL_MS * 10;
     if (grosslyStale) {
       cached.refreshing = false;
-    } else if (age > STALE_THRESHOLD_MS && !cached.refreshing) {
-      startBackgroundRefresh();
-      return NextResponse.json(cached.data, {
-        headers: {
-          'Cache-Control': 'no-store',
-          'X-Cache': cached.expiresAt > now ? 'HIT' : 'STALE',
-          'X-Cache-Age-Ms': String(age),
-        },
-      });
     } else {
-      return NextResponse.json(cached.data, {
-        headers: {
-          'Cache-Control': 'no-store',
-          'X-Cache': cached.expiresAt > now ? 'HIT' : 'STALE',
-          'X-Cache-Age-Ms': String(age),
-        },
-      });
+      if (age > STALE_THRESHOLD_MS && !cached.refreshing) {
+        startBackgroundRefresh();
+      }
+      return NextResponse.json(cached.data, { headers: cacheHeaders(cached, now, age) });
     }
     // Fall through to the synchronous compute path below for grosslyStale.
   }
 
   // No cached entry — must compute synchronously. Single-flight to avoid
-  // duplicate pd queries for concurrent first-time requests.
+  // duplicate pd queries for concurrent first-time requests. An in-flight
+  // entry whose controller already fired is a dying promise (its
+  // rejection lands a microtask later); don't attach to it, start fresh.
   const existing = inflight.get(cacheKey);
-  if (existing) {
+  if (existing && !existing.controller.signal.aborted) {
     try {
-      const data = await existing;
+      const data = await awaitAsWaiter(existing, req.signal);
       return NextResponse.json(data, { headers: { 'X-Cache': 'INFLIGHT' } });
     } catch (err) {
+      if (req.signal.aborted) {
+        // Client went away mid-wait; nobody will read this response.
+        return emptyFallback('INFLIGHT-ABORT');
+      }
       // The in-flight compute rejected. Return an empty book rather than
       // 500 — the caller will retry on the next block poll and the
       // primary compute path below will try again.
-      console.error('[book] inflight failed, serving empty fallback', {
-        cacheKey,
-        err,
-      });
-      return NextResponse.json(EMPTY_BOOK, {
-        status: 200,
-        headers: {
-          'Cache-Control': 'no-store',
-          'X-Cache': 'INFLIGHT-FAIL',
-          'X-Book-Fallback': 'empty',
-        },
-      });
+      console.error('[book] inflight failed, serving empty fallback', { cacheKey, err });
+      return emptyFallback('INFLIGHT-FAIL');
     }
   }
 
-  const compute = computeRouteBook(
-    grpcEndpoint,
-    chainId,
-    baseAssetSymbol,
-    quoteAssetSymbol,
-    limit,
-  );
-  inflight.set(cacheKey, compute);
-  let data: RouteBookResponseJson;
+  const entry = startCompute(true);
   try {
-    data = await compute;
-    cache.set(cacheKey, { data, expiresAt: Date.now() + CACHE_TTL_MS, refreshing: false });
+    const data = await awaitAsWaiter(entry, req.signal);
     return NextResponse.json(data, {
       headers: {
         'Cache-Control': 'no-store',
@@ -254,6 +282,13 @@ export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiRe
       },
     });
   } catch (err) {
+    if (req.signal.aborted) {
+      // Every requester disconnected and we aborted pd on their behalf.
+      // Not an outage — log quietly so ops don't read tab-closes as pd
+      // failures.
+      console.info('[book] compute cancelled, all requesters disconnected', { cacheKey });
+      return emptyFallback('MISS-ABORT');
+    }
     // pd unreachable, slow, or throwing. Prefer the last-known cache
     // entry to `EMPTY_BOOK` — the user seeing a slightly-stale book is a
     // much better degradation than an empty ladder while pd recovers,
@@ -276,22 +311,20 @@ export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiRe
         },
       });
     }
-    console.error('[book] compute failed, serving empty fallback', {
-      cacheKey,
-      err,
-    });
-    return NextResponse.json(EMPTY_BOOK, {
-      status: 200,
-      headers: {
-        'Cache-Control': 'no-store',
-        'X-Cache': 'MISS-FAIL',
-        'X-Book-Fallback': 'empty',
-      },
-    });
-  } finally {
-    inflight.delete(cacheKey);
+    console.error('[book] compute failed, serving empty fallback', { cacheKey, err });
+    return emptyFallback('MISS-FAIL');
   }
 }
+
+const emptyFallback = (xCache: string): NextResponse<RouteBookApiResponse> =>
+  NextResponse.json(EMPTY_BOOK, {
+    status: 200,
+    headers: {
+      'Cache-Control': 'no-store',
+      'X-Cache': xCache,
+      'X-Book-Fallback': 'empty',
+    },
+  });
 
 async function computeRouteBook(
   grpcEndpoint: string,
@@ -299,8 +332,9 @@ async function computeRouteBook(
   baseAssetSymbol: string,
   quoteAssetSymbol: string,
   limit: number,
+  cancel: AbortSignal,
 ): Promise<RouteBookResponseJson> {
-  const registry = await getRegistry(chainId);
+  const registry: Registry = await getCachedRegistry(chainId);
 
   const allAssets = registry.getAllAssets();
   const baseAssetMetadata = allAssets.find(
@@ -330,44 +364,68 @@ async function computeRouteBook(
   });
 
   const client = getSimClient(grpcEndpoint);
-  // Race each side against a hard timeout so a hanging pd request cannot
-  // pin a next-server request slot (or the in-flight promise) for longer
-  // than one block. On timeout we surface a plain Error the outer catch
-  // renders as an empty-book fallback response.
-  const withTimeout = <T>(p: Promise<T>, label: string): Promise<T> => {
-    let handle: ReturnType<typeof setTimeout> | undefined;
-    const timeout = new Promise<T>((_, reject) => {
-      handle = setTimeout(
-        () => reject(new Error(`pd ${label} timed out after ${PD_TIMEOUT_MS}ms`)),
-        PD_TIMEOUT_MS,
-      );
-    });
-    return Promise.race([p, timeout]).finally(() => {
-      if (handle) clearTimeout(handle);
-    });
+  // One signal for both sides: fires on the hard timeout OR when every
+  // requester has disconnected. Passed straight into Connect, which
+  // aborts the underlying fetch — so pd sees the stream reset and stops
+  // computing instead of finishing a result nobody will read. If one side
+  // fails the other is aborted too via the shared controller. `timeoutMs`
+  // additionally sets the `grpc-timeout` header so pd enforces the
+  // deadline server-side even if the abort doesn't propagate cleanly
+  // through the reverse proxy.
+  const signal = AbortSignal.any([cancel, AbortSignal.timeout(PD_TIMEOUT_MS)]);
+  const sides = new AbortController();
+  const onAny = () => sides.abort(signal.reason);
+  signal.addEventListener('abort', onAny, { once: true });
+  const callSignal = sides.signal;
+  const simulateOrAbortPeer = async (req: SimulateTradeRequest) => {
+    try {
+      return await simulateTrade(client, req, callSignal);
+    } catch (e) {
+      if (!sides.signal.aborted) {
+        sides.abort(e);
+      }
+      throw e;
+    }
   };
-  const [buyRes, sellRes] = await Promise.all([
-    withTimeout(simulateTrade(client, buySideRequest), 'buy simulate'),
-    withTimeout(simulateTrade(client, sellSideRequest), 'sell simulate'),
-  ]);
-  const buyMulti = processSimulation({ res: buyRes, registry, limit, quote_to_base: false });
-  const sellMulti = processSimulation({ res: sellRes, registry, limit, quote_to_base: true });
+  try {
+    // Backstop race: if the transport ever ignored the signal we still
+    // stop waiting shortly after the deadline instead of hanging a slot.
+    const [buyRes, sellRes] = await withHardStop(
+      Promise.all([simulateOrAbortPeer(buySideRequest), simulateOrAbortPeer(sellSideRequest)]),
+      PD_TIMEOUT_MS + 1_000,
+    );
+    const buyMulti = processSimulation({ res: buyRes, registry, limit, quote_to_base: false });
+    const sellMulti = processSimulation({ res: sellRes, registry, limit, quote_to_base: true });
 
-  return serializeResponse({
-    singleHops: {
-      buy: buyMulti.filter(t => t.hops.length === 2),
-      sell: sellMulti.filter(t => t.hops.length === 2),
-    },
-    multiHops: { buy: buyMulti, sell: sellMulti },
-  });
+    return serializeResponse({
+      singleHops: {
+        buy: buyMulti.filter(t => t.hops.length === 2),
+        sell: sellMulti.filter(t => t.hops.length === 2),
+      },
+      multiHops: { buy: buyMulti, sell: sellMulti },
+    });
+  } finally {
+    signal.removeEventListener('abort', onAny);
+  }
 }
+
+const withHardStop = <T>(p: Promise<T>, ms: number): Promise<T> => {
+  let handle: ReturnType<typeof setTimeout> | undefined;
+  const stop = new Promise<T>((_, reject) => {
+    handle = setTimeout(() => reject(new Error(`pd simulate hard-stopped after ${ms}ms`)), ms);
+  });
+  return Promise.race([p, stop]).finally(() => {
+    if (handle) clearTimeout(handle);
+  });
+};
 
 const simulateTrade = async (
   client: Client<typeof SimulationService>,
   req: SimulateTradeRequest,
+  signal: AbortSignal,
 ) => {
   try {
-    return await client.simulateTrade(req);
+    return await client.simulateTrade(req, { signal, timeoutMs: PD_TIMEOUT_MS });
   } catch (e) {
     // If the error contains 'there are no orders to fulfill this swap', there are no orders to fulfill the trade,
     // so just return an empty array

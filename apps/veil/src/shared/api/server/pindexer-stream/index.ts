@@ -16,6 +16,9 @@ interface Subscriber {
   close: () => void;
 }
 
+const PG_PING_INTERVAL_MS = 30_000;
+const PG_PING_TIMEOUT_MS = 10_000;
+
 let listenClient: Client | null = null;
 // In-flight connect promise. Without this, concurrent first requests each
 // build their own `new Client()` + LISTEN — the first to finish becomes
@@ -37,7 +40,11 @@ async function ensureListener(): Promise<void> {
     throw new Error('PENUMBRA_INDEXER_ENDPOINT not set');
   }
   connectPromise = (async () => {
-    const client = new Client({ connectionString });
+    // `query_timeout` bounds the liveness ping below: a half-open TCP
+    // socket doesn't reject `SELECT 1`, it hangs, so without a deadline
+    // the ping could never detect anything. `keepAlive` asks the kernel
+    // to probe the socket as well.
+    const client = new Client({ connectionString, query_timeout: PG_PING_TIMEOUT_MS, keepAlive: true });
     await client.connect();
 
     client.on('notification', msg => {
@@ -62,11 +69,15 @@ async function ensureListener(): Promise<void> {
     // late 'error'/'end' must not wipe a NEWER healthy singleton, nor kill
     // subscribers that are now served by it. `subs` is module-global.
     let tornDown = false;
+    let ping: ReturnType<typeof setInterval> | undefined;
     const teardown = (reason: string, err?: unknown) => {
       if (tornDown) {
         return;
       }
       tornDown = true;
+      if (ping) {
+        clearInterval(ping);
+      }
       void client.end().catch(() => {});
       if (listenClient !== client) {
         return;
@@ -88,6 +99,21 @@ async function ensureListener(): Promise<void> {
 
     await client.query('LISTEN pindexer_tick');
     listenClient = client;
+
+    // Liveness ping. A LISTEN connection is otherwise idle for minutes
+    // between ticks, and an idle-timeout on a NAT / pgbouncer / the server
+    // side can drop it without the socket emitting 'error' or 'end' — the
+    // singleton then looks healthy forever while no NOTIFY ever arrives
+    // and every browser sits on a heartbeat-only stream. `SELECT 1` every
+    // PG_PING_INTERVAL_MS (bounded by `query_timeout`) surfaces that; on
+    // failure we run the same teardown as the error handler so
+    // subscribers are closed and the next request rebuilds the listener.
+    ping = setInterval(() => {
+      if (tornDown) {
+        return;
+      }
+      client.query('SELECT 1').catch((err: unknown) => teardown('ping failed', err));
+    }, PG_PING_INTERVAL_MS);
     return client;
   })();
   try {

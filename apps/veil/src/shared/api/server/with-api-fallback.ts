@@ -29,23 +29,51 @@ export interface FallbackConfig<T> {
   logTag: string;
 }
 
+// Timing instrumentation. Every wrapped route gets an `X-Served-Ms`
+// response header (wall time inside the handler, fallback path included)
+// so route latency can be read straight off the network tab / nginx
+// access log in prod. A log line is emitted when the request is slow
+// (>= SLOW_MS) or always when `VEIL_API_TIMING=1` — /api/book fires every
+// ~6s per client, so unconditional logging would drown the journal.
+const SLOW_MS = 1_000;
+const LOG_ALL_TIMING = process.env['VEIL_API_TIMING'] === '1';
+
+const stamp = (res: NextResponse, tag: string, startedAt: number, outcome: 'ok' | 'fallback') => {
+  const ms = Math.round(performance.now() - startedAt);
+  try {
+    res.headers.set('X-Served-Ms', String(ms));
+  } catch {
+    // Immutable headers (shouldn't happen for handler-built responses).
+  }
+  if (LOG_ALL_TIMING || ms >= SLOW_MS || outcome === 'fallback') {
+    console.debug(`[${tag}] served in ${ms}ms`, { outcome, status: res.status });
+  }
+  return res;
+};
+
 export const withApiFallback =
   <TArgs extends unknown[], T>(
     handler: (...args: TArgs) => Promise<NextResponse<T>>,
     cfg: FallbackConfig<T>,
   ) =>
   async (...args: TArgs): Promise<NextResponse<T>> => {
+    const startedAt = performance.now();
     try {
-      return await handler(...args);
+      return stamp(await handler(...args), cfg.logTag, startedAt, 'ok');
     } catch (err) {
       console.error(`[${cfg.logTag}] handler failed, serving empty fallback`, err);
-      return NextResponse.json(cfg.emptyResponse, {
-        status: 200,
-        headers: {
-          'Cache-Control': 'no-store',
-          'X-Fallback': 'empty',
-        },
-      });
+      return stamp(
+        NextResponse.json(cfg.emptyResponse, {
+          status: 200,
+          headers: {
+            'Cache-Control': 'no-store',
+            'X-Fallback': 'empty',
+          },
+        }),
+        cfg.logTag,
+        startedAt,
+        'fallback',
+      );
     }
   };
 

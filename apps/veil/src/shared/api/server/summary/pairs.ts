@@ -6,7 +6,7 @@ import {
   Metadata,
   ValueView,
 } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { ChainRegistryClient } from '@penumbra-labs/registry';
+import { getCachedRegistry } from '@/shared/api/fetch-registry';
 import { toValueView } from '@/shared/utils/value-view';
 import { getStablecoins } from '@/shared/utils/stables';
 import {
@@ -36,9 +36,8 @@ async function handleGet(): Promise<NextResponse<PairsResponse>> {
     return NextResponse.json({ error: 'PENUMBRA_CHAIN_ID is not set' }, { status: 500 });
   }
 
-  const registryClient = new ChainRegistryClient();
   const registry = await withTimeout(
-    registryClient.remote.get(chainId),
+    getCachedRegistry(chainId),
     DEFAULT_TIMEOUT_MS,
     'summary/pairs registry.get',
   );
