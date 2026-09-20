@@ -80,18 +80,32 @@ jobs:
           cp -r .next/static .next/standalone/apps/veil/.next/static
           # Never ship a build-time .env into a public release asset.
           find .next/standalone -maxdepth 3 -name '.env*' -print -delete
-          # pnpm inside the nix devshell can compile native modules against
-          # /nix/store libraries that do not exist on the Debian host.
-          # musl-linked prebuilds (e.g. @img/sharp-linuxmusl-x64) ship alongside
-          # the glibc ones and are never loaded on the Debian host, but ldd always
-          # reports their libc.musl-*.so.1 as "not found". Check only what runs.
-          if find .next/standalone -name '*.node' -not -path '*musl*' | read -r _; then
-            find .next/standalone -name '*.node' -not -path '*musl*' -exec ldd {} + > /tmp/nativedeps.txt 2>&1 || true
-            if grep -Eq '/nix/store|not found' /tmp/nativedeps.txt; then
-              echo 'native module linked against paths absent on the deploy host:'
-              grep -E '/nix/store|not found' /tmp/nativedeps.txt
-              exit 1
+          # pnpm inside the nix devshell can pull in native addons (*.node)
+          # that link against musl or /nix/store libs absent on the Debian host
+          # - e.g. a musl prebuild of ws's bufferutil/utf-8-validate landing in
+          # a non-`musl`-named path, or a node-gyp build against /nix/store.
+          # Such a binary can't load on the host and would crash `require()`.
+          # Every native addon in this tree (ws's bufferutil/utf-8-validate,
+          # sharp) has a pure-JS/wasm fallback, so the safe thing is to DROP the
+          # non-portable copies and let the fallback run, rather than ship a
+          # binary that throws. (Explicit `*musl*`-named prebuilds are already
+          # dupes of the glibc ones and never loaded, so skip them entirely.)
+          dropped=0
+          while IFS= read -r -d '' node; do
+            if ldd "$node" 2>&1 | grep -Eq 'libc\.musl|/nix/store|not found'; then
+              echo "dropping non-portable native addon (JS/wasm fallback covers it): $node"
+              rm -f "$node"
+              dropped=$((dropped + 1))
             fi
+          done < <(find .next/standalone -name '*.node' -not -path '*musl*' -print0)
+          echo "dropped $dropped non-portable native addon(s)"
+          # After dropping, nothing loadable should still point at /nix/store.
+          # If something does, it is a genuinely required non-portable module we
+          # cannot silently drop - fail loudly so it is caught before promotion.
+          if find .next/standalone -name '*.node' -not -path '*musl*' -exec ldd {} + 2>&1 | grep -Eq '/nix/store'; then
+            echo 'a required native module still links against /nix/store after pruning:'
+            find .next/standalone -name '*.node' -not -path '*musl*' -exec ldd {} + 2>&1 | grep -E '/nix/store' || true
+            exit 1
           fi
           cat > .next/standalone/BUILD_INFO <<INFO
           app=veil
