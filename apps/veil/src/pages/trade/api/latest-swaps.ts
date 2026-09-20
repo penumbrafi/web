@@ -9,9 +9,9 @@ import type { RecentExecution } from '@/shared/api/server/recent-executions';
 import { connectionStore } from '@/shared/model/connection';
 import { penumbra } from '@/shared/const/penumbra';
 import { useRefetchOnNewBlock } from '@/shared/api/compact-block';
+import { useOnPindexerTick } from '@/shared/api/pindexer-stream';
 import { apiPostFetch } from '@/shared/utils/api-fetch';
 import { usePathToMetadata } from '../model/use-path';
-import { queryClient } from '@/shared/const/queryClient';
 import { pnum } from '@penumbra-zone/types/pnum';
 
 const fetchQuery = async (
@@ -60,34 +60,21 @@ export const useLatestSwaps = (subaccount?: number) => {
     enabled: connectionStore.connected && !!baseSymbol && !!quoteSymbol,
   });
 
-  /**
-   * When a new swap is made, it firstly appears in `latestSwaps` in Prax (myTradesQuery),
-   * and after several seconds it appears in pindexer. This function makes `myExecutionsQuery`
-   * refetch each 5 seconds when the amount of swaps in `myTradesQuery` is different from `myExecutionsQuery`.
-   */
-  const getRefetchInterval = () => {
-    const data = queryClient.getQueryData<RecentExecution[]>([
-      MY_EXECUTIONS_KEY,
-      myTradesQuery.data?.length ?? 0,
-    ]);
-    return myTradesQuery.data?.length !== data?.length ? 5000 : 0;
-  };
-
   // Pindexer query – will not run if `myTradesQuery` data didn't change.
   // Cache key MUST include subaccount + pair, else switching pairs (or
   // accounts) with equal swap counts serves the previous pair's data
   // forever — length alone collides across pairs.
+  const myExecutionsKey = [
+    MY_EXECUTIONS_KEY,
+    subaccount,
+    baseSymbol,
+    quoteSymbol,
+    myTradesQuery.data?.length ?? 0,
+  ];
   const myExecutionsQuery = useQuery({
-    queryKey: [
-      MY_EXECUTIONS_KEY,
-      subaccount,
-      baseSymbol,
-      quoteSymbol,
-      myTradesQuery.data?.length ?? 0,
-    ],
+    queryKey: myExecutionsKey,
     enabled: typeof myTradesQuery.data !== 'undefined',
     staleTime: Infinity,
-    refetchInterval: getRefetchInterval,
     queryFn: async () => {
       if (!myTradesQuery.data?.length) {
         return [];
@@ -112,6 +99,13 @@ export const useLatestSwaps = (subaccount?: number) => {
       return apiPostFetch<RecentExecution[]>('/api/my-executions', mapped);
     },
   });
+
+  // A new swap appears in Prax's `latestSwaps` (myTradesQuery) first and
+  // lands in pindexer a few seconds later. Refetch the pindexer side the
+  // moment dex_ex commits rather than polling — the previous
+  // `refetchInterval` looked up a 2-element key that never existed, so it
+  // polled every 5s forever.
+  useOnPindexerTick(['dex_ex'], myExecutionsKey);
 
   // Pass a per-instance key + `disabled` so a page-2 mount (or a second
   // subaccount) doesn't race the first over the module-global

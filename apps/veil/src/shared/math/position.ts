@@ -14,6 +14,34 @@ export interface PositionedLiquidity {
   shape: LiquidityDistributionShape;
 }
 
+/**
+ * One rung of a liquidity ladder, BEFORE it is turned into an on-chain
+ * `Position`.
+ *
+ * Building a `Position` is the expensive half of planning: it runs the
+ * `priceToPQ` fraction search and draws a 32-byte nonce from
+ * `crypto.getRandomValues`. The preview overlay, validator, and confirm
+ * modal only need the rung prices and reserve amounts, so they read a
+ * `LiquidityRung[]` and leave `Position` construction to the two places that
+ * actually broadcast or dry-run the transaction.
+ */
+export interface LiquidityRung {
+  /** Display-unit price, quote / base. */
+  price: number;
+  /** The fee, in [0, 10_000]. */
+  feeBps: number;
+  /** Raw display-unit reserves the planner asked for — fed to `planToPosition`. */
+  baseReserves: number;
+  quoteReserves: number;
+  /**
+   * Display-unit reserves after quantising DOWN to base units — exactly what
+   * the built position will hold, and exactly what reading `reserves.r1/r2`
+   * back off it (`positionRequirements`, the confirm modal totals) yields.
+   */
+  baseAmount: number;
+  quoteAmount: number;
+}
+
 export const compareAssetId = (a: AssetId, b: AssetId): number => {
   // The asset ids are serialized using LE, so this is checking the MSB.
   for (let i = 31; i >= 0; --i) {
@@ -120,6 +148,67 @@ const toBaseFloor = (display: number, exponent: number): Amount => {
   const shifted = new BigNumber(display).shiftedBy(exponent);
   return pnum(BigInt(shifted.toFixed(0, BigNumber.ROUND_DOWN))).toAmount();
 };
+
+const amountIsNonZero = (a?: { lo?: bigint; hi?: bigint }): boolean =>
+  a !== undefined && ((a.lo ?? 0n) !== 0n || (a.hi ?? 0n) !== 0n);
+
+/**
+ * Quantise a `PositionPlan` into a `LiquidityRung`, or `undefined` when both
+ * reserves truncate to zero base units — the same rule `positionHasReserves`
+ * applies to a built position, so `rungs.length` always equals the number
+ * of positions the plan will actually open.
+ */
+const planToRung = (plan: PositionPlan): LiquidityRung | undefined => {
+  const r1 = toBaseFloor(plan.baseReserves, plan.baseAsset.exponent);
+  const r2 = toBaseFloor(plan.quoteReserves, plan.quoteAsset.exponent);
+  if (!amountIsNonZero(r1) && !amountIsNonZero(r2)) {
+    return undefined;
+  }
+  return {
+    price: plan.price,
+    feeBps: plan.feeBps,
+    baseReserves: plan.baseReserves,
+    quoteReserves: plan.quoteReserves,
+    baseAmount: pnum(r1, plan.baseAsset.exponent).toNumber(),
+    quoteAmount: pnum(r2, plan.quoteAsset.exponent).toNumber(),
+  };
+};
+
+const plansToRungs = (plans: PositionPlan[]): LiquidityRung[] => {
+  const out: LiquidityRung[] = [];
+  for (const plan of plans) {
+    const rung = planToRung(plan);
+    if (rung) {
+      out.push(rung);
+    }
+  }
+  return out;
+};
+
+/** Turn already-quantised rungs into positions (nonce + trading function per rung). */
+export const rungsToPositions = (
+  rungs: LiquidityRung[],
+  baseAsset: Asset,
+  quoteAsset: Asset,
+  shape: LiquidityDistributionShape,
+): PositionedLiquidity[] =>
+  rungs.map(rung =>
+    planToPosition(
+      {
+        baseAsset,
+        quoteAsset,
+        feeBps: rung.feeBps,
+        price: rung.price,
+        // Raw (un-quantised) reserves: `toBaseFloor` is deterministic on the
+        // same input, so the built position holds exactly `baseAmount` /
+        // `quoteAmount`. Feeding the quantised floats back in could shave a
+        // base unit through float error.
+        baseReserves: rung.baseReserves,
+        quoteReserves: rung.quoteReserves,
+      },
+      shape,
+    ),
+  );
 
 export const planToPosition = (
   plan: PositionPlan,
@@ -308,17 +397,17 @@ export const positionHasReserves = ({ reserves }: Position): boolean => {
   return nonZero(r1) || nonZero(r2);
 };
 
-const withReserves = (positions: PositionedLiquidity[]): PositionedLiquidity[] =>
-  positions.filter(p => positionHasReserves(p.position));
-
-/** Given a plan for providing range liquidity, create all the necessary positions to accomplish the plan. */
-export const rangeLiquidityPositions = (plan: RangeLiquidityPlan): PositionedLiquidity[] => {
+/**
+ * The cheap half of `rangeLiquidityPositions`: rung prices + reserves,
+ * filtered exactly as the built positions would be, no protos and no nonces.
+ */
+export const rangeLiquidityRungs = (plan: RangeLiquidityPlan): LiquidityRung[] => {
   // The step width is positions-1 because it's between the endpoints
   // |---|---|---|---|
   // 0   1   2   3   4
   //   0   1   2   3
   const stepWidth = (plan.upperPrice - plan.lowerPrice) / plan.positions;
-  return withReserves(
+  return plansToRungs(
     Array.from({ length: plan.positions }, (_, i) => {
       const price = plan.lowerPrice + i * stepWidth;
 
@@ -336,23 +425,41 @@ export const rangeLiquidityPositions = (plan: RangeLiquidityPlan): PositionedLiq
         quoteReserves = 0;
       }
 
-      return planToPosition(
-        {
-          baseAsset: plan.baseAsset,
-          quoteAsset: plan.quoteAsset,
-          feeBps: plan.feeBps,
-          price,
-          baseReserves,
-          quoteReserves,
-        },
-        plan.distributionShape,
-      );
+      return {
+        baseAsset: plan.baseAsset,
+        quoteAsset: plan.quoteAsset,
+        feeBps: plan.feeBps,
+        price,
+        baseReserves,
+        quoteReserves,
+      };
     }),
   );
 };
 
+/** Given a plan for providing range liquidity, create all the necessary positions to accomplish the plan. */
+export const rangeLiquidityPositions = (plan: RangeLiquidityPlan): PositionedLiquidity[] =>
+  rungsToPositions(
+    rangeLiquidityRungs(plan),
+    plan.baseAsset,
+    plan.quoteAsset,
+    plan.distributionShape,
+  );
+
 /** Given a plan for providing simple liquidity, create all the necessary positions to accomplish the plan. */
-export const simpleLiquidityPositions = (plan: SimpleLiquidityPlan): PositionedLiquidity[] => {
+export const simpleLiquidityPositions = (plan: SimpleLiquidityPlan): PositionedLiquidity[] =>
+  rungsToPositions(
+    simpleLiquidityRungs(plan),
+    plan.baseAsset,
+    plan.quoteAsset,
+    plan.distributionShape,
+  );
+
+/**
+ * The cheap half of `simpleLiquidityPositions`: rung prices + reserves,
+ * filtered exactly as the built positions would be, no protos and no nonces.
+ */
+export const simpleLiquidityRungs = (plan: SimpleLiquidityPlan): LiquidityRung[] => {
   const hasBase = plan.baseLiquidity > 0;
   const hasQuote = plan.quoteLiquidity > 0;
 
@@ -363,10 +470,10 @@ export const simpleLiquidityPositions = (plan: SimpleLiquidityPlan): PositionedL
   // PYRAMID reads as a monotonic stair heavy near mid, and
   // INVERTED_PYRAMID as a stair heavy at the edge.
   if (hasBase && !hasQuote) {
-    return oneSidedPositions(plan, 'base');
+    return oneSidedRungs(plan, 'base');
   }
   if (hasQuote && !hasBase) {
-    return oneSidedPositions(plan, 'quote');
+    return oneSidedRungs(plan, 'quote');
   }
 
   // Two-sided path. The split is anchored at mid *clamped into the range*,
@@ -419,57 +526,63 @@ export const simpleLiquidityPositions = (plan: SimpleLiquidityPlan): PositionedL
     .reduce((sum, w) => sum + w, 0);
   const upperRangeTotalWeight = weights.slice(lowerPositionsAmount).reduce((sum, w) => sum + w, 0);
 
-  const lowerPositions = Array.from({ length: lowerPositionsAmount }, (_, i) => {
+  const lowerPositions = Array.from({ length: lowerPositionsAmount }, (_, i): PositionPlan => {
     const price = plan.lowerPrice + i * lowerStepWidth;
     const weight = (weights[i] ?? 0) / (lowerRangeTotalWeight || 1);
-    return planToPosition(
-      {
-        baseAsset: plan.baseAsset,
-        quoteAsset: plan.quoteAsset,
-        feeBps: plan.feeBps,
-        price,
-        baseReserves: 0,
-        quoteReserves: plan.quoteLiquidity * weight,
-      },
-      plan.distributionShape,
-    );
+    return {
+      baseAsset: plan.baseAsset,
+      quoteAsset: plan.quoteAsset,
+      feeBps: plan.feeBps,
+      price,
+      baseReserves: 0,
+      quoteReserves: plan.quoteLiquidity * weight,
+    };
   });
 
-  const upperPositions = Array.from({ length: upperPositionsAmount }, (_, i) => {
+  const upperPositions = Array.from({ length: upperPositionsAmount }, (_, i): PositionPlan => {
     const price = anchorPrice + i * upperStepWidth;
     const weight = (weights[i + lowerPositionsAmount] ?? 0) / (upperRangeTotalWeight || 1);
-    return planToPosition(
-      {
-        baseAsset: plan.baseAsset,
-        quoteAsset: plan.quoteAsset,
-        feeBps: plan.feeBps,
-        price,
-        baseReserves: plan.baseLiquidity * weight,
-        quoteReserves: 0,
-      },
-      plan.distributionShape,
-    );
+    return {
+      baseAsset: plan.baseAsset,
+      quoteAsset: plan.quoteAsset,
+      feeBps: plan.feeBps,
+      price,
+      baseReserves: plan.baseLiquidity * weight,
+      quoteReserves: 0,
+    };
   });
 
-  return withReserves([...lowerPositions, ...upperPositions]);
+  return plansToRungs([...lowerPositions, ...upperPositions]);
 };
 
-const oneSidedPositions = (
-  plan: SimpleLiquidityPlan,
-  side: 'base' | 'quote',
-): PositionedLiquidity[] => {
-  // Emit rungs across the FULL user range, not the "sensible" side of
-  // mid. Chain does not enforce this — you can bid above mid (offering
-  // to buy the base at a premium) or ask below mid (selling at a
-  // discount) — arbs may drain such positions immediately, but that is
-  // the user's call, not ours. The old shape clamped to `[lower, min(mid, upper)]`
-  // for quote / `[max(mid, lower), upper]` for base and returned []
-  // when the range was wholly on the "wrong" side of mid — which read
-  // as "amounts too small" to the user on wide-spread pairs where the
-  // mid is barely meaningful. Wide-spread / off-mid warnings live in
-  // the validator instead; the LP math just builds what was asked.
-  const from = plan.lowerPrice;
-  const to = plan.upperPrice;
+const oneSidedRungs = (plan: SimpleLiquidityPlan, side: 'base' | 'quote'): LiquidityRung[] => {
+  // Two regimes, keyed on whether mid sits INSIDE the user's range:
+  //
+  //  - Mid outside [lower, upper]: emit rungs across the FULL range.
+  //    The user has explicitly placed the whole ladder off-mid (bidding
+  //    above market / asking below it). Chain does not enforce a mid;
+  //    arbs may drain such positions, but it is the user's call and the
+  //    validator surfaces an advisory off-mid warning. Clamping here
+  //    used to return [] and read as "amounts too small" on wide-spread
+  //    pairs where the mid is barely meaningful.
+  //
+  //  - Mid inside [lower, upper] (straddle): clamp the funded side to
+  //    its sensible half — base → [mid, upper], quote → [lower, mid].
+  //    Without this a base-only ladder on [0.9, 1.2] with mid 1.0 would
+  //    post asks at 0.9–1.0, i.e. sell base BELOW live market: instant
+  //    arb food, silently. The dropped portion is reported by
+  //    `LPFormStore.offMidWarning` ('partial-straddle').
+  const { lowerPrice: lower, upperPrice: upper, marketPrice: mid } = plan;
+  const midInRange = mid >= lower && mid <= upper;
+  let from = lower;
+  let to = upper;
+  if (midInRange) {
+    if (side === 'base') {
+      from = Math.max(mid, lower);
+    } else {
+      to = Math.min(mid, upper);
+    }
+  }
   const span = to - from;
   const n = plan.positions;
   // Also bail on non-finite span or non-finite bounds — a NaN
@@ -513,29 +626,26 @@ const oneSidedPositions = (
   const totalLiq = side === 'base' ? plan.baseLiquidity : plan.quoteLiquidity;
   const step = span / n;
 
-  const built = Array.from({ length: n }, (_, i) => {
+  const built = Array.from({ length: n }, (_, i): PositionPlan => {
     const price = from + i * step;
     const share = totalLiq * ((weights[i] ?? 0) / total);
-    return planToPosition(
-      {
-        baseAsset: plan.baseAsset,
-        quoteAsset: plan.quoteAsset,
-        feeBps: plan.feeBps,
-        price,
-        // `share` is already in the funded side's display units — no price
-        // conversion. plan.baseLiquidity and plan.quoteLiquidity are each in
-        // their own denomination per SimpleLiquidityPlan; dividing by price
-        // here (as rangeLiquidityPositions does for its quote-denominated
-        // targetLiquidity) would inflate the base reserves by ~1/price.
-        baseReserves: side === 'base' ? share : 0,
-        quoteReserves: side === 'quote' ? share : 0,
-      },
-      plan.distributionShape,
-    );
+    return {
+      baseAsset: plan.baseAsset,
+      quoteAsset: plan.quoteAsset,
+      feeBps: plan.feeBps,
+      price,
+      // `share` is already in the funded side's display units — no price
+      // conversion. plan.baseLiquidity and plan.quoteLiquidity are each in
+      // their own denomination per SimpleLiquidityPlan; dividing by price
+      // here (as rangeLiquidityPositions does for its quote-denominated
+      // targetLiquidity) would inflate the base reserves by ~1/price.
+      baseReserves: side === 'base' ? share : 0,
+      quoteReserves: side === 'quote' ? share : 0,
+    };
   });
   // Same zero-reserve filter as the two-sided path — a thin outer PYRAMID
   // rung on a small size can truncate to zero and the chain rejects the tx.
-  return withReserves(built);
+  return plansToRungs(built);
 };
 
 /** A limit order plan attempts to buy or sell the baseAsset at a given price.

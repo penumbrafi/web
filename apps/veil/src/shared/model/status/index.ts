@@ -48,6 +48,14 @@ class StatusState {
       for await (const status of stream) {
         this.setStreamedStatus(status);
       }
+      // Stream ended cleanly — MV3 service worker restart, transport
+      // shutdown, or a normal complete. `when()` in the constructor
+      // fires ONCE, so without an explicit retry the sync bar would
+      // freeze at the last-known values indefinitely. Re-run setup
+      // after a short backoff to reconnect the stream. Won't loop
+      // hot: `status({})` will throw / hang if the extension actually
+      // died, and hit the isLocked/error path below.
+      setTimeout(() => void this.setup(), 1000);
     } catch (error) {
       const isLocked =
         error instanceof Error && /\[unauthenticated\]/i.test(error.message);

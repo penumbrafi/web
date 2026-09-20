@@ -28,6 +28,10 @@ const startBlockHeightStream = async (transport: Transport, signal: AbortSignal)
   while (!signal.aborted) {
     try {
       const latestBlockHeight = await fetchLatestBlockHeight(transport);
+      // The initial status fetch is a real height too — previously the
+      // `useLatestBlockHeight` query supplied consumers' first tick, so
+      // keep feeding it through the same imperative path.
+      notifyNewBlock(latestBlockHeight);
       const blockClient = createClient(CompactBlockService, transport);
       for await (const response of blockClient.compactBlockRange(
         {
@@ -39,6 +43,7 @@ const startBlockHeightStream = async (transport: Transport, signal: AbortSignal)
         if (response.compactBlock?.height) {
           const newHeight = Number(response.compactBlock.height);
           queryClient.setQueryData(LATEST_HEIGHT_QUERY_KEY, newHeight);
+          notifyNewBlock(newHeight);
           // Reset backoff after we successfully receive a block —
           // otherwise a stream that survived one hiccup would still
           // wait 30s to retry the next.
@@ -67,52 +72,83 @@ const startBlockHeightStream = async (transport: Transport, signal: AbortSignal)
   }
 };
 
+/*
+ * Imperative block-tick fanout.
+ *
+ * `useRefetchOnNewBlock` used to read `useLatestBlockHeight()` — a
+ * `useQuery` — inside every consumer's render, so all ~13 per-block queries
+ * on the trade page re-rendered their host component on every height tick
+ * AND again on their own data. Now consumers register `{key, refetch}` in
+ * this module-level map from an effect, and the compact-block stream walks
+ * the map when a block lands (the same shape `useOnPindexerTick` uses).
+ * Consumers become effect-only: no render on the height tick at all.
+ */
+type Refetch = () => unknown;
+
+const refetchers = new Map<string, Set<Refetch>>();
+// Per-key dedup: instances sharing a query key share the underlying query,
+// so one refetch per key per height is enough (and is what the old
+// first-instance-wins effect ordering amounted to).
 const lastRefetchedBlockHeights = new Map<string, number>();
+let latestKnownHeight: number | undefined;
 
-export const useRefetchOnNewBlock = (
-  queryKey: unknown,
-  { refetch }: UseQueryResult,
-  disabled?: boolean,
-) => {
-  const { data: blockHeight } = useLatestBlockHeight();
-
-  // useLatestBlockHeight ticks every block (~5s), which fires this hook
-  // across every per-block query (book, candles, swaps, ...) on the trade
-  // page. JSON.stringify on a string queryKey produces a wasteful '"x"'
-  // wrapper allocation per render — short-circuit when it's already a
-  // string (the common case) and only stringify for object/array keys.
-  const queryKeyString =
-    typeof queryKey === 'string' ? queryKey : JSON.stringify(queryKey);
-
-  useEffect(() => {
-    if (!blockHeight || disabled) {
-      return;
-    }
-
-    const lastHeight = lastRefetchedBlockHeights.get(queryKeyString) ?? -1;
-    if (blockHeight > lastHeight) {
-      lastRefetchedBlockHeights.set(queryKeyString, blockHeight);
-      void refetch();
-    }
-  }, [blockHeight, refetch, queryKeyString, disabled]);
+const firstOf = (set: Set<Refetch> | undefined): Refetch | undefined => {
+  const next = set?.values().next();
+  return next && !next.done ? next.value : undefined;
 };
 
-export const LATEST_HEIGHT_QUERY_KEY = ['latestBlockHeight'];
+const refetchKeyIfStale = (key: string, height: number) => {
+  const lastHeight = lastRefetchedBlockHeights.get(key) ?? -1;
+  if (height <= lastHeight) {
+    return;
+  }
+  const refetch = firstOf(refetchers.get(key));
+  if (!refetch) {
+    return;
+  }
+  lastRefetchedBlockHeights.set(key, height);
+  void refetch();
+};
 
-export const useLatestBlockHeight = () => {
-  const { data, isLoading: transportIsLoading, error: transportError } = useGrpcTransport();
+const notifyNewBlock = (height: number) => {
+  if (latestKnownHeight !== undefined && height <= latestKnownHeight) {
+    return;
+  }
+  latestKnownHeight = height;
+  for (const key of refetchers.keys()) {
+    refetchKeyIfStale(key, height);
+  }
+};
 
-  const res = useQuery({
-    queryKey: LATEST_HEIGHT_QUERY_KEY,
-    queryFn: async (): Promise<number> => {
-      if (!data?.transport) {
-        throw new Error('Transport not available');
-      }
-      return await fetchLatestBlockHeight(data.transport);
-    },
-    staleTime: Infinity,
-    enabled: !!data?.transport,
-  });
+const registerRefetch = (key: string, refetch: Refetch): (() => void) => {
+  let set = refetchers.get(key);
+  if (!set) {
+    set = new Set();
+    refetchers.set(key, set);
+  }
+  set.add(refetch);
+  // A consumer mounting mid-session used to see the cached height right
+  // away and refetch once on mount; preserve that.
+  const known = latestKnownHeight ?? queryClient.getQueryData<number>(LATEST_HEIGHT_QUERY_KEY);
+  if (known !== undefined) {
+    refetchKeyIfStale(key, known);
+  }
+  return () => {
+    set.delete(refetch);
+    if (set.size === 0) {
+      refetchers.delete(key);
+    }
+  };
+};
+
+/**
+ * Keep the shared compact-block stream alive while the caller is mounted.
+ * Shared by `useLatestBlockHeight` (which also exposes the height as query
+ * data) and `useRefetchOnNewBlock` (which only wants the ticks). The
+ * transport query is `staleTime: Infinity`, so this does not tick per block.
+ */
+const useBlockHeightStream = () => {
+  const { data, isLoading, error } = useGrpcTransport();
 
   // Memoized for use in useStream
   const streamFn = useCallback(
@@ -129,6 +165,50 @@ export const useLatestBlockHeight = () => {
     id: 'compactBlockStream',
     enabled: !!data?.transport,
     streamFn,
+  });
+
+  return { transport: data?.transport, isLoading, error };
+};
+
+export const useRefetchOnNewBlock = (
+  queryKey: unknown,
+  { refetch }: UseQueryResult,
+  disabled?: boolean,
+) => {
+  useBlockHeightStream();
+
+  // JSON.stringify on a string queryKey produces a wasteful '"x"' wrapper
+  // allocation per render — short-circuit when it's already a string (the
+  // common case) and only stringify for object/array keys.
+  const queryKeyString =
+    typeof queryKey === 'string' ? queryKey : JSON.stringify(queryKey);
+
+  useEffect(() => {
+    if (disabled) {
+      return;
+    }
+    // `refetch` is bound once on the RQ observer, so this only re-registers
+    // when the key or the disabled flag changes.
+    return registerRefetch(queryKeyString, refetch);
+  }, [refetch, queryKeyString, disabled]);
+};
+
+export const LATEST_HEIGHT_QUERY_KEY = ['latestBlockHeight'];
+
+export const useLatestBlockHeight = () => {
+  const { transport, isLoading: transportIsLoading, error: transportError } =
+    useBlockHeightStream();
+
+  const res = useQuery({
+    queryKey: LATEST_HEIGHT_QUERY_KEY,
+    queryFn: async (): Promise<number> => {
+      if (!transport) {
+        throw new Error('Transport not available');
+      }
+      return await fetchLatestBlockHeight(transport);
+    },
+    staleTime: Infinity,
+    enabled: !!transport,
   });
 
   return {

@@ -43,12 +43,43 @@ class ConnectionStateStore {
     this.connected = connected;
   }
 
+  /**
+   * Listeners fired on the false-edge of `walletLocked` (i.e. when the
+   * wallet has JUST been detected unlocked after a period of being
+   * locked). Consumers register here to resume work that couldn't run
+   * while the extension held [unauthenticated] — most importantly the
+   * order form's gas-fee estimator and every ViewService-backed query
+   * that stalled on empty/errored results. Without this, when a user
+   * unlocks the wallet mid-session, the banner clears but the sync bar
+   * stays "loading" or gas stays "--" until the user edits something
+   * that trips a fresh fetch by side-effect.
+   */
+  private unlockListeners = new Set<() => void>();
+
+  onWalletUnlock(listener: () => void): () => void {
+    this.unlockListeners.add(listener);
+    return () => this.unlockListeners.delete(listener);
+  }
+
   markWalletLocked() {
     if (!this.walletLocked) this.walletLocked = true;
   }
 
   markWalletUnlocked() {
-    if (this.walletLocked) this.walletLocked = false;
+    if (!this.walletLocked) return;
+    this.walletLocked = false;
+    // Fire outside the current microtask so mobx observers see the
+    // false state before consumers fetch — otherwise a listener that
+    // inspects `walletLocked` synchronously would still read `true`.
+    queueMicrotask(() => {
+      for (const fn of this.unlockListeners) {
+        try {
+          fn();
+        } catch (err) {
+          console.warn('[connection] unlock listener threw', err);
+        }
+      }
+    });
   }
 
   setSubaccount = (subaccount: string) => {

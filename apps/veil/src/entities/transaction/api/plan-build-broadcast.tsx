@@ -25,7 +25,7 @@ import { describeTxError } from '../model/describe-error';
 import { planTransaction } from './plan';
 import { broadcastTransaction } from './broadcast';
 import { buildTransaction } from './build';
-import { veilBroadcastTransaction } from './veil-broadcast';
+import { veilBroadcastTransaction, VeilBroadcastTerminalError } from './veil-broadcast';
 import { readBroadcastMode } from '@/shared/model/broadcast-mode';
 
 async function fetchTransaction(
@@ -81,11 +81,31 @@ async function* unfilledSwaps(originalTx?: TransactionInfo): AsyncGenerator<Valu
 }
 
 /**
+ * Extra information the outer caller (e.g. OrderFormStore.submit) needs
+ * to make follow-up decisions safely — most importantly, whether the
+ * wallet's LOCAL view service has observed the tx, so a swapClaim
+ * planner call won't hit "Swap record not found" and mislead the user
+ * into a double-broadcast.
+ */
+export interface PlanBuildBroadcastResult {
+  transaction: Transaction;
+  /**
+   * `true` when the local view service has scanned the block containing
+   * this tx. Only meaningful for `awaitDetection: true` paths. When
+   * `false`, do NOT plan a follow-up (swapClaim, dependent tx) — the
+   * planner will throw because the note it needs isn't visible yet.
+   */
+  viewSeen: boolean;
+}
+
+/**
  * Handles the common use case of planning, building, and broadcasting a
- * transaction, along with the appropriate toasts. Throws if there is an
- * unhandled error (i.e., any error other than the user denying authorization
- * for the transaction) so that consuming code can take different actions based
- * on whether the transaction succeeded or failed.
+ * transaction, along with the appropriate toasts. Throws with the
+ * mapped `DescribedError` shape when something fails (only cancellations
+ * are swallowed and reported as a warning toast) so consuming code can
+ * distinguish success, cancellation, and failure — critically, it can
+ * see `txAlreadyOnChain: true` when the tx landed but the follow-up
+ * step failed, and skip a resubmit that would broadcast a second tx.
  */
 export const planBuildBroadcast = async (
   transactionClassification: TransactionClassification,
@@ -100,7 +120,7 @@ export const planBuildBroadcast = async (
      */
     skipAuth?: boolean;
   },
-): Promise<Transaction | undefined> => {
+): Promise<PlanBuildBroadcastResult | undefined> => {
   const label =
     transactionClassification in TRANSACTION_LABEL_BY_CLASSIFICATION
       ? TRANSACTION_LABEL_BY_CLASSIFICATION[transactionClassification]
@@ -131,6 +151,7 @@ export const planBuildBroadcast = async (
 
     const broadcastMode = readBroadcastMode();
     let detectionHeight: bigint | undefined;
+    let viewSeen = false;
     if (broadcastMode === 'veil') {
       try {
         toast.update({
@@ -148,7 +169,16 @@ export const planBuildBroadcast = async (
             }),
         });
         detectionHeight = result.detectionHeight;
+        viewSeen = result.viewSeen;
       } catch (veilErr) {
+        // ONLY fall back to the wallet on transport-level failures. A
+        // tendermint rejection or a hash-mismatch is terminal — the tx
+        // either landed as-is (or in tendermint's cache as such) or was
+        // rejected outright, and re-broadcasting the same bytes would
+        // either double-broadcast a landed tx or repeat the rejection.
+        if (veilErr instanceof VeilBroadcastTerminalError) {
+          throw veilErr;
+        }
         console.warn('veil-broadcast failed, falling back to wallet:', veilErr);
         toast.update({
           type: 'loading',
@@ -164,6 +194,9 @@ export const planBuildBroadcast = async (
               description: shortenedTxHash,
             }),
         ));
+        // The wallet-path awaits its own detection; if we got past the
+        // await without throwing, the wallet has scanned the tx.
+        viewSeen = true;
       }
     } else {
       ({ detectionHeight } = await broadcastTransaction(
@@ -175,6 +208,7 @@ export const planBuildBroadcast = async (
             description: shortenedTxHash,
           }),
       ));
+      viewSeen = true;
     }
 
     let unfilledSwapsInfo = '';
@@ -207,7 +241,7 @@ export const planBuildBroadcast = async (
       persistent: false,
     });
 
-    return transaction;
+    return { transaction, viewSeen };
   } catch (e) {
     console.error(e);
     // Every failure path funnels through one mapper, so a planner rejection,
@@ -215,14 +249,27 @@ export const planBuildBroadcast = async (
     // the user can act on rather than as `String(e)` — which used to surface
     // raw Connect/anyhow text like "[invalid_argument] initial reserves must
     // provision some amount of either asset".
-    const { title, description, cancelled } = describeTxError(e);
+    const described = describeTxError(e);
     toast.update({
-      type: cancelled ? 'warning' : 'error',
-      message: title,
-      description,
+      type: described.cancelled ? 'warning' : described.txAlreadyOnChain ? 'warning' : 'error',
+      message: described.title,
+      description: described.description,
       dismissible: true,
       persistent: false,
     });
+    // RETHROW for anything that isn't a user cancellation, so the caller
+    // (OrderFormStore.submit) can react — in particular, it must see
+    // `txAlreadyOnChain: true` and NOT let the user resubmit. Previously
+    // this catch swallowed everything and returned undefined, which
+    // silently voided the double-swap guard: `_submitting` cleared,
+    // canSubmit went true, one more click = second on-chain swap.
+    if (!described.cancelled) {
+      // Attach the described metadata to the error itself so the caller
+      // gets the mapped shape without having to re-map.
+      const withDescribed = e instanceof Error ? e : new Error(String(e));
+      (withDescribed as Error & { described?: typeof described }).described = described;
+      throw withDescribed;
+    }
   }
 
   return undefined;

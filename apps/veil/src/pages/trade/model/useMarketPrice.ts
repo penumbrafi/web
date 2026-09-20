@@ -3,10 +3,7 @@ import { useBook } from '../api/book';
 import { calculateSpread } from './trace';
 import { usePathSymbols } from '@/pages/trade/model/use-path.ts';
 
-export const useMarketPrice = (
-  baseSymbol?: string,
-  quoteSymbol?: string,
-): {
+export interface MarketPriceInfo {
   marketPrice: number | undefined;
   /** Spread as a percentage of mid (e.g. 0.05 means 0.05%). Undefined while
    *  the book is loading. Useful to surface book tightness next to the mid. */
@@ -16,7 +13,9 @@ export const useMarketPrice = (
   /** Lowest sell in the book (best ask). */
   bestAsk: number | undefined;
   symbols: { base: string; quote: string };
-} => {
+}
+
+export const useMarketPrice = (baseSymbol?: string, quoteSymbol?: string): MarketPriceInfo => {
   const pathSymbols = usePathSymbols();
   const base = baseSymbol ?? pathSymbols.baseSymbol;
   const quote = quoteSymbol ?? pathSymbols.quoteSymbol;
@@ -28,49 +27,53 @@ export const useMarketPrice = (
   const symbols = useMemo(() => ({ base, quote }), [base, quote]);
 
   const { data: book } = useBook(base, quote);
-  if (!book?.multiHops) {
-    return {
-      marketPrice: undefined,
-      spreadPercentage: undefined,
-      bestBid: undefined,
-      bestAsk: undefined,
-      symbols,
-    };
+  const multiHops = book?.multiHops;
+
+  // Everything below is derived unconditionally (no early return) so the
+  // final `useMemo` can sit after it.
+  let marketPrice: number | undefined;
+  let spreadPercentage: number | undefined;
+  let bestBid: number | undefined;
+  let bestAsk: number | undefined;
+
+  if (multiHops) {
+    const { buy: buyOrders, sell: sellOrders } = multiHops;
+
+    // Calculate spread which includes the midprice
+    const spreadInfo = calculateSpread(sellOrders, buyOrders);
+
+    // One-sided book fallback. calculateSpread bails when either side is
+    // empty, but the chart / summary / order form need a mid to have a
+    // coordinate system to anchor to — otherwise the whole price axis is
+    // undefined and the chart renders blank on any pair with only bids or
+    // only asks. Use the touch price of the populated side as the mid so
+    // the chart, LP-preview overlay and marketPrice-dependent UI all have
+    // a real number to work with. Spread is not defined in that case.
+    const lowestAsk = sellOrders.length
+      ? parseFloat(sellOrders[sellOrders.length - 1]!.price)
+      : undefined;
+    const highestBid = buyOrders.length ? parseFloat(buyOrders[0]!.price) : undefined;
+
+    marketPrice = spreadInfo
+      ? parseFloat(spreadInfo.midPrice)
+      : lowestAsk !== undefined && Number.isFinite(lowestAsk) && lowestAsk > 0
+        ? lowestAsk
+        : highestBid !== undefined && Number.isFinite(highestBid) && highestBid > 0
+          ? highestBid
+          : undefined;
+    spreadPercentage = spreadInfo ? parseFloat(spreadInfo.percentage) : undefined;
+    bestBid = spreadInfo ? parseFloat(spreadInfo.bestBid) : highestBid;
+    bestAsk = spreadInfo ? parseFloat(spreadInfo.bestAsk) : lowestAsk;
   }
 
-  const { buy: buyOrders, sell: sellOrders } = book.multiHops;
-
-  // Calculate spread which includes the midprice
-  const spreadInfo = calculateSpread(sellOrders, buyOrders);
-
-  // One-sided book fallback. calculateSpread bails when either side is
-  // empty, but the chart / summary / order form need a mid to have a
-  // coordinate system to anchor to — otherwise the whole price axis is
-  // undefined and the chart renders blank on any pair with only bids or
-  // only asks. Use the touch price of the populated side as the mid so
-  // the chart, LP-preview overlay and marketPrice-dependent UI all have
-  // a real number to work with. Spread is not defined in that case.
-  const lowestAsk = sellOrders.length
-    ? parseFloat(sellOrders[sellOrders.length - 1]!.price)
-    : undefined;
-  const highestBid = buyOrders.length ? parseFloat(buyOrders[0]!.price) : undefined;
-
-  const marketPrice = spreadInfo
-    ? parseFloat(spreadInfo.midPrice)
-    : lowestAsk !== undefined && Number.isFinite(lowestAsk) && lowestAsk > 0
-      ? lowestAsk
-      : highestBid !== undefined && Number.isFinite(highestBid) && highestBid > 0
-        ? highestBid
-        : undefined;
-  const spreadPercentage = spreadInfo ? parseFloat(spreadInfo.percentage) : undefined;
-  const bestBid = spreadInfo ? parseFloat(spreadInfo.bestBid) : highestBid;
-  const bestAsk = spreadInfo ? parseFloat(spreadInfo.bestAsk) : lowestAsk;
-
-  return {
-    marketPrice,
-    spreadPercentage,
-    bestBid,
-    bestAsk,
-    symbols,
-  };
+  // The book refetches every block and its `data` identity changes each
+  // time (even when the ladder is byte-identical), so without this every
+  // one of the ~10 consumers (chart, hover tooltip, summary, order form,
+  // drawings overlay, ...) re-rendered per block for zero visual change.
+  // Key the returned object on the four primitives + the memoized
+  // `symbols`, so identity only moves when a number actually moves.
+  return useMemo<MarketPriceInfo>(
+    () => ({ marketPrice, spreadPercentage, bestBid, bestAsk, symbols }),
+    [marketPrice, spreadPercentage, bestBid, bestAsk, symbols],
+  );
 };

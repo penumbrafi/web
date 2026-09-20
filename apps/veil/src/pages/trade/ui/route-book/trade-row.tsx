@@ -1,7 +1,6 @@
 import { Fragment, memo } from 'react';
 import cn from 'clsx';
 import { ChevronRight } from 'lucide-react';
-import { getSymbolFromValueView } from '@penumbra-zone/getters/value-view';
 import { Text } from '@penumbra-zone/ui/Text';
 import { Trace } from '@/shared/api/server/book/types.ts';
 import { pluralize } from '@/shared/utils/pluralize';
@@ -35,7 +34,9 @@ const TradeRowImpl = ({
   depthBar?: boolean;
 }) => {
   const bgColor = isSell ? SELL_BG_COLOR : 'rgba(28, 121, 63, 0.32)';
-  const tokens = trace.hops.map(valueView => getSymbolFromValueView(valueView));
+  // `hops` is already the per-hop symbol string (resolved once at the query
+  // boundary in `deserializeTrace`), so no per-render getter walk here.
+  const tokens = trace.hops;
   const interactive = !!onClick;
 
   return (
@@ -156,8 +157,9 @@ export const TradeRow = memo(TradeRowImpl, (prev, next) => {
     return false;
   }
   if (a.hops.length !== b.hops.length) return false;
-  // Reference equality on hops is fine — the upstream serializer
-  // re-uses ValueView instances when the hop structure is stable.
+  // `hops` are plain symbol strings, so `!==` is a real content compare —
+  // React Query structurally shares them across polls, and even when the
+  // array identity changes, equal strings still hit the memo.
   for (let i = 0; i < a.hops.length; i++) {
     if (a.hops[i] !== b.hops[i]) return false;
   }

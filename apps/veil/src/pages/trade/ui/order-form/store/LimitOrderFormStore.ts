@@ -132,6 +132,17 @@ export class LimitOrderFormStore {
     return parseNumber(this._priceInput);
   }
 
+  /**
+   * Same guard as `plan`, without building the position (which draws a
+   * fresh nonce). Read this when you only need to know whether the form is
+   * structurally complete.
+   */
+  get hasPlan(): boolean {
+    const input =
+      this.direction === 'buy' ? parseNumber(this.quoteInput) : parseNumber(this.baseInput);
+    return !!input && !!this._baseAsset && !!this._quoteAsset && !!this.price;
+  }
+
   get plan(): PositionedLiquidity | undefined {
     const input =
       this.direction === 'buy' ? parseNumber(this.quoteInput) : parseNumber(this.baseInput);

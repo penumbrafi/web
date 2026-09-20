@@ -70,24 +70,22 @@ const ensureConnected = () => {
     // When the server's serving its `X-Fallback: empty` stream (indexer
     // DB unreachable) that closes immediately, so unchecked auto-reconnect
     // hammers /api/pindexer-stream every ~3s per open tab indefinitely.
-    // Close ours + reopen on an exponential backoff instead. Reset
-    // happens on the next successful `tick`.
-    if (es.readyState === EventSource.CLOSED) {
-      es.close();
-      if (source === es) source = null;
-      if (refCount > 0 && !reconnectTimer) {
-        const delay = reconnectDelayMs;
-        // eslint-disable-next-line no-console
-        console.warn(`[pindexer-stream] connection closed; retrying in ${delay}ms`);
-        reconnectTimer = setTimeout(() => {
-          reconnectTimer = null;
-          reconnectDelayMs = Math.min(reconnectDelayMs * 2, MAX_RECONNECT_DELAY_MS);
-          ensureConnected();
-        }, delay);
-      }
-    } else {
+    // Always take over: close ours + reopen on an exponential backoff.
+    // (A server-closed stream reaches `onerror` with readyState still
+    // CONNECTING, not CLOSED — the browser has already begun its own
+    // retry — so gating on CLOSED never engaged for exactly the case this
+    // targets.) Backoff resets on the next successful `tick`.
+    es.close();
+    if (source === es) source = null;
+    if (refCount > 0 && !reconnectTimer) {
+      const delay = reconnectDelayMs;
       // eslint-disable-next-line no-console
-      console.warn('[pindexer-stream] connection error; browser will auto-reconnect');
+      console.warn(`[pindexer-stream] connection closed; retrying in ${delay}ms`);
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        reconnectDelayMs = Math.min(reconnectDelayMs * 2, MAX_RECONNECT_DELAY_MS);
+        ensureConnected();
+      }, delay);
     }
   };
   source = es;

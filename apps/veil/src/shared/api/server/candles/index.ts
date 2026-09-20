@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ChainRegistryClient } from '@penumbra-labs/registry';
+import { UTCTimestamp } from 'lightweight-charts';
+import { getCachedRegistry } from '@/shared/api/fetch-registry';
 import { AssetId } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { DurationWindow, durationWindows, isDurationWindow } from '@/shared/utils/duration.ts';
 import { combineDbCandles, insertEmptyCandles } from '@/shared/api/server/candles/utils.ts';
@@ -56,14 +57,14 @@ const getPagedBucketTimes = async ({
   window,
   chainId,
   limit,
-  page,
+  offset,
 }: {
   assetStart: AssetId;
   assetEnd: AssetId;
   window: DurationWindow;
   chainId: string;
   limit?: number;
-  page?: number;
+  offset?: number;
 }): Promise<Date[]> => {
   // Union both direction's start_times, then paginate on the distinct
   // set. Direction is captured only via the two WHERE branches; the
@@ -94,7 +95,7 @@ const getPagedBucketTimes = async ({
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- Kysely limitation
     .$if(limit !== undefined, qb => qb.limit(limit!))
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- Kysely limitation
-    .$if(page !== undefined && limit !== undefined, qb => qb.offset(limit! * (page! - 1)))
+    .$if(offset !== undefined && offset > 0, qb => qb.offset(offset!))
     .execute();
   return rows.map(r => r.start_time);
 };
@@ -135,9 +136,11 @@ async function handleGet(req: NextRequest): Promise<NextResponse<CandleApiRespon
     );
   }
 
-  const registryClient = new ChainRegistryClient();
+  // Shared process-wide registry (memoized WAN fetch) — see
+  // `getCachedRegistry`. Was a fresh `new ChainRegistryClient().remote.get`
+  // per request, i.e. a GitHub round trip on every chart poll.
   const registry = await withTimeout(
-    registryClient.remote.get(chainId),
+    getCachedRegistry(chainId),
     DEFAULT_TIMEOUT_MS,
     'candles registry.get',
   );
@@ -163,18 +166,41 @@ async function handleGet(req: NextRequest): Promise<NextResponse<CandleApiRespon
   // candles for the SAME window, so the merged output is guaranteed
   // monotonic in time — no more page-2 interleaving with page-1 that
   // used to crash lightweight-charts on scroll-back.
-  const startTimes = await withTimeout(
+  //
+  // Gap-fill boundary: page 1 fills to `now`; page N>1 additionally
+  // fetches ONE extra bucket time (the oldest of page N-1) so we can fill
+  // the seam up to — but excluding — it. That extra row is stripped from
+  // the page itself so the response shape and page size are unchanged.
+  const gapFill = searchParams.get('gapFill') !== '0';
+  const isFirstPage = page === undefined || page <= 1 || limit === undefined;
+  const wantSeam = gapFill && !isFirstPage && limit !== undefined && page !== undefined;
+  const baseOffset = limit !== undefined && page !== undefined ? limit * (page - 1) : 0;
+  const pagedTimes = await withTimeout(
     getPagedBucketTimes({
       assetStart: baseAssetMetadata.penumbraAssetId,
       assetEnd: quoteAssetMetadata.penumbraAssetId,
       window: durationWindow,
       chainId,
-      limit,
-      page,
+      limit: wantSeam && limit !== undefined ? limit + 1 : limit,
+      offset: wantSeam ? baseOffset - 1 : baseOffset,
     }),
     DEFAULT_TIMEOUT_MS,
     'candles pindexer paged times',
   );
+  let startTimes = pagedTimes;
+  let fillTo: UTCTimestamp | undefined;
+  if (gapFill) {
+    if (isFirstPage) {
+      fillTo = Math.floor(Date.now() / 1000) as UTCTimestamp;
+    } else if (wantSeam) {
+      // Rows are newest-first; the first row belongs to the previous page.
+      const seam = pagedTimes[0];
+      startTimes = pagedTimes.slice(1);
+      if (seam) {
+        fillTo = (Math.floor(seam.getTime() / 1000) - 1) as UTCTimestamp;
+      }
+    }
+  }
   const [forwardRows, reverseRows] = await withTimeout(
     Promise.all([
       getCandlesForTimes({
@@ -219,8 +245,6 @@ async function handleGet(req: NextRequest): Promise<NextResponse<CandleApiRespon
   // elapsed (Binance / TradingView default). gapFill=0 returns only
   // candles with real fills — denser plot but a quiet pair looks
   // busier than it was.
-  const gapFill = searchParams.get('gapFill');
-  const filled =
-    gapFill === '0' ? response : insertEmptyCandles(durationWindow, response);
+  const filled = gapFill ? insertEmptyCandles(durationWindow, response, fillTo) : response;
   return NextResponse.json(filled);
 }

@@ -3,29 +3,14 @@ import { openToast } from '@penumbra-zone/ui/Toast';
 import { AssetInfo } from '@/pages/trade/model/AssetInfo';
 import {
   LiquidityDistributionShape,
+  LiquidityRung,
   PositionedLiquidity,
-  simpleLiquidityPositions,
+  rungsToPositions,
+  simpleLiquidityRungs,
 } from '@/shared/math/position';
 import { parseNumber } from '@/shared/utils/num';
-import { Position } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
-import { pnum } from '@penumbra-zone/types/pnum';
 import { makeAutoObservable } from 'mobx';
 import { round } from '@penumbra-zone/types/round';
-
-const extractAmount = (positions: Position[], asset: AssetInfo): number => {
-  let out = 0.0;
-  for (const position of positions) {
-    const asset1 = position.phi?.pair?.asset1;
-    const asset2 = position.phi?.pair?.asset2;
-    if (asset1?.equals(asset.id)) {
-      out += pnum(position.reserves?.r1, asset.exponent).toNumber();
-    }
-    if (asset2?.equals(asset.id)) {
-      out += pnum(position.reserves?.r2, asset.exponent).toNumber();
-    }
-  }
-  return out;
-};
 
 const DEFAULT_POSITION_COUNT = 10;
 export const DEFAULT_PRICE_SPREAD = 0.05;
@@ -50,6 +35,14 @@ export enum LPFeeTierOptions {
   Volatile = '0.3%',
   Exotic = '1%',
 }
+
+/**
+ * Shape of `LPFormStore.offMidWarning`. The two wholly-off kinds are
+ * advisory (the full range is built); `partial-straddle` means the
+ * one-sided planner clamped the range to the funded side and the other
+ * portion was dropped.
+ */
+export type OffMidWarningKind = 'bids-above-mid' | 'asks-below-mid' | 'partial-straddle';
 
 export const LP_FEE_TIER_PERCENTS: Record<LPFeeTierOptions, string> = {
   [LPFeeTierOptions.Stable]: '0.05',
@@ -187,11 +180,12 @@ export class LPFormStore {
   setLowerPriceInput = (x: number) => {
     this.lowerPriceInput = x;
 
-    if (
-      this.lastTouchedInput === 'quote' &&
-      this.marketPrice &&
-      this.lowerPriceInput > this.marketPrice
-    ) {
+    // Compare against the EFFECTIVE mid: with a user reference price set,
+    // the plan splits on that, so testing the live mid here would fire
+    // "asks only" and wipe the quote input for a range the plan treats
+    // as perfectly two-sided.
+    const mid = this.effectiveMarketPrice;
+    if (this.lastTouchedInput === 'quote' && mid && this.lowerPriceInput > mid) {
       if (this.quoteInput !== '') {
         openToast({
           type: 'warning',
@@ -213,11 +207,9 @@ export class LPFormStore {
   setUpperPriceInput = (x: number) => {
     this.upperPriceInput = x;
 
-    if (
-      this.lastTouchedInput === 'base' &&
-      this.marketPrice &&
-      this.upperPriceInput < this.marketPrice
-    ) {
+    // Effective mid, same reasoning as setLowerPriceInput.
+    const mid = this.effectiveMarketPrice;
+    if (this.lastTouchedInput === 'base' && mid && this.upperPriceInput < mid) {
       if (this.baseInput !== '') {
         openToast({
           type: 'warning',
@@ -274,6 +266,9 @@ export class LPFormStore {
 
   setUserReferencePriceInput = (x: string) => {
     this.userReferencePriceInput = x;
+    // The auto-filled side was computed against the previous mid; redo
+    // it so the opposite input tracks the new anchor.
+    this.updateOppositeInput();
   };
 
   /**
@@ -314,10 +309,10 @@ export class LPFormStore {
    * BLOCKING: quiet fund loss, user should either widen the range or drop
    * the ignored input.
    *
-   * The one-sided-off-mid case (funded only quote/base with range on the
-   * opposite side) is NOT a bug any more — one-sided ladders now build
-   * across the full range regardless of where mid sits. That case surfaces
-   * as `offMidWarning` instead, letting the user proceed with a clear
+   * The one-sided-off-mid case (funded only quote/base with range wholly
+   * on the opposite side) is NOT a bug any more — one-sided ladders build
+   * across the full range when mid is outside it. That case surfaces as
+   * `offMidWarning` instead, letting the user proceed with a clear
    * arb-risk hint.
    */
   get wrongSideFunded(): 'base' | 'quote' | undefined {
@@ -350,32 +345,60 @@ export class LPFormStore {
    * arbitrageurs likely eat it immediately. Not a blocker, just a loud
    * warning so users who mean it can proceed and users who fat-fingered
    * the range can catch it.
+   *
+   * Third case, `partial-straddle`: one-sided funding with a range that
+   * CROSSES the anchor mid. `oneSidedPositions` clamps the ladder to the
+   * funded side's half (base → [mid, upper], quote → [lower, mid]) so no
+   * rung is quoted at a loss; the other half is silently dropped. Warn
+   * so the user knows their range is being trimmed.
    */
-  get offMidWarning(): 'bids-above-mid' | 'asks-below-mid' | undefined {
-    // Use the LIVE mid (not effective) — the user-supplied reference
-    // price is precisely them saying "for my purposes 1.0 IS mid," so
-    // no off-mid warning is appropriate for a range that straddles
-    // their choice. Warning fires only when a one-sided range diverges
-    // from the actual live market they're posting into.
-    const mid = this.marketPrice;
-    if (mid === null || this.lowerPriceInput === null || this.upperPriceInput === null) {
+  get offMidWarning(): OffMidWarningKind | undefined {
+    if (this.lowerPriceInput === null || this.upperPriceInput === null) {
       return undefined;
     }
     if (!this.isOneSided) return undefined;
-    if (this.lowerPriceInput >= mid && this.quoteLiquidity > 0) {
-      // Only quote funded, range above mid → bidding on base at
-      // above-market prices.
-      return 'bids-above-mid';
+
+    // Wholly-off cases use the LIVE mid (not effective) — the user-
+    // supplied reference price is precisely them saying "for my purposes
+    // 1.0 IS mid," so no off-mid warning is appropriate for a range that
+    // sits to one side of their choice. Warning fires only when a one-
+    // sided range diverges from the actual live market they're posting
+    // into.
+    const live = this.marketPrice;
+    if (live !== null) {
+      if (this.lowerPriceInput >= live && this.quoteLiquidity > 0) {
+        // Only quote funded, range above mid → bidding on base at
+        // above-market prices.
+        return 'bids-above-mid';
+      }
+      if (this.upperPriceInput <= live && this.baseLiquidity > 0) {
+        // Only base funded, range below mid → offering base at
+        // below-market prices.
+        return 'asks-below-mid';
+      }
     }
-    if (this.upperPriceInput <= mid && this.baseLiquidity > 0) {
-      // Only base funded, range below mid → offering base at
-      // below-market prices.
-      return 'asks-below-mid';
+
+    // Straddle uses the EFFECTIVE mid — that is what `oneSidedPositions`
+    // receives as `plan.marketPrice`, so it is the anchor the clamp
+    // actually trims against.
+    const mid = this.effectiveMarketPrice;
+    if (mid !== null && this.lowerPriceInput < mid && this.upperPriceInput > mid) {
+      return 'partial-straddle';
     }
     return undefined;
   }
 
-  get plan(): PositionedLiquidity[] | undefined {
+  /**
+   * The ladder as cheap plain data: one `{price, reserves}` per position
+   * that will actually be opened (zero-reserve rungs already dropped).
+   *
+   * This is what the preview overlay, validator and confirm modal read.
+   * It is a mobx computed, so it only recomputes when an input or the mid
+   * moves — and even then it is a handful of float ops, no protobuf
+   * construction and no `crypto.getRandomValues`. See `plan` for the
+   * expensive half.
+   */
+  get rungs(): LiquidityRung[] | undefined {
     if (
       !this._baseAsset ||
       !this._quoteAsset ||
@@ -397,7 +420,7 @@ export class LPFormStore {
       return undefined;
     }
 
-    return simpleLiquidityPositions({
+    return simpleLiquidityRungs({
       baseAsset: this._baseAsset,
       quoteAsset: this._quoteAsset,
       baseLiquidity: this.baseLiquidity,
@@ -417,26 +440,35 @@ export class LPFormStore {
     });
   }
 
-  get baseAssetAmount(): string | undefined {
-    const baseAsset = this._baseAsset;
-    const plan = this.plan;
-    if (!plan || !baseAsset) {
+  /**
+   * The on-chain positions for `rungs` — trading function + a fresh 32-byte
+   * nonce each. Expensive and non-deterministic, so ONLY the gas dry-run and
+   * the real submit should read it; everything else wants `rungs`.
+   */
+  get plan(): PositionedLiquidity[] | undefined {
+    const rungs = this.rungs;
+    if (!rungs || !this._baseAsset || !this._quoteAsset) {
       return undefined;
     }
-    const positions: Position[] = plan.map(p => p.position);
+    return rungsToPositions(rungs, this._baseAsset, this._quoteAsset, this.liquidityShape);
+  }
 
-    return baseAsset.formatDisplayAmount(extractAmount(positions, baseAsset));
+  get baseAssetAmount(): string | undefined {
+    const baseAsset = this._baseAsset;
+    const rungs = this.rungs;
+    if (!rungs || !baseAsset) {
+      return undefined;
+    }
+    return baseAsset.formatDisplayAmount(sumBy(rungs, r => r.baseAmount));
   }
 
   get quoteAssetAmount(): string | undefined {
     const quoteAsset = this._quoteAsset;
-    const plan = this.plan;
-    if (!plan || !quoteAsset) {
+    const rungs = this.rungs;
+    if (!rungs || !quoteAsset) {
       return undefined;
     }
-    const positions: Position[] = plan.map(p => p.position);
-
-    return quoteAsset.formatDisplayAmount(extractAmount(positions, quoteAsset));
+    return quoteAsset.formatDisplayAmount(sumBy(rungs, r => r.quoteAmount));
   }
 
   setAssets(base: AssetInfo, quote: AssetInfo, resetInputs = false) {
@@ -447,6 +479,9 @@ export class LPFormStore {
       this.lowerPriceInput = null;
       this.baseInput = '';
       this.quoteInput = '';
+      // A reference price is per-pair intent ("treat 1.0 as mid for this
+      // peg"). Carrying it into UM/USDC would anchor that ladder to 1.0.
+      this.userReferencePriceInput = '';
     }
   }
 
@@ -495,6 +530,14 @@ export class LPFormStore {
     this.customWeights = null;
   };
 }
+
+const sumBy = (rungs: LiquidityRung[], pick: (r: LiquidityRung) => number): number => {
+  let out = 0.0;
+  for (const r of rungs) {
+    out += pick(r);
+  }
+  return out;
+};
 
 // Local mirror of the shape → weights fallback used when the user first
 // drags a bar and there's no prior customWeights snapshot. Kept in-store

@@ -137,10 +137,37 @@ export const combineDbCandles = (
   };
 };
 
-/** Insert empty candles so that every timestamp as one candle. */
+// Upper bound on synthetic candles appended after the last real one. A 1m
+// pair idle for a month would otherwise emit ~40k flat candles on every
+// page-1 poll; the chart only needs the tail to read as "flat to now".
+export const MAX_TAIL_FILL = 200;
+
+const flatCandle = (time: UTCTimestamp, price: number): CandleWithVolume => ({
+  ohlc: { time, open: price, close: price, low: price, high: price },
+  volume: 0,
+  buyVolume: 0,
+  sellVolume: 0,
+  directVolume: 0,
+});
+
+const nextBucket = (window: DurationWindow, time: UTCTimestamp): UTCTimestamp =>
+  (addDurationWindow(window, new Date(time * 1000)).getTime() / 1000) as UTCTimestamp;
+
+/**
+ * Insert empty candles so that every timestamp as one candle.
+ *
+ * `fillTo` (unix seconds) extends the fill past the last real candle: flat
+ * candles are appended for every bucket `<= fillTo` (capped at
+ * `MAX_TAIL_FILL`). Page 1 passes `now` so a quiet pair reads as a flat
+ * line up to the present; page N>1 passes the bucket just before page
+ * N-1's oldest candle so the seam between pages has no visual gap. Gaps
+ * were previously filled intra-page only, which under linear time left a
+ * hole at every page boundary and a dangling tail on the newest page.
+ */
 export const insertEmptyCandles = (
   window: DurationWindow,
   data: CandleWithVolume[],
+  fillTo?: UTCTimestamp,
 ): CandleWithVolume[] => {
   const out: CandleWithVolume[] = [];
   let i = 0;
@@ -190,6 +217,23 @@ export const insertEmptyCandles = (
 
     out.push(candle);
     i += 1;
+  }
+
+  if (fillTo !== undefined && out.length > 0) {
+    const last = out[out.length - 1];
+    if (last) {
+      let nextTime = nextBucket(window, last.ohlc.time);
+      let added = 0;
+      while (nextTime <= fillTo && nextTime > last.ohlc.time && added < MAX_TAIL_FILL) {
+        out.push(flatCandle(nextTime, last.ohlc.close));
+        added += 1;
+        const following = nextBucket(window, nextTime);
+        if (following <= nextTime) {
+          break;
+        }
+        nextTime = following;
+      }
+    }
   }
 
   return out;

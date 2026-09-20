@@ -8,7 +8,16 @@ import { Client } from 'pg';
 // hold its own pg connection and pindexer's dst DB would run out of
 // slots on modest traffic.
 
-type Subscriber = (payload: string) => void;
+// `send` relays a tick frame; `close` tears the SSE response down (used
+// when the upstream LISTEN dies so the browser reconnects instead of
+// sitting on a heartbeat-only stream that will never carry data again).
+interface Subscriber {
+  send: (payload: string) => void;
+  close: () => void;
+}
+
+const PG_PING_INTERVAL_MS = 30_000;
+const PG_PING_TIMEOUT_MS = 10_000;
 
 let listenClient: Client | null = null;
 // In-flight connect promise. Without this, concurrent first requests each
@@ -31,34 +40,80 @@ async function ensureListener(): Promise<void> {
     throw new Error('PENUMBRA_INDEXER_ENDPOINT not set');
   }
   connectPromise = (async () => {
-    const client = new Client({ connectionString });
+    // `query_timeout` bounds the liveness ping below: a half-open TCP
+    // socket doesn't reject `SELECT 1`, it hangs, so without a deadline
+    // the ping could never detect anything. `keepAlive` asks the kernel
+    // to probe the socket as well.
+    const client = new Client({ connectionString, query_timeout: PG_PING_TIMEOUT_MS, keepAlive: true });
     await client.connect();
 
     client.on('notification', msg => {
       if (msg.channel !== 'pindexer_tick') return;
       const payload = msg.payload ?? '';
-      for (const fn of subs) {
+      for (const sub of subs) {
         try {
-          fn(payload);
+          sub.send(payload);
         } catch {
           // A single misbehaving subscriber must not take down the fan-out.
         }
       }
     });
 
-    client.on('error', err => {
-      // Node's pg Client won't auto-reconnect; if the socket dies we drop
-      // the singleton so the next request rebuilds it. Better than a
-      // silently-dead listener that has no upstream.
-      // eslint-disable-next-line no-console
-      console.error('[pindexer-stream] listener error, resetting', err);
+    // Node's pg Client won't auto-reconnect; if the socket dies we drop
+    // the singleton so the next request rebuilds it, AND close every
+    // subscriber's SSE response. Without the latter the browsers keep an
+    // EventSource that looks healthy (heartbeats still flow) but can never
+    // receive a tick again — every tab silently goes stale.
+    //
+    // Everything is gated on `listenClient === client`: a stale client's
+    // late 'error'/'end' must not wipe a NEWER healthy singleton, nor kill
+    // subscribers that are now served by it. `subs` is module-global.
+    let tornDown = false;
+    let ping: ReturnType<typeof setInterval> | undefined;
+    const teardown = (reason: string, err?: unknown) => {
+      if (tornDown) {
+        return;
+      }
+      tornDown = true;
+      if (ping) {
+        clearInterval(ping);
+      }
       void client.end().catch(() => {});
+      if (listenClient !== client) {
+        return;
+      }
+      console.error(`[pindexer-stream] listener ${reason}, resetting`, err);
       listenClient = null;
       connectPromise = null;
-    });
+      // Copy: each `close` deletes itself from `subs`.
+      for (const sub of Array.from(subs)) {
+        try {
+          sub.close();
+        } catch {
+          // already closed
+        }
+      }
+    };
+    client.on('error', err => teardown('error', err));
+    client.on('end', () => teardown('ended'));
 
     await client.query('LISTEN pindexer_tick');
     listenClient = client;
+
+    // Liveness ping. A LISTEN connection is otherwise idle for minutes
+    // between ticks, and an idle-timeout on a NAT / pgbouncer / the server
+    // side can drop it without the socket emitting 'error' or 'end' — the
+    // singleton then looks healthy forever while no NOTIFY ever arrives
+    // and every browser sits on a heartbeat-only stream. `SELECT 1` every
+    // PG_PING_INTERVAL_MS (bounded by `query_timeout`) surfaces that; on
+    // failure we run the same teardown as the error handler so
+    // subscribers are closed and the next request rebuilds the listener.
+    ping = setInterval(() => {
+      if (tornDown) {
+        return;
+      }
+      client.query('SELECT 1').catch((err: unknown) => teardown('ping failed', err));
+    }, PG_PING_INTERVAL_MS);
     return client;
   })();
   try {
@@ -128,19 +183,25 @@ export async function GET(req: NextRequest): Promise<Response> {
         // see the connection is live.
         write(': hello\n\n');
 
-        const subscriber: Subscriber = payload => {
-          // SSE frame: one event named `tick` with the raw NOTIFY payload
-          // as data. Client parses the JSON on receive.
-          write(`event: tick\ndata: ${payload}\n\n`);
-        };
-        subs.add(subscriber);
-
         // Heartbeat comment every 15s. SSE spec ignores lines starting
         // with `:` — this keeps intermediary proxies (nginx, cloudflare)
         // from timing out an otherwise-idle connection.
         const heartbeat = setInterval(() => write(`: keepalive ${Date.now()}\n\n`), 15_000);
 
-        const cleanup = () => {
+        const subscriber: Subscriber = {
+          // SSE frame: one event named `tick` with the raw NOTIFY payload
+          // as data. Client parses the JSON on receive.
+          send: payload => write(`event: tick\ndata: ${payload}\n\n`),
+          // Upstream LISTEN died. Tell the client explicitly, then close so
+          // EventSource's onerror fires and the client reconnects promptly
+          // (a fresh request rebuilds the pg singleton).
+          close: () => {
+            write('event: bye\ndata: {}\n\n');
+            cleanup();
+          },
+        };
+
+        function cleanup() {
           if (closed) return;
           closed = true;
           clearInterval(heartbeat);
@@ -150,8 +211,9 @@ export async function GET(req: NextRequest): Promise<Response> {
           } catch {
             // already closed
           }
-        };
+        }
 
+        subs.add(subscriber);
         req.signal.addEventListener('abort', cleanup);
       },
     });

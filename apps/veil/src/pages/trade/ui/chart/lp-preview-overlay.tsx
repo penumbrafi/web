@@ -108,8 +108,14 @@ const RUNG_COMMIT_THROTTLE_MS = 30;
  */
 export const LpPreviewOverlay = observer(
   ({ yAtPrice, priceAtY, subscribeRedraw }: LpPreviewOverlayProps) => {
-    const { whichForm, lpForm, rangeForm, marketPrice: anchorMid } = tradeFormStore;
+    const { whichForm, lpForm, rangeForm } = tradeFormStore;
     const isLp = whichForm === 'LP' || whichForm === 'RangeLP';
+    // The LP form anchors its plan to `effectiveMarketPrice` (user
+    // reference price → live mid → range midpoint), so the preview must
+    // read the SAME source or it draws a ladder the plan never builds.
+    // RangeLP has no reference-price override and stays on the live mid.
+    const anchorMid =
+      whichForm === 'LP' ? (lpForm.effectiveMarketPrice ?? undefined) : tradeFormStore.marketPrice;
     // Symbols read off the LP form's assets (whichever form is active).
     // Used to label per-rung amounts so the trader sees "0.5 UM" instead
     // of a bare number when they mouse over a bar.
@@ -194,6 +200,14 @@ export const LpPreviewOverlay = observer(
       null,
     );
 
+    // The live mid moves every block; route it through a ref so the redraw
+    // subscription below is only rebuilt on structural changes (form
+    // inputs, chart identity), not once per ~6s tick. The shallow effect
+    // after it re-runs the current recompute so the mid marker / rung
+    // side-split still track the mid immediately.
+    const midRef = useRef(mid);
+    const recomputeRef = useRef<(() => void) | null>(null);
+
     useEffect(() => {
       if (!valid) {
         setPos(null);
@@ -201,7 +215,6 @@ export const LpPreviewOverlay = observer(
       }
       const lo = lower as number;
       const hi = upper as number;
-      const m = mid as number;
       const n = count;
 
       // Mirror simpleLiquidityPositions on the chain side. When only one
@@ -212,9 +225,6 @@ export const LpPreviewOverlay = observer(
       const hasBase = baseLiq > 0;
       const hasQuote = quoteLiq > 0;
       const oneSided = hasBase !== hasQuote;
-      const oneSidedFrom = hasBase && !hasQuote ? Math.max(m, lo) : lo;
-      const oneSidedTo = hasBase && !hasQuote ? hi : Math.min(m, hi);
-      const oneSidedSpan = oneSidedTo - oneSidedFrom;
       const oneSidedBase = hasBase && !hasQuote;
       // One-sided always uses the volatile / INVERTED_PYRAMID growth
       // (small near mid, heavy at the far edge) regardless of the shape
@@ -242,6 +252,25 @@ export const LpPreviewOverlay = observer(
       const totalWeight = weights.reduce((s, w) => s + w, 0) || 1;
 
       const recompute = () => {
+        const m = midRef.current;
+        if (m === undefined || !(m > 0)) {
+          setPos(null);
+          return;
+        }
+        // Mirror `oneSidedPositions` exactly: clamp to the funded side's
+        // half ONLY when mid is inside the range (straddle); when mid is
+        // outside, the plan builds the full range and so must we.
+        const midInRange = m >= lo && m <= hi;
+        let oneSidedFrom = lo;
+        let oneSidedTo = hi;
+        if (midInRange) {
+          if (oneSidedBase) {
+            oneSidedFrom = Math.max(m, lo);
+          } else {
+            oneSidedTo = Math.min(m, hi);
+          }
+        }
+        const oneSidedSpan = oneSidedTo - oneSidedFrom;
         const rungs: Rung[] = [];
         // Walk the same price step the chain-side path uses. For one-sided
         // that's [oneSidedFrom, oneSidedTo]/n so rungs land on the funded
@@ -297,7 +326,12 @@ export const LpPreviewOverlay = observer(
           rungs,
         });
       };
-      return subscribeRedraw(recompute);
+      recomputeRef.current = recompute;
+      const unsubscribe = subscribeRedraw(recompute);
+      return () => {
+        recomputeRef.current = null;
+        unsubscribe();
+      };
     }, [
       valid,
       lower,
@@ -307,10 +341,14 @@ export const LpPreviewOverlay = observer(
       baseLiq,
       quoteLiq,
       customWeights,
-      mid,
       yAtPrice,
       subscribeRedraw,
     ]);
+
+    useEffect(() => {
+      midRef.current = mid;
+      recomputeRef.current?.();
+    }, [mid]);
 
     if (!pos) return null;
 

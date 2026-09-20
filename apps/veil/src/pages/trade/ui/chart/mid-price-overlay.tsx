@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { tradeFormStore } from '../order-form/store/OrderFormStore';
 import { useTickDirection } from '../../model/use-tick-direction';
 
@@ -53,14 +53,25 @@ export const MidPriceOverlay = ({
   // implementation.
   const direction = useTickDirection(marketPrice);
 
-  useEffect(() => {
-    if (marketPrice === undefined || !Number.isFinite(marketPrice) || marketPrice <= 0) {
+  // The live mid goes through a ref so the redraw subscription below is
+  // set up once per chart, not torn down and rebuilt (ResizeObserver +
+  // chart listeners) every ~6s block tick.
+  const priceRef = useRef(marketPrice);
+  const recompute = useCallback(() => {
+    const p = priceRef.current;
+    if (p === undefined || !Number.isFinite(p) || p <= 0) {
       setY(undefined);
       return;
     }
-    const recompute = () => setY(yAtPrice(marketPrice));
-    return subscribeRedraw(recompute);
-  }, [marketPrice, yAtPrice, subscribeRedraw]);
+    setY(yAtPrice(p));
+  }, [yAtPrice]);
+
+  useEffect(() => {
+    priceRef.current = marketPrice;
+    recompute();
+  }, [marketPrice, recompute]);
+
+  useEffect(() => subscribeRedraw(recompute), [subscribeRedraw, recompute]);
 
   if (y === undefined || marketPrice === undefined) return null;
 

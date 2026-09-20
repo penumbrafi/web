@@ -1,5 +1,4 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { useRefetchOnNewBlock } from '@/shared/api/compact-block.ts';
 import { useOnPindexerTick } from '@/shared/api/pindexer-stream.ts';
 import { usePathSymbols } from '@/pages/trade/model/use-path.ts';
 import { DurationWindow } from '@/shared/utils/duration.ts';
@@ -9,7 +8,7 @@ import { apiFetch } from '@/shared/utils/api-fetch';
 const CANDLES_LIMIT = 5;
 
 /**
- * 5 latest candles updated on each new block.
+ * 5 latest candles, refetched on each pindexer `dex_ex` commit.
  *
  * placeholderData: keepPreviousData pairs with useInfiniteCandles so a
  * timeframe switch doesn't leave the chart undefined for the loading
@@ -23,6 +22,9 @@ export const useLatestCandles = (durationWindow: DurationWindow, linearTime = tr
   const query = useQuery<CandleWithVolume[]>({
     queryKey: ['latest-candles', baseSymbol, quoteSymbol, durationWindow, linearTime],
     placeholderData: keepPreviousData,
+    // Symbols resolve from the route asynchronously; without this the
+    // first mount fires `/api/candles?baseAsset=undefined`.
+    enabled: !!baseSymbol && !!quoteSymbol,
     queryFn: async (): Promise<CandleWithVolume[]> => {
       return apiFetch<CandleWithVolume[]>('/api/candles', {
         baseAsset: baseSymbol,
@@ -34,15 +36,12 @@ export const useLatestCandles = (durationWindow: DurationWindow, linearTime = tr
     },
   });
 
-  // Dedup id must vary per (pair, timeframe) so mounted instances for
-  // different durations don't starve each other — same class of bug as
-  // useBook's shared `'routeBook'` id.
-  useRefetchOnNewBlock(
-    ['candles', baseSymbol, quoteSymbol, durationWindow, linearTime],
-    query,
-  );
   // Push path: pindexer's dex_ex commit is the moment new candle
-  // volume/high/low rows land — invalidate then, not later.
+  // volume/high/low rows land — invalidate then, not later. Deliberately
+  // NOT also refetching on compact-block height: that fetch predates the
+  // pindexer commit, always returns the previous block's rows, and gets
+  // clobbered ~200ms later by this tick — two requests per block for one
+  // useful response.
   useOnPindexerTick(['dex_ex'], [
     'latest-candles',
     baseSymbol,

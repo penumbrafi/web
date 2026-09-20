@@ -6,7 +6,7 @@ import { sql } from 'kysely';
 import { indexingAsset } from './indexing-asset';
 import { pnum } from '@penumbra-zone/types/pnum';
 import { deserialize, serialize, Serialized } from '@/shared/utils/serializer';
-import { fetchRegistry } from '../fetch-registry';
+import { getCachedRegistry } from '../fetch-registry';
 import { getClientSideEnv } from '../env/getClientSideEnv';
 import { Registry } from '@penumbra-labs/registry';
 import { compareAssetId } from '@/shared/math/position';
@@ -137,6 +137,62 @@ function basicQuery(window: DurationWindow) {
     ]);
 }
 
+/**
+ * Single-pair variant of `basicQuery` for `fetchSummary`. `basicQuery`
+ * builds the whole-market `summary` CTE (referenced three times, so
+ * postgres materializes it) and filters the pair only in the outer
+ * select — every trade-page summary poll scanned and aggregated every
+ * pair's row. Here the pair predicate is pushed into the CTE itself, and
+ * `recent_prices` (which `fetchSummary` discards) is dropped.
+ *
+ * Semantics are preserved on purpose:
+ *  - `summary` keeps BOTH directions of the pair, because `metrics`
+ *    aggregates liquidity/volume over `LEAST/GREATEST(start, end)`, i.e.
+ *    across both direction rows.
+ *  - `prices` is sourced from the full table (not the filtered CTE): it
+ *    supplies the quote→indexing-asset price for `d.asset_end`, which for
+ *    a pair not quoted in USDC lives in a different row.
+ * Not exported: this file is `'use server'`, and a query builder is not a
+ * server action.
+ */
+function basicQueryForPair(start: Buffer, end: Buffer, window: DurationWindow) {
+  return pindexerDb
+    .with('summary', db =>
+      db
+        .selectFrom('dex_ex_pairs_summary')
+        .selectAll()
+        .where('the_window', '=', window)
+        .where(eb =>
+          eb.or([
+            eb.and([eb('asset_start', '=', start), eb('asset_end', '=', end)]),
+            eb.and([eb('asset_start', '=', end), eb('asset_end', '=', start)]),
+          ]),
+        ),
+    )
+    .with('prices', db =>
+      db
+        .selectFrom('dex_ex_pairs_summary')
+        .select(['asset_start', 'price'])
+        .where('the_window', '=', window)
+        .where('asset_end', '=', db.selectFrom('dex_ex_metadata').select('quote_asset_id'))
+        .where('asset_start', 'in', [start, end]),
+    )
+    .with('metrics', db =>
+      db
+        .selectFrom('summary as d')
+        .select(sql<number>`SUM(d.liquidity * prices.price)`.as('liquidity'))
+        .select(qb => qb.fn.max('d.direct_volume_indexing_denom_over_window').as('volume'))
+        .leftJoin('prices', join =>
+          join.on(eb => eb('d.asset_end', '=', eb.ref('prices.asset_start'))),
+        ),
+    )
+    .selectFrom('summary as d')
+    .innerJoin('metrics as m', join => join.onTrue())
+    .select(['m.liquidity', 'm.volume', 'd.price', 'd.price_then', 'd.high', 'd.low'])
+    .where('d.asset_start', '=', start)
+    .where('d.asset_end', '=', end);
+}
+
 export async function fetchSummary(
   startAsset: Serialized<AssetId>,
   endAsset: Serialized<AssetId>,
@@ -150,10 +206,11 @@ export async function fetchSummary(
   // thin/new pairs. Fall back to a zeroed Summary so the UI renders and
   // the user can still interact (LP form works, book shows, etc.). Same
   // fix we shipped once before; this row survived a merge.
-  const data = await basicQuery(theWindow)
-    .where('d.asset_start', '=', Buffer.from(start.inner))
-    .where('d.asset_end', '=', Buffer.from(end.inner))
-    .executeTakeFirst();
+  const data = await basicQueryForPair(
+    Buffer.from(start.inner),
+    Buffer.from(end.inner),
+    theWindow,
+  ).executeTakeFirst();
   const theIndexingAsset = await indexingAssetP;
   if (!data) {
     return serialize({
@@ -188,7 +245,7 @@ export async function fetchSummary(
 export async function fetchDaySummaries(): Promise<Serialized<SummaryWithPrices[]>> {
   // Kick off the fetching of the indexing asset.
   const indexingAssetP = indexingAsset();
-  const registryP = fetchRegistry(getClientSideEnv().PENUMBRA_CHAIN_ID);
+  const registryP = getCachedRegistry(getClientSideEnv().PENUMBRA_CHAIN_ID);
   const data = await basicQuery('1d')
     .orderBy('liquidity', 'desc')
     .orderBy('volume', 'desc')
@@ -197,27 +254,37 @@ export async function fetchDaySummaries(): Promise<Serialized<SummaryWithPrices[
   const registry = await registryP;
   return serialize(
     data
-      .map(x => ({
-        start: new AssetId({ inner: x.asset_start }),
-        end: new AssetId({ inner: x.asset_end }),
-        liquidity: new Value({
-          amount: pnum(x.liquidity ?? 0.0).toAmount(),
-          assetId: theIndexingAsset,
-        }),
-        volume: new Value({ amount: pnum(x.volume ?? 0.0).toAmount(), assetId: theIndexingAsset }),
-        price: x.price,
-        priceChangePercent: 100 * (x.price / x.price_then - 1.0),
-        priceDelta: x.price - x.price_then,
-        recentPrices: (x.recent_prices ?? []).flatMap((p, i) => {
-          const startTime = (x.recent_dates ?? [])[i];
-          if (!startTime) {
-            return [];
-          }
-          return [[startTime, p] as [Date, number]];
-        }),
-        high: x.high,
-        low: x.low,
-      }))
+      .map(x => {
+        // Same guard as fetchSummary: a row with `price_then === 0` must
+        // not render "Infinity%" on the explore pair cards.
+        const priceThen = Number(x.price_then) || 0;
+        const price = x.price;
+        const priceChangePercent = priceThen > 0 ? 100 * (price / priceThen - 1.0) : 0;
+        return {
+          start: new AssetId({ inner: x.asset_start }),
+          end: new AssetId({ inner: x.asset_end }),
+          liquidity: new Value({
+            amount: pnum(x.liquidity ?? 0.0).toAmount(),
+            assetId: theIndexingAsset,
+          }),
+          volume: new Value({
+            amount: pnum(x.volume ?? 0.0).toAmount(),
+            assetId: theIndexingAsset,
+          }),
+          price,
+          priceChangePercent,
+          priceDelta: price - priceThen,
+          recentPrices: (x.recent_prices ?? []).flatMap((p, i) => {
+            const startTime = (x.recent_dates ?? [])[i];
+            if (!startTime) {
+              return [];
+            }
+            return [[startTime, p] as [Date, number]];
+          }),
+          high: x.high,
+          low: x.low,
+        };
+      })
       .filter(x => orderedCorrectly(registry, x.start, x.end)),
   );
 }

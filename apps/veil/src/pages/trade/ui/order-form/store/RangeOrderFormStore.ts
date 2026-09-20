@@ -1,12 +1,12 @@
 import { AssetInfo } from '@/pages/trade/model/AssetInfo';
 import {
   LiquidityDistributionShape,
+  LiquidityRung,
   PositionedLiquidity,
-  rangeLiquidityPositions,
+  rangeLiquidityRungs,
+  rungsToPositions,
 } from '@/shared/math/position';
 import { parseNumber } from '@/shared/utils/num';
-import { Position } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
-import { pnum } from '@penumbra-zone/types/pnum';
 import { makeAutoObservable } from 'mobx';
 
 export enum UpperBoundOptions {
@@ -48,17 +48,10 @@ const LowerBoundMultipliers = {
   [LowerBoundOptions.Minus15Percent]: 0.85,
 };
 
-const extractAmount = (positions: Position[], asset: AssetInfo): number => {
+const sumBy = (rungs: LiquidityRung[], pick: (r: LiquidityRung) => number): number => {
   let out = 0.0;
-  for (const position of positions) {
-    const asset1 = position.phi?.pair?.asset1;
-    const asset2 = position.phi?.pair?.asset2;
-    if (asset1?.equals(asset.id)) {
-      out += pnum(position.reserves?.r1, asset.exponent).toNumber();
-    }
-    if (asset2?.equals(asset.id)) {
-      out += pnum(position.reserves?.r2, asset.exponent).toNumber();
-    }
+  for (const r of rungs) {
+    out += pick(r);
   }
   return out;
 };
@@ -209,7 +202,10 @@ export class RangeOrderFormStore {
     return Math.max(MIN_POSITION_COUNT, Math.min(MAX_POSITION_COUNT, Math.floor(parsed)));
   }
 
-  get plan(): PositionedLiquidity[] | undefined {
+  /**
+   * Cheap ladder preview — see `LPFormStore.rungs`. No protos, no nonces.
+   */
+  get rungs(): LiquidityRung[] | undefined {
     if (
       !this._baseAsset ||
       !this._quoteAsset ||
@@ -220,7 +216,7 @@ export class RangeOrderFormStore {
     ) {
       return undefined;
     }
-    return rangeLiquidityPositions({
+    return rangeLiquidityRungs({
       baseAsset: this._baseAsset,
       quoteAsset: this._quoteAsset,
       targetLiquidity: this.liquidityTarget,
@@ -236,26 +232,31 @@ export class RangeOrderFormStore {
     });
   }
 
-  get baseAssetAmount(): string | undefined {
-    const baseAsset = this._baseAsset;
-    const plan = this.plan;
-    if (!plan || !baseAsset) {
+  /** Expensive half — only the gas dry-run and submit should read this. */
+  get plan(): PositionedLiquidity[] | undefined {
+    const rungs = this.rungs;
+    if (!rungs || !this._baseAsset || !this._quoteAsset) {
       return undefined;
     }
-    const positions: Position[] = plan.map(p => p.position);
+    return rungsToPositions(rungs, this._baseAsset, this._quoteAsset, this._liquidityShape);
+  }
 
-    return baseAsset.formatDisplayAmount(extractAmount(positions, baseAsset));
+  get baseAssetAmount(): string | undefined {
+    const baseAsset = this._baseAsset;
+    const rungs = this.rungs;
+    if (!rungs || !baseAsset) {
+      return undefined;
+    }
+    return baseAsset.formatDisplayAmount(sumBy(rungs, r => r.baseAmount));
   }
 
   get quoteAssetAmount(): string | undefined {
     const quoteAsset = this._quoteAsset;
-    const plan = this.plan;
-    if (!plan || !quoteAsset) {
+    const rungs = this.rungs;
+    if (!rungs || !quoteAsset) {
       return undefined;
     }
-    const positions: Position[] = plan.map(p => p.position);
-
-    return quoteAsset.formatDisplayAmount(extractAmount(positions, quoteAsset));
+    return quoteAsset.formatDisplayAmount(sumBy(rungs, r => r.quoteAmount));
   }
 
   setAssets(base: AssetInfo, quote: AssetInfo, resetInputs = false) {
