@@ -50,6 +50,32 @@ const SuggestedRefPrice = observer(
     const baseSym = store.baseAsset?.symbol;
     const quoteSymForHook = store.quoteAsset?.symbol;
     const { price, source } = useReferencePrice(baseSym, quoteSymForHook);
+
+    // Auto-apply the suggestion the FIRST time it becomes available for a
+    // pair, but only for FIXED sources (stablecoin pegs) — those are
+    // unambiguous (1.0 for USDC/USDC.inj etc.) and users otherwise had to
+    // notice the "Suggested" chip, understand what it meant, and click.
+    // On a peg pair the "obvious right answer" is 1.0; make that the
+    // default so the LP form Just Works.
+    //
+    // We deliberately do NOT auto-apply CoinGecko-sourced prices — those
+    // move, and a stale/lagging value silently anchoring a user's ladder
+    // to yesterday's BTC price would be worse than making them click.
+    // CoinGecko stays a "Use" chip.
+    //
+    // Only auto-apply when the input is EMPTY (user hasn't typed anything
+    // for this pair) — an explicit user override always wins.
+    const autoAppliedForPairRef = useRef<string | null>(null);
+    const currentPairKey = baseSym && quoteSymForHook ? `${baseSym}|${quoteSymForHook}` : null;
+    useEffect(() => {
+      if (!currentPairKey || price === undefined || source !== 'fixed') return;
+      if (autoAppliedForPairRef.current === currentPairKey) return;
+      if (store.userReferencePriceInput.trim().length > 0) return;
+      const formatted = roundToDecimals(price, decimals);
+      store.setUserReferencePriceInput(String(formatted));
+      autoAppliedForPairRef.current = currentPairKey;
+    }, [currentPairKey, price, source, store, decimals]);
+
     if (price === undefined) return null;
     const label = source === 'fixed' ? 'stablecoin peg' : source === 'coingecko' ? 'CoinGecko' : 'CoinGecko / peg';
     const current = store.userReferencePrice;
@@ -57,7 +83,11 @@ const SuggestedRefPrice = observer(
     const formatted = roundToDecimals(price, decimals);
     return (
       <div className='mt-1 flex items-center gap-1 text-xs text-text-muted'>
-        <span>Suggested: {formatted} {quoteSym} ({label})</span>
+        <span>
+          {already
+            ? `Applied: ${formatted} ${quoteSym} (${label})`
+            : `Suggested: ${formatted} ${quoteSym} (${label})`}
+        </span>
         {!already && (
           <button
             type='button'
