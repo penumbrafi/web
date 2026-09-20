@@ -69,6 +69,22 @@ export class LPFormStore {
   lowerPriceInput: number | null = null;
   feeTierPercentInput = String(DEFAULT_FEE_TIER_PERCENT);
   marketPrice: number | null = null;
+  /**
+   * User-specified reference price for the ladder's mid. When set, this
+   * REPLACES the live-derived mid for every calculation the LP form does:
+   * bid/ask split in the two-sided planner, wrongSide detection, off-mid
+   * warning, opposite-input auto-fill. The live mid stays available on
+   * `marketPrice` for the UI's "current" indicator. Cleared by leaving
+   * the input blank.
+   *
+   * Motivation: on thin/wide-spread pairs the arithmetic midpoint of
+   * touch prices is meaningless (e.g. 1.207 between best-bid 0.746 and
+   * best-ask 1.668), and it forces a range that spans the user's real
+   * intent (say 0.98–1.03) into a wholly-below-mid shape that the
+   * planner treats as bid-only. Letting the user say "for THIS LP,
+   * treat 1.0 as fair" turns it back into a normal two-sided ladder.
+   */
+  userReferencePriceInput = '';
   positions = DEFAULT_POSITION_COUNT;
   liquidityShape: LiquidityDistributionShape = LiquidityDistributionShape.FLAT;
   // Populated when the user drags a bar in the LP preview to override the
@@ -101,8 +117,14 @@ export class LPFormStore {
    *            (or):     10         0         -10
    */
   updateOppositeInput = () => {
+    // Use effectiveMarketPrice so the auto-fill respects a user-supplied
+    // reference price. Otherwise a user overriding mid to 1.0 on a
+    // book with live mid 1.207 would still get the opposite input
+    // filled against 1.207 — producing an amount they can't afford or
+    // that doesn't match their intent.
+    const mid = this.effectiveMarketPrice;
     if (
-      this.marketPrice === null ||
+      mid === null ||
       this.lowerPriceInput === null ||
       this.upperPriceInput === null
     ) {
@@ -113,16 +135,14 @@ export class LPFormStore {
       this.baseInput = '';
     } else if (this.lastTouchedInput === 'quote' && this.quoteInput !== '') {
       const scale = scaleLinear()
-        .domain([this.lowerPriceInput, this.marketPrice])
+        .domain([this.lowerPriceInput, mid])
         // eslint-disable-next-line @typescript-eslint/no-unsafe-unary-minus -- explicitly set a negative value to get a positive output
         .range([-this.quoteInput, 0]);
 
-      // extrapolate the value based on the inputs above
       const valueInQuote = scale(this.upperPriceInput);
 
-      // convert the value to the equivalent base asset amount
       this.baseInput = round({
-        value: String(Math.max(0, valueInQuote / this.marketPrice)) || '',
+        value: String(Math.max(0, valueInQuote / mid)) || '',
         decimals: this.baseAsset?.exponent ?? 6,
         exponentialNotation: false,
       });
@@ -132,16 +152,14 @@ export class LPFormStore {
       this.quoteInput = '';
     } else if (this.lastTouchedInput === 'base' && this.baseInput !== '') {
       const scale = scaleLinear()
-        .domain([this.marketPrice, this.upperPriceInput])
+        .domain([mid, this.upperPriceInput])
         // eslint-disable-next-line @typescript-eslint/no-unsafe-unary-minus -- explicitly set a negative value to get a positive output
         .range([0, -this.baseInput]);
 
-      // extrapolate the value based on the inputs above
       const valueInBase = scale(this.lowerPriceInput);
 
-      // convert the value to the equivalent quote asset amount
       this.quoteInput = round({
-        value: String(Math.max(0, valueInBase * this.marketPrice)) || '',
+        value: String(Math.max(0, valueInBase * mid)) || '',
         decimals: this.quoteAsset?.exponent ?? 6,
         exponentialNotation: false,
       });
@@ -243,18 +261,37 @@ export class LPFormStore {
   }
 
   /**
-   * The mid price the plan should anchor to. Prefer the live `marketPrice`
-   * (from the route book), but fall back to the midpoint of the user's chosen
-   * range when the book is empty — the same bootstrap value the rest of the
-   * form uses. Returns `null` only when we truly have nothing (no live price
-   * AND either range bound missing).
+   * The user's explicit "reference price" for this LP, parsed from
+   * `userReferencePriceInput`. `null` when unset or non-numeric.
+   */
+  get userReferencePrice(): number | null {
+    const parsed = parseNumber(this.userReferencePriceInput);
+    if (parsed === undefined || !Number.isFinite(parsed) || parsed <= 0) {
+      return null;
+    }
+    return parsed;
+  }
+
+  setUserReferencePriceInput = (x: string) => {
+    this.userReferencePriceInput = x;
+  };
+
+  /**
+   * Mid price the plan anchors to. Precedence:
+   *   1. `userReferencePrice` — explicit user override (highest weight)
+   *   2. live `marketPrice` — derived from the route book
+   *   3. midpoint of the range as a last-resort bootstrap (fresh pair,
+   *      empty book)
+   * Returns `null` only when we truly have nothing.
    *
-   * Without this, the plan gate and `simpleLiquidityPositions` receive
-   * `undefined`, `Math.min(undefined, x)` returns NaN in `oneSidedPositions`,
-   * `!Number.isFinite(span)` bails to `[]`, and the form reports "amounts too
-   * small" even for perfectly-sized LPs on a fresh pair.
+   * Without a real value here, `simpleLiquidityPositions` receives
+   * `undefined`, `Math.min(undefined, x)` returns NaN, and the LP form
+   * degrades to a misleading "amounts too small" for a perfectly-sized
+   * plan on a new pair.
    */
   get effectiveMarketPrice(): number | null {
+    const override = this.userReferencePrice;
+    if (override !== null) return override;
     if (this.marketPrice !== null && Number.isFinite(this.marketPrice)) {
       return this.marketPrice;
     }
@@ -284,7 +321,11 @@ export class LPFormStore {
    * arb-risk hint.
    */
   get wrongSideFunded(): 'base' | 'quote' | undefined {
-    const mid = this.marketPrice;
+    // Uses `effectiveMarketPrice` so a user-supplied reference price
+    // takes precedence over the live-derived mid. Without this, a user
+    // who overrides the mid to place a two-sided ladder inside a
+    // wide-spread market would still be blocked by the live mid.
+    const mid = this.effectiveMarketPrice;
     if (mid === null || this.lowerPriceInput === null || this.upperPriceInput === null) {
       return undefined;
     }
@@ -311,6 +352,11 @@ export class LPFormStore {
    * the range can catch it.
    */
   get offMidWarning(): 'bids-above-mid' | 'asks-below-mid' | undefined {
+    // Use the LIVE mid (not effective) — the user-supplied reference
+    // price is precisely them saying "for my purposes 1.0 IS mid," so
+    // no off-mid warning is appropriate for a range that straddles
+    // their choice. Warning fires only when a one-sided range diverges
+    // from the actual live market they're posting into.
     const mid = this.marketPrice;
     if (mid === null || this.lowerPriceInput === null || this.upperPriceInput === null) {
       return undefined;
