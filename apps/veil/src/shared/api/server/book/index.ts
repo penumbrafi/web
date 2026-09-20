@@ -20,6 +20,27 @@ export const TRACE_LIMIT_DEFAULT = 30;
 
 export type RouteBookApiResponse = RouteBookResponseJson | { error: string };
 
+// The client only ever sends 30 (route-book/depth default, order-form
+// prime) or 100 (route-book/depth panels). Anything else is either a typo
+// or abuse: `traceLimit=abc` gave a NaN cache key and an asymmetric book
+// (`slice(0, NaN)` empties one side, `slice(-NaN)` keeps the other), and
+// every distinct integer minted a fresh cache key + two pd simulates.
+const TRACE_LIMIT_ALLOWED = new Set<number>([TRACE_LIMIT_DEFAULT, 100]);
+const parseTraceLimit = (raw: string | null): number => {
+  if (raw === null || raw === '') {
+    return TRACE_LIMIT_DEFAULT;
+  }
+  const parsed = Number(raw);
+  if (TRACE_LIMIT_ALLOWED.has(parsed)) {
+    return parsed;
+  }
+  console.warn('[book] unsupported traceLimit, clamping to default', {
+    raw,
+    fallback: TRACE_LIMIT_DEFAULT,
+  });
+  return TRACE_LIMIT_DEFAULT;
+};
+
 // Empty book we return as a graceful fallback when pd is unreachable or
 // slow. Serving an empty book with a hint header degrades the UI (empty
 // route book, empty depth chart) but keeps the app rendered — much better
@@ -101,7 +122,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiRe
   const baseAssetSymbol = searchParams.get('baseAsset');
   const quoteAssetSymbol = searchParams.get('quoteAsset');
   const traceParam = searchParams.get('traceLimit');
-  const limit = traceParam ? Number(traceParam) : TRACE_LIMIT_DEFAULT;
+  const limit = parseTraceLimit(traceParam);
   if (!baseAssetSymbol || !quoteAssetSymbol) {
     return NextResponse.json(
       { error: 'Missing required baseAsset or quoteAsset' },
@@ -151,6 +172,10 @@ export async function GET(req: NextRequest): Promise<NextResponse<RouteBookApiRe
         inflight.delete(cacheKey);
       });
     inflight.set(cacheKey, refresh);
+    // The SWR path never awaits `refresh`; the rethrow above (kept so an
+    // INFLIGHT waiter sees the failure) would otherwise surface as an
+    // unhandledRejection on every pd timeout during an outage.
+    refresh.catch(() => undefined);
   };
 
   // Stale-while-revalidate: if we have ANY cached entry, serve it

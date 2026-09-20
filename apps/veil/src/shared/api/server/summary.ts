@@ -197,27 +197,37 @@ export async function fetchDaySummaries(): Promise<Serialized<SummaryWithPrices[
   const registry = await registryP;
   return serialize(
     data
-      .map(x => ({
-        start: new AssetId({ inner: x.asset_start }),
-        end: new AssetId({ inner: x.asset_end }),
-        liquidity: new Value({
-          amount: pnum(x.liquidity ?? 0.0).toAmount(),
-          assetId: theIndexingAsset,
-        }),
-        volume: new Value({ amount: pnum(x.volume ?? 0.0).toAmount(), assetId: theIndexingAsset }),
-        price: x.price,
-        priceChangePercent: 100 * (x.price / x.price_then - 1.0),
-        priceDelta: x.price - x.price_then,
-        recentPrices: (x.recent_prices ?? []).flatMap((p, i) => {
-          const startTime = (x.recent_dates ?? [])[i];
-          if (!startTime) {
-            return [];
-          }
-          return [[startTime, p] as [Date, number]];
-        }),
-        high: x.high,
-        low: x.low,
-      }))
+      .map(x => {
+        // Same guard as fetchSummary: a row with `price_then === 0` must
+        // not render "Infinity%" on the explore pair cards.
+        const priceThen = Number(x.price_then) || 0;
+        const price = x.price;
+        const priceChangePercent = priceThen > 0 ? 100 * (price / priceThen - 1.0) : 0;
+        return {
+          start: new AssetId({ inner: x.asset_start }),
+          end: new AssetId({ inner: x.asset_end }),
+          liquidity: new Value({
+            amount: pnum(x.liquidity ?? 0.0).toAmount(),
+            assetId: theIndexingAsset,
+          }),
+          volume: new Value({
+            amount: pnum(x.volume ?? 0.0).toAmount(),
+            assetId: theIndexingAsset,
+          }),
+          price,
+          priceChangePercent,
+          priceDelta: price - priceThen,
+          recentPrices: (x.recent_prices ?? []).flatMap((p, i) => {
+            const startTime = (x.recent_dates ?? [])[i];
+            if (!startTime) {
+              return [];
+            }
+            return [[startTime, p] as [Date, number]];
+          }),
+          high: x.high,
+          low: x.low,
+        };
+      })
       .filter(x => orderedCorrectly(registry, x.start, x.end)),
   );
 }
