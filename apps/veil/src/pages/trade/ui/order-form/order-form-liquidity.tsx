@@ -503,6 +503,37 @@ export const LPOrderForm = observer(
           {renderAmountInput('quote', store.quoteInput, store.setQuoteInput, store.quoteAsset)}
         </div>
 
+        {/* Reference price — user-editable "for this LP, treat X as mid".
+            Overrides the live-derived mid in every planner calculation
+            (bid/ask split, wrongSide detection, opposite-input auto-fill).
+            Chain doesn't have a canonical mid — it just holds positions
+            — so the user gets the final word. Blank = fall back to live
+            mid → range midpoint. Placeholder previews the current auto
+            value so users know what the default would be. */}
+        <div className='mb-2'>
+          <div className='mb-1 flex items-center gap-1 leading-none'>
+            <Text small color='text.secondary'>
+              Reference price
+            </Text>
+            <Tooltip message='Your view of what fair value is for this LP. Overrides the live-derived mid for the ladder split, so you can build a two-sided LP inside a wide spread by naming your own mid (e.g. "1" for a USDC/USDC.inj peg trade). Chain accepts positions at any price — this is a UI opinion. Blank = use the live market mid.'>
+              <Icon IconComponent={InfoIcon} size='sm' color='text.secondary' />
+            </Tooltip>
+          </div>
+          <input
+            type='text'
+            inputMode='decimal'
+            value={store.userReferencePriceInput}
+            onChange={e => store.setUserReferencePriceInput(e.target.value)}
+            placeholder={
+              store.marketPrice
+                ? `${roundToDecimals(store.marketPrice, decimals)} (live mid)`
+                : 'e.g. 1'
+            }
+            className='w-full rounded-sm border border-other-tonal-stroke bg-transparent px-2 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:border-orange-500 focus:outline-none'
+            aria-label='Reference price for LP'
+          />
+        </div>
+
         {/* Price Range — header collapses to label on the left, More menu
             on the right. Log/linear + zoom + reset live inside the More
             menu so the header stays a single line. Quick-range chips sit
