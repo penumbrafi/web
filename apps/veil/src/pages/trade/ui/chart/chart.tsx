@@ -35,7 +35,7 @@ import { LpPreviewOverlay } from './lp-preview-overlay';
 import { OwnPositionsDragOverlay } from './own-positions-drag-overlay';
 import { LimitPreviewOverlay } from './limit-preview-overlay';
 import { useOwnPositionLines } from './use-own-position-lines';
-import { useOwnFillMarkers } from './use-own-fill-markers';
+import { OwnFillsOverlay } from './own-fills-overlay';
 import { usePathSymbols } from '../../model/use-path';
 import { useDrawings } from './drawings/use-drawings';
 import { DrawingToolbar } from './drawings/toolbar';
@@ -77,8 +77,8 @@ const readStoredDuration = (): DurationWindow => {
 };
 
 // Stable no-op setter shared across renders. Hoisted so we don't allocate a
-// fresh function (and bust hook deps inside useOwnPositionLines /
-// useOwnFillMarkers) every Chart render.
+// fresh function (and bust hook deps inside useOwnPositionLines) every
+// Chart render.
 const NOOP_SETTER = (_: unknown) => {};
 
 // Hoisted const — same identity every render, drops a fresh-literal alloc.
@@ -341,7 +341,6 @@ export const Chart = observer(() => {
     yAtPrice,
     xAtTime,
     setOwnPositionLines,
-    setOwnFillMarkers,
     chartReady,
     resetView,
     centerPriceScaleOn,
@@ -366,9 +365,6 @@ export const Chart = observer(() => {
     prefs.ownPositions ? setOwnPositionLines : (NOOP_SETTER as typeof setOwnPositionLines),
     prefs,
   );
-  useOwnFillMarkers(
-    prefs.ownTrades ? setOwnFillMarkers : (NOOP_SETTER as typeof setOwnFillMarkers),
-  );
 
   const { baseSymbol, quoteSymbol } = usePathSymbols();
   const { marketPrice, spreadPercentage } = useMarketPrice();
@@ -391,18 +387,40 @@ export const Chart = observer(() => {
   // Empty-book fallback: on a fresh pair with no trades and no LPs yet,
   // marketPrice stays null and the price axis is undefined, so the LP-
   // preview overlay has no coordinates and the chart looks empty even
-  // once the user fills in a range. When the LP form has a derived mid
-  // (mean of user-entered lower/upper bounds), use that as the anchor
-  // instead — the chart then shows the user's own range as its Y-scale
-  // and the LP overlay renders normally.
+  // once the user fills in a range. We bootstrap ONCE per pair from
+  // the LP form's effective mid so the axis has something to render
+  // against — but we don't chase subsequent LP-mid changes with the
+  // camera. That produced a positive-feedback drag loop when the user
+  // dragged the reference-price pill on an empty pair: each pointermove
+  // wrote a new mid, which re-fit the axis, which teleported the pill
+  // to a new pane-Y under the pointer, which produced the next write —
+  // visible as the chart "flapping." Range-bound extras (below) still
+  // refit intentionally on user tweaks; that's discrete, not continuous.
   const centeredForPairRef = useRef<string | null>(null);
+  const bootstrapAnchorRef = useRef<number | null>(null);
   const lpEffective = tradeFormStore.lpForm.effectiveMarketPrice;
+  if (
+    centeredForPairRef.current !== pairKey ||
+    bootstrapAnchorRef.current === null
+  ) {
+    // Reset when the pair changes. First render for a pair with a live
+    // mid never needs the bootstrap; first render on an empty pair
+    // captures whatever lpEffective resolved to right then.
+    if (centeredForPairRef.current !== pairKey) bootstrapAnchorRef.current = null;
+    if (
+      bootstrapAnchorRef.current === null &&
+      (marketPrice == null || !Number.isFinite(marketPrice) || marketPrice <= 0) &&
+      lpEffective != null &&
+      Number.isFinite(lpEffective) &&
+      lpEffective > 0
+    ) {
+      bootstrapAnchorRef.current = lpEffective;
+    }
+  }
   const anchor =
     marketPrice != null && Number.isFinite(marketPrice) && marketPrice > 0
       ? marketPrice
-      : lpEffective != null && Number.isFinite(lpEffective) && lpEffective > 0
-        ? lpEffective
-        : null;
+      : bootstrapAnchorRef.current;
 
   // Range bounds the camera should also keep in view — pulled per-render
   // so mobx re-triggers this effect whenever the user drags a handle.
@@ -1161,6 +1179,16 @@ export const Chart = observer(() => {
                 priceAtY={priceAtY}
                 subscribeRedraw={subscribeRedraw}
                 enabled={prefs.ownPositions && connectionStore.connected}
+              />
+              {/* Fills as DOM dots pinned to the executed price — replaces
+                  the canvas `setMarkers` path, which could only anchor to
+                  the bar wick and clamped to a zoom-independent 12–30px.
+                  Gated on the same prefs.ownTrades toggle. */}
+              <OwnFillsOverlay
+                xAtTime={xAtTime}
+                yAtPrice={yAtPrice}
+                subscribeRedraw={subscribeRedraw}
+                enabled={prefs.ownTrades && connectionStore.connected}
               />
               {/* Live preview line for the limit order being composed —
                   paints only while the Limit form is active and the

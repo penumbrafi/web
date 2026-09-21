@@ -73,39 +73,63 @@ export const ReferencePriceOverlay = observer(function ReferencePriceOverlay({
   }, [refPrice, recompute]);
   useEffect(() => subscribeRedraw(recompute), [subscribeRedraw, recompute]);
 
-  // Drag: capture the pointer on the handle so movement continues even if
-  // it leaves the handle rect. Set userReferencePriceInput to whatever
+  // Drag: capture the pointer on the handle so movement continues even
+  // if it leaves the handle rect. Set userReferencePriceInput to whatever
   // price the pointer's y maps to, formatted at the quote's precision.
+  //
+  // Both the RIGHT square handle AND the LEFT price pill accept drag —
+  // the pill is the more discoverable target (it's the labelled price,
+  // not an anonymous grey square), so a user who never notices the tiny
+  // right handle can still reposition their reference by grabbing the
+  // number on the left. A drag under the 4px slop threshold is treated
+  // as a click and falls through to `onLabelClick` (snap to suggested).
   const dragging = useRef(false);
-  const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+  const dragStartY = useRef<number | null>(null);
+  const dragMoved = useRef(false);
+  const paneRef = useRef<HTMLDivElement | null>(null);
+  const DRAG_SLOP = 4;
+
+  const onPointerDown = useCallback((e: React.PointerEvent<HTMLElement>) => {
     e.preventDefault();
     e.stopPropagation();
     dragging.current = true;
+    dragStartY.current = e.clientY;
+    dragMoved.current = false;
     (e.target as Element).setPointerCapture(e.pointerId);
   }, []);
   const onPointerMove = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
+    (e: React.PointerEvent<HTMLElement>) => {
       if (!dragging.current) return;
-      // Y is relative to the overlay's positioned ancestor (the chart
-      // pane). e.clientY - rect.top of the ancestor gives us the pane-
-      // local pixel `priceAtY` expects.
-      const container = (e.currentTarget as HTMLElement).offsetParent as HTMLElement | null;
-      if (!container) return;
-      const rect = container.getBoundingClientRect();
+      if (
+        !dragMoved.current &&
+        dragStartY.current !== null &&
+        Math.abs(e.clientY - dragStartY.current) < DRAG_SLOP
+      ) {
+        return; // treat as still-a-click until slop is exceeded
+      }
+      dragMoved.current = true;
+      // Measure against the STABLE pane wrapper, not the moving line-div.
+      // The visible line/pill container repositions with the current
+      // refPrice on every frame — using its rect.top for localY would
+      // make the write, the re-render, and the next measurement chase
+      // each other and the pill would "jump" back and forth under the
+      // pointer instead of tracking it.
+      const pane = paneRef.current;
+      if (!pane) return;
+      const rect = pane.getBoundingClientRect();
       const localY = e.clientY - rect.top;
       const price = priceAtY(localY);
       if (price === undefined || !Number.isFinite(price) || price <= 0) return;
-      // Match the input field's precision by using the quote asset's
-      // exponent — same shape the ReferencePriceInput placeholder uses.
       const exp = lpForm.quoteAsset?.exponent ?? 6;
       const formatted = price.toFixed(Math.min(exp, 8));
       lpForm.setUserReferencePriceInput(formatted);
     },
     [priceAtY, lpForm],
   );
-  const onPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+  const onPointerUp = useCallback((e: React.PointerEvent<HTMLElement>) => {
     if (!dragging.current) return;
     dragging.current = false;
+    dragStartY.current = null;
     try {
       (e.target as Element).releasePointerCapture(e.pointerId);
     } catch {
@@ -113,8 +137,10 @@ export const ReferencePriceOverlay = observer(function ReferencePriceOverlay({
     }
   }, []);
 
-  // Click on the pill: snap to the suggested price if we have one.
+  // Click on the pill: snap to the suggested price if we have one. Only
+  // fires when the pointer didn't move past the drag slop.
   const onLabelClick = useCallback(() => {
+    if (dragMoved.current) return; // drag, not a click
     if (suggested.price === undefined) return;
     const exp = lpForm.quoteAsset?.exponent ?? 6;
     lpForm.setUserReferencePriceInput(suggested.price.toFixed(Math.min(exp, 8)));
@@ -142,10 +168,18 @@ export const ReferencePriceOverlay = observer(function ReferencePriceOverlay({
 
   return (
     <div
+      ref={paneRef}
       aria-label='Reference price'
-      className='pointer-events-none absolute left-0 right-0 z-[6]'
-      style={{ top: y - 1, height: 2 }}
+      className='pointer-events-none absolute inset-0 z-[6]'
     >
+      {/* Inner "line" wrapper: everything visual (line, pill, handle) is
+          positioned inside this and moves with the ref price. The OUTER
+          div stays inset-0 so drag math measures against a stationary
+          coordinate space, not the moving line. */}
+      <div
+        className='pointer-events-none absolute left-0 right-0'
+        style={{ top: y - 1, height: 2 }}
+      >
       {/* Dashed / dotted line spanning the pane except the right edge
           where the drag handle sits. */}
       <div
@@ -157,17 +191,22 @@ export const ReferencePriceOverlay = observer(function ReferencePriceOverlay({
       <button
         type='button'
         onClick={onLabelClick}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
         title={
           suggested.price !== undefined
-            ? `Reference price ${priceStr} ${quoteSymbol}. Click to ${suggestedLabel}. Drag the right handle to set manually.`
-            : `Reference price ${priceStr} ${quoteSymbol}. Drag the right handle to set manually.`
+            ? `Reference price ${priceStr} ${quoteSymbol}. Drag up/down to reposition, click to ${suggestedLabel}.`
+            : `Reference price ${priceStr} ${quoteSymbol}. Drag up/down to reposition.`
         }
-        className='pointer-events-auto absolute -translate-y-1/2 cursor-pointer rounded-sm px-1 py-px text-[10px] leading-tight transition-opacity hover:opacity-90'
+        className='pointer-events-auto absolute -translate-y-1/2 touch-none rounded-sm px-1 py-px text-[10px] leading-tight transition-opacity hover:opacity-90'
         style={{
           left: 4,
           top: 1,
           background: LABEL_BG,
           color: LABEL_FG,
+          cursor: dragging.current ? 'ns-resize' : 'pointer',
         }}
       >
         ref {priceStr}
@@ -195,6 +234,7 @@ export const ReferencePriceOverlay = observer(function ReferencePriceOverlay({
           boxShadow: '0 0 0 2px rgba(0,0,0,0.35)',
         }}
       />
+      </div>
     </div>
   );
 });
