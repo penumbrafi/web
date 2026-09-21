@@ -18,7 +18,15 @@
 
 export type ReferencePriceSource =
   | { kind: 'fixed'; usd: number }
-  | { kind: 'coingecko'; id: string };
+  | { kind: 'coingecko'; id: string }
+  // Derived USD price via an on-chain route through a fixed-price bridge
+  // asset. `through` is an ORDERED fallback list of registry symbols we
+  // try in turn — each bridge must resolve via referencePriceFor() to a
+  // `{ kind: 'fixed' }` (typo → hard error server-side, never a silent
+  // lie). Server takes the geometric mean of a $500-notional depth-fill
+  // VWAP on each side; skips bridges without ≥$1k combined depth or with
+  // a >20% buy/sell cross. See /api/derived-usd-price.
+  | { kind: 'onchain-bridge'; through: string[] };
 
 // Note the symbols are the on-chain penumbra registry symbols, not the
 // CoinGecko display names — e.g. USDC.inj is our IBC-injective USDC, but
@@ -35,18 +43,15 @@ export const REFERENCE_PRICES: Record<string, ReferencePriceSource> = {
   DAI: { kind: 'fixed', usd: 1 },
   PYUSD: { kind: 'fixed', usd: 1 },
 
-  // Live price sources. UM (`penumbra` on CoinGecko) is intentionally
-  // OMITTED: CoinGecko itself flags the listing as inactive/deactivated
-  // ("Penumbra (UM) has been inactive and is deactivated"). The only
-  // tracked market was via the Osmosis bridge, which went cold. Any
-  // returned price is a stale last-known ~$0.00136 that would silently
-  // anchor an LP ladder to a wrong number — worse than no anchor.
-  // Users trading UM/X still get the live route-book mid as the
-  // fallback suggestion. Restore this entry when UM relists on a live
-  // venue CoinGecko tracks:
-  //   UM: { kind: 'coingecko', id: 'penumbra' },
-  // (Note: /api/um-price still fetches this same deactivated listing
-  // for the header chip — flagged for follow-up, not scoped here.)
+  // UM has no live external listing (see history in git). We derive its
+  // USD price from the on-chain route book via a stable bridge instead:
+  // route $500-notional depth-fill both directions through USDC.inj,
+  // fall back to USDT.inj / USDC.axl if the first is too thin. The
+  // /api/derived-usd-price endpoint owns the math; here we just point at
+  // the bridges. Users trading UM/X thus get an anchor even without any
+  // external oracle.
+  UM: { kind: 'onchain-bridge', through: ['USDC.inj', 'USDT.inj', 'USDC.axl'] },
+
   INJ: { kind: 'coingecko', id: 'injective-protocol' },
   BTC: { kind: 'coingecko', id: 'bitcoin' },
   WBTC: { kind: 'coingecko', id: 'wrapped-bitcoin' },
