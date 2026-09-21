@@ -66,24 +66,28 @@ describe('attemptBridge', () => {
     expect(await attemptBridge(um, usdcInj, simulate, signal)).toBeNull();
   });
 
-  it('returns null when depth is below $1000', async () => {
-    // Buy filled only $400 worth, sell only $300 → total < 1000.
+  it('returns null when combined depth is below the min ($20)', async () => {
+    // Buy filled $8, sell filled $5 — total $13 combined, below the
+    // $20 floor. Real books with less than this can be moved by a
+    // single toy tx and shouldn't seed an LP ladder.
     const simulate = makeSimulate(
       {
-        'USDC.inj->UM': { filledInDisp: 400, filledOutDisp: 400_000 },
-        'UM->USDC.inj': { filledInDisp: 400_000, filledOutDisp: 300 },
+        'USDC.inj->UM': { filledInDisp: 8, filledOutDisp: 8_000 },
+        'UM->USDC.inj': { filledInDisp: 8_000, filledOutDisp: 5 },
       },
       tables,
     );
     expect(await attemptBridge(um, usdcInj, simulate, signal)).toBeNull();
   });
 
-  it('returns null when the cross is >20%', async () => {
-    // Buy at $0.001, sell at $0.0015 — 40% cross.
+  it('returns null when buy/sell price ratio exceeds 20x', async () => {
+    // Buy price $0.001, sell price $0.05 — 50x apart. A one-side
+    // spoof or a broken book, not a market we can honestly average.
+    // Real wide markets (~10x on-chain UM today) still clear.
     const simulate = makeSimulate(
       {
-        'USDC.inj->UM': { filledInDisp: 500, filledOutDisp: 500_000 },
-        'UM->USDC.inj': { filledInDisp: 500_000, filledOutDisp: 750 },
+        'USDC.inj->UM': { filledInDisp: 25, filledOutDisp: 25_000 },
+        'UM->USDC.inj': { filledInDisp: 200, filledOutDisp: 10 },
       },
       tables,
     );
@@ -173,18 +177,18 @@ describe('deriveMultiBridge', () => {
   });
 
   it('enforces manipulation guard for >5x with thin depth (sticky)', async () => {
-    // Cached: $0.001. Fresh derived: $0.01 (10x). Depth ~$1200 (below
-    // the $5k floor). Must stick to cached.
+    // Cached: $0.001. Fresh derived: $0.01 (10x). Depth $100 combined
+    // (< $200 manipulation floor). Must stick to cached.
     const cached: CacheEntry = {
       at: Date.now() - 10_000,
       usd: 0.001,
       bridge: 'USDC.inj',
-      depthUsd: 8000,
+      depthUsd: 400,
     };
     const simulate = makeSimulate(
       {
-        'USDC.inj->UM': { filledInDisp: 600, filledOutDisp: 60_000 }, // price $0.01
-        'UM->USDC.inj': { filledInDisp: 60_000, filledOutDisp: 600 },
+        'USDC.inj->UM': { filledInDisp: 50, filledOutDisp: 5_000 }, // price $0.01
+        'UM->USDC.inj': { filledInDisp: 5_000, filledOutDisp: 50 },
       },
       tables,
     );
@@ -194,17 +198,18 @@ describe('deriveMultiBridge', () => {
   });
 
   it('does NOT stick when a big move comes with deep depth', async () => {
-    // Same 10x jump but depth $12k > $5k manipulation floor: accept it.
+    // Same 10x jump but depth $600 combined > $200 manipulation floor:
+    // accept it as real repricing.
     const cached: CacheEntry = {
       at: Date.now() - 10_000,
       usd: 0.001,
       bridge: 'USDC.inj',
-      depthUsd: 8000,
+      depthUsd: 400,
     };
     const simulate = makeSimulate(
       {
-        'USDC.inj->UM': { filledInDisp: 6000, filledOutDisp: 600_000 }, // price $0.01
-        'UM->USDC.inj': { filledInDisp: 600_000, filledOutDisp: 6000 },
+        'USDC.inj->UM': { filledInDisp: 300, filledOutDisp: 30_000 }, // price $0.01
+        'UM->USDC.inj': { filledInDisp: 30_000, filledOutDisp: 300 },
       },
       tables,
     );
@@ -214,13 +219,14 @@ describe('deriveMultiBridge', () => {
   });
 
   it('single healthy bridge is used even if peers fail their gates', async () => {
-    // USDC.inj clears; USDT.inj crossed >20%. Aggregate = USDC.inj alone.
+    // USDC.inj clears; USDT.inj is too thin (below $20 floor).
+    // Aggregate = USDC.inj alone.
     const simulate = makeSimulate(
       {
-        'USDC.inj->UM': { filledInDisp: 500, filledOutDisp: 500_000 },
-        'UM->USDC.inj': { filledInDisp: 500_000, filledOutDisp: 500 },
-        'USDT.inj->UM': { filledInDisp: 500, filledOutDisp: 500_000 },
-        'UM->USDT.inj': { filledInDisp: 500_000, filledOutDisp: 750 }, // 40% cross
+        'USDC.inj->UM': { filledInDisp: 50, filledOutDisp: 50_000 },
+        'UM->USDC.inj': { filledInDisp: 50_000, filledOutDisp: 50 },
+        'USDT.inj->UM': { filledInDisp: 5, filledOutDisp: 5_000 },
+        'UM->USDT.inj': { filledInDisp: 5_000, filledOutDisp: 5 }, // $10 combined depth
       },
       tables,
     );
