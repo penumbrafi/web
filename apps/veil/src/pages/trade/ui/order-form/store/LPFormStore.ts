@@ -85,6 +85,16 @@ export class LPFormStore {
   // Cleared when the user picks any non-CUSTOM shape.
   customWeights: number[] | null = null;
 
+  /**
+   * Fraction of each side's wallet balance the `suggestPosition` helper
+   * commits to the seed ladder. Persisted per-session (mobx-only), so a
+   * user who bumps it to 25% keeps that preference until reload. Range
+   * clamped to [0.05, 0.5] — sub-5% produces reserves so small the
+   * rung-count filter drops most positions, and above 50% starts to
+   * conflict with keeping cash for further swaps.
+   */
+  suggestBalancePct = 0.10;
+
   constructor() {
     makeAutoObservable(this);
   }
@@ -528,6 +538,127 @@ export class LPFormStore {
 
   clearCustomWeights = () => {
     this.customWeights = null;
+  };
+
+  /**
+   * One-click "sane-default LP" for a fresh pair.
+   *
+   * Fills every field in one atomic write so the user's next click is
+   * "Provide liquidity" — not "figure out what mid to pick, then a range,
+   * then reserves, then a fee tier." Every field remains editable
+   * afterwards (this seeds, it doesn't lock).
+   *
+   * Sizing math (see the redshiftzero decision doc):
+   *   baseReserves  = 0.10 × baseBalance
+   *   quoteReserves = 0.10 × quoteBalance
+   *
+   * "10% of total, in the user's current holding ratio" collapses to
+   * "10% of each side" — no USD conversion needed for the reserve math.
+   * USD prices only enter as the mid anchor.
+   *
+   * One-sided case (holding UM but no INJ, or vice versa): produce a
+   * pure sell/buy ladder. The chain accepts it; the two-sided planner's
+   * `oneSidedPositions` path already handles the clamp. UI hints at it
+   * via `offMidWarning === 'partial-straddle'` and the "one-sided
+   * ladder" chip.
+   *
+   * Empty-empty (both balances zero / unknown): no-op, since seeding
+   * zero reserves produces no positions.
+   */
+  setSuggestBalancePct = (pct: number) => {
+    if (!Number.isFinite(pct)) return;
+    this.suggestBalancePct = Math.max(0.05, Math.min(0.5, pct));
+  };
+
+  /**
+   * @param mid  Anchor price for the ladder.
+   * @param opts.committedBase   Base display-units already tied up in this
+   *                             pair's open LP positions. Used so the "pct
+   *                             of balance" target treats total portfolio
+   *                             exposure (wallet + committed) as the base,
+   *                             and the suggestion adds only the delta to
+   *                             hit it. `0` (default) is the fresh-user
+   *                             case: everything liquid becomes portfolio.
+   * @param opts.committedQuote  Same, for quote.
+   */
+  suggestPosition = (
+    mid: number,
+    opts: { committedBase?: number; committedQuote?: number } = {},
+  ) => {
+    if (!(mid > 0) || !Number.isFinite(mid)) return;
+    const baseBal = this._baseAsset?.balance ?? 0;
+    const quoteBal = this._quoteAsset?.balance ?? 0;
+    if (baseBal <= 0 && quoteBal <= 0) return;
+
+    const baseExp = this._baseAsset?.exponent ?? 6;
+    const quoteExp = this._quoteAsset?.exponent ?? 6;
+
+    const pct = this.suggestBalancePct;
+    const committedBase = Math.max(0, opts.committedBase ?? 0);
+    const committedQuote = Math.max(0, opts.committedQuote ?? 0);
+
+    // Committed-reserves-aware sizing: target = pct × (wallet + already
+    // committed). Suggestion = max(0, target − committed), clamped to
+    // liquid wallet. Without this, repeatedly clicking Suggest ratchets
+    // the position DOWN (each click sizes 10% of a smaller wallet).
+    // With it, the first click targets 10% of portfolio, the second is
+    // a no-op if we're already at target, and the user has to raise the
+    // slider or top up to add more — which is the right mental model.
+    const targetBase = pct * (baseBal + committedBase);
+    const targetQuote = pct * (quoteBal + committedQuote);
+    const baseReserves = Math.max(0, Math.min(baseBal, targetBase - committedBase));
+    const quoteReserves = Math.max(0, Math.min(quoteBal, targetQuote - committedQuote));
+
+    // Bypass the setters' auto-fill / guard logic and reset
+    // `lastTouchedInput` — the whole shape is coming from the store,
+    // not from the user typing one side, so `updateOppositeInput`
+    // would fight us.
+    this.lastTouchedInput = null;
+    this.baseInput =
+      baseReserves > 0
+        ? round({ value: String(baseReserves), decimals: baseExp, exponentialNotation: false })
+        : '';
+    this.quoteInput =
+      quoteReserves > 0
+        ? round({ value: String(quoteReserves), decimals: quoteExp, exponentialNotation: false })
+        : '';
+
+    // Range choice depends on funding: balanced → ±5% straddle; base-
+    // only → sell ladder ABOVE mid [mid, mid×1.05]; quote-only → buy
+    // ladder BELOW mid [mid×0.95, mid]. Straddling mid in a one-sided
+    // case would trip `partial-straddle` on the very first suggestion
+    // and clamp half the ladder away — the user asked for a sane
+    // starting point, not a warning.
+    const baseOnly = baseReserves > 0 && quoteReserves <= 0;
+    const quoteOnly = quoteReserves > 0 && baseReserves <= 0;
+    const [loMul, hiMul] = baseOnly
+      ? [1, 1.05]
+      : quoteOnly
+        ? [0.95, 1]
+        : [0.95, 1.05];
+    this.lowerPriceInput = Number(
+      round({ value: String(mid * loMul), decimals: quoteExp, exponentialNotation: false }),
+    );
+    this.upperPriceInput = Number(
+      round({ value: String(mid * hiMul), decimals: quoteExp, exponentialNotation: false }),
+    );
+
+    // Anchor the ladder to the same mid we sized against. Without this
+    // an empty-pair Suggest would fall through effectiveMarketPrice to
+    // (lower+upper)/2, which equals mid anyway on a symmetric ±5% band
+    // — but any subsequent tweak to lower/upper would silently move the
+    // anchor. Pinning userReferencePriceInput keeps the two decoupled.
+    this.userReferencePriceInput = round({
+      value: String(mid),
+      decimals: quoteExp,
+      exponentialNotation: false,
+    });
+
+    this.feeTierOption = LPFeeTierOptions.Volatile;
+    this.feeTierPercentInput = LP_FEE_TIER_PERCENTS[LPFeeTierOptions.Volatile];
+    this.liquidityShape = LiquidityDistributionShape.FLAT;
+    this.customWeights = null;
+    this.positions = DEFAULT_POSITION_COUNT;
   };
 }
 

@@ -26,6 +26,7 @@ import { LiquidityDistributionShape } from '@/shared/math/position';
 import { ConfirmInfoRow, ConfirmOrderModal, ConfirmWarning } from './confirm-order-modal';
 import { FormIssueNotice } from './form-issue';
 import { useReferencePrice } from '@/pages/trade/model/useReferencePrice';
+import { useCommittedReserves } from '@/entities/position/model/use-committed-reserves';
 import type { LPFormStore } from './store/LPFormStore';
 
 /**
@@ -49,7 +50,7 @@ const SuggestedRefPrice = observer(
   }) => {
     const baseSym = store.baseAsset?.symbol;
     const quoteSymForHook = store.quoteAsset?.symbol;
-    const { price, source } = useReferencePrice(baseSym, quoteSymForHook);
+    const { price, source, base, quote } = useReferencePrice(baseSym, quoteSymForHook);
 
     // Auto-apply the suggestion the FIRST time it becomes available for a
     // pair, but only for FIXED sources (stablecoin pegs) — those are
@@ -77,17 +78,29 @@ const SuggestedRefPrice = observer(
     }, [currentPairKey, price, source, store, decimals]);
 
     if (price === undefined) return null;
-    const label = source === 'fixed' ? 'stablecoin peg' : source === 'coingecko' ? 'CoinGecko' : 'CoinGecko / peg';
+    // Live-source label describes what BOTH sides collectively resolved
+    // from. The breakdown tooltip below shows each side individually,
+    // so this stays a short chip.
+    const label =
+      source === 'fixed'
+        ? 'stablecoin peg'
+        : source === 'coingecko'
+          ? 'CoinGecko'
+          : source === 'derived'
+            ? 'on-chain'
+            : 'CoinGecko / on-chain';
     const current = store.userReferencePrice;
     const already = current !== null && Math.abs(current - price) / price < 0.001;
     const formatted = roundToDecimals(price, decimals);
     return (
       <div className='mt-1 flex items-center gap-1 text-xs text-text-muted'>
-        <span>
-          {already
-            ? `Applied: ${formatted} ${quoteSym} (${label})`
-            : `Suggested: ${formatted} ${quoteSym} (${label})`}
-        </span>
+        <Tooltip message={<RefPriceBreakdown base={base} quote={quote} price={price} />}>
+          <span className='cursor-help border-b border-dotted border-text-muted/40'>
+            {already
+              ? `Applied: ${formatted} ${quoteSym} (${label})`
+              : `Suggested: ${formatted} ${quoteSym} (${label})`}
+          </span>
+        </Tooltip>
         {!already && (
           <button
             type='button'
@@ -97,6 +110,146 @@ const SuggestedRefPrice = observer(
             Use
           </button>
         )}
+      </div>
+    );
+  },
+);
+
+/**
+ * Human-readable breakdown of how the suggested reference price was
+ * derived. LPing into UM pairs (where one side goes through an on-chain
+ * bridge and the other through CoinGecko) is otherwise a black box —
+ * showing "INJ = $12 (CoinGecko); UM = $0.001 (on-chain via USDC.inj,
+ * depth $2.4k); INJ/UM = 12000" makes the anchor auditable at a glance.
+ */
+const RefPriceBreakdown = ({
+  base,
+  quote,
+  price,
+}: {
+  base?: import('@/pages/trade/model/useReferencePrice').RefPriceLeg;
+  quote?: import('@/pages/trade/model/useReferencePrice').RefPriceLeg;
+  price: number;
+}) => {
+  const legText = (
+    leg: import('@/pages/trade/model/useReferencePrice').RefPriceLeg | undefined,
+  ): string => {
+    if (!leg) return '';
+    const usd = leg.usd < 0.01 ? leg.usd.toPrecision(4) : leg.usd.toFixed(leg.usd < 1 ? 4 : 2);
+    if (leg.source === 'fixed') return `${leg.symbol} = $${usd} (peg)`;
+    if (leg.source === 'coingecko') return `${leg.symbol} = $${usd} (CoinGecko)`;
+    // derived
+    const depthK =
+      leg.depthUsd && leg.depthUsd > 0
+        ? `, depth $${leg.depthUsd >= 1000 ? `${(leg.depthUsd / 1000).toFixed(1)}k` : leg.depthUsd.toFixed(0)}`
+        : '';
+    return `${leg.symbol} = $${usd} (on-chain via ${leg.bridge ?? '?'}${depthK})`;
+  };
+  const priceFmt = price < 0.01 ? price.toPrecision(4) : price.toLocaleString(undefined, {
+    maximumFractionDigits: price < 1 ? 6 : 4,
+  });
+  return (
+    <div className='max-w-[280px] whitespace-pre-line text-xs leading-snug'>
+      {`How this reference price was calculated:\n\n${legText(base)}\n${legText(quote)}\n\n${base?.symbol ?? 'base'}/${quote?.symbol ?? 'quote'} = ${priceFmt}`}
+    </div>
+  );
+};
+
+/**
+ * One-click "sane-default LP" button.
+ *
+ * Reads the same reference-price hook the suggestion chip uses, so a
+ * pair with no live market but a stablecoin peg or derived UM price
+ * still gets an anchor. The button fills the whole form:
+ *   • reference price = anchor (userRef → live mid → hook ref)
+ *   • range = anchor × [0.95, 1.05]
+ *   • reserves = 10% of each side's wallet balance
+ *   • fee = 0.3% (Volatile), shape = Linear, n = 10
+ *
+ * Every field remains editable — this seeds, it doesn't lock. Hidden
+ * (rather than disabled with a tooltip) when nothing useful can be
+ * suggested: no anchor at all, or both wallet balances zero.
+ */
+const SuggestPositionButton = observer(
+  ({ store }: { store: LPFormStore }) => {
+    const { price: refPrice } = useReferencePrice(
+      store.baseAsset?.symbol,
+      store.quoteAsset?.symbol,
+    );
+    const committed = useCommittedReserves(store.baseAsset, store.quoteAsset);
+    // Precedence matches `useReferencePrice`'s documented `user → ref
+    // → live` chain — NOT `effectiveMarketPrice`, whose final fallback
+    // to `(lo+hi)/2` would anchor Suggest to whatever midpoint the
+    // slider happens to sit at when nothing else is set.
+    const anchor = store.userReferencePrice ?? refPrice ?? store.marketPrice ?? null;
+    const baseBal = store.baseAsset?.balance ?? 0;
+    const quoteBal = store.quoteAsset?.balance ?? 0;
+    const hasBalance = baseBal > 0 || quoteBal > 0;
+    const canSuggest = anchor !== null && anchor > 0 && hasBalance;
+    if (!canSuggest) return null;
+
+    const oneSided = !(baseBal > 0 && quoteBal > 0);
+    const heldSym = baseBal > 0 ? store.baseAsset?.symbol : store.quoteAsset?.symbol;
+    const missingSym = baseBal > 0 ? store.quoteAsset?.symbol : store.baseAsset?.symbol;
+    const pct = store.suggestBalancePct;
+    const pctPercent = Math.round(pct * 100);
+    // Preset chips for the balance percent. Log-scaled (roughly 2×
+    // between neighbours) so the range from cautious to yolo covers
+    // one decade with a small number of chips; a linear 5/10/15/20/25%
+    // ladder crowds the low end where most users actually pick from.
+    // 10% is the sane default.
+    const PCT_PRESETS = [0.05, 0.1, 0.25, 0.5];
+
+    return (
+      <div className='mt-1 flex flex-col gap-1'>
+        <div className='flex items-start gap-2'>
+          <button
+            type='button'
+            onClick={() =>
+              store.suggestPosition(anchor, {
+                committedBase: committed.base,
+                committedQuote: committed.quote,
+              })
+            }
+            className='rounded-sm border border-orange-500 bg-orange-500/10 px-2 py-1 text-xs font-medium text-orange-100 hover:bg-orange-500/20'
+          >
+            Suggest position
+          </button>
+          <span className='text-[10px] leading-tight text-text-secondary'>
+            {oneSided
+              ? `${pctPercent}% of your ${heldSym} portfolio in this pair, ±5% around anchor. One-sided ladder — you hold no ${missingSym}.`
+              : `${pctPercent}% of your portfolio in this pair, ±5% around anchor, 0.3% fee.`}
+            {(committed.base > 0 || committed.quote > 0) && (
+              <span className='text-text-muted'>
+                {' '}Already in this pair: {committed.base > 0 ? `${committed.base.toFixed(committed.base < 1 ? 4 : 2)} ${store.baseAsset?.symbol}` : ''}
+                {committed.base > 0 && committed.quote > 0 ? ' + ' : ''}
+                {committed.quote > 0 ? `${committed.quote.toFixed(committed.quote < 1 ? 4 : 2)} ${store.quoteAsset?.symbol}` : ''}
+                .
+              </span>
+            )}
+          </span>
+        </div>
+        <div className='flex items-center gap-1'>
+          <span className='text-[10px] text-text-secondary'>Size:</span>
+          {PCT_PRESETS.map(p => {
+            const active = Math.abs(store.suggestBalancePct - p) < 0.001;
+            return (
+              <button
+                key={p}
+                type='button'
+                onClick={() => store.setSuggestBalancePct(p)}
+                className={cn(
+                  'h-5 rounded-sm px-1.5 text-[10px] tabular-nums transition-colors',
+                  active
+                    ? 'bg-primary-main text-base-black'
+                    : 'bg-other-tonal-fill5 text-text-secondary hover:bg-action-hover-overlay hover:text-text-primary',
+                )}
+              >
+                {Math.round(p * 100)}%
+              </button>
+            );
+          })}
+        </div>
       </div>
     );
   },
@@ -245,31 +398,41 @@ export const LPOrderForm = observer(
       undefined,
     ]);
 
+    // Anchor auto-fill on effectiveMarketPrice (userReference → live mid),
+    // not raw marketPrice. Empty pairs have no live mid but the user may
+    // still have supplied a reference price — treating the pair as
+    // "unanchored" there wipes anything they've typed into the range
+    // inputs and makes it impossible to LP into an empty book.
+    const anchorPrice = store.effectiveMarketPrice;
+    // Slider bounds & presets can't use the full effective fallback
+    // (which ends in `(lo+hi)/2`) — that would create a self-referential
+    // loop where dragging a thumb reshapes the scale. Stop at live mid.
+    const sliderAnchor = store.userReferencePrice ?? store.marketPrice;
     const setRanges = useCallback(() => {
-      if (!store.marketPrice) {
+      if (!anchorPrice) {
         setPriceRanges([undefined, undefined]);
         return;
       }
 
       const exponent = store.quoteAsset?.exponent ?? defaultDecimals;
       setPriceRanges([
-        roundToDecimals(store.marketPrice * (1 - priceSpread), exponent),
-        roundToDecimals(store.marketPrice * (1 + priceSpread), exponent),
+        roundToDecimals(anchorPrice * (1 - priceSpread), exponent),
+        roundToDecimals(anchorPrice * (1 + priceSpread), exponent),
       ]);
-    }, [defaultDecimals, priceSpread, store.marketPrice, store.quoteAsset?.exponent]);
+    }, [defaultDecimals, priceSpread, anchorPrice, store.quoteAsset?.exponent]);
 
     useEffect(() => {
-      // set price ranges once the market price is available
-      if (store.marketPrice && !priceRanges[0] && !priceRanges[1]) {
+      // seed default ±spread band once an anchor becomes available
+      if (anchorPrice && !priceRanges[0] && !priceRanges[1]) {
         setRanges();
       }
 
-      // unset price ranges once the market price is unavailable
-      // due to switching of asset pairs
-      if (!store.marketPrice && priceRanges[0] && priceRanges[1]) {
+      // clear only when no anchor exists at all (pair switch that drops
+      // both the live mid and the user reference)
+      if (!anchorPrice && priceRanges[0] && priceRanges[1]) {
         setRanges();
       }
-    }, [store.marketPrice, priceSpread, priceRanges, setRanges]);
+    }, [anchorPrice, priceSpread, priceRanges, setRanges]);
 
     // values flow from local state to form store to keep ui smooth
     useEffect(() => {
@@ -653,6 +816,7 @@ export const LPOrderForm = observer(
             </Tooltip>
           </div>
           <ReferencePriceInput store={store} decimals={decimals} quoteSym={quoteSym} />
+          <SuggestPositionButton store={store} />
         </div>
 
         {/* Price Range — header collapses to label on the left, More menu
@@ -716,22 +880,30 @@ export const LPOrderForm = observer(
               )}
             </div>
           </div>
+          {/* Slider bounds anchor to userReference OR live mid — but
+              NOT effectiveMarketPrice's final range-midpoint fallback,
+              which would create a feedback loop: dragging a thumb
+              would move `(lo+hi)/2` → move min/max → reshape the scale
+              under the mouse. `anchorPrice` (with the fallback) still
+              drives the seed/clear effect where the loop can't form. */}
           <PriceSlider
-            min={store.marketPrice ? store.marketPrice * (1 - adjustedPriceRange) : 0}
-            max={
-              store.marketPrice ? store.marketPrice * (1 + adjustedPriceRange) : Infinity
-            }
+            min={sliderAnchor ? sliderAnchor * (1 - adjustedPriceRange) : 0}
+            max={sliderAnchor ? sliderAnchor * (1 + adjustedPriceRange) : Infinity}
             values={priceRanges}
             onInput={setPriceRanges}
             quoteExponent={store.quoteAsset?.exponent ?? defaultDecimals}
-            marketPrice={store.marketPrice}
+            marketPrice={sliderAnchor}
             quoteAsset={store.quoteAsset}
             baseAsset={store.baseAsset}
           />
-          {store.marketPrice && (
+          {sliderAnchor && (
             <div className='mt-2 flex items-center gap-1'>
-              {[0.01, 0.025, 0.05, 0.1, 0.25, 0.5].map(pct => {
-                const mid = store.marketPrice as number;
+              {/* Log-scaled range presets — ~2×–2.5× between neighbours.
+                  Traders think about range width in multiplicative terms
+                  ("tight = ±1%, wide = ±25%"), not linearly, so this
+                  spacing keeps every chip meaningful. */}
+              {[0.01, 0.02, 0.05, 0.1, 0.25, 0.5].map(pct => {
+                const mid = sliderAnchor;
                 const exponent = store.quoteAsset?.exponent ?? defaultDecimals;
                 const lo = roundToDecimals(mid * (1 - pct), exponent);
                 const hi = roundToDecimals(mid * (1 + pct), exponent);
