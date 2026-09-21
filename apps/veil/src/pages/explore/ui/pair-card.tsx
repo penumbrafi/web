@@ -16,11 +16,9 @@ import { useGetMetadata } from '@/shared/api/assets';
 import { toValueView } from '@/shared/utils/value-view';
 import { convertPriceToDisplay } from '@/shared/math/price';
 import { getTradePairPath } from '@/shared/const/pages';
-import {
-  isPairHealthy,
-  BRIDGE_PAUSED_LABEL,
-  BRIDGE_PAUSED_TOOLTIP,
-} from '@/shared/config/featured-pairs';
+import { isAssetBridgePaused } from '@/shared/config/bridge-health';
+import { usePausedChannels } from '@/shared/api/ibc-bridge';
+import { BridgeStatusBadge } from '@/shared/ui/bridge-status-badge';
 
 const getTextSign = (change: number): ReactNode => {
   if (change > 0) {
@@ -76,7 +74,10 @@ export const PairCard = memo(({ summary }: PairCardProps) => {
   const liquidityMetadata = getMetadata(summary.liquidity.assetId);
   const volumeMetadata = getMetadata(summary.volume.assetId);
 
-  const paused = !isPairHealthy(startMetadata.symbol, endMetadata.symbol);
+  const pausedChannels = usePausedChannels();
+  const paused = [startMetadata, endMetadata].some(asset =>
+    isAssetBridgePaused(asset, pausedChannels),
+  );
 
   return (
     <Link
@@ -104,14 +105,7 @@ export const PairCard = memo(({ summary }: PairCardProps) => {
           {startMetadata.symbol}/{endMetadata.symbol}
         </Text>
 
-        {paused && (
-          <span
-            title={BRIDGE_PAUSED_TOOLTIP}
-            className='whitespace-nowrap rounded-xs bg-secondary-dark px-1.5 py-0.5 text-textXs text-text-secondary'
-          >
-            {BRIDGE_PAUSED_LABEL}
-          </span>
-        )}
+        <BridgeStatusBadge assets={[startMetadata, endMetadata]} />
       </div>
 
       <div className='flex h-10 flex-col items-end justify-center'>
