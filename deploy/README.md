@@ -13,6 +13,7 @@ applied / what remains" at the end before assuming any of this is live.
 | app | workflow | artifact | host path | served on |
 | --- | --- | --- | --- | --- |
 | veil | `.github/workflows/deploy-veil.yml` | `veil-<sha>.tar.zst` (Next.js standalone) | `/opt/penumbra-veil/{blue,green}` | `penumbra.fi`, alias `dex.rotko.net` |
+| veil (dev slot) | `.github/workflows/deploy-dev.yml` | `veil-dev-<sha>.tar.zst` (Next.js standalone) | `/opt/penumbra-veil/dev` | `dev.penumbra.fi` (Cloudflare Access) — **host side not yet set up** |
 | node-status | `.github/workflows/deploy-node-status.yml` | `node-status-<sha>.tar.zst` (Vite `dist/`) | `/opt/penumbra-node-status` | `status.penumbra.fi` (static, nginx) — **not yet deployed anywhere** |
 
 `minifront` is **not** deployed from here. It lives on `app.antumbra.net` and
@@ -326,14 +327,49 @@ this topology they are not — it must be set to
 Rollback is `gh workflow run promote-veil.yml` again — the previous colour
 is still running, untouched, so promoting back is instant.
 
+### Out-of-band (manual) deploy
+
+Shipping a locally built artifact without CI needs the tarball *inside the
+workload container*: `scp` to the jump host only puts it in the host's `/tmp`,
+which `pct exec` cannot see, so unpacking there fails with
+`tar (child): … Cannot open: No such file or directory`. Use `pct push`:
+
+```sh
+scp veil-manual-<stamp>-<sha>.tar.zst root@<jump>:/tmp/
+ssh root@<jump> bash -s <<'HOST'
+set -euo pipefail
+A=veil-manual-<stamp>-<sha>.tar.zst
+pct push <vmid> "/tmp/$A" "/tmp/$A"
+pct exec <vmid> -- bash -s <<'INNER'
+set -euo pipefail
+T=/opt/penumbra-veil/blue/releases/manual-<stamp>-<sha>
+mkdir -p "$T"
+tar --zstd -C "$T" -xf /tmp/veil-manual-<stamp>-<sha>.tar.zst
+chown -R web:web "$T"
+cd /opt/penumbra-veil/blue
+ln -sfn "releases/manual-<stamp>-<sha>" current.tmp && mv -Tf current.tmp current
+systemctl restart penumbra-veil@blue
+INNER
+HOST
+```
+
+Verify the way the workflow does: a 200 is not proof. Every chunk the served
+HTML references must exist under `…/current/apps/veil/.next/static/chunks`,
+and the unit's `MainPID` must have its cwd inside the release just linked.
+Chunk names are content-hashed, so nearby builds share most of them — checking
+one chunk, or only the first match, passes while a stale process serves a
+different build.
+
 ### Staging vhost
 
 `deploy/nginx-staging.penumbra.fi.conf.example` proxies `staging.penumbra.fi`
-to the `veil_staging` upstream. **Status: include installed on the front-proxy
-container, vhost not enabled** — it needs a DNS record and a certificate for
-`staging.penumbra.fi` first. Until then, `staging-only` deploys are only
-reachable by curling the standby colour's backend port directly from inside
-the workload container.
+to the `veil_staging` upstream. **Status: live** (enabled on the front-proxy
+container 2026-09-20). The record is Cloudflare-proxied, so CF terminates the
+browser TLS and the origin reuses the `penumbra.fi` certificate (Full mode);
+the vhost sends `X-Robots-Tag: noindex, nofollow`. `veil_staging` always
+points at the standby colour, so `https://staging.penumbra.fi/` is whatever
+the last `staging-only` (or pre-swap `auto`) deploy put there — check chunk
+membership in the release tree before trusting it, a 200 alone is not proof.
 
 ### Host setup (blue/green pieces)
 
@@ -392,6 +428,142 @@ visudo -c
 
 nginx -t && systemctl reload nginx
 ```
+
+## Dev slot (`dev.penumbra.fi`) — shared WIP URL
+
+**Status: not installed on either container.** The workflow is in
+place; the host-side setup below is what actually stands the slot up.
+
+Purpose: give the team a single always-fresh WIP URL. Every non-draft
+PR redeploys it on push (last-write-wins), and any maintainer can
+`gh workflow run deploy-dev.yml` from a WIP branch that isn't in a PR
+yet. Frees `staging.penumbra.fi` from doubling as a scratch surface —
+staging can then mean "main-branch pre-prod" the way its name
+suggests, while dev is the shared scratch slot everyone's iterating
+against.
+
+Not per-PR-isolated. Two people racing PRs at the same time will
+overwrite each other on the dev slot; that's a feature request for the
+full per-PR previews infrastructure below, not something this slot
+tries to solve. If you need concurrent PR previews, stand up the
+previews section instead of / in addition to this.
+
+### Layout
+
+Third slot beside `blue`/`green` on the workload container:
+
+```
+/opt/penumbra-veil/
+  blue/                   :3001
+  green/                  :3002
+  dev/
+    env.port              PORT=3010, root-owned
+    .env.production       runtime env (same shape as blue/green)
+    .env.production.local same
+    releases/<sha>/       unpacked artifact
+    current -> releases/<sha>
+```
+
+Reuses the templated `penumbra-veil@.service` unit (`%i = dev`) — no
+new unit file needed.
+
+Port `3010` is outside blue/green (`3001`/`3002`), outside node-status
+(`3003`), and outside the previews' reserved range (`30001-39999`).
+
+### Front-proxy vhost
+
+Direct `proxy_pass` to `<WORKLOAD_HOST>:3010`, gated by Cloudflare
+Access at the zone level. Copy `deploy/nginx-dev.penumbra.fi.conf.example`,
+fill in the backend include, add cert paths. Certbot for `dev.penumbra.fi`
+(or reuse the wildcard `*.dev.penumbra.fi` cert if the previews section
+is set up).
+
+### Workflow triggers
+
+- `workflow_dispatch` — "Use workflow from" chooses the build ref.
+  Deploy checkout pins to `refs/heads/main`.
+- `pull_request_target` (non-draft, non-fork, opened / synchronize /
+  reopened / ready_for_review) — build checks out the PR head, deploy
+  checkout is the PR base ref. Same `pull_request_target` posture as
+  `preview-veil.yml`: the workflow file itself is always the merged
+  version, composite actions in the build job come from
+  `penumbrafi/web@main` (remote ref), and every setup step is in
+  `save-cache: 'false'` restore-only mode so it cannot poison
+  deploy-veil.yml's main-scope cache.
+
+Reuses `production` secrets (`DEPLOY_SSH_KEY`, `DEPLOY_CT`,
+`DEPLOY_HOST`, `DEPLOY_KNOWN_HOSTS`) plus the repository-scoped
+`NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`. No new environment or secrets
+required.
+
+### One-time host setup (workload container)
+
+```sh
+# release layout + port pin (matches blue/green's structure)
+install -d -o web -g web /opt/penumbra-veil/dev/releases
+printf 'PORT=3010\n' > /opt/penumbra-veil/dev/env.port
+chmod 644 /opt/penumbra-veil/dev/env.port
+
+# runtime env — copy blue/green's values, kept in sync with them so
+# the shared NEXT_SERVER_ACTIONS_ENCRYPTION_KEY still decrypts closures.
+install -o root -g root -m 600 /opt/penumbra-veil/blue/.env.production.local \
+                               /opt/penumbra-veil/dev/.env.production.local
+# .env.production similarly, if one exists
+
+# activate the dev instance from the same template unit blue/green use
+systemctl enable --now penumbra-veil@dev.service
+
+# add `dev` to the deploy account's restart list (append, do NOT replace
+# the blue/green entries)
+cat > /etc/sudoers.d/penumbra-deploy-veil <<'SUDO'
+web ALL=(root) NOPASSWD: /usr/bin/systemctl restart penumbra-veil@blue.service, \
+                         /usr/bin/systemctl restart penumbra-veil@green.service, \
+                         /usr/bin/systemctl restart penumbra-veil@dev.service
+SUDO
+chmod 440 /etc/sudoers.d/penumbra-deploy-veil
+visudo -c
+```
+
+### One-time nginx setup (front-proxy container)
+
+```sh
+# NEVER commit the internal upstream address. Write it to a root-owned
+# include the vhost expects to exist.
+cat > /etc/nginx/veil-dev-backend.conf <<'NGX'
+set $veil_dev_upstream <WORKLOAD_HOST_INTERNAL_IP>:3010;
+NGX
+chmod 644 /etc/nginx/veil-dev-backend.conf
+
+install -o root -g root -m 0644 \
+        deploy/nginx-dev.penumbra.fi.conf.example \
+        /etc/nginx/sites-available/dev.penumbra.fi
+ln -sfn /etc/nginx/sites-available/dev.penumbra.fi /etc/nginx/sites-enabled/
+
+# TLS: reuse the wildcard *.dev.penumbra.fi if the previews section is
+# set up, or issue a specific-name cert:
+#   certbot certonly --dns-cloudflare \
+#     --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini \
+#     -d dev.penumbra.fi
+
+nginx -t && systemctl reload nginx
+```
+
+### DNS + Cloudflare Access
+
+Add an A/AAAA record for `dev.penumbra.fi` on the Cloudflare zone,
+proxied. In Cloudflare Zero Trust, add an Access application for
+`dev.penumbra.fi` (or the whole `*.dev.penumbra.fi` zone if you want
+this + previews to share a policy) with a maintainers-only Access
+policy. Same "edge Access + origin CF-IP allowlist" pattern
+`staging.penumbra.fi` already uses — the vhost example includes
+`/etc/nginx/cloudflare-allowlist.conf` for exactly that.
+
+### Coexistence with future per-PR previews
+
+The previews section reserves `<pr>.dev.penumbra.fi` as a wildcard, so
+this vhost (specific `dev.penumbra.fi`) and the wildcard can coexist
+under the same DNS zone. Nginx matches specific `server_name`s before
+falling through to the wildcard vhost.
 
 ## Per-PR previews (`<pr>.dev.penumbra.fi`)
 
@@ -632,7 +804,9 @@ Applied by hand, already live in production:
 * The front-proxy vhosts for `penumbra.fi` and `dex.rotko.net`, routed through
   `veil-upstream.conf`.
 * The staging `veil-upstream.conf` include mechanics (i.e. `veil_staging`
-  always points at the standby colour).
+  always points at the standby colour) and the `staging.penumbra.fi` vhost
+  behind it (Cloudflare-proxied, origin reuses the `penumbra.fi` cert,
+  `noindex`).
 * The forwarding-only `deploy-jump` account, its per-repo keypair and
   `permitopen`/`PermitOpen` confinement.
 * The `production` environment secrets (`DEPLOY_SSH_KEY`, `DEPLOY_HOST`,
@@ -659,11 +833,21 @@ It is self-clearing in effect: the first CI deploy to a colour ships
 `server.js`, after which the drop-in only ever takes the `node server.js`
 branch. Delete it once both colours have had a CI deploy.
 
+The legacy non-templated `penumbra-veil.service` — the shared hand-built
+checkout at `/opt/penumbra-web`, started with `npx next start -p 3001` — has
+been retired: unit file and drop-in directory renamed to `.disabled`, unit
+stopped, so `systemctl start penumbra-veil.service` no longer resolves. It had
+to go because its `20-free-port.conf` `ExecStartPre` kills whatever holds
+:3001: while it ran, every `penumbra-veil@blue` start died with `EADDRINUSE`
+(4829 restarts) and :3001 kept serving a build from hours earlier.
+
 Not yet applied — required before `gh workflow run deploy-veil.yml` will work
 end-to-end:
 
 * node-status host setup (release dir exists nowhere, no vhost).
+* Everything under the dev-slot section: `/opt/penumbra-veil/dev/`,
+  `env.port=3010`, `.env.production.local` copy, `penumbra-veil@dev`
+  systemd enable, sudoers extension, `dev.penumbra.fi` DNS + Cloudflare
+  Access + vhost + TLS cert.
 * Everything under the per-PR previews section (dedicated user, wildcard
   vhost, wildcard cert, Cloudflare Access, sysctl reservation).
-* `staging.penumbra.fi` DNS + certificate (the vhost example and the
-  upstream mechanics are ready; the name isn't resolvable yet).
