@@ -16,12 +16,13 @@ import { pnum } from '@penumbra-zone/types/pnum';
 import { connectionStore } from '@/shared/model/connection';
 import { useGetMetadata } from '@/shared/api/assets';
 import { bech32mPositionId } from '@penumbra-zone/bech32m/plpid';
-import { useMarketPrice } from '@/pages/trade/model/useMarketPrice';
+import { useMarketPrice, usePortfolioMarketPrices } from '@/pages/trade/model/useMarketPrice';
+import { usePathSymbols } from '@/pages/trade/model/use-path';
 import { usePositions } from '../api/use-positions';
 import { usePositionsStats } from '../api/use-positions-stats';
 import { stateToString } from '../model/state-to-string';
 import { getDisplayPositions } from '../model/get-display-positions';
-import { DisplayPosition } from '../model/types';
+import { DisplayPosition, ExecutedPosition } from '../model/types';
 import { PositionsCurrentValue } from './positions-current-value';
 import { PositionsFeesCell, PositionsAprCell, PositionsPnlCell } from './positions-stats-cells';
 import { NotConnectedNotice } from './not-connected-notice';
@@ -114,12 +115,13 @@ SortableTableHeader.displayName = 'SortableTableHeader';
 export const PositionsTable = observer(({ base, quote, stateFilter }: PositionsTableProps) => {
   const { connected, subaccount } = connectionStore;
   const getMetadata = useGetMetadata();
-  // Live mid for the pair this table is scoped to. Used to render a
-  // 'distance from mid' subtitle under each position's price so the
-  // trader can see which rungs are at-the-money vs. deep in the book
-  // without reading the chart. useMarketPrice key reads come from
-  // the route, so this returns mid for the same pair the table renders.
-  const { marketPrice } = useMarketPrice();
+  // Mid for the pair the table is scoped to. On /trade the route supplies a
+  // pair and this value covers every row unchanged; on a screen with no
+  // route pair (e.g. /portfolio) it is undefined and we resolve each row's
+  // own pair book below.
+  const { baseSymbol: routeBaseSymbol, quoteSymbol: routeQuoteSymbol } = usePathSymbols();
+  const isRoutePair = Boolean(routeBaseSymbol) && Boolean(routeQuoteSymbol);
+  const { marketPrice: routeMarketPrice } = useMarketPrice();
 
   const { data, isLoading, isRefetching, isFetchingNextPage, fetchNextPage, error } = usePositions(
     subaccount,
@@ -152,6 +154,29 @@ export const PositionsTable = observer(({ base, quote, stateFilter }: PositionsT
     return map;
   }, [statsResponse]);
 
+  // Distinct canonical (asset1, asset2) pairs of the rows on screen, so each
+  // row's Fees/APR/PNL/Current Value can be valued at its own pair's mid.
+  // Skipped on /trade, where the single route mid already wins.
+  const marketPairs = useMemo(() => {
+    if (isRoutePair) {
+      return [];
+    }
+    const seen = new Map<string, { base: string; quote: string }>();
+    for (const page of data?.pages ?? []) {
+      for (const position of page.values()) {
+        const { phi } = position as ExecutedPosition;
+        const base = getMetadata(phi.pair.asset1)?.symbol;
+        const quote = getMetadata(phi.pair.asset2)?.symbol;
+        if (base && quote) {
+          seen.set(`${base}|${quote}`, { base, quote });
+        }
+      }
+    }
+    return [...seen.values()];
+  }, [data?.pages, getMetadata, isRoutePair]);
+  const midByPair = usePortfolioMarketPrices(marketPairs);
+  const pairMarketPrice = isRoutePair ? undefined : midByPair;
+
   // getDisplayPositions walks every fetched page and resolves metadata per
   // asset on each entry — non-trivial on a wallet with many LP positions.
   // Memoize so it only re-runs when the underlying inputs actually change.
@@ -164,9 +189,18 @@ export const PositionsTable = observer(({ base, quote, stateFilter }: PositionsT
         asset2Filter: quote,
         getMetadata,
         statsById,
-        marketPrice,
+        marketPrice: routeMarketPrice,
+        marketPriceByPair: pairMarketPrice,
       }),
-    [data?.pages, base, quote, getMetadata, statsById, marketPrice],
+    [
+      data?.pages,
+      base,
+      quote,
+      getMetadata,
+      statsById,
+      routeMarketPrice,
+      pairMarketPrice,
+    ],
   );
 
   const { observerEl } = useObserver(isLoading || isRefetching || isFetchingNextPage, () => {
@@ -279,6 +313,10 @@ export const PositionsTable = observer(({ base, quote, stateFilter }: PositionsT
                   index === sortedPositions.length - 1 ||
                   (position.orders.length > 1 && orderIndex === position.orders.length - 1);
                 const variant = isLastCell ? 'lastCell' : 'cell';
+                // Quote-per-order-base mid for this row (route mid on /trade,
+                // this row's own pair book on /portfolio). Undefined when the
+                // pair has no book — cells then render a Dash.
+                const rowMarketPrice = position.marketPrice;
 
                 return (
                   <div key={orderIndex} className='col-span-11 grid grid-cols-subgrid [&>div]:h-10'>
@@ -348,12 +386,12 @@ export const PositionsTable = observer(({ base, quote, stateFilter }: PositionsT
                                 from mid' just means dormant, not broken — the
                                 colour is informational, not alarming. */}
                             {position.isOpened &&
-                              marketPrice != null &&
-                              marketPrice > 0 &&
+                              rowMarketPrice != null &&
+                              rowMarketPrice > 0 &&
                               (() => {
                                 const eff = pnum(order.effectivePrice).toNumber();
                                 if (!Number.isFinite(eff) || eff <= 0) return null;
-                                const deltaPct = ((eff - marketPrice) / marketPrice) * 100;
+                                const deltaPct = ((eff - rowMarketPrice) / rowMarketPrice) * 100;
                                 const abs = Math.abs(deltaPct);
                                 const sign = deltaPct > 0 ? '+' : '';
                                 const tone =
@@ -397,7 +435,7 @@ export const PositionsTable = observer(({ base, quote, stateFilter }: PositionsT
                       {fullyWithdrawn(position.position) ? (
                         <Dash />
                       ) : (
-                        <PositionsCurrentValue order={order} marketPrice={marketPrice} />
+                        <PositionsCurrentValue order={order} marketPrice={rowMarketPrice} />
                       )}
                     </TableCell>
 
