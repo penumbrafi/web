@@ -238,7 +238,6 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
       );
       await editPosition({
         oldPositionId: rung.positionId,
-        oldPosition: rung.position,
         newPosition: built.position,
         shape: LiquidityDistributionShape.CUSTOM,
       });

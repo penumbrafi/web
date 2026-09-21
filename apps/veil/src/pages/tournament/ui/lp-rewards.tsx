@@ -21,6 +21,7 @@ import {
 import { toValueView } from '@/shared/utils/value-view';
 import { getValueViewLength } from '@/shared/utils/get-max-padstart';
 import { withdrawPositions } from '@/entities/position/api/withdraw-positions';
+import { inFlightPositions } from '@/entities/position/api/position-actions-lock';
 import { connectionStore } from '@/shared/model/connection';
 import { LoadingRow } from '@/shared/ui/loading-row';
 import { useStakingTokenMetadata } from '@/shared/api/registry';
@@ -31,8 +32,9 @@ interface LpRewardRowData extends LpReward {
   rewardView?: ValueView;
 }
 
-function LpRewardRow({ lpReward, padStart }: { lpReward: LpRewardRowData; padStart?: number }) {
-  const id = bech32mPositionId(lpReward.positionId);
+const LpRewardRow = observer(
+  ({ lpReward, padStart }: { lpReward: LpRewardRowData; padStart?: number }) => {
+    const id = bech32mPositionId(lpReward.positionId);
 
   return (
     <Link
@@ -58,7 +60,7 @@ function LpRewardRow({ lpReward, padStart }: { lpReward: LpRewardRowData; padSta
             <div>
               <Button
                 priority='primary'
-                disabled={!lpReward.isWithdrawable}
+                disabled={!lpReward.isWithdrawable || inFlightPositions.has(id)}
                 onClick={
                   lpReward.isWithdrawable
                     ? e => {
@@ -86,7 +88,8 @@ function LpRewardRow({ lpReward, padStart }: { lpReward: LpRewardRowData; padSta
       </TableCell>
     </Link>
   );
-}
+  },
+);
 
 export const LpRewards = observer(() => {
   const { subaccount } = connectionStore;

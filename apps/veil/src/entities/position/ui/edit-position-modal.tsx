@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { observer } from 'mobx-react-lite';
 import {
   Position,
   PositionId,
@@ -9,12 +10,14 @@ import { Button } from '@penumbra-zone/ui/Button';
 import { Text } from '@penumbra-zone/ui/Text';
 import { pnum } from '@penumbra-zone/types/pnum';
 import { getDisplayDenomExponent } from '@penumbra-zone/getters/metadata';
+import { bech32mPositionId } from '@penumbra-zone/bech32m/plpid';
 import { useGetMetadata } from '@/shared/api/assets';
 import { OrderInput } from '@/pages/trade/ui/order-form/order-input';
 import { InfoRow } from '@/pages/trade/ui/order-form/info-row';
 import { LiquidityDistributionShape, planToPosition } from '@/shared/math/position';
 import { parseNumber } from '@/shared/utils/num';
 import { editPosition } from '../api/edit-position';
+import { inFlightPositions } from '../api/position-actions-lock';
 
 interface EditPositionModalProps {
   id: PositionId;
@@ -87,9 +90,11 @@ const buildPrefill = (
   };
 };
 
-export const EditPositionModal = ({ id, position, isOpen, onClose }: EditPositionModalProps) => {
-  const getMetadata = useGetMetadata();
-  const prefill = useMemo(() => buildPrefill(position, getMetadata), [position, getMetadata]);
+export const EditPositionModal = observer(
+  ({ id, position, isOpen, onClose }: EditPositionModalProps) => {
+    const getMetadata = useGetMetadata();
+    const prefill = useMemo(() => buildPrefill(position, getMetadata), [position, getMetadata]);
+    const busy = inFlightPositions.has(bech32mPositionId(id));
 
   const [price, setPrice] = useState(prefill?.price ?? '');
   const [feePercent, setFeePercent] = useState(prefill?.feePercent ?? '');
@@ -109,7 +114,7 @@ export const EditPositionModal = ({ id, position, isOpen, onClose }: EditPositio
   const feeValid = feeNum !== undefined && feeNum >= 0 && feeNum < 100;
   const reservesValid = baseNum + quoteNum > 0;
   const canApply =
-    !submitting && priceNum !== undefined && priceNum > 0 && feeValid && reservesValid;
+    !submitting && !busy && priceNum !== undefined && priceNum > 0 && feeValid && reservesValid;
 
   const onApply = async () => {
     if (priceNum === undefined || feeNum === undefined) {
@@ -128,13 +133,16 @@ export const EditPositionModal = ({ id, position, isOpen, onClose }: EditPositio
         },
         LiquidityDistributionShape.FLAT,
       );
-      await editPosition({
+      const result = await editPosition({
         oldPositionId: id,
-        oldPosition: position,
         newPosition,
         shape: LiquidityDistributionShape.FLAT,
       });
-      onClose();
+      // Close the modal only on success — leave it open on cancelled/busy/error
+      // so the user can adjust and retry without re-opening.
+      if (result.status === 'ok') {
+        onClose();
+      }
     } finally {
       setSubmitting(false);
     }
@@ -201,4 +209,5 @@ export const EditPositionModal = ({ id, position, isOpen, onClose }: EditPositio
       </Dialog.Content>
     </Dialog>
   );
-};
+  },
+);
