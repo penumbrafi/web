@@ -233,6 +233,28 @@ jobs:
             systemctl status "penumbra-veil@${TARGET}.service" --no-pager >&2 || true
             exit 1
           fi
+          # A 200 on the port is not proof the UNIT came up. A leftover
+          # process from an earlier deploy can hold the port and answer
+          # for it while every restart of the unit dies with EADDRINUSE.
+          # That is not hypothetical: a transitional `npx next start`
+          # squatted :3001 for thirteen hours on 2026-09-20 and this
+          # step's chunk check passed against the bytes it served.
+          # Require the unit to be running and its main process to be
+          # executing from the release linked above. (The deploy account
+          # is the same uid as `User=web`, so /proc is readable; with
+          # the legacy drop-in, `sh -c` `exec`s node, so MainPID is the
+          # server itself either way.)
+          mainpid=$(systemctl show "penumbra-veil@${TARGET}.service" --value -p MainPID)
+          live_cwd=$(readlink "/proc/${mainpid}/cwd" 2>/dev/null || true)
+          case "$live_cwd" in
+            "${APP_DIR}/${TARGET}/releases/${SHA}/"*) ;;
+            *)
+              echo "unit is not running this release: MainPID=${mainpid:-<none>} cwd=${live_cwd:-<unreadable>}" >&2
+              echo "expected a process running under ${APP_DIR}/${TARGET}/releases/${SHA}/" >&2
+              systemctl status "penumbra-veil@${TARGET}.service" --no-pager >&2 || true
+              exit 1
+              ;;
+          esac
           # Content check: a 200 alone is not proof this is the NEW
           # build — a stale process still bound to the port, or a
           # release symlink that didn't flip, both return 200 with old
@@ -250,17 +272,30 @@ jobs:
             echo "could not fetch served HTML" >&2
             exit 1
           }
-          # `grep -m1` stops at the first match itself — safer than
-          # piping into `head -n1`, which closes the pipe early and
-          # SIGPIPEs `grep` back under `set -o pipefail` (exit 141).
-          served_chunk_path=$(printf '%s' "$html" | grep -oE -m1 '/_next/static/chunks/[a-z0-9_-]+\.js' || true)
-          served_chunk="${served_chunk_path##*/}"
-          if [ -z "$served_chunk" ]; then
+          # EVERY chunk the served HTML references has to exist in this
+          # release. Checking only the first match is not enough: chunk
+          # names are content-hashed, so two builds of nearby commits
+          # share most of them and a single-chunk check passes while the
+          # process serves a different build — it did exactly that on
+          # 2026-09-20 (20 of the 28 served chunks were the old tree's).
+          # `grep -o` without `head` keeps the pipe open, avoiding the
+          # SIGPIPE that `head -n1` caused under `set -o pipefail`.
+          served_chunks=$(printf '%s' "$html" | grep -oE '/_next/static/chunks/[a-z0-9_-]+\.js' | sort -u || true)
+          if [ -z "$served_chunks" ]; then
             echo "served HTML has no chunk references — cannot verify build freshness" >&2
             exit 1
           fi
-          if [ ! -f "$release_chunks/$served_chunk" ]; then
-            echo "STALE BUILD: served chunk $served_chunk is NOT in this release's chunk dir" >&2
+          total=0
+          missing=0
+          for chunk in $served_chunks; do
+            total=$((total + 1))
+            if [ ! -f "$release_chunks/${chunk##*/}" ]; then
+              echo "STALE BUILD: served chunk ${chunk##*/} is NOT in this release's chunk dir" >&2
+              missing=$((missing + 1))
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "${missing} of ${total} served chunks are missing from this release" >&2
             echo "systemd may still be running the previous process, or the symlink flip failed." >&2
             echo "current -> $(readlink /opt/penumbra-veil/${TARGET}/current)" >&2
             echo "expected SHA: $SHA" >&2
@@ -269,7 +304,7 @@ jobs:
               -p FragmentPath >&2 || true
             exit 1
           fi
-          echo "verified: served chunk $served_chunk is in this release" >&2
+          echo "verified: all ${total} served chunks are in this release" >&2
           exit 0
           REMOTE
 
