@@ -15,8 +15,9 @@ export interface ChartPrefs {
   depth: boolean;
   midPrice: boolean;
   ownPositions: boolean;
-  // wired up in subsequent passes
+  /** Dots at each of the user's own swap fills on the current pair. */
   ownTrades: boolean;
+  // wired up in subsequent passes
   openOrders: boolean;
   /**
    * Server-side time-axis gap-fill.
