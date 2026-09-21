@@ -3,6 +3,7 @@ import { AssetIcon } from '@penumbra-zone/ui/AssetIcon';
 import { Dialog } from '@penumbra-zone/ui/Dialog';
 import { Text } from '@penumbra-zone/ui/Text';
 import { Pair } from '@/features/star-pair';
+import { BridgeStatusBadge } from '@/shared/ui/bridge-status-badge';
 
 export interface TriggerProps {
   onClick: VoidFunction;
@@ -28,6 +29,8 @@ export const Trigger = ({ onClick, pair }: TriggerProps) => {
         <Text body>
           {pair.base.symbol}/{pair.quote.symbol}
         </Text>
+
+        <BridgeStatusBadge assets={[pair.base, pair.quote]} />
 
         {/* Discoverable shortcut hint, same idiom Slack / Linear / GitHub
             use. Hidden on small screens so it doesn't crowd the pair

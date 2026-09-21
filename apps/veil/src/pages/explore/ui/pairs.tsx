@@ -10,7 +10,9 @@ import type { SummaryWithPrices } from '@/shared/api/server/summary';
 import { useDebounce } from '@/shared/utils/use-debounce';
 import { useGetMetadata } from '@/shared/api/assets';
 import { deserialize, Serialized } from '@/shared/utils/serializer';
-import { isPairHealthy } from '@/shared/config/featured-pairs';
+import { isPairMarked } from '@/shared/config/bridge-health';
+import { usePausedChannels } from '@/shared/api/ibc-bridge';
+import type { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 
 interface ExplorePairsProps {
   summaries: Serialized<SummaryWithPrices[]>;
@@ -25,27 +27,31 @@ const volumeBigInt = (s: SummaryWithPrices): bigint => {
 
 export const ExplorePairs = ({ summaries }: ExplorePairsProps) => {
   const getMetadata = useGetMetadata();
+  const pausedChannels = usePausedChannels();
   const augmentedSummaries = useMemo(() => {
     const deserialized = deserialize<SummaryWithPrices[]>(summaries);
-    const out: [SummaryWithPrices, string, string][] = deserialized.map(x => [
-      x,
-      getMetadata(x.start)?.symbol.toUpperCase() ?? '',
-      getMetadata(x.end)?.symbol.toUpperCase() ?? '',
-    ]);
-    // Healthy (settleable) pairs first, then by 24h trading volume desc within
-    // each group. Keeps UM/USDC at the top and sinks bridge-paused markets.
+    const out: [SummaryWithPrices, Metadata | undefined, Metadata | undefined][] = deserialized.map(
+      x => [x, getMetadata(x.start), getMetadata(x.end)],
+    );
+    // Unmarked (settleable) pairs first, then by 24h trading volume desc within
+    // each group. "Unmarked" means a working path in and out — today that is
+    // the Injective-routed markets; markets on expired channels and Noble's
+    // sunsetting USDC sink below them.
     out.sort((a, b) => {
-      const ah = isPairHealthy(a[1], a[2]);
-      const bh = isPairHealthy(b[1], b[2]);
-      if (ah !== bh) {
-        return ah ? -1 : 1;
+      const am = isPairMarked(a[1], a[2], pausedChannels);
+      const bm = isPairMarked(b[1], b[2], pausedChannels);
+      if (am !== bm) {
+        return am ? 1 : -1;
       }
       const av = volumeBigInt(a[0]);
       const bv = volumeBigInt(b[0]);
-      return av > bv ? -1 : av < bv ? 1 : 0;
+      if (av === bv) {
+        return 0;
+      }
+      return av > bv ? -1 : 1;
     });
     return out;
-  }, [summaries, getMetadata]);
+  }, [summaries, getMetadata, pausedChannels]);
   const [rawSearch, setSearch] = useState('');
   const search = useDebounce(rawSearch, 200);
   const filteredSummaries = useMemo(() => {
@@ -54,8 +60,11 @@ export const ExplorePairs = ({ summaries }: ExplorePairsProps) => {
     }
     const target = search.toUpperCase();
     return augmentedSummaries
-      .filter(x => x[1].includes(target) || x[2].includes(target))
-      .map(x => x[0]);
+      .filter(([, base, quote]) =>
+        (base?.symbol.toUpperCase() ?? '').includes(target) ||
+        (quote?.symbol.toUpperCase() ?? '').includes(target),
+      )
+      .map(([summary]) => summary);
   }, [augmentedSummaries, search]);
 
   return (

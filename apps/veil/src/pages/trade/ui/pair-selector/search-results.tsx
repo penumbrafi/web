@@ -17,6 +17,7 @@ import {
   isBalancesResponse,
   filterAssets as filterUnswappableAssets,
 } from '@penumbra-zone/ui/AssetSelector';
+import { BridgeStatusBadge } from '@/shared/ui/bridge-status-badge';
 import { useAssets } from '@/shared/api/assets';
 import { useBalances } from '@/shared/api/balances';
 import { connectionStore } from '@/shared/model/connection';
@@ -113,8 +114,13 @@ export const SearchResults = observer(({ onSelect, search }: SearchResultsProps)
                   value={`${asset.symbol}-${asset.display}`}
                   startAdornment={<AssetIcon metadata={asset} size='lg' />}
                   title={
-                    <div className={asset.name ? '' : 'flex h-10 items-center'}>
+                    <div
+                      className={
+                        asset.name ? 'flex items-center gap-2' : 'flex h-10 items-center gap-2'
+                      }
+                    >
                       <Text color='text.primary'>{asset.symbol}</Text>
+                      <BridgeStatusBadge assets={[asset]} />
                     </div>
                   }
                   description={
@@ -165,8 +171,13 @@ export const SearchResults = observer(({ onSelect, search }: SearchResultsProps)
                     )
                   }
                   title={
-                    <div className={asset.name ? '' : 'flex h-10 items-center'}>
+                    <div
+                      className={
+                        asset.name ? 'flex items-center gap-2' : 'flex h-10 items-center gap-2'
+                      }
+                    >
                       <Text color='text.primary'>{asset.symbol}</Text>
+                      <BridgeStatusBadge assets={[asset]} />
                     </div>
                   }
                   description={
