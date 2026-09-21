@@ -5,7 +5,7 @@ import { shortify } from '@penumbra-zone/types/shortify';
 import { getFormattedAmtFromValueView } from '@penumbra-zone/types/value-view';
 import { Value, ValueView } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { DirectedTradingPair } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
-import { Registry } from '@penumbra-labs/registry';
+import { Registry } from '@penumbrafi/registry';
 import { isNumeraireSymbol, isStablecoinSymbol } from '@/shared/utils/is-symbol';
 import type { Stats } from '../server/stats';
 import { toValueView } from '@/shared/utils/value-view';

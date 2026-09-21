@@ -3,7 +3,7 @@
 import { pindexerDb } from '@/shared/database/client';
 import { serialize, Serialized } from '@/shared/utils/serializer';
 import { AssetId, Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { ChainRegistryClient } from '@penumbra-labs/registry';
+import { ChainRegistryClient } from '@penumbrafi/registry';
 import { uint8ArrayToHex } from '@penumbra-zone/types/hex';
 
 export interface ShieldingDeposit {

@@ -1,6 +1,6 @@
 'use server';
 
-import { ChainRegistryClient } from '@penumbra-labs/registry';
+import { ChainRegistryClient } from '@penumbrafi/registry';
 import { pindexerDb } from '@/shared/database/client';
 import { serialize, Serialized } from '@/shared/utils/serializer';
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';

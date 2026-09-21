@@ -1,4 +1,4 @@
-import { ChainRegistryClient, Registry } from '@penumbra-labs/registry';
+import { ChainRegistryClient, Registry } from '@penumbrafi/registry';
 import { AssetId } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { uint8ArrayToBase64 } from '@penumbra-zone/types/base64';
 

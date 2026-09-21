@@ -8,7 +8,7 @@ import { AddressView } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys_
 import { produce } from 'immer';
 import { BalancesResponse } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
 import { addressFromBech32m } from '@penumbra-zone/bech32m/penumbra';
-import { Chain } from '@penumbra-labs/registry';
+import { Chain } from '@penumbrafi/registry';
 import { currentTimePlusTwoDaysRounded, ibcValidationErrors } from './ibc-out';
 
 describe('IBC Slice', () => {

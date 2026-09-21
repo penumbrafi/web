@@ -6,7 +6,7 @@ import {
 } from '@/features/tournament-earnings-canvas';
 import { registerFonts } from '@/shared/ui/canvas-toolkit';
 import { getDisplayDenomExponent } from '@penumbra-zone/getters/metadata';
-import { ChainRegistryClient } from '@penumbra-labs/registry';
+import { ChainRegistryClient } from '@penumbrafi/registry';
 
 export async function GET(req: NextRequest) {
   try {

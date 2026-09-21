@@ -11,7 +11,7 @@ import { writeFile } from 'fs/promises';
 import { setTimeout as delay } from 'timers/promises';
 import { argv, exit } from 'process';
 import { StargateClient } from '@cosmjs/stargate';
-import { ChainRegistryClient } from '@penumbra-labs/registry';
+import { ChainRegistryClient } from '@penumbrafi/registry';
 import chainsData from 'chain-registry';
 
 interface ChainEntry {

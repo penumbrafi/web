@@ -6,7 +6,7 @@ import { augmentToAsset, toDisplayAmount } from './asset-utils';
 import { Asset } from '@chain-registry/types';
 import { useRegistry } from '../../../fetchers/registry.ts';
 import { sha256HashStr } from '@penumbra-zone/crypto-web/sha256';
-import { Chain } from '@penumbra-labs/registry';
+import { Chain } from '@penumbrafi/registry';
 import { Coin, StargateClient } from '@cosmjs/stargate';
 
 export const useChainConnector = () => {
