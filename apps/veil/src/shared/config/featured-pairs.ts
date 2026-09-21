@@ -9,15 +9,16 @@
  */
 
 /**
- * The pair a fresh visitor lands on at /trade (no last-viewed cookie).
- * UM/USDC is where the actual book depth lives today (Noble-bridged USDC,
- * live long before the Injective channel came up). New users see a
- * populated market instead of an empty one — the /deposit picker
- * separately guides them to bring USDC in via Injective going forward.
+ * The pair a fresh visitor lands on at /trade (no last-viewed cookie),
+ * and the destination of the "Start trading" / "Trade" cards on the
+ * landing page. Kept in one place so a future flip needs one edit.
  *
- * It is a *marked* pair: Noble USDC carries the "Sunsetting" badge, and the
- * pair lists now sort unmarked markets above it. It stays the default because
- * a newcomer needs depth more than a clean badge — flip this to
- * `{ base: 'UM', quote: 'USDC.inj' }` if that trade-off ever inverts.
+ * UM/USDC.inj as of 2026-09: Circle is actively winding down Noble
+ * USDC (see `sunsetting-assets`), so pointing newcomers there would
+ * silently teach them to LP a sunsetting asset. UM/USDC.inj is the
+ * Injective-bridged replacement and where new depth is expected to
+ * consolidate; the /deposit picker already guides users to bring
+ * USDC in via Injective. `/api/ibc-bridge` will mark the pair if
+ * that channel ever goes dark.
  */
-export const DEFAULT_PAIR = { base: 'UM', quote: 'USDC' } as const;
+export const DEFAULT_PAIR = { base: 'UM', quote: 'USDC.inj' } as const;
