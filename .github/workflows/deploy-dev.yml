@@ -1,0 +1,324 @@
+# Build and deploy Veil to the shared dev slot (https://dev.penumbra.fi).
+#
+# Purpose: give the team a single always-fresh WIP URL. The idea is
+# staging.penumbra.fi becomes actual staging (main + pre-prod, gated by
+# workflow_dispatch), while dev.penumbra.fi is the last-write-wins
+# scratch slot — whatever non-draft PR was most recently pushed, or
+# whatever branch a maintainer explicitly dispatched.
+#
+# Same workload container (CT1199) as prod's blue/green, its own port
+# (3010), its own release tree at /opt/penumbra-veil/dev, its own
+# systemd instance `penumbra-veil@dev.service`. Front-proxy points at
+# :3010 permanently — no swap, no promote.
+#
+# Two triggers:
+#
+#  - `workflow_dispatch`: pick a branch in the "Use workflow from" UI.
+#    `github.ref` is that branch for the build job. Handy for shipping
+#    a WIP that isn't in a PR yet.
+#
+#  - `pull_request_target` (non-draft only): every push to a non-draft
+#    PR redeploys. Draft PRs are skipped so a WIP that isn't ready for
+#    a look doesn't overwrite the slot; when the trader marks the PR
+#    Ready, the ready_for_review event fires the deploy. Fork PRs skip
+#    every job (they cannot reach `secrets` anyway).
+#
+# Security posture — same as preview-veil.yml:
+#
+#  - `pull_request_target` runs THIS workflow file from the base ref
+#    (main), so a PR that edits deploy-dev.yml or any composite action
+#    cannot influence what runs alongside secrets.
+#  - The `build` job explicitly checks out the PR head (or the
+#    dispatched branch) with NO secrets in scope and
+#    `persist-credentials: false`.
+#  - Composite actions in the build job are pinned to
+#    `penumbrafi/web@main` (remote ref), not `./.github/actions/...`
+#    — the local path would come from the checked-out PR-head tree.
+#  - The `deploy` job checks out `refs/heads/main` (dispatch) or the
+#    PR base ref (pull_request_target) and calls `.github/actions/
+#    ssh-deploy` from that trusted tree. Sudoers on the workload
+#    container scopes the deploy account to
+#    `systemctl restart penumbra-veil@dev.service` and nothing else.
+#
+# What a compromised branch CAN do: produce a server.js that runs
+# under `web` on the dev slot. That process cannot read prod-colour
+# env files (root:root 0600), cannot reach the front-proxy container
+# (no ssh key), cannot broadcast signed txs (no keys), and its
+# outward-facing hostname is behind Cloudflare Access. Damage stays
+# in the dev slot.
+name: deploy veil (dev slot)
+
+on:
+  workflow_dispatch: {}
+  pull_request_target:
+    # ready_for_review + converted_to_draft so the draft gate fires at
+    # the transitions the trader wants: draft -> Ready → deploy fires,
+    # Ready -> Draft → we deliberately DON'T tear anything down (the
+    # dev slot is shared / last-write-wins, not per-PR). Close is
+    # likewise a no-op — nothing to remove; the next non-draft push
+    # from any PR overwrites the slot.
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    branches: [main]
+
+# One in-flight run per event source. A rapid succession of pushes to
+# the same PR cancels the previous run so we do not race two artifacts
+# into the same release directory. Dispatch runs share a group so a
+# manual push blocks a concurrent PR-triggered one.
+concurrency:
+  group: deploy-veil-dev
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  guard:
+    name: guard
+    # Skip fork PRs (cannot reach `secrets`), draft PRs (opt-in via
+    # Ready-for-review), and closed PRs (dev slot is last-write-wins,
+    # no per-PR teardown). Manual dispatch always passes.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.draft == false)
+    runs-on: ubuntu-24.04
+    outputs:
+      # For pull_request_target, the ref to actually build (PR head).
+      # For workflow_dispatch, github.sha == github.ref's tip.
+      build_ref: ${{ steps.pick.outputs.build_ref }}
+      # For pull_request_target, the base ref to check out in deploy
+      # (main-ish, whatever was merged). For workflow_dispatch, main.
+      deploy_ref: ${{ steps.pick.outputs.deploy_ref }}
+      # For BUILD_INFO and the summary link.
+      display_ref: ${{ steps.pick.outputs.display_ref }}
+      display_sha: ${{ steps.pick.outputs.display_sha }}
+    steps:
+      - id: pick
+        env:
+          EVENT: ${{ github.event_name }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          MANUAL_REF: ${{ github.ref }}
+          MANUAL_REF_NAME: ${{ github.ref_name }}
+          MANUAL_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = 'workflow_dispatch' ]; then
+            echo "build_ref=$MANUAL_REF"                >> "$GITHUB_OUTPUT"
+            echo "deploy_ref=refs/heads/main"           >> "$GITHUB_OUTPUT"
+            echo "display_ref=$MANUAL_REF_NAME"         >> "$GITHUB_OUTPUT"
+            echo "display_sha=$MANUAL_SHA"              >> "$GITHUB_OUTPUT"
+          else
+            echo "build_ref=$HEAD_SHA"                  >> "$GITHUB_OUTPUT"
+            echo "deploy_ref=$BASE_SHA"                 >> "$GITHUB_OUTPUT"
+            echo "display_ref=$HEAD_REF"                >> "$GITHUB_OUTPUT"
+            echo "display_sha=$HEAD_SHA"                >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    name: build veil (dev)
+    needs: guard
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.guard.outputs.build_ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Remote-ref composite actions — same rationale as preview-veil.yml.
+      # `save-cache: 'false'` keeps the untrusted build in restore-only
+      # mode so it cannot poison the main-scope cache deploy-veil.yml
+      # reads from.
+      - uses: penumbrafi/web/.github/actions/setup-nix@main
+        with:
+          save-cache: 'false'
+      - uses: penumbrafi/web/.github/actions/setup-turbo@main
+        with:
+          save-cache: 'false'
+
+      - name: build veil
+        env:
+          NEXT_PUBLIC_GRAPHQL_HOST: ${{ vars.NEXT_PUBLIC_GRAPHQL_HOST || 'api.explorer.rotko.net' }}
+          NEXT_PUBLIC_COMETBFT_WS_URL: ${{ vars.NEXT_PUBLIC_COMETBFT_WS_URL || 'wss://penumbra.rotko.net/websocket' }}
+          # The Server Actions encryption key must match runtime for
+          # actions to decrypt. The dev slot carries the same key as
+          # blue/green on the host so we can keep a single shared value.
+          # It is a REPOSITORY secret (not environment-scoped) so this
+          # untrusted-build job can read it — same argument as
+          # deploy-veil.yml.
+          NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: ${{ secrets.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY }}
+        run: nix develop --command pnpm turbo build --filter=penumbra-veil...
+
+      - name: assemble standalone tree
+        env:
+          DISPLAY_SHA: ${{ needs.guard.outputs.display_sha }}
+          DISPLAY_REF: ${{ needs.guard.outputs.display_ref }}
+        run: |
+          set -euo pipefail
+          cd apps/veil
+          test -f .next/standalone/apps/veil/server.js
+          cp -r public .next/standalone/apps/veil/public
+          mkdir -p .next/standalone/apps/veil/.next
+          cp -r .next/static .next/standalone/apps/veil/.next/static
+          find .next/standalone -maxdepth 3 -name '.env*' -print -delete
+          dropped=0
+          while IFS= read -r -d '' node; do
+            if ldd "$node" 2>&1 | grep -Eq 'libc\.musl|/nix/store|not found'; then
+              echo "dropping non-portable native addon (JS/wasm fallback covers it): $node"
+              rm -f "$node"
+              dropped=$((dropped + 1))
+            fi
+          done < <(find .next/standalone -name '*.node' -not -path '*musl*' -print0)
+          echo "dropped $dropped non-portable native addon(s)"
+          if find .next/standalone -name '*.node' -not -path '*musl*' -exec ldd {} + 2>&1 | grep -Eq '/nix/store'; then
+            echo 'a required native module still links against /nix/store after pruning:' >&2
+            exit 1
+          fi
+          cat > .next/standalone/BUILD_INFO <<INFO
+          app=veil-dev
+          sha=$DISPLAY_SHA
+          ref=$DISPLAY_REF
+          run_id=${{ github.run_id }}
+          built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          INFO
+
+      - name: pack artifact
+        env:
+          DISPLAY_SHA: ${{ needs.guard.outputs.display_sha }}
+        run: |
+          set -euo pipefail
+          tar --zstd -C apps/veil/.next/standalone -cf "veil-dev-${DISPLAY_SHA}.tar.zst" .
+          ls -lh "veil-dev-${DISPLAY_SHA}.tar.zst"
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: veil-dev-${{ needs.guard.outputs.display_sha }}
+          path: veil-dev-${{ needs.guard.outputs.display_sha }}.tar.zst
+          retention-days: 14
+          if-no-files-found: error
+
+  deploy:
+    name: deploy veil (dev slot)
+    needs: [guard, build]
+    runs-on: ubuntu-24.04
+    environment: production
+    env:
+      APP_DIR: /opt/penumbra-veil
+      SLOT: dev
+      PORT: 3010
+      SHA: ${{ needs.guard.outputs.display_sha }}
+    steps:
+      # Trusted checkout: main for dispatch, PR base for
+      # pull_request_target. Either way, the `.github/actions/ssh-deploy`
+      # composite the deploy step calls is the maintainer-merged version,
+      # not one the PR head could have rewritten.
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.guard.outputs.deploy_ref }}
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: veil-dev-${{ needs.guard.outputs.display_sha }}
+
+      - name: unpack
+        run: |
+          set -euo pipefail
+          mkdir -p payload
+          tar --zstd -C payload -xf "veil-dev-${SHA}.tar.zst"
+
+      - name: configure ssh
+        uses: ./.github/actions/ssh-deploy
+        with:
+          ssh-key: ${{ secrets.DEPLOY_SSH_KEY }}
+          known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          jump-host: ${{ secrets.DEPLOY_HOST }}
+          target-host: ${{ secrets.DEPLOY_CT }}
+          # No `proxy-host`: dev never calls veil-swap and never reloads
+          # nginx. The front-proxy vhost points at :3010 permanently —
+          # dev deploys only touch the workload container.
+
+      - name: ship release to dev slot
+        run: |
+          set -euo pipefail
+          ssh target "mkdir -p '${APP_DIR}/${SLOT}/releases/${SHA}'"
+          rsync -a --delete -e ssh payload/ "target:${APP_DIR}/${SLOT}/releases/${SHA}/"
+
+      - name: activate on dev slot
+        run: |
+          set -euo pipefail
+          ssh target "APP_DIR='${APP_DIR}' SLOT='${SLOT}' PORT='${PORT}' SHA='${SHA}' bash -s" <<'REMOTE'
+          set -euo pipefail
+          case "$SLOT" in dev) ;; *) echo "bad slot"; exit 64 ;; esac
+          case "$SHA" in ""|*[!0-9a-f]*) echo "bad sha" >&2; exit 64 ;; esac
+          cd "$APP_DIR/$SLOT"
+          ln -sfn "releases/$SHA" current.tmp
+          mv -Tf current.tmp current
+          ls -1dt releases/*/ | tail -n +6 | xargs -r rm -rf
+          sudo -n /usr/bin/systemctl restart "penumbra-veil@${SLOT}.service"
+          for _ in $(seq 1 60); do
+            if curl -fsS -m 2 -o /dev/null "http://127.0.0.1:${PORT}/"; then
+              break
+            fi
+            sleep 2
+          done
+          if ! curl -fsS -m 2 -o /dev/null "http://127.0.0.1:${PORT}/"; then
+            echo "dev slot did not answer within 120s" >&2
+            systemctl status "penumbra-veil@${SLOT}.service" --no-pager >&2 || true
+            exit 1
+          fi
+          mainpid=$(systemctl show "penumbra-veil@${SLOT}.service" --value -p MainPID)
+          live_cwd=$(readlink "/proc/${mainpid}/cwd" 2>/dev/null || true)
+          case "$live_cwd" in
+            "${APP_DIR}/${SLOT}/releases/${SHA}/"*) ;;
+            *)
+              echo "unit is not running this release: MainPID=${mainpid:-<none>} cwd=${live_cwd:-<unreadable>}" >&2
+              systemctl status "penumbra-veil@${SLOT}.service" --no-pager >&2 || true
+              exit 1
+              ;;
+          esac
+          release_chunks="${APP_DIR}/${SLOT}/current/apps/veil/.next/static/chunks"
+          if [ ! -d "$release_chunks" ]; then
+            echo "release chunk dir missing: $release_chunks" >&2
+            exit 1
+          fi
+          html=$(curl -fsS -m 5 "http://127.0.0.1:${PORT}/") || {
+            echo "could not fetch served HTML" >&2
+            exit 1
+          }
+          served_chunks=$(printf '%s' "$html" | grep -oE '/_next/static/chunks/[a-z0-9_-]+\.js' | sort -u || true)
+          if [ -z "$served_chunks" ]; then
+            echo "served HTML has no chunk references — cannot verify build freshness" >&2
+            exit 1
+          fi
+          total=0
+          missing=0
+          for chunk in $served_chunks; do
+            total=$((total + 1))
+            if [ ! -f "$release_chunks/${chunk##*/}" ]; then
+              echo "STALE BUILD: served chunk ${chunk##*/} is NOT in this release's chunk dir" >&2
+              missing=$((missing + 1))
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "${missing} of ${total} served chunks are missing from this release" >&2
+            exit 1
+          fi
+          echo "verified: all ${total} served chunks are in this release"
+          exit 0
+          REMOTE
+
+      - name: summary
+        env:
+          DISPLAY_REF: ${{ needs.guard.outputs.display_ref }}
+          DISPLAY_SHA: ${{ needs.guard.outputs.display_sha }}
+        run: |
+          echo "::notice title=Dev deployed::penumbra-veil@dev.service is running ${DISPLAY_REF} @ ${DISPLAY_SHA} on :3010."
+          echo "::notice title=URL::https://dev.penumbra.fi (behind Cloudflare Access)"
