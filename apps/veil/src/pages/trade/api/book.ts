@@ -14,6 +14,47 @@ interface UseBookOptions {
   traceLimit?: number;
 }
 
+/**
+ * React Query options for a pair's book, shared by `useBook` (the route
+ * pair) and `usePortfolioMarketPrices` (an arbitrary set of per-position
+ * pairs driven through `useQueries`). Centralizing this means both paths
+ * read/write the same `['book', base, quote, traceLimit]` cache entries.
+ */
+export const bookQueryOptions = (
+  baseSymbol: string | undefined,
+  quoteSymbol: string | undefined,
+  traceLimit?: number,
+) => ({
+  queryKey: ['book', baseSymbol, quoteSymbol, traceLimit],
+  // Guard on both symbols being resolved. Without this, the query
+  // fires on mount before the router has populated params and issues
+  // /api/book?baseAsset=undefined&quoteAsset=undefined — the server
+  // route bails with a 400/500 and floods the console.
+  enabled: Boolean(baseSymbol) && Boolean(quoteSymbol),
+  queryFn: async (): Promise<RouteBookResponse> => {
+    // `enabled` above keeps this from ever running with a missing symbol; the
+    // guard narrows both to string here without an assertion.
+    if (!baseSymbol || !quoteSymbol) {
+      throw new Error('book query ran without both symbols');
+    }
+    const paramsObj: Record<string, string> = {
+      baseAsset: baseSymbol,
+      quoteAsset: quoteSymbol,
+    };
+    if (traceLimit !== undefined && traceLimit > 0) {
+      paramsObj['traceLimit'] = String(Math.floor(traceLimit));
+    }
+    const baseUrl = '/api/book';
+    const urlParams = new URLSearchParams(paramsObj).toString();
+    const res = await fetch(`${baseUrl}?${urlParams}`);
+    const jsonRes = (await res.json()) as RouteBookApiResponse;
+    if ('error' in jsonRes) {
+      throw new Error(jsonRes.error);
+    }
+    return deserializeRouteBookResponseJson(jsonRes);
+  },
+});
+
 export const useBook = (
   overrideBaseOrOpts?: string | UseBookOptions,
   overrideQuoteArg?: string,
@@ -29,33 +70,9 @@ export const useBook = (
   const quoteSymbol = opts.overrideQuote ?? pathSymbols.quoteSymbol;
   const traceLimit = opts.traceLimit;
 
-  // Guard on both symbols being resolved. Without this, the query
-  // fires on mount before the router has populated params and issues
-  // /api/book?baseAsset=undefined&quoteAsset=undefined — the server
-  // route bails with a 400/500 and floods the console.
   const bothSymbolsPresent = Boolean(baseSymbol) && Boolean(quoteSymbol);
 
-  const query = useQuery({
-    queryKey: ['book', baseSymbol, quoteSymbol, traceLimit],
-    enabled: bothSymbolsPresent,
-    queryFn: async (): Promise<RouteBookResponse> => {
-      const paramsObj: Record<string, string> = {
-        baseAsset: baseSymbol,
-        quoteAsset: quoteSymbol,
-      };
-      if (traceLimit !== undefined && traceLimit > 0) {
-        paramsObj['traceLimit'] = String(Math.floor(traceLimit));
-      }
-      const baseUrl = '/api/book';
-      const urlParams = new URLSearchParams(paramsObj).toString();
-      const res = await fetch(`${baseUrl}?${urlParams}`);
-      const jsonRes = (await res.json()) as RouteBookApiResponse;
-      if ('error' in jsonRes) {
-        throw new Error(jsonRes.error);
-      }
-      return deserializeRouteBookResponseJson(jsonRes);
-    },
-  });
+  const query = useQuery(bookQueryOptions(baseSymbol, quoteSymbol, traceLimit));
 
   // Dedup id must vary with the query key. `'routeBook'` alone was shared
   // by every mounted `useBook` (traceLimit undefined for useMarketPrice /

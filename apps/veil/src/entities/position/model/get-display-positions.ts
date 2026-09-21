@@ -201,6 +201,10 @@ export interface GetDisplayPositionsArgs {
   statsById?: Map<string, PositionStats>;
   /** Live mid for the row's quote asset; needed to value fees and PNL. */
   marketPrice?: number;
+  /** Per-pair mids keyed `base|quote` (quote per base, display units), used
+   *  when there is no route pair (e.g. /portfolio). Each row looks up its own
+   *  canonical pair so fees/APR/PNL and the current-value cell populate. */
+  marketPriceByPair?: Map<string, number>;
 }
 
 /**
@@ -214,6 +218,7 @@ export const getDisplayPositions = ({
   asset2Filter,
   statsById,
   marketPrice,
+  marketPriceByPair,
 }: GetDisplayPositionsArgs): DisplayPosition[] => {
   // take the array of Map and reduce it to an array of entries
   const entries =
@@ -261,6 +266,23 @@ export const getDisplayPositions = ({
       const isWithdrawn = state.state === PositionState_PositionStateEnum.WITHDRAWN;
       const fee = `${pnum(component.fee / 100).toFormattedString({ decimals: 2 })}%`;
 
+      // Canonical pair mid (asset2 per asset1, in display units). A
+      // route-provided mid (`marketPrice`) wins so /trade is unchanged;
+      // otherwise look up the mid fetched for this row's own pair.
+      const pairMid = marketPriceByPair?.get(`${asset1.asset.symbol}|${asset2.asset.symbol}`);
+      const mid = marketPrice ?? pairMid;
+
+      // The order orientation (orders[0]) can be flipped relative to the
+      // canonical pair, so convert to quote-per-order-base for the
+      // current-value cell and the 'distance from mid' subtitle.
+      const orderQuoteIsCanonicalAsset2 = orders[0]?.quoteAsset.asset.penumbraAssetId?.equals(
+        asset2.asset.penumbraAssetId,
+      );
+      let orderMid = marketPrice;
+      if (orderMid === undefined && pairMid !== undefined) {
+        orderMid = orderQuoteIsCanonicalAsset2 ? pairMid : 1 / pairMid;
+      }
+
       const rawStats = statsById?.get(id);
       const stats = rawStats
         ? computePositionStats({
@@ -270,7 +292,7 @@ export const getDisplayPositions = ({
             // Use the row's resolved quote (orders[0] orientation) so fees/PNL
             // are denominated consistently with the rest of the row.
             quoteAsset: orders[0]?.quoteAsset ?? asset2,
-            marketPrice,
+            marketPrice: mid,
           })
         : undefined;
 
@@ -285,6 +307,7 @@ export const getDisplayPositions = ({
         state: state.state,
         fee: `${pnum(component.fee / 100).toFormattedString({ decimals: 2 })}%`,
         stats,
+        marketPrice: orderMid,
         sortValues: {
           positionId: id,
           type: isOpened

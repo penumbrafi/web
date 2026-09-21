@@ -28,6 +28,10 @@ export interface DisplayPosition {
   state: PositionState_PositionStateEnum;
   /** Fees+APR+PNL stats from pindexer; absent if not yet loaded or unavailable. */
   stats?: PositionDerivedStats;
+  /** Quote-per-order-base mid, resolved per row (route mid on /trade, the
+   *  row's own pair book elsewhere). Undefined when that pair has no book —
+   *  cells fall back to Dash. */
+  marketPrice?: number;
   sortValues: {
     type: string;
     tradeAmount: number;

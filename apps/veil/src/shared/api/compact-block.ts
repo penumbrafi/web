@@ -4,7 +4,7 @@ import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { CompactBlockService, TendermintProxyService } from '@penumbra-zone/protobuf';
 import { createClient, Transport } from '@connectrpc/connect';
 import { errorIsStreamAbort, useStream } from '@/shared/use-stream.ts';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { queryClient } from '@/shared/const/queryClient.ts';
 import { useGrpcTransport } from '@/shared/api/transport.ts';
 
@@ -191,6 +191,46 @@ export const useRefetchOnNewBlock = (
     // when the key or the disabled flag changes.
     return registerRefetch(queryKeyString, refetch);
   }, [refetch, queryKeyString, disabled]);
+};
+
+/**
+ * Batch counterpart of {@link useRefetchOnNewBlock}: registers every entry's
+ * refetch under its own query key in a single effect. Hooks cannot be looped,
+ * but `registerRefetch` can — so a dynamic list of queries (e.g. the
+ * `useQueries` result backing the portfolio's per-pair books) gets the same
+ * per-key block-tick dedup without N hook stacks.
+ */
+export const useRefetchOnNewBlockBatch = (
+  entries: { queryKey: unknown; refetch: () => unknown }[],
+  disabled?: boolean,
+) => {
+  useBlockHeightStream();
+
+  // `entries` identity changes every render (useQueries returns a fresh
+  // array). Register against a serialized signature and read the latest
+  // entries through a ref, so the effect only re-runs when the key set moves.
+  const signature = entries
+    .map(entry => (typeof entry.queryKey === 'string' ? entry.queryKey : JSON.stringify(entry.queryKey)))
+    .join('\u0000');
+  const latest = useRef(entries);
+  latest.current = entries;
+
+  useEffect(() => {
+    if (disabled) {
+      return;
+    }
+    const unsubscribes = latest.current.map(entry =>
+      registerRefetch(
+        typeof entry.queryKey === 'string' ? entry.queryKey : JSON.stringify(entry.queryKey),
+        entry.refetch,
+      ),
+    );
+    return () => {
+      for (const unsubscribe of unsubscribes) {
+        unsubscribe();
+      }
+    };
+  }, [signature, disabled]);
 };
 
 export const LATEST_HEIGHT_QUERY_KEY = ['latestBlockHeight'];
