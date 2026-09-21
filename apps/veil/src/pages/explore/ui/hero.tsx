@@ -2,6 +2,7 @@ import { Text } from '@penumbra-zone/ui/Text';
 import Link from 'next/link';
 import { Eye, Zap, Coins } from 'lucide-react';
 import { PagePath } from '@/shared/const/pages';
+import { DEFAULT_PAIR } from '@/shared/config/featured-pairs';
 
 const primaryCtaCx =
   'inline-flex items-center justify-center rounded-sm bg-primary-main px-4 py-2 text-sm font-medium text-base-black transition-colors hover:bg-primary-light';
@@ -34,7 +35,10 @@ export const ExploreHero = () => {
         </div>
 
         <div className='flex flex-wrap gap-2'>
-          <Link className={primaryCtaCx} href='/trade/UM/USDC'>
+          <Link
+            className={primaryCtaCx}
+            href={`/trade/${DEFAULT_PAIR.base}/${DEFAULT_PAIR.quote}`}
+          >
             Start trading
           </Link>
           <Link className={secondaryCtaCx} href='/portfolio'>

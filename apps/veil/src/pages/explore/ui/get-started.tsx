@@ -2,6 +2,7 @@ import { Text } from '@penumbra-zone/ui/Text';
 import { Wallet, ArrowRightLeft, BookOpen } from 'lucide-react';
 import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
+import { DEFAULT_PAIR } from '@/shared/config/featured-pairs';
 
 interface StepProps {
   href: string;
@@ -66,7 +67,7 @@ export const GetStarted = () => (
         body='Deposit from any IBC chain through your wallet. USDC arrives natively over Injective — or over Noble, still supported — with no wrapped tokens; ATOM, OSMO, TIA and every other IBC asset shield the same way.'
       />
       <Step
-        href='/trade/UM/USDC'
+        href={`/trade/${DEFAULT_PAIR.base}/${DEFAULT_PAIR.quote}`}
         icon={BookOpen}
         step='3.'
         title='Trade'
