@@ -40,11 +40,32 @@ import { referencePriceFor } from '@/shared/const/reference-price';
 // via an injected `Simulate` callback. Tests can plug in a synthetic
 // simulate and exercise all bridge combinations without touching pd.
 
-const NOTIONAL_USD = 500;
-const DEPTH_MIN_USD = 1000;
-const CROSS_MAX = 0.20;
+// Threshold tuning tracks REAL Penumbra depth for UM, not CEX-sized
+// markets. As of 2026-09 the UM/USDC.inj book has ~$200 combined
+// depth and a ~166% touch spread; the original {500, 1000, 20%}
+// numbers refused to serve. These are ship-with-what-actually-trades
+// values — retighten as liquidity grows.
+//
+// NOTIONAL_USD: probe size per side. Any bigger than book depth just
+//   fills what's there and returns a slice-VWAP, so oversizing costs
+//   nothing but the round trip. Kept modest so a MANIP_MULT breach on
+//   a $50 slice is a real signal, not noise from moving one whale.
+// DEPTH_MIN_USD: below this combined depth we refuse — a $10 book
+//   with a plausible mid is worse than saying "no anchor," because
+//   any single tx can move it 5x.
+// CROSS_MAX_RATIO: max(buy, sell) / min(buy, sell). Real Penumbra UM
+//   trades ~10x wide today; a spoofed one-side book runs 100–1000x
+//   apart. 20 catches the spoofs while accepting the honestly-wide
+//   illiquid market. (The old diff-over-mid formula is bounded by 2
+//   for positive prices, so any ceiling ≥ 2 disables it — useless as
+//   a check.)
+// MANIP_DEPTH_USD: sticky-cache floor for surprise jumps. A big move
+//   with more than this depth is treated as real repricing.
+const NOTIONAL_USD = 50;
+const DEPTH_MIN_USD = 20;
+const CROSS_MAX_RATIO = 20;
 const MANIP_MULT = 5;
-const MANIP_DEPTH_USD = 5000;
+const MANIP_DEPTH_USD = 200;
 const CACHE_TTL_MS = 30_000;
 const PD_TIMEOUT_MS = 8_000;
 
@@ -193,8 +214,8 @@ export const attemptBridge = async (
 
   if (priceBuyUsd <= 0 || priceSellUsd <= 0) return null;
 
-  const arithMid = (priceBuyUsd + priceSellUsd) / 2;
-  if (Math.abs(priceBuyUsd - priceSellUsd) / arithMid > CROSS_MAX) return null;
+  const ratio = Math.max(priceBuyUsd, priceSellUsd) / Math.min(priceBuyUsd, priceSellUsd);
+  if (ratio > CROSS_MAX_RATIO) return null;
 
   const depthUsd = depthBuyUsd + depthSellUsd;
   if (depthUsd < DEPTH_MIN_USD) return null;
@@ -268,11 +289,19 @@ const resolveBridges = (registry: Registry, through: string[]): Bridge[] => {
   const resolved: Bridge[] = [];
   for (const sym of through) {
     const src = referencePriceFor(sym);
+    // Missing entry is "aspirational bridge, not yet onboarded" — skip
+    // and try the next. The `through` list is deliberately allowed to
+    // list bridges we plan to add so onboarding a new peg later just
+    // starts working without another code edit. Wrong-KIND is the real
+    // config bug (someone put a coingecko or onchain-bridge asset in
+    // the stable-bridge slot) — that stays a hard error because it
+    // would silently poison the geomean with a non-USD anchor.
     if (!src) {
-      throw new Error(
-        `derived-usd-price: bridge "${sym}" has no reference-price entry — ` +
-          `every through-bridge must be listed as { kind: "fixed" } in reference-price.ts`,
+      console.warn(
+        `derived-usd-price: bridge "${sym}" has no reference-price entry; skipping. ` +
+          `Add it as { kind: "fixed" } in reference-price.ts once its peg is verified.`,
       );
+      continue;
     }
     if (src.kind !== 'fixed') {
       throw new Error(
