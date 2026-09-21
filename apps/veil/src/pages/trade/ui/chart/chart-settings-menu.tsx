@@ -50,7 +50,7 @@ const SPECS: Omit<ToggleSpec, 'disabled'>[] = [
   {
     key: 'ownTrades',
     label: 'My recent fills',
-    hint: 'Arrow markers on the chart for each swap you submitted on this pair.',
+    hint: 'A dot at the executed price of each swap you submitted on this pair.',
   },
   {
     key: 'openOrders',
