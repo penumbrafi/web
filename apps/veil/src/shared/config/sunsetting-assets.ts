@@ -26,6 +26,18 @@
 /** Base denom of Noble USDC. Stable across the registry's USDC -> USDC.n rename. */
 export const NOBLE_USDC_BASE_DENOM = 'transfer/channel-2/uusdc';
 
+/**
+ * Penumbra-side IBC channels that connect to a chain that is winding down. Noble
+ * is `channel-2` (its ibcConnection; the Noble USDC base denom above confirms it).
+ * The WHOLE Noble chain is sunsetting, so ANY asset that arrived over this channel
+ * is sunsetting - not just USDC. USDC.inj (Injective, channel-18) is unaffected.
+ */
+export const SUNSETTING_CHANNELS: readonly string[] = ['channel-2'];
+
+/** The first-hop channel of an asset's ICS-20 base denom, or undefined (native). */
+const assetChannel = (baseDenom?: string): string | undefined =>
+  /^transfer\/(channel-\d+)\//.exec(baseDenom ?? '')?.[1];
+
 /** Circle's notice for this wind-down, linked from the badge's alt text. */
 export const CIRCLE_NOBLE_NOTICE_URL =
   'https://www.circle.com/blog/circle-is-discontinuing-support-for-usdc-and-cctp-v1-on-noble';
@@ -60,6 +72,14 @@ export const isSunsettingAsset = (asset?: SunsettingAsset): boolean => {
   if (!asset) {
     return false;
   }
+  // Whole-channel: anything that arrived over a sunsetting chain's channel
+  // (Noble = channel-2) - the entire Noble chain is winding down, not just USDC.
+  const ch = assetChannel(asset.base);
+  if (ch !== undefined && SUNSETTING_CHANNELS.includes(ch)) {
+    return true;
+  }
+  // Fallbacks: explicit base denom, then symbol (catches renames and any legacy
+  // channel a Noble-only asset like USDY might ride that the channel test misses).
   if (asset.base && SUNSETTING_ASSET_BASE_DENOMS.includes(asset.base)) {
     return true;
   }
