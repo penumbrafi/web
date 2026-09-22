@@ -39,9 +39,15 @@ export const CIRCLE_NOBLE_NOTICE_URL =
  * Note: plain "USDC" is deliberately absent — the base denom already matches
  * today's Noble asset, and a bare-symbol match would wrongly tag a future,
  * non-Noble USDC (e.g. USDC.inj) that reuses the ticker.
+ *
+ * USDY (Ondo) IS matched by bare symbol: it is issued only on Noble and rides
+ * the same wind-down, and — unlike USDC — has no non-Noble variant that a
+ * symbol match could wrongly tag. The registry also carries USDY on several
+ * legacy channels, so keying on symbol catches every instance where a single
+ * base denom would not.
  */
 export const SUNSETTING_ASSET_BASE_DENOMS: readonly string[] = [NOBLE_USDC_BASE_DENOM];
-export const SUNSETTING_ASSET_SYMBOLS: readonly string[] = ['USDC.N'];
+export const SUNSETTING_ASSET_SYMBOLS: readonly string[] = ['USDC.N', 'USDY'];
 
 /** Minimal shape we need off a Metadata to classify it. */
 export interface SunsettingAsset {
@@ -65,7 +71,8 @@ export const SUNSETTING_LABEL = 'Sunsetting';
 
 /** User-facing alt text: what is happening, when, and what to do about it. */
 export const SUNSETTING_TOOLTIP =
-  'Circle is discontinuing USDC and CCTP V1 on Noble. Minting stops Oct 13 2026, CCTP exits ' +
-  'taper from Oct 31 and may be limited after Dec 1, and the Noble USDC contract pauses ' +
-  'Jan 12 2027. Move funds off Noble before then — Injective USDC (USDC.inj) replaces it. ' +
+  'Circle is discontinuing USDC and CCTP V1 on Noble, and Noble-issued assets (USDC, USDY) ' +
+  'are winding down with it. Minting stops Oct 13 2026, CCTP exits taper from Oct 31 and may ' +
+  'be limited after Dec 1, and the Noble USDC contract pauses Jan 12 2027. Move funds off ' +
+  'Noble before then — for stablecoins, Injective USDC (USDC.inj) is the replacement. ' +
   CIRCLE_NOBLE_NOTICE_URL;
