@@ -1,3 +1,10 @@
 crate/target
 crate/**/*.rs.bk
 crate/wasm-pack.log
+
+# Stray pnpm symlink: an alias into node_modules/.pnpm for the
+# @rotko/penumbra-wasm fork. It must never be tracked - as a dangling symlink
+# (its target is absent when GitHub Actions stages the repo for a local action)
+# it failed "Set up job" and broke EVERY deploy workflow (.github#32). pnpm
+# recreates it locally on install; git should not see it.
+/penumbra-wasm
