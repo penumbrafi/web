@@ -165,6 +165,11 @@ const useBlockHeightStream = () => {
     id: 'compactBlockStream',
     enabled: !!data?.transport,
     streamFn,
+    // Rebind the shared stream when the transport itself changes (connection
+    // flip) - otherwise the stream can keep running on a dead transport and
+    // block ticks stop, freezing price/book/balances until a manual reload.
+    // All consumers get the same transport object, so this rebinds exactly once.
+    resubscribeKey: data?.transport,
   });
 
   return { transport: data?.transport, isLoading, error };

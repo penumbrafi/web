@@ -82,12 +82,17 @@ const getSimClient = (endpoint: string): Client<typeof SimulationService> => {
 // hammer pd with duplicate work.
 type CacheEntry = { data: RouteBookResponseJson; expiresAt: number; refreshing: boolean };
 const cache = new Map<string, CacheEntry>();
-const CACHE_TTL_MS = 6_000;
-// When a request comes in and cache is older than this, return the stale
-// data immediately and refresh in background. This means most users never
-// wait for pd's slow simulateTrade — they get instant stale data while a
-// background fetch updates the cache.
-const STALE_THRESHOLD_MS = 4_000;
+// Must be BELOW Penumbra's ~5s block time, or the book trails the chain: a
+// per-block refetch lands inside the TTL and is served the pre-block snapshot,
+// so price + route book read as "not updating" after a trade. Keep the cache
+// (it shields pd's slow simulateTrade from duplicate work) but let it refresh
+// every block.
+const CACHE_TTL_MS = 4_000;
+// When a request comes in and cache is older than this, serve the stale data
+// immediately and refresh in background — so nobody waits on pd. Below block
+// time so every block's refetch triggers the background refresh; the refresh
+// (pd ~1s) lands well within the block, so the next read is current.
+const STALE_THRESHOLD_MS = 1_500;
 
 // One in-flight pd compute per cache key. `controller` lets us really
 // cancel the upstream simulate (not just stop waiting for it): before,
