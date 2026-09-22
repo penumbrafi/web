@@ -366,6 +366,17 @@ export const Chart = observer(() => {
     prefs,
   );
 
+  // The no-op setter above STOPS updating the lines when the pref is off, but it
+  // never removes the ones already drawn - so toggling "My LP positions" off left
+  // the user's liquidity lines stuck on the chart. Clear them once on the
+  // off-transition; setOwnPositionLines([]) removes every line (nothing in `seen`).
+  useEffect(() => {
+    if (!chartReady || prefs.ownPositions) {
+      return;
+    }
+    setOwnPositionLines([]);
+  }, [prefs.ownPositions, chartReady, setOwnPositionLines]);
+
   const { baseSymbol, quoteSymbol } = usePathSymbols();
   const { marketPrice, spreadPercentage } = useMarketPrice();
   const pairKey = `${baseSymbol}/${quoteSymbol}`;
