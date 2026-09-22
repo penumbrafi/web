@@ -86,7 +86,12 @@ class Pindexer {
         ]),
       )
       .orderBy('direct_volume_indexing_denom_over_window', 'desc')
-      .limit(15)
+      // Fetch extra so the /api/pairs client-side dedup (which
+      // collapses A/B and B/A of the same market into one row) can
+      // still return ~15 unique markets. Non-stable/non-stable pairs
+      // like UM/OSMO can appear in both directions here; stable-quoted
+      // pairs are already unique via the asset_start filter above.
+      .limit(30)
       .execute();
   }
 

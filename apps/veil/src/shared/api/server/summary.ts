@@ -76,7 +76,13 @@ function basicQuery(window: DurationWindow) {
           eb => eb.fn('greatest', ['d.asset_start', 'd.asset_end']).as('asset_end'),
         ])
         .select(sql<number>`SUM(liquidity * prices.price)`.as('liquidity'))
-        .select(qb => qb.fn.max('direct_volume_indexing_denom_over_window').as('volume'))
+        // SUM (not MAX) both direction rows' indexing-denom volume so an
+        // unordered pair's 24h volume on /explore reflects trades in
+        // BOTH directions — matching the /api/pairs dedup shipped for
+        // the trade-page selector. `orderedCorrectly` (below) still
+        // filters to one canonical direction per unordered pair, so the
+        // summed value isn't double-emitted; each pair renders once.
+        .select(qb => qb.fn.sum('direct_volume_indexing_denom_over_window').as('volume'))
         .leftJoin('prices', join =>
           join.on(eb => eb('d.asset_end', '=', eb.ref('prices.asset_start'))),
         )
