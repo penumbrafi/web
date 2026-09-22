@@ -82,17 +82,19 @@ const getSimClient = (endpoint: string): Client<typeof SimulationService> => {
 // hammer pd with duplicate work.
 type CacheEntry = { data: RouteBookResponseJson; expiresAt: number; refreshing: boolean };
 const cache = new Map<string, CacheEntry>();
-// Must be BELOW Penumbra's ~5s block time, or the book trails the chain: a
-// per-block refetch lands inside the TTL and is served the pre-block snapshot,
-// so price + route book read as "not updating" after a trade. Keep the cache
-// (it shields pd's slow simulateTrade from duplicate work) but let it refresh
-// every block.
+// Bookkeeping TTL used for the entry's age math and Cache-Control max-age. The
+// real freshness gate is FRESH_WINDOW_MS below.
 const CACHE_TTL_MS = 4_000;
-// When a request comes in and cache is older than this, serve the stale data
-// immediately and refresh in background — so nobody waits on pd. Below block
-// time so every block's refetch triggers the background refresh; the refresh
-// (pd ~1s) lands well within the block, so the next read is current.
-const STALE_THRESHOLD_MS = 1_500;
+// Serve the CACHED book only within this short window — just long enough to
+// dedup a burst of requests for the SAME block. Older than this we compute a
+// FRESH book (single-flighted below) instead of serving stale: we are not
+// compute-bound (pd runs on the box; add cores if ever needed), and a current
+// book matters far more than saving a simulateTrade call. This replaces
+// stale-while-revalidate, which traded the freshness we want to save compute we
+// don't. Must be well under the ~5s block time. First paint is unaffected — the
+// trade page SSR-prefetches the book, and React Query holds the previous data
+// during the ~1s block-tick recompute, so there is no spinner regression.
+const FRESH_WINDOW_MS = 2_000;
 
 // One in-flight pd compute per cache key. `controller` lets us really
 // cancel the upstream simulate (not just stop waiting for it): before,
@@ -225,34 +227,18 @@ async function handleGet(req: NextRequest): Promise<NextResponse<RouteBookApiRes
     return entry;
   };
 
-  const startBackgroundRefresh = () => {
-    if (inflight.has(cacheKey)) return;
-    if (cached) cached.refreshing = true;
-    const entry = startCompute(false);
-    // The SWR path never awaits the compute; without this handler every
-    // pd timeout during an outage surfaces as an unhandledRejection.
-    entry.promise.catch((err: unknown) => {
-      console.error('[book] background refresh failed', { cacheKey, err });
-    });
-  };
-
-  // Stale-while-revalidate: if we have ANY cached entry, serve it
-  // immediately and refresh in background. User never waits for pd.
+  // Serve the cached book only inside the freshness window (dedup a same-block
+  // burst). Older than that, fall through to a FRESH single-flight compute
+  // below so the book reflects the current block. Concurrent requests for the
+  // same key share that one compute (awaitAsWaiter), so this is ~one pd call per
+  // pair per block regardless of how many users are watching.
   if (cached) {
     const age = now - (cached.expiresAt - CACHE_TTL_MS);
-    // If the entry is grossly stale (> 10× TTL) we've almost certainly
-    // been wedged by a failed refresh; force a fresh compute rather than
-    // keep serving ancient data. Reset the flag to allow a retry.
-    const grosslyStale = age > CACHE_TTL_MS * 10;
-    if (grosslyStale) {
-      cached.refreshing = false;
-    } else {
-      if (age > STALE_THRESHOLD_MS && !cached.refreshing) {
-        startBackgroundRefresh();
-      }
+    if (age < FRESH_WINDOW_MS) {
       return NextResponse.json(cached.data, { headers: cacheHeaders(cached, now, age) });
     }
-    // Fall through to the synchronous compute path below for grosslyStale.
+    // stale -> fall through to a fresh compute (the stale entry stays as the
+    // salvage fallback if pd fails on the way).
   }
 
   // No cached entry — must compute synchronously. Single-flight to avoid
