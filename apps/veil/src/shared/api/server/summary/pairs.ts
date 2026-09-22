@@ -9,6 +9,7 @@ import {
 import { getCachedRegistry } from '@/shared/api/fetch-registry';
 import { toValueView } from '@/shared/utils/value-view';
 import { getStablecoins } from '@/shared/utils/stables';
+import { referencePriceFor } from '@/shared/const/reference-price';
 import {
   withApiFallback,
   withTimeout,
@@ -103,11 +104,30 @@ async function handleGet(): Promise<NextResponse<PairsResponse>> {
     .sort((a, b) => b.totalIndexingDenom - a.totalIndexingDenom)
     .slice(0, 15);
 
+  // A symbol is "stable" iff REFERENCE_PRICES pegs it to a fixed $1.
+  // pindexer's own stable filter (asset_start NOT IN stablecoins) only
+  // knows the getStablecoins helper's list (bare USDT / USDC / USDY),
+  // so bridged stables like USDC.inj and USDT.inj slip through as base.
+  // Sourcing from REFERENCE_PRICES keeps this in sync with reference-price
+  // intel — adding a new stable there auto-fixes canonical direction here.
+  const isStableSymbol = (sym: string | undefined): boolean => {
+    const src = referencePriceFor(sym);
+    return src?.kind === 'fixed' && src.usd === 1;
+  };
+
   const pairs = deduped
     .map(row => {
-      const baseAsset = registry.tryGetMetadata(new AssetId({ inner: row.canonicalStart }));
-      const quoteAsset = registry.tryGetMetadata(new AssetId({ inner: row.canonicalEnd }));
+      let baseAsset = registry.tryGetMetadata(new AssetId({ inner: row.canonicalStart }));
+      let quoteAsset = registry.tryGetMetadata(new AssetId({ inner: row.canonicalEnd }));
       if (!baseAsset || !quoteAsset) return undefined;
+
+      // Never present stable-as-base: swap so risk asset is base and
+      // the stable is the quote. This is the "correct" quotation
+      // convention (USDC.inj/UM → UM/USDC.inj) regardless of which
+      // direction happened to have more direct volume in the window.
+      if (isStableSymbol(baseAsset.symbol) && !isStableSymbol(quoteAsset.symbol)) {
+        [baseAsset, quoteAsset] = [quoteAsset, baseAsset];
+      }
 
       // direct_volume_indexing_denom_over_window is denominated in the
       // chain's indexing numeraire (USDC), NOT in the pair's quote asset.
