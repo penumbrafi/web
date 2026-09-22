@@ -819,41 +819,50 @@ export class OrderFormStore {
         return;
       }
 
-      // Gate the swapClaim on the wallet having actually observed the
-      // swap. Without this, `pollViewService` timeout (30s) would still
-      // let us fall through here and the claim planner would throw
-      // "Swap record not found" — which the toast then mislabels as a
-      // recoverable "please retry" and the user re-submits → double
-      // swap. If the view service hasn't seen the tx, do NOT plan the
-      // claim; the wallet will finish it in the background once it
-      // catches up. Wipe amount inputs to make a stray resubmit
-      // harmless too.
-      if (!swapResult.viewSeen) {
-        openToast({
-          type: 'warning',
-          message: 'Swap confirmed — claim pending',
-          description:
-            'Your swap landed on-chain but your wallet has not scanned the block yet. It will finish the claim in the background. Do NOT resubmit; that would broadcast a second swap.',
-        });
-        runInAction(() => {
-          this._market.setBaseInput('');
-          this._market.setQuoteInput('');
-        });
-        return;
-      }
-
-      const swapCommitment = getSwapCommitmentFromTx(swapResult.transaction);
-      const req = new TransactionPlannerRequest({
-        swapClaims: [{ swapCommitment }],
-        source,
+      // The swap is CONFIRMED on-chain. Free the trade UI immediately and clear
+      // the amount inputs — so a stray double-click can't rebuild the SAME swap
+      // (the one corruption this guard exists to prevent). The SwapClaim only
+      // needs the wallet to have scanned the swap's block, and the wallet
+      // finishes it on its own as it syncs — so it must NOT hold the submit
+      // button hostage while the wallet catches up (which can be many blocks,
+      // the reported bad UX). Multiple outstanding claims are fine on Penumbra,
+      // so trading again meanwhile is a legitimate new intent, not corruption.
+      runInAction(() => {
+        this._market.setBaseInput('');
+        this._market.setQuoteInput('');
+        this._submitting = false;
       });
-      await planBuildBroadcast('swapClaim', req, { skipAuth: true });
-      await updatePositionsQuery();
-      // Post-claim: the book/tape/candles/summary did not change (the
-      // claim just spends a swap NFT for the user's output notes) —
-      // only balances and positions. Skip the book prime + book-family
-      // invalidations to avoid 4 wasted pd simulates per claim.
-      await invalidateMarketDataQueries(pair, { skipBook: true });
+
+      // Finish the claim in the BACKGROUND — it never gates the button.
+      void (async () => {
+        try {
+          if (!swapResult.viewSeen) {
+            // Wallet hasn't scanned the swap block yet; it will claim on sync.
+            openToast({
+              type: 'success',
+              message: 'Swap confirmed — claim finishing in the background',
+              description:
+                'Your swap landed on-chain; your wallet will finish the claim as it scans the block. No action needed — you can trade again now.',
+            });
+            return;
+          }
+          const swapCommitment = getSwapCommitmentFromTx(swapResult.transaction);
+          const req = new TransactionPlannerRequest({
+            swapClaims: [{ swapCommitment }],
+            source,
+          });
+          await planBuildBroadcast('swapClaim', req, { skipAuth: true });
+          await updatePositionsQuery();
+          // The claim only spends the swap NFT for the user's output notes —
+          // book/tape/candles/summary don't change, only balances/positions —
+          // so skip the book prime + book-family invalidations.
+          await invalidateMarketDataQueries(pair, { skipBook: true });
+        } catch {
+          // planBuildBroadcast already surfaced any error toast; nothing gates
+          // the UI here, so swallow to avoid an unhandled rejection.
+        }
+      })();
+      return;
     } catch (e) {
       // Every planner/build/broadcast failure now propagates here as an
       // `Error` with the mapped `described` metadata attached
