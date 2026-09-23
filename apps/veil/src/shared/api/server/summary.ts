@@ -11,6 +11,7 @@ import { getClientSideEnv } from '../env/getClientSideEnv';
 import { Registry } from '@penumbrafi/registry';
 import { compareAssetId } from '@/shared/math/position';
 import { DurationWindow } from '@/shared/utils/duration';
+import { referencePriceFor } from '@/shared/const/reference-price';
 
 export interface Summary {
   price: number;
@@ -35,15 +36,36 @@ export interface SummaryWithPrices extends Summary {
 }
 
 const PRIORITIES: Record<string, number> = {
-  USDC: 2,
   USDY: 1,
   UM: 0,
+};
+
+/**
+ * A symbol is "stable" iff REFERENCE_PRICES pegs it to a fixed $1. The old
+ * hardcoded `USDC: 2` only matched the bare Noble symbol, so BRIDGED stables
+ * — USDC.inj, USDT.inj — scored the -1 fallback and ranked BELOW UM. That is
+ * what produced rows like `USDC.inj/UM` and `USDC.inj/INJ`: the stable ended
+ * up as the base and the risk asset as the quote.
+ *
+ * It is not merely cosmetic. Quoting UM in USDC.inj the wrong way round
+ * inverts the 24h change: a UM drawdown renders as `USDC.inj/UM +50.00%`,
+ * green, reading as "UM is doing great" when UM actually fell by a third.
+ *
+ * Deriving from `referencePriceFor` matches what summary/pairs.ts already
+ * does, so adding a new stable there fixes quotation everywhere at once.
+ */
+const isStableSymbol = (symbol: string | undefined): boolean => {
+  const src = referencePriceFor(symbol);
+  return src?.kind === 'fixed' && src.usd === 1;
 };
 
 function priority(registry: Registry, asset: AssetId): number | undefined {
   const meta = registry.tryGetMetadata(asset);
   if (!meta) {
     return undefined;
+  }
+  if (isStableSymbol(meta.symbol)) {
+    return 2;
   }
   return PRIORITIES[meta.symbol] ?? -1;
 }
@@ -57,7 +79,12 @@ function orderedCorrectly(registry: Registry, start: AssetId, end: AssetId): boo
   if (endPriority > startPriority) {
     return true;
   }
-  if (endPriority < 0 && startPriority < 0 && compareAssetId(start, end) > 0) {
+  // Equal priority (two stables, or two unranked assets) has no preferred
+  // quotation, so fall back to a deterministic byte-order tiebreak. This must
+  // cover EQUAL priorities generally, not just the unranked pair: once both
+  // stables score 2, a `< 0` guard would reject both directions of a
+  // stable/stable market like USDC.inj/USDC and drop it from the page.
+  if (endPriority === startPriority && compareAssetId(start, end) > 0) {
     return true;
   }
   return false;
