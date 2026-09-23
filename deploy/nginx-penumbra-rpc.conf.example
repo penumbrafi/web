@@ -1,0 +1,99 @@
+# /etc/nginx/sites-available/<penumbra-rpc-host>
+#
+# Front-proxy vhost for the Penumbra fullnode: CometBFT's RPC (:26657)
+# and pd's gRPC (:8080). This is the endpoint veil's server-side
+# `/api/penumbra/broadcast` route talks to via PENUMBRA_GRPC_ENDPOINT.
+#
+# Documentation only: this repo never edits nginx or haproxy. Apply by hand.
+#
+# ---------------------------------------------------------------------
+# THE SETTING THAT MATTERS: large_client_header_buffers
+# ---------------------------------------------------------------------
+# CometBFT's `/broadcast_tx_sync` is a URI-style handler: it reads the
+# transaction from the QUERY STRING (`?tx=0x<hex>`) and ignores any POST
+# body. So veil sends the entire hex-encoded transaction in the request
+# line, and the request line must fit in ONE header buffer.
+#
+# nginx's default is `large_client_header_buffers 4 8k`, which caps the
+# whole request line at 8192 bytes. A Penumbra transaction is mostly
+# Groth16 proofs, and hex doubles it, so real broadcasts sit just under
+# that wall: measured production traffic reached 7910 bytes against the
+# 8192 ceiling. Anything with one more action tips over and nginx answers
+# 414 (Request-URI Too Large) BEFORE the request ever reaches CometBFT.
+#
+# The failure is nasty to diagnose from the browser: the veil route turns
+# the upstream 414 into its own 502, and if the fronting vhost sets
+# `proxy_intercept_errors on` that 502's JSON body is replaced by an
+# error page, so the console only shows a bare "HTTP 502".
+#
+# Raise it. 64k allows ~32KB of transaction, which is far above anything
+# the planner currently produces.
+#
+#   large_client_header_buffers 4 64k;
+#
+# The better long-term fix is to stop putting the transaction in the URI
+# at all -- see the `location = /rpc` block below.
+# ---------------------------------------------------------------------
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name <penumbra-rpc-host>;
+
+    # REQUIRED -- see the note above. Without this, large transactions
+    # fail with 414 and surface in veil as an unexplained 502.
+    large_client_header_buffers 4 64k;
+
+    ssl_certificate     /etc/nginx/ssl/fullchain.pem;
+    ssl_certificate_key /etc/nginx/ssl/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+
+    # pd gRPC / gRPC-web, matched by protobuf service path.
+    location ~ ^/(penumbra\.|cosmos\.|ibc\.|noble\.|grpc\.) {
+        grpc_pass grpc://127.0.0.1:8080;
+        grpc_set_header Host            $host;
+        grpc_set_header X-Real-IP       $remote_addr;
+        grpc_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        grpc_connect_timeout 60s;
+        grpc_send_timeout    60s;
+        grpc_read_timeout   300s;
+    }
+
+    # CometBFT JSON-RPC root, exposed on an explicit path.
+    #
+    # This is the body-based endpoint: POST {"jsonrpc":"2.0","method":
+    # "broadcast_tx_sync","params":{"tx":"<base64>"}} and there is no URI
+    # length limit at all (and base64 is ~33% smaller than hex).
+    #
+    # Note the trailing slash on proxy_pass -- it rewrites /rpc to / ,
+    # which is where CometBFT serves JSON-RPC. POSTing JSON-RPC to
+    # /broadcast_tx_sync instead does NOT work: that path is the URI-style
+    # handler, it ignores the body and reads an empty tx, which hashes to
+    # SHA256("") = e3b0c442... . That mistake is why veil moved to the
+    # query-string form in the first place.
+    location = /rpc { proxy_pass http://127.0.0.1:26657/; }
+
+    # CometBFT URI-style endpoints.
+    location /broadcast_tx_sync   { proxy_pass http://127.0.0.1:26657; }
+    location /broadcast_tx_async  { proxy_pass http://127.0.0.1:26657; }
+    location /broadcast_tx_commit { proxy_pass http://127.0.0.1:26657; }
+    location /check_tx            { proxy_pass http://127.0.0.1:26657; }
+    location /status              { proxy_pass http://127.0.0.1:26657; }
+    location /abci_info           { proxy_pass http://127.0.0.1:26657; }
+    location /abci_query          { proxy_pass http://127.0.0.1:26657; }
+    location /block               { proxy_pass http://127.0.0.1:26657; }
+    location /block_results       { proxy_pass http://127.0.0.1:26657; }
+    location /tx                  { proxy_pass http://127.0.0.1:26657; }
+    location /tx_search           { proxy_pass http://127.0.0.1:26657; }
+    location /validators          { proxy_pass http://127.0.0.1:26657; }
+    location /commit              { proxy_pass http://127.0.0.1:26657; }
+    location /health              { proxy_pass http://127.0.0.1:26657; }
+
+    location /websocket {
+        proxy_pass http://127.0.0.1:26657;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 300s;
+    }
+}
