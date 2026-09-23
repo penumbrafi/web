@@ -13,6 +13,7 @@ import type { CexAsset, CexConfig } from '@/features/deposit/cex-config';
 import { useDepositAddress } from '@/features/deposit/use-deposit-address';
 import { useIbcShield } from '@/features/deposit/use-ibc-shield';
 import { useUnifiedAssets, type UnifiedAsset } from '@/pages/portfolio/api/use-unified-assets';
+import { ConnectButton } from '@/features/connect/connect-button';
 
 interface DepositPanelProps {
   cex: CexConfig;
@@ -142,10 +143,17 @@ const AddressPanel = ({
 
   if (isDisconnected) {
     return (
-      <div className='rounded-xl bg-other-tonal-fill5 p-4'>
-        <Text small color='text.secondary'>
-          Connect your Penumbra wallet to get a destination address.
-        </Text>
+      <div className='flex flex-col items-start gap-3 rounded-xl border border-primary-main/40 bg-primary-main/5 p-4'>
+        <div className='flex flex-col gap-1'>
+          <Text variant='strong' color='text.primary'>
+            Connect your Penumbra wallet
+          </Text>
+          <Text small color='text.secondary'>
+            We generate a fresh, single-use destination address from your wallet — nothing to
+            copy from anywhere else. Connect once and it appears here.
+          </Text>
+        </div>
+        <ConnectButton>Connect Penumbra wallet</ConnectButton>
       </div>
     );
   }
