@@ -35,7 +35,7 @@ export const MobileNav = observer(() => {
       >
         Menu
       </Button>
-      <Dialog.EmptyContent>
+      <Dialog.EmptyContent title='Navigation menu'>
         <div className='pointer-events-auto h-full overflow-hidden bg-black'>
           <Display>
             <nav className='flex items-center justify-between py-5'>
