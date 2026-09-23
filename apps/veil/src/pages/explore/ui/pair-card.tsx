@@ -62,26 +62,24 @@ export const PairCard = memo(({ summary }: PairCardProps) => {
   const from = firstPrice ? firstPrice[0] : new Date(0);
   const to = lastPrice ? lastPrice[0] : new Date(0);
 
+  // Metadata for the pair is resolved server-side in `fetchDaySummaries`
+  // against the authoritative registry cache, so it's guaranteed present
+  // here regardless of client-cache freshness. `useGetMetadata` is still
+  // used for the liquidity/volume Values below (indexing-asset denom),
+  // which are well-known chain assets and reliably in the client cache.
+  const startMetadata = summary.startAsset;
+  const endMetadata = summary.endAsset;
   const getMetadata = useGetMetadata();
-  const startMetadata = getMetadata(summary.start);
-  const endMetadata = getMetadata(summary.end);
-  // Missing registry metadata on either side used to `throw`, which
-  // unwound through React and killed the entire landing-page render
-  // for one bad row — anyone can list an asset on-chain that our
-  // registry hasn't picked up yet, so this must NEVER crash the page.
-  // Log for observability and quietly skip the card; `pairs.tsx`
-  // filters undefined out of the grid.
-  if (!startMetadata || !endMetadata) {
-    console.warn(
-      '[pair-card] skipping pair with unknown asset:',
-      !startMetadata ? summary.start.toJsonString() : summary.end.toJsonString(),
-    );
-    return null;
-  }
+  const pausedChannels = usePausedChannels();
   const liquidityMetadata = getMetadata(summary.liquidity.assetId);
   const volumeMetadata = getMetadata(summary.volume.assetId);
-
-  const pausedChannels = usePausedChannels();
+  // Belt-and-braces: server-side resolution guarantees these, but the
+  // page must never crash if a future refactor ships an unresolved row.
+  // Hooks come first so this early-return doesn't violate the rules.
+  if (!startMetadata || !endMetadata) {
+    console.warn('[pair-card] summary missing server-resolved metadata; skipping');
+    return null;
+  }
   const paused = [startMetadata, endMetadata].some(asset =>
     isAssetBridgePaused(asset, pausedChannels),
   );

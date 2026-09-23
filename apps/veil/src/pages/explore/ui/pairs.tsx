@@ -8,11 +8,9 @@ import { Icon } from '@penumbra-zone/ui/Icon';
 import { PairCard } from '@/pages/explore/ui/pair-card';
 import type { SummaryWithPrices } from '@/shared/api/server/summary';
 import { useDebounce } from '@/shared/utils/use-debounce';
-import { useGetMetadata } from '@/shared/api/assets';
 import { deserialize, Serialized } from '@/shared/utils/serializer';
 import { isPairMarked } from '@/shared/config/bridge-health';
 import { usePausedChannels } from '@/shared/api/ibc-bridge';
-import type { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 
 interface ExplorePairsProps {
   summaries: Serialized<SummaryWithPrices[]>;
@@ -26,46 +24,44 @@ const volumeBigInt = (s: SummaryWithPrices): bigint => {
 };
 
 export const ExplorePairs = ({ summaries }: ExplorePairsProps) => {
-  const getMetadata = useGetMetadata();
   const pausedChannels = usePausedChannels();
-  const augmentedSummaries = useMemo(() => {
+  const sortedSummaries = useMemo(() => {
     const deserialized = deserialize<SummaryWithPrices[]>(summaries);
-    const out: [SummaryWithPrices, Metadata | undefined, Metadata | undefined][] = deserialized.map(
-      x => [x, getMetadata(x.start), getMetadata(x.end)],
-    );
+    // Server-side resolution guarantees startAsset/endAsset are populated,
+    // so there's no need to look them up through the client registry.
+    const out = deserialized.slice();
     // Unmarked (settleable) pairs first, then by 24h trading volume desc within
     // each group. "Unmarked" means a working path in and out — today that is
     // the Injective-routed markets; markets on expired channels and Noble's
     // sunsetting USDC sink below them.
     out.sort((a, b) => {
-      const am = isPairMarked(a[1], a[2], pausedChannels);
-      const bm = isPairMarked(b[1], b[2], pausedChannels);
+      const am = isPairMarked(a.startAsset, a.endAsset, pausedChannels);
+      const bm = isPairMarked(b.startAsset, b.endAsset, pausedChannels);
       if (am !== bm) {
         return am ? 1 : -1;
       }
-      const av = volumeBigInt(a[0]);
-      const bv = volumeBigInt(b[0]);
+      const av = volumeBigInt(a);
+      const bv = volumeBigInt(b);
       if (av === bv) {
         return 0;
       }
       return av > bv ? -1 : 1;
     });
     return out;
-  }, [summaries, getMetadata, pausedChannels]);
+  }, [summaries, pausedChannels]);
   const [rawSearch, setSearch] = useState('');
   const search = useDebounce(rawSearch, 200);
   const filteredSummaries = useMemo(() => {
     if (!search) {
-      return augmentedSummaries.map(x => x[0]);
+      return sortedSummaries;
     }
     const target = search.toUpperCase();
-    return augmentedSummaries
-      .filter(([, base, quote]) =>
-        (base?.symbol.toUpperCase() ?? '').includes(target) ||
-        (quote?.symbol.toUpperCase() ?? '').includes(target),
-      )
-      .map(([summary]) => summary);
-  }, [augmentedSummaries, search]);
+    return sortedSummaries.filter(
+      s =>
+        s.startAsset.symbol.toUpperCase().includes(target) ||
+        s.endAsset.symbol.toUpperCase().includes(target),
+    );
+  }, [sortedSummaries, search]);
 
   return (
     <div className='flex w-full flex-col gap-4'>
@@ -112,7 +108,7 @@ export const ExplorePairs = ({ summaries }: ExplorePairsProps) => {
         {filteredSummaries.map(summary => (
           <PairCard
             summary={summary}
-            key={`${summary.start.toJsonString()}${summary.end.toJsonString()}`}
+            key={`${summary.startAsset.penumbraAssetId?.toJsonString() ?? summary.startAsset.symbol}-${summary.endAsset.penumbraAssetId?.toJsonString() ?? summary.endAsset.symbol}`}
           />
         ))}
       </div>

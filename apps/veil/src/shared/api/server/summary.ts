@@ -1,7 +1,7 @@
 'use server';
 
 import { pindexerDb } from '@/shared/database/client';
-import { AssetId, Value } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
+import { AssetId, Metadata, Value } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { sql } from 'kysely';
 import { indexingAsset } from './indexing-asset';
 import { pnum } from '@penumbra-zone/types/pnum';
@@ -23,8 +23,14 @@ export interface Summary {
 }
 
 export interface SummaryWithPrices extends Summary {
-  start: AssetId;
-  end: AssetId;
+  // Server-side resolved Metadata so /explore is never at the mercy of the
+  // client's registry cache freshness. If the server can't resolve either
+  // side, `fetchDaySummaries` drops the row rather than shipping a raw
+  // AssetId the client would fail to look up (which is what killed the
+  // landing page when a newly-listed asset — USDC.inj — wasn't in
+  // hydrated client caches yet).
+  startAsset: Metadata;
+  endAsset: Metadata;
   recentPrices: [Date, number][];
 }
 
@@ -260,37 +266,56 @@ export async function fetchDaySummaries(): Promise<Serialized<SummaryWithPrices[
   const registry = await registryP;
   return serialize(
     data
-      .map(x => {
+      .flatMap(x => {
+        const start = new AssetId({ inner: x.asset_start });
+        const end = new AssetId({ inner: x.asset_end });
+        // Resolve on the server against the authoritative registry cache.
+        // If either side is unknown here, the client would only fail
+        // harder — drop the row and warn instead of shipping a raw
+        // AssetId no consumer can render.
+        const startAsset = registry.tryGetMetadata(start);
+        const endAsset = registry.tryGetMetadata(end);
+        if (!startAsset || !endAsset) {
+          console.warn(
+            '[fetchDaySummaries] dropping pair with unresolved asset(s):',
+            !startAsset ? start.toJsonString() : end.toJsonString(),
+          );
+          return [];
+        }
+        if (!orderedCorrectly(registry, start, end)) {
+          return [];
+        }
         // Same guard as fetchSummary: a row with `price_then === 0` must
         // not render "Infinity%" on the explore pair cards.
         const priceThen = Number(x.price_then) || 0;
         const price = x.price;
         const priceChangePercent = priceThen > 0 ? 100 * (price / priceThen - 1.0) : 0;
-        return {
-          start: new AssetId({ inner: x.asset_start }),
-          end: new AssetId({ inner: x.asset_end }),
-          liquidity: new Value({
-            amount: pnum(x.liquidity ?? 0.0).toAmount(),
-            assetId: theIndexingAsset,
-          }),
-          volume: new Value({
-            amount: pnum(x.volume ?? 0.0).toAmount(),
-            assetId: theIndexingAsset,
-          }),
-          price,
-          priceChangePercent,
-          priceDelta: price - priceThen,
-          recentPrices: (x.recent_prices ?? []).flatMap((p, i) => {
-            const startTime = (x.recent_dates ?? [])[i];
-            if (!startTime) {
-              return [];
-            }
-            return [[startTime, p] as [Date, number]];
-          }),
-          high: x.high,
-          low: x.low,
-        };
-      })
-      .filter(x => orderedCorrectly(registry, x.start, x.end)),
+        return [
+          {
+            startAsset,
+            endAsset,
+            liquidity: new Value({
+              amount: pnum(x.liquidity ?? 0.0).toAmount(),
+              assetId: theIndexingAsset,
+            }),
+            volume: new Value({
+              amount: pnum(x.volume ?? 0.0).toAmount(),
+              assetId: theIndexingAsset,
+            }),
+            price,
+            priceChangePercent,
+            priceDelta: price - priceThen,
+            recentPrices: (x.recent_prices ?? []).flatMap((p, i) => {
+              const startTime = (x.recent_dates ?? [])[i];
+              if (!startTime) {
+                return [];
+              }
+              return [[startTime, p] as [Date, number]];
+            }),
+            high: x.high,
+            low: x.low,
+          },
+        ];
+      }),
   );
 }
