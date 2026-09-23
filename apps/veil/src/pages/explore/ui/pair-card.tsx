@@ -64,12 +64,19 @@ export const PairCard = memo(({ summary }: PairCardProps) => {
 
   const getMetadata = useGetMetadata();
   const startMetadata = getMetadata(summary.start);
-  if (!startMetadata) {
-    throw new Error(`unknown asset: ${summary.start.toJsonString()}`);
-  }
   const endMetadata = getMetadata(summary.end);
-  if (!endMetadata) {
-    throw new Error(`unknown asset: ${summary.end.toJsonString()}`);
+  // Missing registry metadata on either side used to `throw`, which
+  // unwound through React and killed the entire landing-page render
+  // for one bad row — anyone can list an asset on-chain that our
+  // registry hasn't picked up yet, so this must NEVER crash the page.
+  // Log for observability and quietly skip the card; `pairs.tsx`
+  // filters undefined out of the grid.
+  if (!startMetadata || !endMetadata) {
+    console.warn(
+      '[pair-card] skipping pair with unknown asset:',
+      !startMetadata ? summary.start.toJsonString() : summary.end.toJsonString(),
+    );
+    return null;
   }
   const liquidityMetadata = getMetadata(summary.liquidity.assetId);
   const volumeMetadata = getMetadata(summary.volume.assetId);
