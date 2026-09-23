@@ -51,12 +51,24 @@ export const swapShielded = async ({ selection, amount, toAsset, source }: SwapS
     source,
   });
 
-  const swapTx = await planBuildBroadcast('swap', swapReq);
-  if (!swapTx) {
+  const swapResult = await planBuildBroadcast('swap', swapReq);
+  if (!swapResult) {
     return undefined;
   }
 
-  const swapCommitment = getSwapCommitmentFromTx(swapTx);
+  // The wallet must have SCANNED the swap block before we can plan the claim
+  // against it -- otherwise the planner throws "Swap record not found". The
+  // swap itself is already on chain at this point, so bailing here is safe:
+  // the claim is finished by the wallet as it syncs, and returning early is
+  // strictly better than broadcasting a claim we know will fail.
+  if (!swapResult.viewSeen) {
+    return undefined;
+  }
+
+  // `.transaction`, not the result wrapper -- `planBuildBroadcast` returns
+  // `{ transaction, viewSeen }`, and passing the wrapper made this throw
+  // before it could build the claim at all.
+  const swapCommitment = getSwapCommitmentFromTx(swapResult.transaction);
   const claimReq = new TransactionPlannerRequest({
     swapClaims: [{ swapCommitment }],
     source,
