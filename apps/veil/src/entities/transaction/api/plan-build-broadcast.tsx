@@ -1,8 +1,5 @@
 import Link from 'next/link';
-import {
-  TransactionPlannerRequest,
-  TransactionInfo,
-} from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
+import { TransactionPlannerRequest } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
 import { ViewService } from '@penumbra-zone/protobuf';
 import { Transaction } from '@penumbra-zone/protobuf/penumbra/core/transaction/v1/transaction_pb';
 import { PartialMessage } from '@bufbuild/protobuf';
@@ -11,14 +8,9 @@ import {
   TransactionClassification,
   TRANSACTION_LABEL_BY_CLASSIFICATION,
 } from '@/shared/utils/transaction-classify';
-import { uint8ArrayToHex, hexToUint8Array } from '@penumbra-zone/types/hex';
-import { TransactionId } from '@penumbra-zone/protobuf/penumbra/core/txhash/v1/txhash_pb';
-import { penumbra } from '@/shared/const/penumbra';
+import { uint8ArrayToHex } from '@penumbra-zone/types/hex';
 import { shorten } from '@penumbra-zone/types/string';
-import { getOneWaySwapValues } from '@penumbra-zone/types/swap';
-import { ValueView } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { getFormattedAmtFromValueView } from '@penumbra-zone/types/value-view';
-import { getMetadata as getMetadataFromValueView } from '@penumbra-zone/getters/value-view';
+import { penumbra } from '@/shared/const/penumbra';
 import { txToId } from '../model/tx-to-id';
 import { getBroadcastStatusMessage, getBuildStatusDescription } from '../model/status';
 import { describeTxError } from '../model/describe-error';
@@ -27,58 +19,6 @@ import { broadcastTransaction } from './broadcast';
 import { buildTransaction } from './build';
 import { veilBroadcastTransaction, VeilBroadcastTerminalError } from './veil-broadcast';
 import { readBroadcastMode } from '@/shared/model/broadcast-mode';
-
-async function fetchTransaction(
-  id: TransactionId,
-  message: string,
-): Promise<TransactionInfo | undefined> {
-  try {
-    const currentTxInfoResponse = await penumbra.service(ViewService).transactionInfoByHash({ id });
-    return currentTxInfoResponse.txInfo;
-  } catch (e) {
-    console.warn(message, e);
-    return undefined;
-  }
-}
-
-async function* swapTransactions(tx?: TransactionInfo): AsyncGenerator<TransactionInfo> {
-  if (!tx) {
-    return;
-  }
-  for (const { actionView } of tx.view?.bodyView?.actionViews ?? []) {
-    if (actionView.case !== 'swapClaim') {
-      continue;
-    }
-    const swapClaimView = actionView.value.swapClaimView;
-    if (swapClaimView.case !== 'visible') {
-      continue;
-    }
-    const swapTx = swapClaimView.value.swapTx;
-    if (!swapTx) {
-      continue;
-    }
-    const tx = await fetchTransaction(swapTx, 'Could not fetch original swap transaction details');
-    if (!tx) {
-      continue;
-    }
-    yield tx;
-  }
-}
-
-async function* unfilledSwaps(originalTx?: TransactionInfo): AsyncGenerator<ValueView> {
-  for await (const tx of swapTransactions(originalTx)) {
-    for (const { actionView } of tx.view?.bodyView?.actionViews ?? []) {
-      if (actionView.case !== 'swap') {
-        continue;
-      }
-      const { unfilled } = getOneWaySwapValues(actionView.value);
-      if (!unfilled) {
-        continue;
-      }
-      yield unfilled;
-    }
-  }
-}
 
 /**
  * Extra information the outer caller (e.g. OrderFormStore.submit) needs
@@ -92,8 +32,10 @@ export interface PlanBuildBroadcastResult {
   /**
    * `true` when the local view service has scanned the block containing
    * this tx. Only meaningful for `awaitDetection: true` paths. When
-   * `false`, do NOT plan a follow-up (swapClaim, dependent tx) — the
-   * planner will throw because the note it needs isn't visible yet.
+   * `false`, do NOT plan any follow-up transaction that spends a note this
+   * one produced — the planner will throw because the note isn't visible
+   * yet. veil no longer issues swapClaims (the wallet owns those), so today
+   * this is advisory for callers adding new dependent flows.
    */
   viewSeen: boolean;
 }
@@ -211,28 +153,11 @@ export const planBuildBroadcast = async (
       viewSeen = true;
     }
 
-    let unfilledSwapsInfo = '';
-    if (transactionClassification === 'swapClaim') {
-      const txIdProto = new TransactionId({ inner: hexToUint8Array(txHash) });
-      const tx = await fetchTransaction(
-        txIdProto,
-        'Could not fetch current transaction details for swapClaim:',
-      );
-      unfilledSwapsInfo = (await Array.fromAsync(unfilledSwaps(tx)))
-        .map(x => {
-          const formattedAmount = getFormattedAmtFromValueView(x);
-          const metadata = getMetadataFromValueView.optional(x);
-          const symbol = metadata?.symbol ?? 'Unknown asset';
-          return `Unfilled: ${formattedAmount} ${symbol}`;
-        })
-        .join('. ');
-    }
-
     toast.update({
-      type: unfilledSwapsInfo.length ? 'warning' : 'success',
-      message: `${label} transaction ${unfilledSwapsInfo.length ? 'partially succeded.' : 'succeeded! 🎉'}`,
+      type: 'success',
+      message: `${label} transaction succeeded! 🎉`,
       description:
-        `Transaction ${shortenedTxHash} appeared on chain${detectionHeight ? ` at height ${detectionHeight}` : ''}. ${unfilledSwapsInfo}`.trim(),
+        `Transaction ${shortenedTxHash} appeared on chain${detectionHeight ? ` at height ${detectionHeight}` : ''}.`.trim(),
       action: {
         label: <Link href={`/explore/tx/${txHash}`}>See details</Link>,
         onClick: () => {},

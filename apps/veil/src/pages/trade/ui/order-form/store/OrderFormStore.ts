@@ -18,7 +18,6 @@ import { useBalances } from '@/shared/api/balances';
 import { connectionStore } from '@/shared/model/connection';
 import { useSubaccounts } from '@/widgets/header/api/subaccounts';
 import { useMarketPrice } from '@/pages/trade/model/useMarketPrice';
-import { getSwapCommitmentFromTx } from '@penumbra-zone/getters/transaction';
 import { pnum } from '@penumbra-zone/types/pnum';
 import debounce from 'lodash/debounce';
 import { useStakingTokenMetadata } from '@/shared/api/registry';
@@ -833,35 +832,20 @@ export class OrderFormStore {
         this._submitting = false;
       });
 
-      // Finish the claim in the BACKGROUND — it never gates the button.
-      void (async () => {
-        try {
-          if (!swapResult.viewSeen) {
-            // Wallet hasn't scanned the swap block yet; it will claim on sync.
-            openToast({
-              type: 'success',
-              message: 'Swap confirmed — claim finishing in the background',
-              description:
-                'Your swap landed on-chain; your wallet will finish the claim as it scans the block. No action needed — you can trade again now.',
-            });
-            return;
-          }
-          const swapCommitment = getSwapCommitmentFromTx(swapResult.transaction);
-          const req = new TransactionPlannerRequest({
-            swapClaims: [{ swapCommitment }],
-            source,
-          });
-          await planBuildBroadcast('swapClaim', req, { skipAuth: true });
-          await updatePositionsQuery();
-          // The claim only spends the swap NFT for the user's output notes —
-          // book/tape/candles/summary don't change, only balances/positions —
-          // so skip the book prime + book-family invalidations.
-          await invalidateMarketDataQueries(pair, { skipBook: true });
-        } catch {
-          // planBuildBroadcast already surfaced any error toast; nothing gates
-          // the UI here, so swallow to avoid an unhandled rejection.
-        }
-      })();
+      // No claim is issued here. Zafu's `usePenumbraSwapClaim` polls
+      // `unclaimedSwaps` and claims every outstanding one (5s after the popup
+      // opens, then every 30s), so a claim from veil races that tick and the
+      // loser is rejected with "nullifier already spent" — that is what
+      // happened to swapClaim 2699d451. veil runs in a different process and
+      // cannot lock against the wallet, so the only safe number of claimers
+      // is one, and it is the wallet's.
+      openToast({
+        type: 'success',
+        message: 'Swap confirmed — the wallet will finish the claim',
+        description:
+          'Your swap landed on-chain. Zafu claims the output automatically once it has synced the block; no action needed. You can trade again now.',
+      });
+
       return;
     } catch (e) {
       // Every planner/build/broadcast failure now propagates here as an

@@ -10,7 +10,6 @@ import {
   getDisplayDenomExponentFromValueView,
 } from '@penumbra-zone/getters/value-view';
 import { getBalanceView } from '@penumbra-zone/getters/balances-response';
-import { getSwapCommitmentFromTx } from '@penumbra-zone/getters/transaction';
 import { toBaseUnit } from '@penumbra-zone/types/lo-hi';
 import { fromValueView } from '@penumbra-zone/types/amount';
 import BigNumber from 'bignumber.js';
@@ -51,29 +50,13 @@ export const swapShielded = async ({ selection, amount, toAsset, source }: SwapS
     source,
   });
 
-  const swapResult = await planBuildBroadcast('swap', swapReq);
-  if (!swapResult) {
-    return undefined;
-  }
-
-  // The wallet must have SCANNED the swap block before we can plan the claim
-  // against it -- otherwise the planner throws "Swap record not found". The
-  // swap itself is already on chain at this point, so bailing here is safe:
-  // the claim is finished by the wallet as it syncs, and returning early is
-  // strictly better than broadcasting a claim we know will fail.
-  if (!swapResult.viewSeen) {
-    return undefined;
-  }
-
-  // `.transaction`, not the result wrapper -- `planBuildBroadcast` returns
-  // `{ transaction, viewSeen }`, and passing the wrapper made this throw
-  // before it could build the claim at all.
-  const swapCommitment = getSwapCommitmentFromTx(swapResult.transaction);
-  const claimReq = new TransactionPlannerRequest({
-    swapClaims: [{ swapCommitment }],
-    source,
-  });
-  return planBuildBroadcast('swapClaim', claimReq, { skipAuth: true });
+  // Broadcast the swap and stop. The CLAIM is the wallet's job: Zafu's
+  // `usePenumbraSwapClaim` polls `unclaimedSwaps` and claims every outstanding
+  // one, so a claim issued here is a coin-flip against that tick -- whichever
+  // lands second is rejected with "nullifier already spent", which is what
+  // happened to swapClaim 2699d451. veil cannot lock against another process,
+  // so it must not be a second claimer.
+  return planBuildBroadcast('swap', swapReq);
 };
 
 export const swapValidationErrors = ({
