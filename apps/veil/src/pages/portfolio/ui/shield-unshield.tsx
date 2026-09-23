@@ -1,151 +1,11 @@
 import type { ShieldedBalance, UnifiedAsset } from '@/pages/portfolio/api/use-unified-assets.ts';
 import { Button } from '@penumbra-zone/ui/Button';
 import { Tooltip } from '@penumbra-zone/ui/Tooltip';
-import { useEffect, useState, useMemo, useCallback, lazy, Suspense } from 'react';
+import { useCallback, useState } from 'react';
 import { useRegistry } from '@/shared/api/registry.tsx';
-import { getMetadata } from '@penumbra-zone/getters/value-view';
-import { theme as penumbraTheme } from '@penumbra-zone/ui/theme';
 import { UnshieldDialog } from '@/pages/portfolio/ui/unshield-dialog.tsx';
-import { Skeleton } from '@/shared/ui/skeleton';
-import { ShieldDialog } from '@/pages/portfolio/ui/shield-dialog.tsx';
+import { NativeShieldDialog } from '@/pages/portfolio/ui/native-shield-dialog.tsx';
 import { DepositDialog } from '@/features/deposit/deposit-dialog';
-
-/** Lazily-loaded Skip widget */
-const LazySkipWidget = lazy(() => import('@skip-go/widget').then(mod => ({ default: mod.Widget })));
-
-/** Cache for previously-computed IBC denoms to avoid redundant hashing */
-const ibcDenomCache = new Map<string, string>();
-
-/**
- * Returns a canonical IBC denom of the form `ibc/<SHA256>`.
- * The result is memoised in `ibcDenomCache`.
- * @param denom base or trace-path denom (e.g. `uatom` or `transfer/channel-0/uatom`)
- * @param channelId IBC channel when a trace-path needs to be constructed
- */
-async function computeIbcDenom(denom: string, channelId: string): Promise<string> {
-  const cacheKey = `${channelId}:${denom}`;
-  const cached = ibcDenomCache.get(cacheKey);
-  if (cached) {
-    return cached;
-  }
-
-  // Check if denom is already an IBC hash
-  if (denom.startsWith('ibc/')) {
-    return denom;
-  }
-  // Check if denom already is a full trace path
-  const ibcTraceStr = denom.startsWith('transfer/') ? denom : `transfer/${channelId}/${denom}`;
-
-  // Convert string to bytes using TextEncoder
-  const encoder = new TextEncoder();
-  const encodedString = encoder.encode(ibcTraceStr);
-
-  // Hash using SHA-256
-  const hashBuffer = await crypto.subtle.digest('SHA-256', encodedString);
-
-  // Convert to hex string and uppercase
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('')
-    .toUpperCase();
-
-  // Return in ibc/HASH format
-  const ibc = `ibc/${hashHex}`;
-  ibcDenomCache.set(cacheKey, ibc);
-  return ibc;
-}
-
-/** Fallback skeleton displayed while the Skip widget loads */
-const SkeletonFallback = () => (
-  <div className='flex h-[300px] w-full items-center justify-center p-4'>
-    <Skeleton />
-  </div>
-);
-
-/**
- * Resolves the IBC denom required to shield a given asset.
- * Handles Penumbra native assets, registry lookup and memoised hashing.
- * @returns ibcDenom (null while unresolved), sourceChainId, sourceDenom, error
- */
-function useIbcDenom(asset: UnifiedAsset) {
-  const { data: registry } = useRegistry();
-
-  // Use the first public balance for the shielding operation
-  const firstBalance = asset.publicBalances[0];
-  const sourceChainId = firstBalance?.chainId;
-
-  // Extract source denom information
-  const sourceDenom = useMemo(() => {
-    if (!firstBalance) {
-      return undefined;
-    }
-
-    /* Prefer denom property when truthy; otherwise fall back to metadata base */
-    return firstBalance.denom ? firstBalance.denom : getMetadata(firstBalance.valueView).base;
-  }, [firstBalance]);
-
-  const [ibcDenom, setIbcDenom] = useState<string | null>(null);
-  const [error, setError] = useState<Error | null>(null);
-
-  useEffect(() => {
-    // reset when asset changes
-    setIbcDenom(null);
-    setError(null);
-
-    const getIbcDenom = async () => {
-      if (!firstBalance || !sourceDenom) {
-        return;
-      }
-
-      try {
-        // Prefer `asset.metadata.base`, otherwise fall back to first denomUnit
-        const originDenom =
-          asset.metadata.base !== ''
-            ? asset.metadata.base
-            : (asset.metadata.denomUnits[0]?.denom ?? '');
-
-        if (!originDenom) {
-          throw new Error('Missing origin denom for asset');
-        }
-
-        // Native Penumbra asset doesn't need IBC calculation
-        if (originDenom === 'upenumbra') {
-          setIbcDenom('upenumbra');
-          return;
-        }
-
-        // Find the connection for the source chain
-        const connection = registry.ibcConnections.find(chain => chain.chainId === sourceChainId);
-
-        if (!connection?.channelId) {
-          throw new Error(`Missing IBC channelId for source chain ${sourceChainId}`);
-        }
-
-        // Calculate (or retrieve cached) IBC denom
-        const calculated = await computeIbcDenom(originDenom, connection.channelId);
-        setIbcDenom(calculated);
-      } catch (err) {
-        setError(err as Error);
-        console.error('useIbcDenom error:', err);
-      }
-    };
-
-    void getIbcDenom();
-  }, [asset.metadata, asset.symbol, firstBalance, sourceDenom, sourceChainId, registry]);
-
-  return { ibcDenom, sourceChainId, sourceDenom, error } as const;
-}
-
-/**
- * Skip's `theme` prop is `'dark' | 'light' | PartialTheme`. Passing a bare
- * `{ brandColor }` object made Skip fall back to its light defaults — the
- * 'Connect Wallet' button rendered as white-on-white over our dark
- * dialog. Use the dark preset and pass brandColor through the dedicated
- * `brandColor` prop instead.
- */
-const SKIP_THEME = 'dark' as const;
-const SKIP_BRAND_COLOR = penumbraTheme.color.primary.main;
 
 export function UnshieldButton({ asset }: { asset: ShieldedBalance }) {
   return <UnshieldDialog asset={asset} />;
@@ -175,23 +35,29 @@ export function GenericShieldButton() {
   );
 }
 
+/**
+ * Per-asset shield button on the portfolio row. Uses the native ICS-20 path:
+ * a MsgTransfer signed by the user's cosmos wallet on the source chain (we
+ * currently ship Injective + Noble). The Skip widget lives only inside the
+ * Deposit dialog's "advanced" tab for chains we lack a direct channel to.
+ */
 export const ShieldButton = ({ asset }: { asset: UnifiedAsset }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const { data: registry } = useRegistry();
 
-  const { ibcDenom, sourceChainId, sourceDenom } = useIbcDenom(asset);
-
-  const disabled = ibcDenom == null;
+  const sourceChainId = asset.publicBalances[0]?.chainId;
+  const hasIbcRoute =
+    !!sourceChainId && registry.ibcConnections.some(c => c.chainId === sourceChainId);
 
   const handleClose = useCallback(() => setIsOpen(false), []);
 
-  // Button with tooltip if needed
   const buttonElement = (
     <Button
       actionType='accent'
       density='slim'
       priority='secondary'
       onClick={() => setIsOpen(true)}
-      disabled={disabled}
+      disabled={!hasIbcRoute}
     >
       Shield
     </Button>
@@ -199,42 +65,15 @@ export const ShieldButton = ({ asset }: { asset: UnifiedAsset }) => {
 
   return (
     <>
-      {disabled ? (
-        <Tooltip message='Cannot determine IBC path for shielding'>{buttonElement}</Tooltip>
-      ) : (
+      {hasIbcRoute ? (
         buttonElement
+      ) : (
+        <Tooltip message='No IBC route registered for this asset'>{buttonElement}</Tooltip>
       )}
 
-      <ShieldDialog isOpen={isOpen} onClose={handleClose}>
-        {sourceChainId && sourceDenom && ibcDenom ? (
-          <Suspense fallback={<SkeletonFallback />}>
-            <LazySkipWidget
-              key={`${sourceChainId}-${sourceDenom}-${ibcDenom}`}
-              defaultRoute={{
-                srcChainId: sourceChainId,
-                destChainId: 'penumbra-1',
-                srcAssetDenom: sourceDenom,
-                destAssetDenom: ibcDenom,
-              }}
-              filter={{
-                destination: {
-                  'penumbra-1': undefined,
-                },
-                source: {
-                  [sourceChainId]: undefined,
-                },
-              }}
-              theme={SKIP_THEME}
-              brandColor={SKIP_BRAND_COLOR}
-              enableAmplitudeAnalytics={false}
-            />
-          </Suspense>
-        ) : (
-          <div className='p-4 text-center text-red-500'>
-            Error: Could not determine valid shielding route information.
-          </div>
-        )}
-      </ShieldDialog>
+      {isOpen && hasIbcRoute && (
+        <NativeShieldDialog asset={asset} isOpen={isOpen} onClose={handleClose} />
+      )}
     </>
   );
 };
