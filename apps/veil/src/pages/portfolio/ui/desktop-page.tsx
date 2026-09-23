@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { observer } from 'mobx-react-lite';
-import { Coins } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, Coins } from 'lucide-react';
 import { Button } from '@penumbra-zone/ui/Button';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { useRegistry } from '@/shared/api/registry';
@@ -52,6 +52,22 @@ const PortfolioBody = observer(() => {
 
       {!isConnectionLoading && (
         <div ref={parent} className='container mx-auto flex max-w-[1136px] flex-col gap-4 py-8'>
+          {/* Prominent Deposit / Withdraw pair — the CEX-guided deposit flow lives at
+              /portfolio/deposit and mirrors how Kraken/Binance users move funds. Rendered
+              regardless of connection state; the destination pages handle their own gating. */}
+          <div className='flex flex-wrap gap-2'>
+            <Link href='/portfolio/deposit'>
+              <Button actionType='accent' priority='primary' icon={ArrowDownToLine}>
+                Deposit
+              </Button>
+            </Link>
+            <Link href='/portfolio/withdraw'>
+              <Button actionType='default' priority='secondary' icon={ArrowUpFromLine}>
+                Withdraw
+              </Button>
+            </Link>
+          </div>
+
           <WalletConnect />
 
           {isPenumbraConnected && (
