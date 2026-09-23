@@ -20,51 +20,116 @@ export interface RegistryWithGlobals {
 
 const RegistryContext = createContext<RegistryWithGlobals | undefined>(undefined);
 
-const STORAGE_KEY = 'penumbra-registry-v1';
-const REGISTRY_TTL_MS = 60 * 60 * 1000; // 1h
+// Bumped from v1 -> v2 when the ETag field was added. Old entries
+// missing `etag` are treated as a cache miss so the next fetch pulls
+// a fresh copy and starts tracking ETags. Callers never read v1, so
+// leaving stale v1 entries in localStorage is harmless.
+const STORAGE_KEY = 'penumbra-registry-v2';
+const REGISTRY_TTL_MS = 60 * 60 * 1000; // 1h — belt-and-braces floor; the ETag round-trip is the real invalidator.
 
 interface CachedRegistry {
   fetchedAt: number;
   chainId: string;
+  etag: string;
   data: JsonRegistryWithGlobals;
 }
 
-const readCache = (chainId: string): JsonRegistryWithGlobals | undefined => {
+const readCacheEntry = (chainId: string): CachedRegistry | undefined => {
   if (typeof window === 'undefined') return undefined;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return undefined;
-    const cached = JSON.parse(raw) as CachedRegistry;
-    if (cached.chainId !== chainId) return undefined;
-    if (Date.now() - cached.fetchedAt > REGISTRY_TTL_MS) return undefined;
-    return cached.data;
+    const cached = JSON.parse(raw) as Partial<CachedRegistry>;
+    if (
+      !cached ||
+      cached.chainId !== chainId ||
+      typeof cached.etag !== 'string' ||
+      typeof cached.fetchedAt !== 'number' ||
+      !cached.data
+    ) {
+      return undefined;
+    }
+    return cached as CachedRegistry;
   } catch {
     return undefined;
   }
 };
 
-const writeCache = (chainId: string, data: JsonRegistryWithGlobals) => {
+const readCache = (chainId: string): JsonRegistryWithGlobals | undefined => {
+  const entry = readCacheEntry(chainId);
+  if (!entry) return undefined;
+  if (Date.now() - entry.fetchedAt > REGISTRY_TTL_MS) return undefined;
+  return entry.data;
+};
+
+const writeCache = (chainId: string, data: JsonRegistryWithGlobals, etag: string) => {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ fetchedAt: Date.now(), chainId, data } satisfies CachedRegistry),
+      JSON.stringify({
+        fetchedAt: Date.now(),
+        chainId,
+        etag,
+        data,
+      } satisfies CachedRegistry),
     );
   } catch {
     // localStorage can be disabled / quota-exceeded; cache miss is fine
   }
 };
 
+// Slide the fetchedAt timestamp forward without re-serializing the
+// whole ~250KB body. Called after a 304 confirms our cached copy is
+// still current.
+const touchCache = (chainId: string) => {
+  if (typeof window === 'undefined') return;
+  const entry = readCacheEntry(chainId);
+  if (!entry) return;
+  try {
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ ...entry, fetchedAt: Date.now() } satisfies CachedRegistry),
+    );
+  } catch {
+    // best-effort
+  }
+};
+
 const fetchRegistryFromApi = async (chainId: string): Promise<JsonRegistryWithGlobals> => {
+  const cached = readCacheEntry(chainId);
+  const headers: HeadersInit = {};
+  if (cached?.etag) {
+    headers['If-None-Match'] = cached.etag;
+  }
+  // `no-cache` (not `no-store`) tells the browser HTTP layer to keep
+  // its copy and revalidate every use — combined with our
+  // If-None-Match this gives a 304 fast path on unchanged data and an
+  // immediate 200 on a registry bump. `force-cache` would bypass
+  // conditional GET entirely, so we must not use it here.
   const res = await fetch(`/api/registry?chainId=${encodeURIComponent(chainId)}`, {
-    // Server route already caches with revalidate; let the browser
-    // also keep its copy under HTTP cache control headers.
-    cache: 'force-cache',
+    cache: 'no-cache',
+    headers,
   });
+
+  if (res.status === 304 && cached) {
+    // Server confirms our cached body is still current. Slide the TTL
+    // forward so the next warm start doesn't refetch immediately.
+    touchCache(chainId);
+    return cached.data;
+  }
+
   if (!res.ok) {
     throw new Error(`registry fetch failed: ${res.status}`);
   }
-  return (await res.json()) as JsonRegistryWithGlobals;
+
+  const data = (await res.json()) as JsonRegistryWithGlobals;
+  // Persist body + etag atomically so a subsequent load can send a
+  // matching If-None-Match. An empty ETag is fine — we just won't
+  // send one next time.
+  const etag = res.headers.get('etag') ?? '';
+  writeCache(chainId, data, etag);
+  return data;
 };
 
 interface RegistryProviderProps {
@@ -113,13 +178,9 @@ export const RegistryProvider = ({ chainId, children }: RegistryProviderProps) =
     retry: 2,
   });
 
-  // Persist freshly-fetched data to localStorage when the data identity
-  // changes (i.e. it came from the network rather than from the cache).
-  useEffect(() => {
-    if (data && data !== initialData) {
-      writeCache(chainId, data);
-    }
-  }, [data, initialData, chainId]);
+  // Persistence to localStorage now happens inside fetchRegistryFromApi
+  // itself, so we can atomically store the body alongside the ETag the
+  // server returned. Nothing to do here.
 
   const parsed = useMemo<RegistryWithGlobals | undefined>(() => {
     if (!data) return undefined;

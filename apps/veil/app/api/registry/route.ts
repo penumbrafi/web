@@ -7,12 +7,35 @@
 // largest single chunk from every page response — previously every
 // page was shipping the entire registry inline as part of the RSC
 // stream.
+//
+// Conditional-GET / ETag:
+//   The endpoint stamps every 200 response with a strong ETag
+//   ("sha256-<hex>") computed over the JSON body. Clients cache the
+//   body alongside the ETag and send `If-None-Match` on subsequent
+//   requests; when the registry is unchanged the server replies 304
+//   with an empty body (~a couple hundred bytes on the wire) and the
+//   client reuses its localStorage copy. When the registry changes
+//   the hash changes and clients get a fresh 200 — cache invalidation
+//   is automatic within the browser HTTP revalidation interval.
+//
+//   `Cache-Control: no-cache` (NOT no-store) tells the browser to keep
+//   its copy and revalidate on every use rather than serving stale.
+//   Revalidation is cheap because of the ETag round-trip.
 import { NextResponse } from 'next/server';
+import { createHash } from 'node:crypto';
 import { fetchJsonRegistryWithGlobals } from '@/shared/api/fetch-registry';
 
 // Next.js's static-analysis pass requires a literal here, not an
 // identifier. Same value as the cache-control max-age below.
 export const revalidate = 3600;
+
+const NO_CACHE_HEADERS = {
+  // Tell the browser: keep the response, but revalidate every use
+  // via If-None-Match. Combined with the ETag this gives us a fast
+  // 304 path when the registry is unchanged and immediate visibility
+  // of registry bumps otherwise.
+  'cache-control': 'no-cache',
+} as const;
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -26,12 +49,29 @@ export async function GET(req: Request) {
 
   try {
     const data = await fetchJsonRegistryWithGlobals(chainId);
-    return NextResponse.json(data, {
+    // Serialize once so we can hash EXACTLY the bytes we send. Using
+    // NextResponse.json here would double-serialize and risk producing
+    // different bytes than the ones we hashed.
+    const body = JSON.stringify(data);
+    const etag = `"sha256-${createHash('sha256').update(body).digest('hex')}"`;
+
+    const ifNoneMatch = req.headers.get('if-none-match');
+    if (ifNoneMatch && ifNoneMatch === etag) {
+      return new NextResponse(null, {
+        status: 304,
+        headers: {
+          etag,
+          ...NO_CACHE_HEADERS,
+        },
+      });
+    }
+
+    return new NextResponse(body, {
+      status: 200,
       headers: {
-        // Cache aggressively at the edge — clients also cache in
-        // localStorage. If you push a registry update upstream, hit
-        // /api/registry?chainId=...&t=now once to force-revalidate.
-        'cache-control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+        'content-type': 'application/json; charset=utf-8',
+        etag,
+        ...NO_CACHE_HEADERS,
       },
     });
   } catch (e) {
