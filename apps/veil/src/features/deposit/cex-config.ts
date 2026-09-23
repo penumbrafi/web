@@ -30,6 +30,21 @@
  * than authoritative.
  */
 
+/** Optional multi-hop journey: user has to move funds through more than
+ *  one network to reach Penumbra. Displayed as a numbered checklist in
+ *  the deposit panel above the address. Later we automate each step.
+ *  When `journey` is present, `chainId` / `sourceDenom` are the FINAL
+ *  hop (typically Injective) so our native shield flow can still act on
+ *  them once the user's wallet has the funds. */
+export interface CexJourneyStep {
+  /** Short title, e.g. "Withdraw USDC to Ethereum". */
+  title: string;
+  /** One-line explanation shown under the title. */
+  hint: string;
+  /** Optional helper link, e.g. Circle Mint. */
+  link?: { url: string; label: string };
+}
+
 export interface CexAsset {
   /** Display symbol (INJ, USDC, USDT). */
   symbol: string;
@@ -47,6 +62,10 @@ export interface CexAsset {
   estimatedArrival: string;
   /** Optional per-row warning shown next to the destination address. */
   note?: string;
+  /** Multi-hop guide. When present, the exchange doesn't drop funds on
+   *  the final chain directly — user is walked through intermediate
+   *  steps (e.g. CEX → EVM → CCTP v2 → Injective → shield). */
+  journey?: CexJourneyStep[];
 }
 
 export interface CexConfig {
@@ -99,6 +118,42 @@ const USDC_INJECTIVE = (extras: Partial<CexAsset> = {}): CexAsset => ({
 //   ...
 // });
 
+/**
+ * USDC via CCTP v2. Exchanges that don't offer USDC withdrawal over
+ * the Injective network directly (Binance and most others as of
+ * 2026-09) can still route via CCTP v2: withdraw USDC to any CCTP-
+ * enabled EVM chain (Ethereum, Base, Arbitrum, Optimism, Polygon,
+ * Avalanche, Solana), then burn-and-mint over CCTP v2 to Injective,
+ * then shield to Penumbra. USDC.inj that lands on Injective from a
+ * CCTP mint is the same Circle-issued asset our native shield already
+ * handles — chainId/sourceDenom point at the final Injective hop so
+ * the "shield now" flow works once the user's Injective wallet has
+ * the funds.
+ */
+const USDC_VIA_CCTP = (): CexAsset => ({
+  symbol: 'USDC',
+  network: 'CCTP → Injective',
+  chainId: 'injective-1',
+  sourceDenom: 'erc20:0xa00C59fF5a080D2b954d0c75e46E22a0c371235a',
+  minDeposit: 10,
+  estimatedArrival: '2-5 min',
+  journey: [
+    {
+      title: 'Withdraw USDC to an EVM network',
+      hint: 'Ethereum, Base, Arbitrum, Optimism, Polygon, Avalanche, or Solana — any Circle CCTP-supported chain.',
+    },
+    {
+      title: 'Bridge via CCTP v2 to Injective',
+      hint: 'Burn on the source, mint native USDC on Injective (~8–20s with Fast Transfer). Arrives at your inj1… address.',
+      link: { url: 'https://www.circle.com/cross-chain-transfer-protocol', label: 'CCTP v2' },
+    },
+    {
+      title: 'Shield to Penumbra',
+      hint: 'Once USDC is on Injective, come back here and use the Ready-to-shield fast-path (or the per-asset Shield button).',
+    },
+  ],
+});
+
 // Noble is deprecated as a deposit path — Circle is winding down Noble
 // USDC (see shared/config/sunsetting-assets.ts) and USDC.inj is the
 // replacement destination for shielded USDC. We do NOT surface Noble
@@ -121,10 +176,11 @@ export const CEX_CONFIG: CexConfig[] = [
     name: 'Binance',
     brandColor: '#F0B90B',
     brandColorContrast: 'dark',
-    // USDC.inj / USDT.inj on Binance not confirmed against a public
-    // source (Binance routes USDC-to-Injective through CCTP/Ethereum
-    // in help docs). Keeping INJ only until verified.
-    assets: [INJ()],
+    // Binance's USDC withdrawal networks are all EVM chains + Sui/Solana/
+    // Starknet — no Injective, no Noble. USDC users route via CCTP v2 to
+    // Injective, then shield here (see USDC_VIA_CCTP journey). INJ from
+    // Binance lands directly on Injective and shields in one signature.
+    assets: [INJ(), USDC_VIA_CCTP()],
   },
   {
     id: 'coinbase',

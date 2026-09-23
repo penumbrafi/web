@@ -65,15 +65,22 @@ export const DepositPanel = ({ cex, asset, onBack }: DepositPanelProps) => {
 
       <div className='flex flex-col gap-1'>
         <Text variant='strong' color='text.primary'>
-          Withdraw {asset.symbol} from {cex.name} via {asset.network}
+          {asset.journey
+            ? `${asset.symbol} from ${cex.name} → Penumbra`
+            : `Withdraw ${asset.symbol} from ${cex.name} via ${asset.network}`}
         </Text>
         <Text small color='text.secondary'>
-          Paste the destination address below into {cex.name}'s withdrawal form.
-          Make sure the network is set to {asset.network}.
+          {asset.journey
+            ? `${cex.name} doesn't drop ${asset.symbol} on Injective directly — follow the steps below to route it here.`
+            : `Paste the destination address below into ${cex.name}'s withdrawal form. Make sure the network is set to ${asset.network}.`}
         </Text>
       </div>
 
-      <NetworkWarning network={asset.network} symbol={asset.symbol} />
+      {asset.journey ? (
+        <JourneySteps steps={asset.journey} />
+      ) : (
+        <NetworkWarning network={asset.network} symbol={asset.symbol} />
+      )}
 
       <AddressPanel
         address={penumbraAddress}
@@ -103,6 +110,39 @@ const MetaLine = ({ label, value }: { label: string; value: string }) => (
       {value}
     </Text>
   </div>
+);
+
+const JourneySteps = ({ steps }: { steps: NonNullable<CexAsset['journey']> }) => (
+  <ol className='flex flex-col gap-2 rounded-xl bg-other-tonal-fill5 p-4'>
+    {steps.map((step, i) => (
+      <li key={i} className='flex items-start gap-3'>
+        <span className='mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-main/20 text-xs font-semibold text-primary-main'>
+          {i + 1}
+        </span>
+        <div className='flex flex-col gap-1'>
+          <Text small color='text.primary'>
+            {step.title}
+          </Text>
+          <Text detail color='text.secondary'>
+            {step.hint}
+            {step.link && (
+              <>
+                {' '}
+                <a
+                  href={step.link.url}
+                  target='_blank'
+                  rel='noreferrer'
+                  className='text-primary-main hover:underline'
+                >
+                  {step.link.label} ↗
+                </a>
+              </>
+            )}
+          </Text>
+        </div>
+      </li>
+    ))}
+  </ol>
 );
 
 const NetworkWarning = ({ network, symbol }: { network: string; symbol: string }) => (
