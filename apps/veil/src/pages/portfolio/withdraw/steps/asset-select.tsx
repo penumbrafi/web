@@ -34,7 +34,7 @@ export const AssetSelectStep = observer(({ onSelect }: AssetSelectStepProps) => 
     return (
       <div className='flex flex-col items-center gap-3 py-16 text-center'>
         <Text variant='large' color='text.primary'>
-          Connect Prax to withdraw
+          Connect Zafu to withdraw
         </Text>
         <Text variant='small' color='text.secondary'>
           Withdrawals move shielded balances back out to an exchange or wallet on the source chain.

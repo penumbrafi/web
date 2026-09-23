@@ -35,7 +35,7 @@ export const SettingsPopover = () => {
                   without crowding the control. */}
               <Tooltip
                 title='Broadcast via'
-                message="Veil submits signed transactions through its own fullnode for lower latency. Switch to Wallet to route through your Prax extension's RPC instead."
+                message="Veil submits signed transactions through its own fullnode for lower latency. Switch to Wallet to route through your Zafu extension's RPC instead."
               >
                 <Info className='size-3.5 text-text-secondary' aria-label='About broadcast modes' />
               </Tooltip>

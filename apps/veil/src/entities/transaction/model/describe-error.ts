@@ -60,7 +60,7 @@ const RULES: Rule[] = [
     match: /PenumbraNotInstalledError|provider not available|PenumbraProviderNotAvailable/i,
     title: 'No wallet detected',
     description:
-      'Install and enable a Penumbra wallet (Prax or Zafu), then reload this page and reconnect.',
+      'Install and enable Zafu (the Penumbra wallet), then reload this page and reconnect.',
   },
   {
     match: /PenumbraProviderNotConnected|not connected/i,

@@ -53,8 +53,7 @@ export const WithdrawPage = observer(() => {
               Withdraw
             </Text>
             <Text variant='detail' color='text.secondary'>
-              Send shielded funds out to an exchange or a Cosmos wallet.
-              (Also known as unshielding.)
+              Send shielded funds out to an exchange or a wallet on another chain.
             </Text>
           </div>
 

@@ -25,7 +25,7 @@ export const Explainer = () => {
               Delegate UM
             </Text>
             <Text variant='small' color='text.secondary'>
-              Delegate UM using Prax to vote on which assets should receive incentives from the
+              Delegate UM using Zafu to vote on which assets should receive incentives from the
               protocol. Delegators receive rewards for participating in the voting process.
             </Text>
           </div>

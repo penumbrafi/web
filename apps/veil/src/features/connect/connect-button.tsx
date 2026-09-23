@@ -35,19 +35,16 @@ const ConnectButtonInner = observer(
       }
     };
 
-    // Ordered by our recommendation: Zafu first (actively maintained fork,
-    // Rotko-supported), Prax second (upstream, currently receiving fewer
-    // updates). Users who already know Prax can still pick it.
+    // Zafu is the wallet we maintain and ship features against — one
+    // active recommendation, no fork-picker to confuse first-time
+    // users. Existing Prax users still connect fine via the provider
+    // API (`getProviders()` returns any installed provider), we just
+    // don't send new users to install it.
     const installOptions = [
       {
         name: 'Zafu',
         url: 'https://zafu.pro/',
-        description: 'Recommended — maintained Penumbra wallet',
-      },
-      {
-        name: 'Prax',
-        url: 'https://praxwallet.com/',
-        description: 'Original Penumbra wallet by Penumbra Labs',
+        description: 'The Penumbra wallet — install to start shielding',
       },
     ];
 

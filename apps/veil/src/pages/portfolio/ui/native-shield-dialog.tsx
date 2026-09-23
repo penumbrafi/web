@@ -209,7 +209,7 @@ export const NativeShieldDialog = ({ asset, isOpen, onClose }: NativeShieldDialo
                   Deposit address (single-use, generated fresh)
                 </Text>
                 <span className='font-mono text-xs break-all text-text-primary'>
-                  {penumbraReceiver ? truncate(penumbraReceiver) : 'Connect Prax to generate…'}
+                  {penumbraReceiver ? truncate(penumbraReceiver) : 'Connect Zafu to generate…'}
                 </span>
                 {sender && (
                   <Text detail color='text.secondary'>

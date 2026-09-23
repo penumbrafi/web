@@ -340,13 +340,13 @@ const OneClickShieldPanel = ({
         </Text>
       </div>
       <Text small color='text.secondary'>
-        Shield it directly in one signature — no need to withdraw again.
+        Shield it directly in one signature — no exchange step needed.
       </Text>
 
       {phase === 'success' ? (
         <div className='flex flex-col gap-2 rounded-lg bg-other-tonal-fill5 p-3'>
           <Text small color='text.primary'>
-            Transfer broadcast. Your shield will land in ~1 minute.
+            Shield sent. Funds arrive on Penumbra in ~1 minute.
           </Text>
           {explorer && txHash ? (
             <a
