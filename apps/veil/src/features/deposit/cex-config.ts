@@ -144,8 +144,8 @@ const USDC_VIA_CCTP = (): CexAsset => ({
     },
     {
       title: 'Bridge via CCTP v2 to Injective',
-      hint: 'Burn on the source, mint native USDC on Injective (~8–20s with Fast Transfer). Arrives at your inj1… address.',
-      link: { url: 'https://www.circle.com/cross-chain-transfer-protocol', label: 'CCTP v2' },
+      hint: 'Use Injective\'s official bridge: connect your EVM wallet, pick USDC, destination Injective. Circle burns on the source and mints native USDC.inj at your inj1… address (~8–20s with Fast Transfer). Do NOT route through Noble — that path is being wound down.',
+      link: { url: 'https://bridge.injective.network/', label: 'Injective Bridge' },
     },
     {
       title: 'Shield to Penumbra',
