@@ -19,7 +19,11 @@ export const StarButton = observer(({ pair, adornment }: StarButtonProps) => {
   const starred = isStarred(pair);
 
   const onClick: MouseEventHandler<HTMLButtonElement> = event => {
+    // Star toggles never navigate or submit — stop the React event from
+    // bubbling to an enclosing <Link>/<form> handler, and preventDefault
+    // in case a parent anchor would still be activated by the browser.
     event.stopPropagation();
+    event.preventDefault();
     if (starred) {
       unstar(pair);
     } else {

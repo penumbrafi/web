@@ -1,5 +1,5 @@
 import { ReactNode, memo } from 'react';
-import { Star, CandlestickChart } from 'lucide-react';
+import { CandlestickChart } from 'lucide-react';
 import cn from 'clsx';
 import Link from 'next/link';
 import { shortify } from '@penumbra-zone/types/shortify';
@@ -19,6 +19,7 @@ import { getTradePairPath } from '@/shared/const/pages';
 import { isAssetBridgePaused } from '@/shared/config/bridge-health';
 import { usePausedChannels } from '@/shared/api/ibc-bridge';
 import { BridgeStatusBadge } from '@/shared/ui/bridge-status-badge';
+import { StarButton } from '@/features/star-pair';
 
 const getTextSign = (change: number): ReactNode => {
   if (change > 0) {
@@ -93,11 +94,11 @@ export const PairCard = memo(({ summary }: PairCardProps) => {
       )}
     >
       <div className='relative flex h-10 items-center gap-2 text-text-primary'>
-        <Density compact>
-          <Button icon={Star} iconOnly>
-            Favorite
-          </Button>
-        </Density>
+        {/* Real StarButton (not just a Star icon) so click actually
+            toggles the star in localStorage. StarButton's onClick calls
+            event.stopPropagation() to keep the enclosing <Link> from
+            navigating when the user meant to favorite. */}
+        <StarButton pair={{ base: startMetadata, quote: endMetadata }} />
 
         <div className='z-10'>
           <AssetIcon metadata={startMetadata} size='lg' />
