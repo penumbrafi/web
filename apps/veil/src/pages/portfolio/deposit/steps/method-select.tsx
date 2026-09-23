@@ -5,6 +5,7 @@ import { ArrowRightLeft, Building2, ChevronRight } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Text } from '@penumbra-zone/ui/Text';
 import dynamic from 'next/dynamic';
+import { ReadyToShield } from './ready-to-shield';
 
 // The multi-chain widget lives inside DepositDialog; import lazily so its
 // ~1.5MB of chain-registry + skip client only lands if the user picks it.
@@ -35,6 +36,11 @@ export const MethodSelect = ({ onPickCex }: MethodSelectProps) => {
           Choose where your funds are today. We'll walk you through the rest.
         </Text>
       </div>
+
+      {/* Renders nothing if no connected wallet has a positive balance
+          on an IBC-connected chain — never adds clutter for first-time
+          visitors who genuinely need the CEX flow. */}
+      <ReadyToShield />
 
       <div className='grid grid-cols-1 gap-3 tablet:grid-cols-2'>
         <MethodCard
