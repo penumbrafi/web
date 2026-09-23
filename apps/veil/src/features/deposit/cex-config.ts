@@ -88,17 +88,16 @@ const USDC_INJECTIVE = (extras: Partial<CexAsset> = {}): CexAsset => ({
   ...extras,
 });
 
-const USDT_INJECTIVE = (extras: Partial<CexAsset> = {}): CexAsset => ({
-  symbol: 'USDT',
-  network: 'Injective',
-  chainId: 'injective-1',
-  // Peggy-bridged USDT on Injective.
-  sourceDenom: 'peggy0xdAC17F958D2ee523a2206206994597C13D831ec7',
-  minDeposit: 5,
-  estimatedArrival: '30-60s',
-  note: 'Only withdraw over the Injective network.',
-  ...extras,
-});
+// USDT.inj (Peggy) helper removed — no CEX currently confirms USDT
+// withdrawal specifically over the Injective network in their public
+// docs. Add back with an explicit source when we verify one.
+// const USDT_INJECTIVE = (extras: Partial<CexAsset> = {}): CexAsset => ({
+//   symbol: 'USDT',
+//   network: 'Injective',
+//   chainId: 'injective-1',
+//   sourceDenom: 'peggy0xdAC17F958D2ee523a2206206994597C13D831ec7',
+//   ...
+// });
 
 // Noble is deprecated as a deposit path — Circle is winding down Noble
 // USDC (see shared/config/sunsetting-assets.ts) and USDC.inj is the
@@ -107,24 +106,35 @@ const USDT_INJECTIVE = (extras: Partial<CexAsset> = {}): CexAsset => ({
 // via Injective. Existing shielded Noble USDC still exists as a balance
 // on /portfolio and can be withdrawn (or later, swapped to USDC.inj).
 
+// Per Sept 2026 research (see market-research audit): most CEXes only
+// confirm INJ over the Injective network in their public withdrawal
+// docs. USDT.inj (Peggy) and USDC.inj (Circle-issued, live since
+// Vulcan v1.20.0, 2026-06-09) haven't yet appeared in most exchanges'
+// published network lists — treat those rows as "confirmed live in a
+// public source" only. Every "assumed but not evidenced" row was
+// trimmed rather than risk sending a user to a network dropdown that
+// doesn't have the option. Add a row back once a live withdrawal
+// dropdown check confirms it.
 export const CEX_CONFIG: CexConfig[] = [
   {
     id: 'binance',
     name: 'Binance',
     brandColor: '#F0B90B',
     brandColorContrast: 'dark',
-    assets: [INJ(), USDT_INJECTIVE(), USDC_INJECTIVE()],
+    // USDC.inj / USDT.inj on Binance not confirmed against a public
+    // source (Binance routes USDC-to-Injective through CCTP/Ethereum
+    // in help docs). Keeping INJ only until verified.
+    assets: [INJ()],
   },
   {
     id: 'coinbase',
     name: 'Coinbase',
     brandColor: '#0052FF',
     brandColorContrast: 'light',
-    // INJ withdrawal on Coinbase is supported (over the Injective
-    // network). USDC on Injective from Coinbase is NOT confirmed — their
-    // supported networks for USDC are ETH/Base/Solana/Polygon/Arbitrum,
-    // routed via Noble bridge (needs Skip, phase 2). Leaving USDC out
-    // until we can verify a native Injective withdrawal path.
+    // INJ from Coinbase lands as native INJ on Injective EVM (migration
+    // completed 2026-07-22; ERC-20 INJ retired). USDC on Injective from
+    // Coinbase is NOT supported — Coinbase USDC networks remain
+    // ETH/Base/Solana/Polygon/Arbitrum.
     assets: [INJ()],
   },
   {
@@ -132,8 +142,8 @@ export const CEX_CONFIG: CexConfig[] = [
     name: 'Kraken',
     brandColor: '#5741D9',
     brandColorContrast: 'light',
-    // ATOM on Cosmos Hub route is skipped: the Penumbra <> Cosmos Hub
-    // channel is expired in the current registry.
+    // USDC on Injective at Kraken added 2026-07 per blog.kraken.com —
+    // one of the few CEXes with a confirmed USDC.inj route today.
     assets: [INJ(), USDC_INJECTIVE()],
   },
   {
@@ -141,20 +151,23 @@ export const CEX_CONFIG: CexConfig[] = [
     name: 'OKX',
     brandColor: '#000000',
     brandColorContrast: 'light',
-    assets: [INJ(), USDT_INJECTIVE(), USDC_INJECTIVE()],
+    // OKX's public USDT/USDC network lists don't include Injective.
+    // Trim to INJ pending live-dropdown confirmation.
+    assets: [INJ()],
   },
   {
     id: 'bybit',
     name: 'Bybit',
     brandColor: '#F7A600',
     brandColorContrast: 'dark',
-    assets: [INJ(), USDT_INJECTIVE()],
+    assets: [INJ()],
   },
   {
     id: 'kucoin',
     name: 'KuCoin',
     brandColor: '#24AE8F',
     brandColorContrast: 'light',
+    // Mainnet Injective INJ only; BEP20 INJ permanently closed 2023.
     assets: [INJ()],
   },
   {
@@ -162,7 +175,7 @@ export const CEX_CONFIG: CexConfig[] = [
     name: 'Gate.io',
     brandColor: '#2354E6',
     brandColorContrast: 'light',
-    assets: [INJ(), USDT_INJECTIVE()],
+    assets: [INJ()],
   },
   {
     id: 'mexc',
@@ -176,6 +189,8 @@ export const CEX_CONFIG: CexConfig[] = [
     name: 'Bitget',
     brandColor: '#00F0FF',
     brandColorContrast: 'dark',
+    // INJ-INJECTIVE deposits/withdrawals reopened 2026-09-05 post
+    // exploit-triggered pause.
     assets: [INJ()],
   },
 ];

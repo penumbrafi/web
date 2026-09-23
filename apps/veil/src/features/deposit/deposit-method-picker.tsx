@@ -40,15 +40,22 @@ export type DepositRoute = SkipDepositRoute | ManualDepositRoute;
  *  reachable straight from an exchange withdrawal. Skip has no Penumbra
  *  destination denom for Injective-sourced assets yet, so it uses the manual
  *  ICS-20 panel instead of the widget. */
-// Sources for the multi-chain "From another wallet" flow. Noble is
-// intentionally OMITTED — Circle is winding down Noble USDC and we no
-// longer route new value through it (see cex-config.ts). Ethereum /
-// Solana are also omitted from the direct picker: Skip's Penumbra
-// destination graph today can't finish those routes without a Noble
-// hop, so surfacing them would send users to a widget that
-// dead-ends. Injective is the direct IBC path we control; Cosmos Hub
-// and Osmosis remain for users who want to swap into an
-// Injective-sourced denom via Skip and land on Penumbra as USDC.inj.
+// Sources for the multi-chain "From another wallet" flow.
+//
+// Every non-Injective route today either goes through Noble (being
+// wound down by Circle, contract fully paused 2027-01-12; see
+// research note in cex-config.ts) or hits an expired IBC channel:
+//   - Direct Osmosis↔Penumbra light client is expired.
+//   - Skip routes Osmosis USDC → Penumbra only via the Noble PFM hop.
+//   - Ethereum/Solana CCTP paths terminate at Noble too.
+//   - INJ / USDC.inj on Osmosis exist but pool depth is thin ($45k
+//     INJ, $216k USDC.inj) — bad for real-size deposits.
+//
+// Rather than surface options that either dead-end or funnel new
+// value into a sunsetting bridge, this flow shows only Injective
+// (direct IBC via our own channel). Everything else lives in the
+// CEX-guided flow, which naturally routes users through Injective.
+// Reopen this list once we add a live non-Noble multi-hop path.
 const ONCHAIN: DepositRoute[] = [
   {
     kind: 'manual',
@@ -57,20 +64,6 @@ const ONCHAIN: DepositRoute[] = [
     srcChainId: 'injective-1',
     srcChannelId: 'channel-494',
     assetsHint: 'USDC, AUSD, USDT and INJ',
-  },
-  {
-    kind: 'skip',
-    label: 'Osmosis',
-    hint: 'Swap any Osmosis asset to a Penumbra-supported denom',
-    srcChainId: 'osmosis-1',
-    srcAssetDenom: 'uosmo',
-  },
-  {
-    kind: 'skip',
-    label: 'Cosmos Hub',
-    hint: 'Swap ATOM via Osmosis then bridge to Penumbra',
-    srcChainId: 'cosmoshub-4',
-    srcAssetDenom: 'uatom',
   },
 ];
 
