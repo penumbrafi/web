@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { observer } from 'mobx-react-lite';
 import BigNumber from 'bignumber.js';
 import { AlertTriangle, ArrowLeft, Check, Copy, Shield } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -31,7 +32,7 @@ interface DepositPanelProps {
  * don't have to leave the page. That section renders conditionally
  * inside a child component so the useIbcShield hook stays unconditional.
  */
-export const DepositPanel = ({ cex, asset, onBack }: DepositPanelProps) => {
+export const DepositPanel = observer(({ cex, asset, onBack }: DepositPanelProps) => {
   const queryClient = useQueryClient();
 
   const {
@@ -99,7 +100,8 @@ export const DepositPanel = ({ cex, asset, onBack }: DepositPanelProps) => {
       <OneClickShieldSection cexAsset={asset} />
     </div>
   );
-};
+});
+DepositPanel.displayName = 'DepositPanel';
 
 const MetaLine = ({ label, value }: { label: string; value: string }) => (
   <div className='flex flex-col gap-0.5'>
