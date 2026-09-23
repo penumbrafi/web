@@ -40,6 +40,15 @@ export type DepositRoute = SkipDepositRoute | ManualDepositRoute;
  *  reachable straight from an exchange withdrawal. Skip has no Penumbra
  *  destination denom for Injective-sourced assets yet, so it uses the manual
  *  ICS-20 panel instead of the widget. */
+// Sources for the multi-chain "From another wallet" flow. Noble is
+// intentionally OMITTED — Circle is winding down Noble USDC and we no
+// longer route new value through it (see cex-config.ts). Ethereum /
+// Solana are also omitted from the direct picker: Skip's Penumbra
+// destination graph today can't finish those routes without a Noble
+// hop, so surfacing them would send users to a widget that
+// dead-ends. Injective is the direct IBC path we control; Cosmos Hub
+// and Osmosis remain for users who want to swap into an
+// Injective-sourced denom via Skip and land on Penumbra as USDC.inj.
 const ONCHAIN: DepositRoute[] = [
   {
     kind: 'manual',
@@ -51,38 +60,17 @@ const ONCHAIN: DepositRoute[] = [
   },
   {
     kind: 'skip',
-    label: 'Noble',
-    hint: 'Native USDC, no extra hop',
-    srcChainId: 'noble-1',
-    srcAssetDenom: 'uusdc',
-  },
-  {
-    kind: 'skip',
-    label: 'Cosmos Hub',
-    hint: 'Bring ATOM via IBC',
-    srcChainId: 'cosmoshub-4',
-    srcAssetDenom: 'uatom',
-  },
-  {
-    kind: 'skip',
     label: 'Osmosis',
-    hint: 'Any IBC asset on Osmosis',
+    hint: 'Swap any Osmosis asset to a Penumbra-supported denom',
     srcChainId: 'osmosis-1',
     srcAssetDenom: 'uosmo',
   },
   {
     kind: 'skip',
-    label: 'Ethereum',
-    hint: 'USDC via Noble bridge',
-    srcChainId: '1',
-    srcAssetDenom: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
-  },
-  {
-    kind: 'skip',
-    label: 'Solana',
-    hint: 'USDC via Noble',
-    srcChainId: 'solana',
-    srcAssetDenom: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+    label: 'Cosmos Hub',
+    hint: 'Swap ATOM via Osmosis then bridge to Penumbra',
+    srcChainId: 'cosmoshub-4',
+    srcAssetDenom: 'uatom',
   },
 ];
 
