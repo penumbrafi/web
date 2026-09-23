@@ -32,10 +32,19 @@ export const SettingsPopover = () => {
               {/* Inline explanation moved off the popover body — it
                   used to wrap onto 4-5 lines and overflow on narrow
                   widths. Tooltip keeps the rationale one tap away
-                  without crowding the control. */}
+                  without crowding the control.
+
+                  The copy names the PRIVACY tradeoff, not just latency.
+                  Both modes look identical in the UI — same toasts, same
+                  timings — so without this the choice is unexplainable to
+                  the user. What actually differs is who observes the link
+                  between your IP and a specific transaction: Wallet keeps
+                  that with the RPC node that is already streaming your
+                  compact blocks (so no new party learns anything), while
+                  Veil adds Veil's own server as an observer of it. */}
               <Tooltip
                 title='Broadcast via'
-                message="Veil submits signed transactions through its own fullnode for lower latency. Switch to Wallet to route through your Zafu extension's RPC instead."
+                message="Who relays your signed transaction to the chain. Wallet routes through Zafu's own RPC — the node already syncing your wallet, so nobody new sees anything. Veil routes through Veil's fullnode, which avoids a slow or unreachable wallet RPC, but lets Veil's server see your IP address alongside the transaction. The transaction contents are shielded either way; this only affects who can link it to you."
               >
                 <Info className='size-3.5 text-text-secondary' aria-label='About broadcast modes' />
               </Tooltip>
