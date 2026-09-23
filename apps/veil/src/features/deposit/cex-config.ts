@@ -51,8 +51,15 @@ export interface CexConfig {
   id: string;
   name: string;
   /** SVG path served from /public. Files are not required for MVP; the
-   *  UI falls back to a text avatar. */
+   *  UI falls back to a colored text avatar seeded by `brandColor`. */
   logoUrl?: string;
+  /** Background color for the text-avatar fallback. Public brand colors
+   *  (Wikipedia infoboxes / brand pages). Kept as CSS-ready strings so
+   *  the picker never touches trademarked SVGs — a colored monogram is
+   *  enough for a user to recognize their exchange in the list. */
+  brandColor?: string;
+  /** Text color that reads on brandColor. */
+  brandColorContrast?: 'light' | 'dark';
   assets: CexAsset[];
 }
 
@@ -106,13 +113,15 @@ export const CEX_CONFIG: CexConfig[] = [
   {
     id: 'binance',
     name: 'Binance',
-    logoUrl: '/assets/cex/binance.svg',
+    brandColor: '#F0B90B',
+    brandColorContrast: 'dark',
     assets: [INJ(), USDT_INJECTIVE(), USDC_INJECTIVE()],
   },
   {
     id: 'coinbase',
     name: 'Coinbase',
-    logoUrl: '/assets/cex/coinbase.svg',
+    brandColor: '#0052FF',
+    brandColorContrast: 'light',
     // Ethereum-native USDC via Noble bridge needs Skip and is deferred to
     // phase 2 per the roll-out plan.
     assets: [USDC_NOBLE()],
@@ -120,7 +129,8 @@ export const CEX_CONFIG: CexConfig[] = [
   {
     id: 'kraken',
     name: 'Kraken',
-    logoUrl: '/assets/cex/kraken.svg',
+    brandColor: '#5741D9',
+    brandColorContrast: 'light',
     // ATOM on Cosmos Hub route is skipped: the Penumbra <> Cosmos Hub
     // channel is expired in the current registry.
     assets: [INJ(), USDC_INJECTIVE()],
@@ -128,37 +138,43 @@ export const CEX_CONFIG: CexConfig[] = [
   {
     id: 'okx',
     name: 'OKX',
-    logoUrl: '/assets/cex/okx.svg',
+    brandColor: '#000000',
+    brandColorContrast: 'light',
     assets: [INJ(), USDT_INJECTIVE(), USDC_INJECTIVE()],
   },
   {
     id: 'bybit',
     name: 'Bybit',
-    logoUrl: '/assets/cex/bybit.svg',
+    brandColor: '#F7A600',
+    brandColorContrast: 'dark',
     assets: [INJ(), USDT_INJECTIVE()],
   },
   {
     id: 'kucoin',
     name: 'KuCoin',
-    logoUrl: '/assets/cex/kucoin.svg',
+    brandColor: '#24AE8F',
+    brandColorContrast: 'light',
     assets: [INJ()],
   },
   {
     id: 'gateio',
     name: 'Gate.io',
-    logoUrl: '/assets/cex/gateio.svg',
+    brandColor: '#2354E6',
+    brandColorContrast: 'light',
     assets: [INJ(), USDT_INJECTIVE()],
   },
   {
     id: 'mexc',
     name: 'MEXC',
-    logoUrl: '/assets/cex/mexc.svg',
+    brandColor: '#00B897',
+    brandColorContrast: 'light',
     assets: [INJ()],
   },
   {
     id: 'bitget',
     name: 'Bitget',
-    logoUrl: '/assets/cex/bitget.svg',
+    brandColor: '#00F0FF',
+    brandColorContrast: 'dark',
     assets: [INJ()],
   },
 ];

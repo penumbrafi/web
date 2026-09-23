@@ -94,11 +94,23 @@ export const CexAssetSelect = ({ onPick }: CexAssetSelectProps) => {
 };
 
 /**
- * Text-avatar fallback when we don't have an SVG on disk yet. Keeps the
- * layout stable regardless of whether /assets/cex/<id>.svg is present.
+ * Colored text-avatar fallback: brand color as background + first letter,
+ * so users recognize their exchange at a glance without us shipping any
+ * trademarked SVGs. Falls back to a neutral tile if brandColor is unset.
  */
-const CexAvatar = ({ cex }: { cex: CexConfig }) => (
-  <div className='flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-other-tonal-fill10 text-[10px] font-semibold text-text-primary'>
-    {cex.name.slice(0, 1)}
-  </div>
-);
+const CexAvatar = ({ cex }: { cex: CexConfig }) => {
+  const bg = cex.brandColor;
+  const fg = cex.brandColorContrast === 'dark' ? '#111' : '#fff';
+  return (
+    <div
+      className='flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-semibold'
+      style={
+        bg
+          ? { backgroundColor: bg, color: fg }
+          : undefined
+      }
+    >
+      <span className={bg ? '' : 'text-text-primary'}>{cex.name.slice(0, 1)}</span>
+    </div>
+  );
+};
