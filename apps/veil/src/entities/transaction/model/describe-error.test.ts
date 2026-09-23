@@ -67,6 +67,24 @@ describe('describeTxError', () => {
     expect(description).toMatch(/inputs have been kept/);
   });
 
+  it('maps a spent-nullifier rejection to a do-not-retry warning', () => {
+    // Verbatim from a dev.penumbra.fi console after a duplicate swapClaim.
+    const e = new Error(
+      'tendermint rejected transaction (code 1): failed to deliver transaction: ' +
+        'executing transaction: nullifier ' +
+        'da40a69899bc902f4f7452fd27873c3f14c5d45b1a0bf27a1ecde86004bf8f0d was already spent in ' +
+        '"2699d4516cdaf522773eb2e315abc06066f3e65bfdad36fdd56412d863371905"',
+    );
+    e.name = 'VeilBroadcastTerminalError';
+    const described = describeTxError(e);
+    expect(described.title).toBe('Those funds were already spent');
+    // The caller's double-submit guard keys off this; without it the user
+    // gets the generic "adjust and retry" fallback, which re-plans against
+    // the same stale note and fails identically.
+    expect(described.txAlreadyOnChain).toBe(true);
+    expect(described.description).not.toMatch(/inputs have been kept/);
+  });
+
   it('handles non-Error throwables', () => {
     expect(describeTxError('plain string').title).toBe('Transaction failed');
   });

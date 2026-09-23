@@ -8,6 +8,7 @@ import type {
 import { txToId } from '../model/tx-to-id';
 import { penumbra } from '@/shared/const/penumbra';
 import { ViewService } from '@penumbra-zone/protobuf';
+import { TransactionInfo } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
 import { TransactionId } from '@penumbra-zone/protobuf/penumbra/core/txhash/v1/txhash_pb';
 
 export interface VeilBroadcastResult {
@@ -51,10 +52,10 @@ const VIEW_POLL_TIMEOUT_MS = 30_000;
 
 const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
-const pollDetection = async (txHash: string, signal?: AbortSignal): Promise<bigint | undefined> => {
+const pollDetection = async (txHash: string, signal: AbortSignal): Promise<bigint | undefined> => {
   const deadline = Date.now() + POLL_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    if (signal?.aborted) {
+    if (signal.aborted) {
       return undefined;
     }
     try {
@@ -82,28 +83,35 @@ const pollDetection = async (txHash: string, signal?: AbortSignal): Promise<bigi
  * pending" (better than the old "retry" message, but still leaves the
  * claim un-issued until the next user action).
  *
- * Returns `true` if the view service saw the tx within the timeout,
- * `false` on timeout. Never throws — the caller can decide what to do
- * with a slow scanner (still enqueue the claim, or defer to the wallet).
+ * Returns the `TransactionInfo` if the view service saw the tx within
+ * the timeout, `undefined` on timeout. Never throws — the caller can
+ * decide what to do with a slow scanner (still enqueue the claim, or
+ * defer to the wallet). The returned `height` is also the cheapest
+ * source of `detectionHeight`: the wallet only has the tx because it
+ * scanned the block that contains it, so it knows the height without
+ * pindexer having caught up.
  */
-const pollViewService = async (txHash: string, signal?: AbortSignal): Promise<boolean> => {
+const pollViewService = async (
+  txHash: string,
+  signal?: AbortSignal,
+): Promise<TransactionInfo | undefined> => {
   const id = new TransactionId({ inner: hexToUint8Array(txHash) });
   const deadline = Date.now() + VIEW_POLL_TIMEOUT_MS;
   while (Date.now() < deadline) {
     if (signal?.aborted) {
-      return false;
+      return undefined;
     }
     try {
       const res = await penumbra.service(ViewService).transactionInfoByHash({ id });
       if (res.txInfo) {
-        return true;
+        return res.txInfo;
       }
     } catch {
       // Not visible yet — keep polling.
     }
     await sleep(VIEW_POLL_INTERVAL_MS);
   }
-  return false;
+  return undefined;
 };
 
 export const veilBroadcastTransaction = async (
@@ -167,17 +175,38 @@ export const veilBroadcastTransaction = async (
 
   // Two-phase detection:
   // 1. LOCAL view service (fast, ~2-4s) — this is what the swapClaim
-  //    planner needs; without it "Swap record not found" fires.
-  // 2. veil server DB — gives us `detectionHeight` for the receipt toast.
+  //    planner needs; without it "Swap record not found" fires. It also
+  //    carries the block height, so in the common case it answers both
+  //    questions at once.
+  // 2. veil server DB (pindexer) — only needed as a height fallback when
+  //    the wallet's scanner is the slow one.
   //
-  // Historically this was `Promise.all`, which floors on the SLOWER path —
-  // when pindexer lags (it does, per ops notes), every swap sat 60s
-  // waiting on `pollDetection` even though the wallet saw the tx in one
-  // block and could have issued the claim immediately. Fire both, keep
-  // whichever `detectionHeight` we can get, but let the view-service
-  // observation gate `viewSeen`.
-  const detectionP = pollDetection(expectedHashHex, options.signal).catch(() => undefined);
-  const viewSeen = await pollViewService(expectedHashHex, options.signal);
-  const detectionHeight = await detectionP;
-  return { txHash: expectedHashHex, detectionHeight, viewSeen };
+  // Both run concurrently, but the pindexer poll is ABORTED as soon as the
+  // view service answers with a height. Previously it was left to run to
+  // its own 60s deadline, so every swap emitted up to 30 console 404s
+  // while pindexer caught up (it lags, per ops notes) and the caller sat
+  // on `max(view, pindexer)` rather than the faster of the two.
+  const detectionAbort = new AbortController();
+  const onOuterAbort = () => detectionAbort.abort();
+  options.signal?.addEventListener('abort', onOuterAbort, { once: true });
+
+  const detectionP = pollDetection(expectedHashHex, detectionAbort.signal).catch(() => undefined);
+
+  try {
+    const txInfo = await pollViewService(expectedHashHex, options.signal);
+    // `height` is `uint64` and defaults to 0 when the view server doesn't
+    // know it yet, so 0 means "not a real height", not "genesis".
+    const viewHeight = txInfo && txInfo.height > 0n ? txInfo.height : undefined;
+    if (viewHeight !== undefined) {
+      detectionAbort.abort();
+      return { txHash: expectedHashHex, detectionHeight: viewHeight, viewSeen: true };
+    }
+    // No usable height from the wallet — fall back to whatever pindexer
+    // managed to find within its own deadline.
+    const detectionHeight = await detectionP;
+    return { txHash: expectedHashHex, detectionHeight, viewSeen: Boolean(txInfo) };
+  } finally {
+    options.signal?.removeEventListener('abort', onOuterAbort);
+    detectionAbort.abort();
+  }
 };
