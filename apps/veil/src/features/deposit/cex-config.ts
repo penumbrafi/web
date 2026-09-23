@@ -12,11 +12,13 @@
  * end up with an unrecognized shielded balance we cannot restore metadata
  * for.
  *
+ * Noble is deprecated as a deposit path (Circle winding down Noble USDC;
+ * USDC.inj via Injective is the replacement). Do NOT re-add Noble here.
+ *
  * Verified indexed denoms (against @penumbrafi/registry bundled data):
  *   - transfer/channel-18/inj                                            (Injective INJ)
  *   - transfer/channel-18/erc20:0xa00C59fF5a080D2b954d0c75e46E22a0c371235a (Injective USDC)
  *   - transfer/channel-18/peggy0xdAC17F958D2ee523a2206206994597C13D831ec7 (Injective USDT)
- *   - transfer/channel-2/uusdc                                           (Noble USDC)
  *
  * Ordering rationale: sorted by CEX user-share (Binance → Coinbase →
  * Kraken → OKX → Bybit → KuCoin → Gate.io → MEXC → Bitget). Users are
@@ -98,16 +100,12 @@ const USDT_INJECTIVE = (extras: Partial<CexAsset> = {}): CexAsset => ({
   ...extras,
 });
 
-const USDC_NOBLE = (extras: Partial<CexAsset> = {}): CexAsset => ({
-  symbol: 'USDC',
-  network: 'Noble',
-  chainId: 'noble-1',
-  sourceDenom: 'uusdc',
-  minDeposit: 5,
-  estimatedArrival: '30-60s',
-  note: 'Only withdraw over the Noble network.',
-  ...extras,
-});
+// Noble is deprecated as a deposit path — Circle is winding down Noble
+// USDC (see shared/config/sunsetting-assets.ts) and USDC.inj is the
+// replacement destination for shielded USDC. We do NOT surface Noble
+// anywhere in the deposit picker; new deposits should land as USDC.inj
+// via Injective. Existing shielded Noble USDC still exists as a balance
+// on /portfolio and can be withdrawn (or later, swapped to USDC.inj).
 
 export const CEX_CONFIG: CexConfig[] = [
   {
@@ -122,9 +120,12 @@ export const CEX_CONFIG: CexConfig[] = [
     name: 'Coinbase',
     brandColor: '#0052FF',
     brandColorContrast: 'light',
-    // Ethereum-native USDC via Noble bridge needs Skip and is deferred to
-    // phase 2 per the roll-out plan.
-    assets: [USDC_NOBLE()],
+    // INJ withdrawal on Coinbase is supported (over the Injective
+    // network). USDC on Injective from Coinbase is NOT confirmed — their
+    // supported networks for USDC are ETH/Base/Solana/Polygon/Arbitrum,
+    // routed via Noble bridge (needs Skip, phase 2). Leaving USDC out
+    // until we can verify a native Injective withdrawal path.
+    assets: [INJ()],
   },
   {
     id: 'kraken',
