@@ -266,11 +266,8 @@ export const getDisplayPositions = ({
       const isWithdrawn = state.state === PositionState_PositionStateEnum.WITHDRAWN;
       const fee = `${pnum(component.fee / 100).toFormattedString({ decimals: 2 })}%`;
 
-      // Canonical pair mid (asset2 per asset1, in display units). A
-      // route-provided mid (`marketPrice`) wins so /trade is unchanged;
-      // otherwise look up the mid fetched for this row's own pair.
+      // Canonical pair mid (asset2 per asset1, in display units).
       const pairMid = marketPriceByPair?.get(`${asset1.asset.symbol}|${asset2.asset.symbol}`);
-      const mid = marketPrice ?? pairMid;
 
       // The order orientation (orders[0]) can be flipped relative to the
       // canonical pair, so convert to quote-per-order-base for the
@@ -281,6 +278,22 @@ export const getDisplayPositions = ({
       let orderMid = marketPrice;
       if (orderMid === undefined && pairMid !== undefined) {
         orderMid = orderQuoteIsCanonicalAsset2 ? pairMid : 1 / pairMid;
+      }
+
+      // `computePositionStats` wants the CANONICAL mid (asset2 per asset1),
+      // but a route-provided `marketPrice` arrives in the ORDER's orientation
+      // — that is exactly why `orderMid` above assigns it with no conversion.
+      // Feeding it straight through meant that whenever the order was flipped
+      // relative to the canonical pair, stats used the RECIPROCAL mid: fees,
+      // PNL and APR all came out multiplied by roughly mid², e.g. 1.81 UM of
+      // fees rendering as "706.95 USDC.inj" on a position worth $0.51.
+      let mid = pairMid;
+      if (marketPrice !== undefined) {
+        if (orderQuoteIsCanonicalAsset2) {
+          mid = marketPrice;
+        } else {
+          mid = marketPrice > 0 ? 1 / marketPrice : undefined;
+        }
       }
 
       const rawStats = statsById?.get(id);
