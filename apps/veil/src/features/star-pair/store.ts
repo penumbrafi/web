@@ -64,6 +64,10 @@ class StarStateStore {
     this.hydrate();
   }
 
+  // Legacy alias kept for `app/app.tsx`'s explicit call site. Safe to
+  // call any number of times; hydrate() is idempotent.
+  setup = () => this.hydrate();
+
   hydrate = () => {
     if (this.hydrated) return;
     if (typeof window === 'undefined') return;
