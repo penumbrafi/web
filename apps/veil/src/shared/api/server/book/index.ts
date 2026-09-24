@@ -116,38 +116,60 @@ const COMPUTE_TRACE_LIMIT = 100;
 /** Last compute ATTEMPT per pair, successful or not. The one-per-block gate. */
 const lastAttempt = new Map<string, { height?: bigint; at: number; failed: boolean }>();
 
-// Latest committed height, from pd's getStatus (a cheap call: ~0.3s even
-// with pd CPU-starved, vs seconds for a simulate). Refreshed at most once a
-// second per process and single-flighted, so it's ~1 call/s however many
-// books are being served.
+// Latest committed height, from pd's getStatus. Refreshed at most once a
+// second per process, single-flighted, and NEVER on the request's critical
+// path once a height is known: requests read the last known height and the
+// refresh runs in the background. getStatus is cheap but not reliably fast
+// (seconds when pd is busy), and awaiting it put that delay on every book
+// request, cache hits included. A height up to ~1s old just means a new
+// block's recompute starts up to ~1s later.
 const HEIGHT_REFRESH_MS = 1_000;
-let heightState: { height?: bigint; fetchedAt: number; inflight?: Promise<bigint | undefined> } = {
-  fetchedAt: 0,
-};
+// Beyond this, a remembered height is too old to gate on: treat it as
+// unknown and fall back to the time window.
+const HEIGHT_MAX_AGE_MS = 15_000;
+interface HeightState {
+  height?: bigint;
+  /** When `height` was last confirmed by pd. */
+  heightAt: number;
+  /** When a refresh was last attempted (success or not). */
+  triedAt: number;
+  inflight?: Promise<bigint | undefined>;
+}
+const heightState: HeightState = { heightAt: 0, triedAt: 0 };
 let cachedStatusClient: Client<typeof TendermintProxyService> | undefined;
-const getLatestHeight = async (endpoint: string): Promise<bigint | undefined> => {
-  const now = Date.now();
-  if (now - heightState.fetchedAt < HEIGHT_REFRESH_MS) {
-    return heightState.height;
-  }
+const refreshHeight = (endpoint: string): Promise<bigint | undefined> => {
   if (!heightState.inflight) {
+    heightState.triedAt = Date.now();
     cachedStatusClient ??= createClient(endpoint, TendermintProxyService);
-    const client = cachedStatusClient;
-    heightState.inflight = client
+    heightState.inflight = cachedStatusClient
       .getStatus({}, { timeoutMs: 2_000, signal: AbortSignal.timeout(2_000) })
       .then(res => {
         const h = res.syncInfo?.latestBlockHeight;
-        heightState = { height: h, fetchedAt: Date.now() };
+        if (h !== undefined) {
+          heightState.height = h;
+          heightState.heightAt = Date.now();
+        }
         return h;
       })
-      .catch(() => {
-        // Keep the last known height but mark it unknown for gating, so we
-        // fall back to the time window instead of pinning an old book.
-        heightState = { height: undefined, fetchedAt: Date.now() };
-        return undefined;
+      // Keep the last good height; HEIGHT_MAX_AGE_MS retires it if pd stays
+      // unreachable.
+      .catch(() => undefined)
+      .finally(() => {
+        heightState.inflight = undefined;
       });
   }
   return heightState.inflight;
+};
+const getLatestHeight = async (endpoint: string): Promise<bigint | undefined> => {
+  const now = Date.now();
+  if (now - heightState.triedAt >= HEIGHT_REFRESH_MS) {
+    const pending = refreshHeight(endpoint);
+    if (heightState.height === undefined) {
+      // Nothing known yet (cold start): this one request waits.
+      return pending;
+    }
+  }
+  return now - heightState.heightAt < HEIGHT_MAX_AGE_MS ? heightState.height : undefined;
 };
 
 /** Trim a COMPUTE_TRACE_LIMIT book to what this request asked for. */
