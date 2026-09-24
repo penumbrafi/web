@@ -30,7 +30,7 @@ export const AssetsTableLayout = ({ children }: { children?: ReactNode }) => {
 
 const LoadingRow = () => {
   return (
-    <div className='col-span-6 grid grid-cols-subgrid'>
+    <div className='col-span-7 grid grid-cols-subgrid'>
       <TableCell loading>
         <div className='flex items-center gap-2'>
           <div className='h-6 w-6 overflow-hidden rounded-full'>

@@ -10,10 +10,12 @@ import { ReceivePanel } from './receive-panel';
 import { SendPanel } from './send-panel';
 import { SwapPanel } from './swap-panel';
 
+// Receive is last and never the default: it shows a Penumbra address, and
+// an exchange user landing on the portfolio must not see one first.
 enum TransferTab {
-  Receive = 'Receive',
   Send = 'Send',
   Swap = 'Swap',
+  Receive = 'Receive',
 }
 
 const TAB_OPTIONS = Object.values(TransferTab).map(value => ({
@@ -22,7 +24,7 @@ const TAB_OPTIONS = Object.values(TransferTab).map(value => ({
 }));
 
 export const TransferTabs = observer(() => {
-  const [tab, setTab] = useState(TransferTab.Receive);
+  const [tab, setTab] = useState(TransferTab.Send);
 
   if (!connectionStore.connected) {
     return null;

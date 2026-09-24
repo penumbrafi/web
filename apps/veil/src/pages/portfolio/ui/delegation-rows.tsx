@@ -15,7 +15,7 @@ import {
 import { bech32mIdentityKey } from '@penumbra-zone/bech32m/penumbravalid';
 import { joinLoHiAmount } from '@penumbra-zone/types/amount';
 import { pnum } from '@penumbra-zone/types/pnum';
-import { ChevronRight } from 'lucide-react';
+import { Button } from '@penumbra-zone/ui/Button';
 import { connectionStore } from '@/shared/model/connection';
 import { useBalances } from '@/shared/api/balances';
 import { useDelegations } from '@/pages/portfolio/staking/api/use-delegations';
@@ -35,7 +35,7 @@ interface Props {
  *
  * Reuses the shielded-balance column for the staked delUM amount and the
  * shielded-value column for the UM-denominated value (delUM × validator
- * exchange rate × UM price). Clicking a row sets a pending undelegate on
+ * exchange rate × UM price). "Stake more" / "Unstake" set a pending action on
  * `stakingStore`; the `<StakingDialogHost>` mounted on the same page
  * resolves it to a real dialog in-place, so the user never leaves the
  * portfolio.
@@ -105,18 +105,17 @@ const DelegationRow = ({ delegation, umPrice, umQuoteSymbol, isLast }: RowProps)
 
   const valueInQuote = umPrice ? umEquivalent * umPrice : 0;
   const borderClass = isLast ? '' : 'border-b border-b-other-tonal-stroke';
-  const onClick = () => {
-    if (!identityKey) return;
-    stakingStore.setPending({ action: 'undelegate', identityKey });
+  // Explicit actions, not a clickable row: a click anywhere on the row used
+  // to open Undelegate, the least-reversible thing you can do to a stake.
+  const open = (action: 'delegate' | 'undelegate') => {
+    if (!identityKey) {
+      return;
+    }
+    stakingStore.setPending({ action, identityKey });
   };
 
   return (
-    <button
-      type='button'
-      onClick={onClick}
-      disabled={!identityKey}
-      className={`group col-span-7 grid grid-cols-subgrid text-left hover:bg-action-hover-overlay ${borderClass}`}
-    >
+    <div className={`col-span-7 grid grid-cols-subgrid text-left ${borderClass}`}>
       <TableCell variant='cell'>
         <div className='flex flex-col gap-0.5'>
           <ValueViewComponent
@@ -181,8 +180,15 @@ const DelegationRow = ({ delegation, umPrice, umQuoteSymbol, isLast }: RowProps)
         )}
       </TableCell>
       <TableCell variant='cell'>
-        <ChevronRight className='h-4 w-4 text-text-secondary transition-transform group-hover:translate-x-0.5' />
+        <div className='flex gap-1'>
+          <Button density='slim' disabled={!identityKey} onClick={() => open('delegate')}>
+            Stake more
+          </Button>
+          <Button density='slim' disabled={!identityKey} onClick={() => open('undelegate')}>
+            Unstake
+          </Button>
+        </div>
       </TableCell>
-    </button>
+    </div>
   );
 };
