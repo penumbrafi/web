@@ -5,16 +5,16 @@ import { observer } from 'mobx-react-lite';
 import BigNumber from 'bignumber.js';
 import { AlertTriangle, ArrowLeft, Check, Copy, Shield } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useChain } from '@cosmos-kit/react';
 import { Button } from '@penumbra-zone/ui/Button';
 import { Text } from '@penumbra-zone/ui/Text';
 import { TextInput } from '@penumbra-zone/ui/TextInput';
 import { pnum } from '@penumbra-zone/types/pnum';
 
 import type { CexAsset, CexConfig } from '@/features/deposit/cex-config';
-import { useDepositAddress } from '@/features/deposit/use-deposit-address';
 import { useIbcShield } from '@/features/deposit/use-ibc-shield';
+import { SUPPORTED_CHAINS } from '@/features/cosmos/supported-chains';
 import { useUnifiedAssets, type UnifiedAsset } from '@/pages/portfolio/api/use-unified-assets';
-import { ConnectButton } from '@/features/connect/connect-button';
 
 interface DepositPanelProps {
   cex: CexConfig;
@@ -23,25 +23,32 @@ interface DepositPanelProps {
 }
 
 /**
- * The payoff step: shows the user the Penumbra address they should paste
- * into their exchange's withdrawal form, alongside the exact network to
- * pick and a hard warning about wrong-network sends.
+ * The payoff step. Exchanges cannot withdraw to a Penumbra address: every
+ * route here lands on a public chain (Injective), and the exchange's
+ * withdrawal form only accepts that chain's addresses (inj1...). So the flow
+ * is two hops:
  *
- * If the user also happens to hold the same asset in a connected Cosmos
- * wallet, we show a "shield in one click" accelerator below so they
- * don't have to leave the page. That section renders conditionally
- * inside a child component so the useIbcShield hook stays unconditional.
+ *   1. exchange -> the user's own address on that chain (shown here, from the
+ *      connected Keplr/Leap wallet), then
+ *   2. that address -> Penumbra in one signature (the shield section below,
+ *      which appears once the balance lands).
+ *
+ * A Penumbra address must never be shown as the exchange destination: the
+ * exchange rejects it at best, and it teaches users to paste shielded
+ * addresses into CEX forms.
  */
 export const DepositPanel = observer(({ cex, asset, onBack }: DepositPanelProps) => {
   const queryClient = useQueryClient();
 
-  const {
-    data: penumbraAddress,
-    isLoading,
-    fetchStatus,
-    error,
-  } = useDepositAddress();
-  const isDisconnected = !isLoading && !penumbraAddress && fetchStatus === 'idle';
+  const chainName = useMemo(
+    () => SUPPORTED_CHAINS.find(c => c.chain_id === asset.chainId)?.chain_name ?? null,
+    [asset.chainId],
+  );
+  // useChain needs a registered chain name; the placeholder is never read
+  // when chainName is unresolved (sourceAddress stays undefined).
+  const chain = useChain(chainName ?? SUPPORTED_CHAINS[0]?.chain_name ?? 'injective');
+  const sourceAddress = chainName && chain.isWalletConnected ? chain.address : undefined;
+  const chainLabel = chainName ? (chain.chain.pretty_name ?? asset.network) : asset.network;
 
   // Ephemeral addresses are single-use. `useDepositAddress` caches for
   // 60s under a fixed key, so a remount within that window would reuse
@@ -73,7 +80,7 @@ export const DepositPanel = observer(({ cex, asset, onBack }: DepositPanelProps)
         <Text small color='text.secondary'>
           {asset.journey
             ? `${cex.name} doesn't drop ${asset.symbol} on Injective directly — follow the steps below to route it here.`
-            : `Paste the destination address below into ${cex.name}'s withdrawal form. Make sure the network is set to ${asset.network}.`}
+            : `Withdraw to your ${chainLabel} address below, then shield it into Penumbra in one signature.`}
         </Text>
       </div>
 
@@ -83,11 +90,14 @@ export const DepositPanel = observer(({ cex, asset, onBack }: DepositPanelProps)
         <NetworkWarning network={asset.network} symbol={asset.symbol} />
       )}
 
-      <AddressPanel
-        address={penumbraAddress}
-        isLoading={isLoading}
-        isDisconnected={isDisconnected}
-        hasError={Boolean(error)}
+      <SourceAddressPanel
+        chainLabel={chainLabel}
+        cexName={cex.name}
+        address={sourceAddress}
+        canConnect={Boolean(chainName)}
+        onConnect={() => {
+          void chain.connect();
+        }}
       />
 
       <div className='grid grid-cols-2 gap-3 rounded-xl bg-other-tonal-fill5 p-4'>
@@ -162,16 +172,23 @@ const NetworkWarning = ({ network, symbol }: { network: string; symbol: string }
   </div>
 );
 
-const AddressPanel = ({
+/**
+ * The exchange's withdrawal destination: the user's own address on the
+ * source chain, from the connected Keplr/Leap wallet. Without a connected
+ * wallet we ask them to connect rather than falling back to anything else.
+ */
+const SourceAddressPanel = ({
+  chainLabel,
+  cexName,
   address,
-  isLoading,
-  isDisconnected,
-  hasError,
+  canConnect,
+  onConnect,
 }: {
+  chainLabel: string;
+  cexName: string;
   address?: string;
-  isLoading: boolean;
-  isDisconnected: boolean;
-  hasError: boolean;
+  canConnect: boolean;
+  onConnect: () => void;
 }) => {
   const [copied, setCopied] = useState(false);
 
@@ -183,41 +200,29 @@ const AddressPanel = ({
     });
   };
 
-  if (isDisconnected) {
+  if (!address) {
     return (
       <div className='flex flex-col items-start gap-3 rounded-xl border border-primary-main/40 bg-primary-main/5 p-4'>
         <div className='flex flex-col gap-1'>
           <Text variant='strong' color='text.primary'>
-            Connect your Penumbra wallet
+            Connect a {chainLabel} wallet
           </Text>
           <Text small color='text.secondary'>
-            We generate a fresh, single-use destination address from your wallet — nothing to
-            copy from anywhere else. Connect once and it appears here.
+            {cexName} withdraws to your own {chainLabel} address. Connect Keplr or Leap and it
+            appears here. Using Zafu? Open Zafu, go to Receive, then Shield USDC.
           </Text>
         </div>
-        <ConnectButton>Connect Penumbra wallet</ConnectButton>
+        <Button actionType='accent' priority='primary' disabled={!canConnect} onClick={onConnect}>
+          Connect {chainLabel} wallet
+        </Button>
       </div>
     );
-  }
-
-  if (hasError) {
-    return (
-      <div className='rounded-xl bg-other-tonal-fill5 p-4'>
-        <Text small color='destructive.light'>
-          Could not generate a destination address. Reconnect your wallet and try again.
-        </Text>
-      </div>
-    );
-  }
-
-  if (isLoading || !address) {
-    return <div className='h-24 w-full animate-pulse rounded-xl bg-other-tonal-fill5' aria-hidden />;
   }
 
   return (
     <div className='flex flex-col gap-2 rounded-xl bg-other-tonal-fill5 p-4'>
       <Text detail color='text.secondary'>
-        Destination address (single-use, generated fresh)
+        Your {chainLabel} address - paste into {cexName}&apos;s withdrawal form
       </Text>
       <div className='flex items-start gap-3'>
         <span className='min-w-0 flex-1 font-mono text-xs break-all text-text-primary'>
@@ -378,11 +383,11 @@ const OneClickShieldPanel = ({
       <div className='flex items-center gap-2'>
         <Shield className='h-4 w-4 text-primary-main' />
         <Text variant='strong' color='text.primary'>
-          Already have {cexAsset.symbol} in your {cexAsset.network} wallet?
+          Shield {cexAsset.symbol} into Penumbra
         </Text>
       </div>
       <Text small color='text.secondary'>
-        Shield it directly in one signature — no exchange step needed.
+        One signature moves it from your wallet into your shielded balance.
       </Text>
 
       {phase === 'success' ? (
