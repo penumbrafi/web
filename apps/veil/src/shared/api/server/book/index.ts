@@ -384,7 +384,12 @@ async function handleGet(req: NextRequest): Promise<NextResponse<RouteBookApiRes
     }
   }
 
-  const entry = startCompute(true);
+  // Let the compute finish even if this requester leaves: with one compute
+  // per pair per block its result serves every viewer, and pd's own deadline
+  // (PD_TIMEOUT_MS) still bounds it. Cancelling on disconnect meant a cold
+  // pair whose first requester had a short budget (the trade page's 2.5s
+  // prefetch) never got a cached book at all.
+  const entry = startCompute(false);
   try {
     const data = await awaitAsWaiter(entry, req.signal);
     return NextResponse.json(sliceBook(data, limit), {
