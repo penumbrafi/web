@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
 import { headers } from 'next/headers';
 import { TradePage } from '@/pages/trade';
@@ -10,36 +11,41 @@ interface Params {
 }
 
 /**
- * Server Component wrapper for the trade page. Prefetches the book at
- * the default `traceLimit` (used by `useMarketPrice`, the chart anchor,
- * and the depth overlay) on the server and dehydrates the React Query
- * cache into the initial HTML. Client's `useBook` picks up the entry
- * on hydration — zero round trip for the first render, and the LP
- * mid / chart anchor / one-sided badge all resolve immediately.
+ * Server Component wrapper for the trade page.
  *
- * We deliberately do NOT prefetch the ladder's `traceLimit=100` variant
- * here: the ladder mounts one panel below the fold on the default
- * layout, and doubling the prefetch cost gains ~nothing perceptually
- * for the initial paint. Book route's SWR cache warms both variants
- * on the same pd compute so the client's ladder fetch is a hot cache
- * hit anyway.
+ * The page shell must NEVER wait on the book. This used to `await` the book
+ * prefetch before returning anything, so when pd was slow every visitor
+ * stared at a blank page for the prefetch's full 2.5s budget, even though
+ * the client fetches the book itself anyway.
  *
- * `TradePage` itself stays `'use client'` — the ResizableSplit /
- * useViewport / mobx observers all need the client tree. This is the
- * "smallest possible" server-shell + hydrate boundary that shaves the
- * initial book waterfall without a wholesale island refactor.
+ * Now `TradePage` renders and streams immediately, and the prefetch runs
+ * inside its own Suspense boundary. When it resolves (usually a ~5ms cache
+ * hit, since /api/book computes each pair once per block) its
+ * HydrationBoundary streams in and seeds the React Query cache under the
+ * key `useBook` uses. If the client's own fetch got there first, hydration
+ * only replaces it when the streamed data is newer. If the prefetch fails
+ * or times out, it renders nothing and the client fetch carries on.
+ *
+ * `TradePage` itself stays `'use client'`: the ResizableSplit / useViewport
+ * / mobx observers all need the client tree.
  */
 export default async function Page({ params }: { params: Promise<Params> }) {
   const { baseSymbol, quoteSymbol } = await params;
 
+  return (
+    <>
+      <TradePage />
+      <Suspense fallback={null}>
+        <BookPrefetch baseSymbol={baseSymbol} quoteSymbol={quoteSymbol} />
+      </Suspense>
+    </>
+  );
+}
+
+async function BookPrefetch({ baseSymbol, quoteSymbol }: Params) {
   const qc = new QueryClient();
   await prefetchBook(qc, baseSymbol, quoteSymbol);
-
-  return (
-    <HydrationBoundary state={dehydrate(qc)}>
-      <TradePage />
-    </HydrationBoundary>
-  );
+  return <HydrationBoundary state={dehydrate(qc)}>{null}</HydrationBoundary>;
 }
 
 async function prefetchBook(qc: QueryClient, baseSymbol: string, quoteSymbol: string) {
@@ -55,7 +61,8 @@ async function prefetchBook(qc: QueryClient, baseSymbol: string, quoteSymbol: st
     const url = `${proto}://${host}/api/book?baseAsset=${encodeURIComponent(baseSymbol)}&quoteAsset=${encodeURIComponent(quoteSymbol)}`;
     // Prefetch under the same key the client's `useBook` uses. Default
     // (undefined) traceLimit — matches useMarketPrice/depth-overlay.
-    // Time-box so a slow prefetch never delays the first byte.
+    // Time-boxed; it runs inside a Suspense boundary, so this only bounds
+    // how long the stream stays open, never the first paint.
     const res = await fetch(url, {
       // Server-render this specific request; the internal /api/book
       // has its own 6s SWR cache so Next's fetch cache would only

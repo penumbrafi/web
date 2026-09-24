@@ -9,7 +9,7 @@ import { Amount } from '@penumbra-zone/protobuf/penumbra/core/num/v1/num_pb';
 import { RouteBookResponseJson } from '@/shared/api/server/book/types.ts';
 import { processSimulation } from '@/shared/api/server/book/helpers.ts';
 import { serializeResponse } from '@/shared/api/server/book/serialization.ts';
-import { SimulationService } from '@penumbra-zone/protobuf';
+import { SimulationService, TendermintProxyService } from '@penumbra-zone/protobuf';
 import { Client } from '@connectrpc/connect';
 import { createClient } from '@/shared/utils/protos/utils.ts';
 import { getCachedRegistry } from '@/shared/api/fetch-registry';
@@ -76,25 +76,98 @@ const getSimClient = (endpoint: string): Client<typeof SimulationService> => {
 };
 
 // Server-side cache for route book responses. pd's simulateTrade is
-// CPU-expensive (walks all liquidity positions) so we cache identical
-// queries for ~6s (one block). Keyed by base+quote+limit. Concurrent
-// requests for the same key share a single in-flight compute so we never
-// hammer pd with duplicate work.
-type CacheEntry = { data: RouteBookResponseJson; expiresAt: number; refreshing: boolean };
+// CPU-expensive: we ask for an effectively unbounded amount, so every call
+// fills through the whole reachable book up to the chain's execution budget
+// (~3s of pd CPU each). And pd here is the validator's own node, so wasted
+// simulates compete with consensus.
+//
+// A book can only change when a block commits, so the rule is: AT MOST ONE
+// compute per pair per block. Freshness is gated on chain height, not a
+// timer: the cached book is served until pd reports a newer block, then the
+// next request recomputes it (single-flighted, so every concurrent viewer
+// shares that one compute). A timer can't do this: blocks are ~5.4s and
+// jittery, so a 2s window recomputed each pair up to 3x per block, and a
+// fixed 5s one would still double up on some blocks and lag on others.
+//
+// Keyed by pair only. Both trace limits the client uses (30, 100) come from
+// ONE compute at COMPUTE_TRACE_LIMIT, sliced per request: pd never sees the
+// limit (it only trims our post-processing), so separate keys meant two
+// identical pd calls per pair per refresh.
+interface CacheEntry {
+  data: RouteBookResponseJson;
+  expiresAt: number;
+  refreshing: boolean;
+  /** Chain height the book was computed at, when known. */
+  height?: bigint;
+}
 const cache = new Map<string, CacheEntry>();
-// Bookkeeping TTL used for the entry's age math and Cache-Control max-age. The
-// real freshness gate is FRESH_WINDOW_MS below.
+// Bookkeeping TTL used for the entry's age math.
 const CACHE_TTL_MS = 4_000;
-// Serve the CACHED book only within this short window — just long enough to
-// dedup a burst of requests for the SAME block. Older than this we compute a
-// FRESH book (single-flighted below) instead of serving stale: we are not
-// compute-bound (pd runs on the box; add cores if ever needed), and a current
-// book matters far more than saving a simulateTrade call. This replaces
-// stale-while-revalidate, which traded the freshness we want to save compute we
-// don't. Must be well under the ~5s block time. First paint is unaffected — the
-// trade page SSR-prefetches the book, and React Query holds the previous data
-// during the ~1s block-tick recompute, so there is no spinner regression.
-const FRESH_WINDOW_MS = 2_000;
+// Freshness window used ONLY when the chain height is unknown (getStatus
+// failing). About one block.
+const FALLBACK_FRESH_WINDOW_MS = 5_000;
+// After a failed compute, don't try that pair again for this long, and keep
+// serving the last good book. Without it a slow pd got a new 10s simulate
+// the moment the previous one timed out, per pair, forever: the pile-up that
+// saturated pd on 2026-09-24.
+const FAILURE_BACKOFF_MS = 15_000;
+const COMPUTE_TRACE_LIMIT = 100;
+
+/** Last compute ATTEMPT per pair, successful or not. The one-per-block gate. */
+const lastAttempt = new Map<string, { height?: bigint; at: number; failed: boolean }>();
+
+// Latest committed height, from pd's getStatus (a cheap call: ~0.3s even
+// with pd CPU-starved, vs seconds for a simulate). Refreshed at most once a
+// second per process and single-flighted, so it's ~1 call/s however many
+// books are being served.
+const HEIGHT_REFRESH_MS = 1_000;
+let heightState: { height?: bigint; fetchedAt: number; inflight?: Promise<bigint | undefined> } = {
+  fetchedAt: 0,
+};
+let cachedStatusClient: Client<typeof TendermintProxyService> | undefined;
+const getLatestHeight = async (endpoint: string): Promise<bigint | undefined> => {
+  const now = Date.now();
+  if (now - heightState.fetchedAt < HEIGHT_REFRESH_MS) {
+    return heightState.height;
+  }
+  if (!heightState.inflight) {
+    cachedStatusClient ??= createClient(endpoint, TendermintProxyService);
+    const client = cachedStatusClient;
+    heightState.inflight = client
+      .getStatus({}, { timeoutMs: 2_000, signal: AbortSignal.timeout(2_000) })
+      .then(res => {
+        const h = res.syncInfo?.latestBlockHeight;
+        heightState = { height: h, fetchedAt: Date.now() };
+        return h;
+      })
+      .catch(() => {
+        // Keep the last known height but mark it unknown for gating, so we
+        // fall back to the time window instead of pinning an old book.
+        heightState = { height: undefined, fetchedAt: Date.now() };
+        return undefined;
+      });
+  }
+  return heightState.inflight;
+};
+
+/** Trim a COMPUTE_TRACE_LIMIT book to what this request asked for. */
+export const sliceBook = (data: RouteBookResponseJson, limit: number): RouteBookResponseJson => {
+  if (limit >= COMPUTE_TRACE_LIMIT) {
+    return data;
+  }
+  // Both sides are stored best-price-first (see processSimulation), so the
+  // first `limit` entries are exactly what a `limit` compute returned, and
+  // single hops are, as before, the 2-hop subset of the trimmed multi-hop list.
+  const buy = data.multiHops.buy.slice(0, limit);
+  const sell = data.multiHops.sell.slice(0, limit);
+  return {
+    singleHops: {
+      buy: buy.filter(t => t.hops.length === 2),
+      sell: sell.filter(t => t.hops.length === 2),
+    },
+    multiHops: { buy, sell },
+  };
+};
 
 // One in-flight pd compute per cache key. `controller` lets us really
 // cancel the upstream simulate (not just stop waiting for it): before,
@@ -178,17 +251,14 @@ async function handleGet(req: NextRequest): Promise<NextResponse<RouteBookApiRes
     );
   }
 
-  const cacheKey = `${baseAssetSymbol.toLowerCase()}|${quoteAssetSymbol.toLowerCase()}|${limit}`;
+  const cacheKey = `${baseAssetSymbol.toLowerCase()}|${quoteAssetSymbol.toLowerCase()}`;
+  const height = await getLatestHeight(grpcEndpoint);
   const now = Date.now();
-  // `nocache=1` bypasses the server-side SWR read (still writes fresh
-  // data back to the cache). The client sends this right after a user's
-  // own swap so the LP-panel mid / route-book reflect the just-landed
-  // trade rather than the pre-swap snapshot the 6s TTL was still
-  // serving. All non-owner traffic keeps the normal cached path. It does
-  // NOT bypass single-flight below: two simultaneous primes for the same
-  // key share one pd compute.
-  const bypassRead = searchParams.get('nocache') === '1';
-  const cached = bypassRead ? undefined : cache.get(cacheKey);
+  // `nocache=1` used to force a compute after a user's own swap. It is no
+  // longer needed and is ignored: the swap lands in a new block, the height
+  // moves, and the next request recomputes anyway. Honouring it let every
+  // client bypass the one-per-block limit.
+  const cached = cache.get(cacheKey);
 
   const startCompute = (cancelOnIdle: boolean): InflightCompute => {
     const controller = new AbortController();
@@ -197,7 +267,7 @@ async function handleGet(req: NextRequest): Promise<NextResponse<RouteBookApiRes
       chainId,
       baseAssetSymbol,
       quoteAssetSymbol,
-      limit,
+      COMPUTE_TRACE_LIMIT,
       controller.signal,
     )
       .then(data => {
@@ -205,10 +275,17 @@ async function handleGet(req: NextRequest): Promise<NextResponse<RouteBookApiRes
           data,
           expiresAt: Date.now() + CACHE_TTL_MS,
           refreshing: false,
+          height,
         });
+        lastAttempt.set(cacheKey, { height, at: Date.now(), failed: false });
         return data;
       })
       .catch((err: unknown) => {
+        // Record the failure unless every requester simply went away: a
+        // cancelled compute says nothing about pd's health.
+        if (!controller.signal.aborted) {
+          lastAttempt.set(cacheKey, { height, at: Date.now(), failed: true });
+        }
         // A rejected refresh must clear `refreshing` on the existing
         // entry — otherwise the flag is wedged as `true` forever and
         // subsequent requests skip refresh entirely, pinning the stale
@@ -227,18 +304,27 @@ async function handleGet(req: NextRequest): Promise<NextResponse<RouteBookApiRes
     return entry;
   };
 
-  // Serve the cached book only inside the freshness window (dedup a same-block
-  // burst). Older than that, fall through to a FRESH single-flight compute
-  // below so the book reflects the current block. Concurrent requests for the
-  // same key share that one compute (awaitAsWaiter), so this is ~one pd call per
-  // pair per block regardless of how many users are watching.
+  // The one-per-block gate. Serve the cached book when it was computed at the
+  // current height, or when this pair was already attempted at this height
+  // (even if that attempt failed), or while backing off from a failure.
   if (cached) {
     const age = now - (cached.expiresAt - CACHE_TTL_MS);
-    if (age < FRESH_WINDOW_MS) {
-      return NextResponse.json(cached.data, { headers: cacheHeaders(cached, now, age) });
+    const attempt = lastAttempt.get(cacheKey);
+    const sameBlock =
+      height !== undefined
+        ? cached.height === height || attempt?.height === height
+        : age < FALLBACK_FRESH_WINDOW_MS;
+    const backingOff = !!attempt?.failed && now - attempt.at < FAILURE_BACKOFF_MS;
+    if (sameBlock || backingOff) {
+      return NextResponse.json(sliceBook(cached.data, limit), {
+        headers: {
+          ...cacheHeaders(cached, now, age),
+          ...(backingOff && !sameBlock ? { 'X-Book-Fallback': 'backoff' } : {}),
+        },
+      });
     }
-    // stale -> fall through to a fresh compute (the stale entry stays as the
-    // salvage fallback if pd fails on the way).
+    // New block -> fall through to a fresh single-flight compute (the old
+    // entry stays as the salvage fallback if pd fails on the way).
   }
 
   // No cached entry — must compute synchronously. Single-flight to avoid
@@ -249,7 +335,7 @@ async function handleGet(req: NextRequest): Promise<NextResponse<RouteBookApiRes
   if (existing && !existing.controller.signal.aborted) {
     try {
       const data = await awaitAsWaiter(existing, req.signal);
-      return NextResponse.json(data, { headers: { 'X-Cache': 'INFLIGHT' } });
+      return NextResponse.json(sliceBook(data, limit), { headers: { 'X-Cache': 'INFLIGHT' } });
     } catch (err) {
       if (req.signal.aborted) {
         // Client went away mid-wait; nobody will read this response.
@@ -266,7 +352,7 @@ async function handleGet(req: NextRequest): Promise<NextResponse<RouteBookApiRes
   const entry = startCompute(true);
   try {
     const data = await awaitAsWaiter(entry, req.signal);
-    return NextResponse.json(data, {
+    return NextResponse.json(sliceBook(data, limit), {
       headers: {
         'Cache-Control': 'no-store',
         'X-Cache': 'MISS',
@@ -293,7 +379,7 @@ async function handleGet(req: NextRequest): Promise<NextResponse<RouteBookApiRes
         ageMs: Date.now() - (salvage.expiresAt - CACHE_TTL_MS),
         err,
       });
-      return NextResponse.json(salvage.data, {
+      return NextResponse.json(sliceBook(salvage.data, limit), {
         status: 200,
         headers: {
           'Cache-Control': 'no-store',
