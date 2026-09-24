@@ -15,6 +15,8 @@ enum PortfolioTab {
 
 export const PortfolioPositionTabs = () => {
   const [tab, setTab] = useState(PortfolioTab.OpenPositions);
+  // Shared by Open and Closed so the chosen pair sticks across tabs.
+  const [pairKey, setPairKey] = useState<string>();
 
   return (
     <PortfolioCard>
@@ -35,7 +37,11 @@ export const PortfolioPositionTabs = () => {
       </div>
 
       {tab === PortfolioTab.OpenPositions && (
-        <PositionsTable stateFilter={[PositionState_PositionStateEnum.OPENED]} />
+        <PositionsTable
+          stateFilter={[PositionState_PositionStateEnum.OPENED]}
+          pairKey={pairKey}
+          onPairKeyChange={setPairKey}
+        />
       )}
 
       {tab === PortfolioTab.ClosedPositions && (
@@ -44,7 +50,11 @@ export const PortfolioPositionTabs = () => {
         // 'Withdraw' tx), not sitting forever in Closed. Keeping only
         // CLOSED here lets the tab track what the user still needs to
         // withdraw.
-        <PositionsTable stateFilter={[PositionState_PositionStateEnum.CLOSED]} />
+        <PositionsTable
+          stateFilter={[PositionState_PositionStateEnum.CLOSED]}
+          pairKey={pairKey}
+          onPairKeyChange={setPairKey}
+        />
       )}
 
       {tab === PortfolioTab.History && <PortfolioTransactions />}

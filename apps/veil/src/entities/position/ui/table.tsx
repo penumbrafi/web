@@ -40,7 +40,74 @@ export interface PositionsTableProps {
   base?: Metadata;
   quote?: Metadata;
   stateFilter?: PositionState_PositionStateEnum[];
+  /**
+   * Pair filter for screens that show every pair (/portfolio). Passing
+   * `onPairKeyChange` renders a row of pair chips above the table; the
+   * selection is owned by the caller so it survives tab switches. Omit on
+   * /trade, where `base`/`quote` already scope the table to one pair.
+   */
+  pairKey?: string;
+  onPairKeyChange?: (pairKey: string | undefined) => void;
 }
+
+/** Direction-free identity of a position's trading pair. */
+const pairKeyOf = (position: DisplayPosition): string | undefined => {
+  const pair = position.position.phi?.pair;
+  const a = pair?.asset1?.inner;
+  const b = pair?.asset2?.inner;
+  if (!a || !b) {
+    return undefined;
+  }
+  return `${bytesKey(a)}|${bytesKey(b)}`;
+};
+
+const bytesKey = (bytes: Uint8Array): string =>
+  Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+
+interface PairOption {
+  key: string;
+  label: string;
+  count: number;
+}
+
+const PairFilter = ({
+  options,
+  total,
+  selected,
+  onSelect,
+}: {
+  options: PairOption[];
+  total: number;
+  selected: string | undefined;
+  onSelect: (pairKey: string | undefined) => void;
+}) => {
+  const chip = (key: string | undefined, label: string, count: number) => {
+    const active = selected === key;
+    return (
+      <button
+        key={key ?? 'all'}
+        type='button'
+        onClick={() => onSelect(key)}
+        aria-pressed={active}
+        className={cn(
+          'flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs whitespace-nowrap transition-colors',
+          active
+            ? 'border-primary-main bg-primary-main/15 text-text-primary'
+            : 'border-other-tonal-stroke text-text-secondary hover:text-text-primary',
+        )}
+      >
+        {label}
+        <span className='tabular-nums opacity-60'>{count}</span>
+      </button>
+    );
+  };
+  return (
+    <div className='mb-3 flex gap-2 overflow-x-auto pb-1'>
+      {chip(undefined, 'All pairs', total)}
+      {options.map(o => chip(o.key, o.label, o.count))}
+    </div>
+  );
+};
 
 // Module-scoped placeholder rows for the loading state. The shape only
 // needs to satisfy the renderer's optional chains; previously we built
@@ -112,7 +179,8 @@ const SortableTableHeader = memo(
 
 SortableTableHeader.displayName = 'SortableTableHeader';
 
-export const PositionsTable = observer(({ base, quote, stateFilter }: PositionsTableProps) => {
+export const PositionsTable = observer((props: PositionsTableProps) => {
+  const { base, quote, stateFilter, pairKey, onPairKeyChange } = props;
   const { connected, subaccount } = connectionStore;
   const getMetadata = useGetMetadata();
   // Mid for the pair the table is scoped to. On /trade the route supplies a
@@ -212,9 +280,41 @@ export const PositionsTable = observer(({ base, quote, stateFilter }: PositionsT
     direction: 'desc',
   });
 
+  // Pairs present in this tab, busiest first, labelled the way the rows
+  // orient them (order base / quote).
+  const pairOptions = useMemo<PairOption[]>(() => {
+    if (!onPairKeyChange) {
+      return [];
+    }
+    const byKey = new Map<string, PairOption>();
+    for (const position of displayPositions) {
+      const key = pairKeyOf(position);
+      if (!key) {
+        continue;
+      }
+      const existing = byKey.get(key);
+      if (existing) {
+        existing.count += 1;
+        continue;
+      }
+      const order = position.orders[0];
+      const baseSymbol = order?.baseAsset.asset.symbol ?? '?';
+      const quoteSymbol = order?.quoteAsset.asset.symbol ?? '?';
+      byKey.set(key, { key, label: `${baseSymbol}/${quoteSymbol}`, count: 1 });
+    }
+    return orderBy([...byKey.values()], ['count', 'label'], ['desc', 'asc']);
+  }, [displayPositions, onPairKeyChange]);
+
+  // A pair picked on another tab may have no rows here: show everything
+  // rather than an empty table the user has to figure out.
+  const activePairKey = pairKey && pairOptions.some(o => o.key === pairKey) ? pairKey : undefined;
+
   const sortedPositions = useMemo<DisplayPosition[]>(() => {
-    return orderBy([...displayPositions], `sortValues.${sortBy.key}`, sortBy.direction);
-  }, [displayPositions, sortBy]);
+    const rows = activePairKey
+      ? displayPositions.filter(p => pairKeyOf(p) === activePairKey)
+      : displayPositions;
+    return orderBy([...rows], `sortValues.${sortBy.key}`, sortBy.direction);
+  }, [displayPositions, activePairKey, sortBy]);
 
   if (!connected) {
     return <NotConnectedNotice />;
@@ -233,6 +333,16 @@ export const PositionsTable = observer(({ base, quote, stateFilter }: PositionsT
       className='grid grid-cols-[80px_1fr_1fr_80px_1fr_1fr_1fr_1fr_1fr_1fr_1fr] overflow-x-auto overflow-y-auto'
       style={{ overflowAnchor: 'none' }}
     >
+      {onPairKeyChange && pairOptions.length > 1 && (
+        <div className='col-span-11'>
+          <PairFilter
+            options={pairOptions}
+            total={displayPositions.length}
+            selected={activePairKey}
+            onSelect={onPairKeyChange}
+          />
+        </div>
+      )}
       <Density slim>
         <div className='col-span-11 grid grid-cols-subgrid'>
           <SortableTableHeader
