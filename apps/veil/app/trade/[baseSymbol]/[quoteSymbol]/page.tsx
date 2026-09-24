@@ -1,9 +1,8 @@
 import { Suspense } from 'react';
 import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
-import { NextRequest } from 'next/server';
 import { TradePage } from '@/pages/trade';
 import { deserializeRouteBookResponseJson } from '@/shared/api/server/book/serialization';
-import { GET as getBook, RouteBookApiResponse } from '@/shared/api/server/book';
+import { RouteBookApiResponse } from '@/shared/api/server/book';
 
 interface Params {
   baseSymbol: string;
@@ -49,19 +48,18 @@ async function BookPrefetch({ baseSymbol, quoteSymbol }: Params) {
 }
 
 async function prefetchBook(qc: QueryClient, baseSymbol: string, quoteSymbol: string) {
-  // Call the book route IN-PROCESS. This used to fetch its own public URL,
-  // which from the app host means a round trip out through the CDN, and
-  // the host's IPv6 egress is broken, so it hit the 2.5s budget and failed
-  // on every render. The URL's origin is irrelevant here; only the query
-  // string is read. The route's per-block cache makes this ~free.
+  // Ask THIS server process over loopback. Two approaches that looked
+  // simpler both failed in production:
+  // - fetching the public URL goes out through the CDN, and the app host's
+  //   IPv6 egress is broken, so it hit the budget and failed on every render;
+  // - importing the route handler and calling it in-process gets a separate
+  //   module instance in the page bundle, with its own cold book cache, so
+  //   every render started its own pd simulate (then cancelled it).
+  // Loopback reaches the route's real per-block cache: a ~3ms hit.
+  const port = process.env['PORT'] ?? '3000';
   try {
-    const url = `http://localhost/api/book?baseAsset=${encodeURIComponent(baseSymbol)}&quoteAsset=${encodeURIComponent(quoteSymbol)}`;
-    const res = await Promise.race([
-      getBook(new NextRequest(url, { signal: AbortSignal.timeout(2_500) })),
-      new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('book prefetch timeout')), 2_500);
-      }),
-    ]);
+    const url = `http://127.0.0.1:${port}/api/book?baseAsset=${encodeURIComponent(baseSymbol)}&quoteAsset=${encodeURIComponent(quoteSymbol)}`;
+    const res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(2_500) });
     if (!res.ok || res.headers.get('X-Book-Fallback') === 'empty') {
       return;
     }
