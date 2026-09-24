@@ -28,7 +28,8 @@ interface AssetSelectStepProps {
  */
 export const AssetSelectStep = observer(({ onSelect }: AssetSelectStepProps) => {
   const { data: registry } = useRegistry();
-  const { unifiedAssets, isPenumbraConnected } = useUnifiedAssets();
+  const { unifiedAssets, isPenumbraConnected, isLoading, isConnectionLoading } =
+    useUnifiedAssets();
 
   if (!isPenumbraConnected) {
     return (
@@ -59,6 +60,18 @@ export const AssetSelectStep = observer(({ onSelect }: AssetSelectStepProps) => 
         })
         .map(balance => ({ asset, balance })),
     );
+
+  // Still loading is not "nothing to withdraw": telling a funded user to
+  // deposit first while their balances load is exactly backwards.
+  if (rows.length === 0 && (isLoading || isConnectionLoading)) {
+    return (
+      <div className='flex flex-col items-center gap-3 py-16 text-center'>
+        <Text variant='small' color='text.secondary'>
+          Loading your private balances...
+        </Text>
+      </div>
+    );
+  }
 
   if (rows.length === 0) {
     return (

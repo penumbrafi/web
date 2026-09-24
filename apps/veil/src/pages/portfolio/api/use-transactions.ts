@@ -28,15 +28,9 @@ export const useTransactions = (subaccount = 0) => {
           return accum;
         }
 
-        // TODO: filter out ics20Withdrawal actions. Remove after the issue is fixed: https://github.com/penumbra-zone/web/issues/2109
-        if (
-          tx.txInfo.transaction?.body?.actions.some(
-            action => action.action.case === 'ics20Withdrawal',
-          )
-        ) {
-          return accum;
-        }
-
+        // Withdrawals used to be filtered out here (penumbra-zone/web#2109).
+        // TransactionSummary classifies and renders ics20Withdrawal now, and
+        // hiding them made a withdrawal vanish from every screen.
         accum.push(tx.txInfo);
         return accum;
       }, []);

@@ -19,6 +19,27 @@ import { broadcastTransaction } from './broadcast';
 import { buildTransaction } from './build';
 import { veilBroadcastTransaction, VeilBroadcastTerminalError } from './veil-broadcast';
 import { readBroadcastMode } from '@/shared/model/broadcast-mode';
+import { queryClient } from '@/shared/const/queryClient';
+
+/**
+ * Every landed tx changes balances, and history. Refresh them here, once,
+ * instead of trusting each caller to remember: withdraw didn't, which is
+ * how Veil kept showing 10 USDC.inj after 5 had already left. Cosmos
+ * balances too, since a withdrawal lands there.
+ */
+const refreshAfterTx = () => {
+  for (const key of [
+    'view-service-balances',
+    'cosmos-balances',
+    'txs',
+    'walletAssets',
+    'positions',
+    'view-service-delegations',
+    'view-service-unbonding-tokens',
+  ]) {
+    void queryClient.invalidateQueries({ queryKey: [key] });
+  }
+};
 
 /**
  * Extra information the outer caller (e.g. OrderFormStore.submit) needs
@@ -153,11 +174,16 @@ export const planBuildBroadcast = async (
       viewSeen = true;
     }
 
+    refreshAfterTx();
+    // Only claim success once something actually saw the tx on chain.
+    // veil-broadcast can return without the wallet having scanned it
+    // (viewSeen false); saying "succeeded" then is a guess.
     toast.update({
       type: 'success',
-      message: `${label} transaction succeeded! 🎉`,
-      description:
-        `Transaction ${shortenedTxHash} appeared on chain${detectionHeight ? ` at height ${detectionHeight}` : ''}.`.trim(),
+      message: viewSeen ? `${label} transaction confirmed` : `${label} transaction submitted`,
+      description: viewSeen
+        ? `Transaction ${shortenedTxHash} is on chain${detectionHeight ? ` at height ${detectionHeight}` : ''}.`
+        : `Transaction ${shortenedTxHash} was accepted. Your balance updates once your wallet sees it.`,
       action: {
         label: <Link href={`/explore/tx/${txHash}`}>See details</Link>,
         onClick: () => {},

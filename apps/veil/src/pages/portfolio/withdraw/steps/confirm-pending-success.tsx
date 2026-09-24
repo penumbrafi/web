@@ -27,7 +27,7 @@ type Phase =
   | { kind: 'confirm' }
   | { kind: 'pending'; message: string }
   | { kind: 'success'; txHash: string }
-  | { kind: 'error'; message: string };
+  | { kind: 'error'; message: string; mayBeOnChain: boolean };
 
 function truncateMiddle(s: string, keep = 8): string {
   if (s.length <= keep * 2 + 3) return s;
@@ -50,7 +50,7 @@ export function ConfirmPendingSuccess({
 
   const submit = () => {
     void (async () => {
-      setPhase({ kind: 'pending', message: 'Broadcasting to Penumbra…' });
+      setPhase({ kind: 'pending', message: 'Approve the withdrawal in your wallet' });
       try {
         // `sendIbcOut` expects display-denomination amount; normalize with
         // pnum + exponent to match the per-row unshield path.
@@ -58,7 +58,9 @@ export function ConfirmPendingSuccess({
           amount,
           getDisplayDenomExponentFromValueView(balance.valueView),
         ).toString();
-        setPhase({ kind: 'pending', message: 'Packet emitted — awaiting destination-chain arrival' });
+        // Nothing is emitted until sendIbcOut has planned, built, been
+        // approved and broadcast; the old "Packet emitted" line was shown
+        // before any of that happened.
         const result = await sendIbcOut(balance, normalized, address);
         // `planBuildBroadcast` may return `undefined` on user cancellation.
         if (!result) {
@@ -73,7 +75,11 @@ export function ConfirmPendingSuccess({
         setPhase({ kind: 'success', txHash });
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        setPhase({ kind: 'error', message: msg });
+        // planBuildBroadcast attaches `described`; txAlreadyOnChain means
+        // the bytes may have landed. Offering Retry then risks sending the
+        // same amount out twice.
+        const described = (e as { described?: { txAlreadyOnChain?: boolean } }).described;
+        setPhase({ kind: 'error', message: msg, mayBeOnChain: Boolean(described?.txAlreadyOnChain) });
       }
     })();
   };
@@ -99,8 +105,8 @@ export function ConfirmPendingSuccess({
           Withdrawal submitted
         </Text>
         <Text variant='small' color='text.secondary'>
-          {amount} {symbol} is on its way to {destinationChain.displayName}.
-          Estimated arrival: ~1 minute.
+          {amount} {symbol} is on its way to {destinationChain.displayName}. It usually arrives in
+          about a minute.
         </Text>
         <div className='rounded-md border border-other-tonal-stroke bg-other-tonal-fill5 px-3 py-2'>
           <Link
@@ -128,13 +134,21 @@ export function ConfirmPendingSuccess({
         <Text variant='small' color='destructive.main'>
           {phase.message}
         </Text>
+        {phase.mayBeOnChain && (
+          <Text variant='small' color='text.secondary'>
+            This withdrawal may already be on chain. Check History on your portfolio before trying
+            again, or the same amount could go out twice.
+          </Text>
+        )}
         <div className='flex gap-2'>
           <Button priority='secondary' onClick={onBack}>
             Back
           </Button>
-          <Button priority='primary' onClick={submit}>
-            Retry
-          </Button>
+          {!phase.mayBeOnChain && (
+            <Button priority='primary' onClick={submit}>
+              Retry
+            </Button>
+          )}
         </div>
       </div>
     );
