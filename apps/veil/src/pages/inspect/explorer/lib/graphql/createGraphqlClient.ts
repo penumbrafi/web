@@ -16,6 +16,22 @@ import {
 // only when something actually subscribes.
 let cached: { host: string; client: Client } | null = null
 
+// One dropped connect (undici ConnectTimeoutError / ECONNRESET) used to throw
+// out of the whole server render, which the browser shows as React #441 on
+// e.g. /explore/proposal/[id]. Retry network-level failures once; GraphQL
+// errors come back as a normal response and are not retried.
+const fetchWithRetry: typeof fetch = async (input, init) => {
+    try {
+        return await fetch(input, init)
+    } catch (err) {
+        if (init?.signal?.aborted) {
+            throw err
+        }
+        await new Promise(resolve => setTimeout(resolve, 250))
+        return fetch(input, init)
+    }
+}
+
 const createGraphqlClient = (): Client => {
     const host = process.env.NEXT_PUBLIC_GRAPHQL_HOST
     if (!host) {
@@ -53,6 +69,7 @@ const createGraphqlClient = (): Client => {
             credentials: 'omit',
             signal: AbortSignal.timeout(10000),
         },
+        fetch: fetchWithRetry,
         preferGetMethod: false,
         // 'network-only' every request: this client is module-level (cached
         // across the whole Node process), so 'cache-first' + long-lived
