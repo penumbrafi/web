@@ -2,7 +2,6 @@
 import { notFound } from 'next/navigation'
 import { FC } from 'react'
 import {
-    Button,
     JsonTree,
     Parameter,
     Parameters,
@@ -32,21 +31,35 @@ const ProposalLoader: FC<Props> = async ({ proposalId, ...props }) => {
                     <span className="font-mono text-base">
                         Proposal #{proposal.id}
                     </span>
-                    {proposal.state !== ProposalState.Voting ? (
-                        <ProposalStatePill state={proposal.state} />
-                    ) : (
-                        <Button
-                            density="compact"
-                            href="https://vote.penumbra.zone/"
-                        >
-                            Vote
-                        </Button>
-                    )}
+                    <ProposalStatePill state={proposal.state} />
                 </div>
                 <h1 className="text-2xl font-medium">{proposal.title}</h1>
                 <div className="text-text-secondary text-xs">
                     {proposal.kind}
                 </div>
+                {/* This used to be a "Vote" button to https://vote.penumbra.zone/.
+                    That domain belongs to the former core team and no longer
+                    resolves, so the button was dead — and if penumbra.zone ever
+                    lapsed, whoever registered it would control where voters
+                    land. Until voting is built into this page, point at the one
+                    working path: the vote screen in the Zafu wallet. */}
+                {proposal.state === ProposalState.Voting && (
+                    <p className="text-text-secondary text-sm">
+                        Voting is open. Cast your vote from the{' '}
+                        <strong className="text-text-primary">Vote</strong> screen
+                        in the{' '}
+                        <a
+                            className="underline hover:text-text-primary"
+                            href="https://zafu.pro/"
+                            rel="noreferrer"
+                            target="_blank"
+                        >
+                            Zafu wallet
+                        </a>
+                        , which shows this proposal and its full payload before
+                        you sign.
+                    </p>
+                )}
             </header>
             <ReadMore
                 className="text-sm"
