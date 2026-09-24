@@ -147,8 +147,21 @@ export const useAssetPrices = (assets: Metadata[] = []) => {
       }
     }
 
+    // The map above is keyed upper-case, but every caller looks prices up by
+    // the symbol exactly as it passed it in (prices[asset.symbol]). For
+    // all-caps symbols (UM, USDC, INJ) that is the same key; for mixed-case
+    // ones like 'USDC.inj' it never matched, so the asset showed no price or
+    // value despite trading on the DEX. Alias each requested symbol to its
+    // entry so lookups by the original casing resolve.
+    for (const sym of symbols) {
+      const entry = prices[sym.toUpperCase()];
+      if (entry && !prices[sym]) {
+        prices[sym] = entry;
+      }
+    }
+
     return prices;
-  }, [data, upperSymbols]);
+  }, [data, upperSymbols, symbols]);
 
   return {
     prices: assetPrices,
