@@ -95,7 +95,7 @@ export const VotePanel = observer(({ proposalId }: { proposalId: number }) => {
         <span className='text-base font-medium'>Cast your vote</span>
         <span className='text-sm text-text-secondary'>
           Your vote carries the UM you had staked when voting opened. Your wallet shows the
-          transaction before you sign. You can vote again to change it before voting closes.
+          transaction before you sign. A vote is final: it cannot be changed once cast.
         </span>
       </div>
 

@@ -1,4 +1,3 @@
-export const dynamic = 'force-dynamic';
 import { notFound } from 'next/navigation';
 import { FC } from 'react';
 import { Breadcrumb, Breadcrumbs, Container } from '@/pages/inspect/explorer/components';
@@ -9,6 +8,7 @@ import {
   VotingEndPanelContainer,
   VotingStartPanelContainer,
 } from '@/pages/inspect/explorer/containers';
+export const dynamic = 'force-dynamic';
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -36,7 +36,7 @@ const ProposalPage: FC<Props> = async props => {
       </Breadcrumbs>
       <div className='flex flex-col gap-4 md:flex-row md:items-start'>
         <ProposalContainer
-          className='md:w-[350px] lg:w-[380px]! xl:w-[500px]!'
+          className='lg:w-[520px]! xl:w-[640px]! md:w-[420px]'
           proposalId={id}
         />
         <div className='flex flex-1 flex-col gap-4'>

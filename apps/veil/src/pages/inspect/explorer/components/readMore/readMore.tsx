@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { FC, useCallback, useMemo, useState } from 'react'
 import { classNames } from '@/pages/inspect/explorer/lib/utils'
+import { toParagraphs } from './paragraphs'
 
 interface Props {
     className?: string
@@ -10,15 +11,19 @@ interface Props {
     text?: string
 }
 
+const Lines: FC<{ lines: string[] }> = ({ lines }) =>
+    lines.map((line, i) => (
+        <span key={i}>
+            {i > 0 && <br />}
+            {line}
+        </span>
+    ))
+
 const ReadMore: FC<Props> = props => {
     const [expanded, setExpanded] = useState(false)
 
     const paragraphs = useMemo(
-        () =>
-            props.text
-                ?.split('\n')
-                .map(paragraph => paragraph.trim())
-                .filter(Boolean),
+        () => (props.text ? toParagraphs(props.text) : undefined),
         [props.text]
     )
 
@@ -35,7 +40,7 @@ const ReadMore: FC<Props> = props => {
         <>
             {visibleParagraphs.map((paragraph, i) => (
                 <p key={i} className={props.className}>
-                    {paragraph}
+                    <Lines lines={paragraph} />
                 </p>
             ))}
             <AnimatePresence>
@@ -51,11 +56,11 @@ const ReadMore: FC<Props> = props => {
                             initial={{ height: 0, opacity: 0 }}
                             transition={{ duration: 0.3, ease: 'easeOut' }}
                         >
-                            {paragraph}
+                            <Lines lines={paragraph} />
                         </motion.p>
                     ))}
             </AnimatePresence>
-            {!expanded && (
+            {!expanded && hiddenParagraphs.length > 0 && (
                 <div>
                     <span
                         className={classNames(
