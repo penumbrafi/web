@@ -2,29 +2,35 @@
 
 import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
+import BigNumber from 'bignumber.js';
 import { useChain } from '@cosmos-kit/react';
 import { Text } from '@penumbra-zone/ui/Text';
 import { Button } from '@penumbra-zone/ui/Button';
 import { TextInput } from '@penumbra-zone/ui/TextInput';
 import { getMetadata } from '@penumbra-zone/getters/value-view';
+import { pnum } from '@penumbra-zone/types/pnum';
 
 import type { Chain } from '@penumbrafi/registry';
 import { useRegistry } from '@/shared/api/registry.tsx';
 import { SUPPORTED_CHAINS } from '@/features/cosmos/supported-chains';
-import { unknownAddrIsValid } from '@/pages/portfolio/withdraw/lib/ics20-withdraw';
+import {
+  amountMoreThanBalance,
+  unknownAddrIsValid,
+} from '@/pages/portfolio/withdraw/lib/ics20-withdraw';
 import type { ShieldedBalance } from '@/pages/portfolio/api/use-unified-assets';
 
 interface DestinationStepProps {
   balance: ShieldedBalance;
   initialAddress: string;
+  initialAmount: string;
   onBack: () => void;
-  onNext: (address: string, chain: Chain) => void;
+  onNext: (address: string, chain: Chain, amount: string) => void;
 }
-
 
 export function DestinationStep({
   balance,
   initialAddress,
+  initialAmount,
   onBack,
   onNext,
 }: DestinationStepProps) {
@@ -42,7 +48,7 @@ export function DestinationStep({
   // Resolve the cosmos-kit chain_name slug from the Penumbra chainId
   // (e.g. `injective-1` -> `injective`). `useChain` needs a slug that
   // was registered on ChainProvider; if we can't resolve one, fall back
-  // to a harmless supported chain so the hook stays stable — we gate on
+  // to a harmless supported chain so the hook stays stable - we gate on
   // `chainName` below before reading anything real from `chain`.
   const chainName = useMemo(() => {
     if (!destinationChain) return null;
@@ -69,8 +75,43 @@ export function DestinationStep({
 
   const isValid = unknownAddrIsValid(destinationChain, address);
 
+  // Amount lives on this step so the user always sees what they are about
+  // to send before continuing. It starts empty (or the value they already
+  // typed) - never the full balance. Max is an explicit action.
+  const maxDisplay = useMemo(() => pnum(balance.valueView).toString(), [balance.valueView]);
+  const [amount, setAmount] = useState(initialAmount);
+
+  const tooBig = amount !== '' && amountMoreThanBalance(balance.balance, amount);
+  const isPositive =
+    amount !== '' &&
+    (() => {
+      try {
+        return new BigNumber(amount).isFinite() && new BigNumber(amount).gt(0);
+      } catch {
+        return false;
+      }
+    })();
+  const amountValid = isPositive && !tooBig;
+
   const chainImage = destinationChain?.images[0]?.png ?? '';
   const chainDisplay = destinationChain?.displayName ?? 'Unknown';
+
+  // The primary button states exactly what happens next, or why it can't.
+  let buttonLabel = `Withdraw ${amount} ${symbol}`;
+  if (!destinationChain) {
+    buttonLabel = 'Unsupported network';
+  } else if (address === '') {
+    buttonLabel = 'Enter destination address';
+  } else if (!isValid) {
+    buttonLabel = 'Invalid address';
+  } else if (amount === '') {
+    buttonLabel = 'Enter amount';
+  } else if (tooBig) {
+    buttonLabel = 'Insufficient balance';
+  } else if (!isPositive) {
+    buttonLabel = 'Invalid amount';
+  }
+  const canSubmit = !!destinationChain && isValid && amountValid;
 
   return (
     <div className='flex flex-col gap-4'>
@@ -124,7 +165,7 @@ export function DestinationStep({
 
       {/* This withdrawal is a raw ICS-20 transfer and CANNOT carry a memo:
           `Ics20Withdrawal` has seven fields and none of them is one, and the
-          Penumbra transaction memo is `MemoCiphertext` — encrypted to the
+          Penumbra transaction memo is `MemoCiphertext` - encrypted to the
           recipient's viewing key, invisible off-chain. Most exchanges credit
           a deposit by its memo/tag, so a direct transfer here can arrive
           uncredited and unrecoverable.
@@ -133,19 +174,50 @@ export function DestinationStep({
           here. They steered users into exactly that. Removed rather than
           re-worded: no wording makes the direct path correct, because the
           field the exchange needs does not exist in the protocol. */}
-      <div className='rounded-md border border-caution-main/40 bg-caution-main/10 p-3'>
-        <Text variant='detail' color='caution.light'>
-          Withdraw to an address you control — not an exchange deposit address.
-          This transfer cannot carry a memo or tag, and most exchanges need one
-          to credit your deposit; without it funds can arrive uncredited. To
-          reach an exchange, withdraw to your own wallet on {chainDisplay}
-          first, then send from there with the memo.
+      <Text variant='body' color='text.primary'>
+        Amount
+      </Text>
+      <TextInput
+        placeholder='0.0'
+        value={amount}
+        actionType={amount === '' || !tooBig ? 'default' : 'destructive'}
+        endAdornment={
+          <div className='flex items-center gap-2 pr-2'>
+            <Text variant='detail' color='text.secondary'>
+              {symbol}
+            </Text>
+            <button
+              type='button'
+              onClick={() => setAmount(maxDisplay)}
+              className='rounded-md border border-primary-main/50 px-2 py-0.5 text-xs text-primary-light hover:bg-primary-main/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-main'
+            >
+              Max
+            </button>
+          </div>
+        }
+        onChange={val => setAmount(val)}
+      />
+      <div className='flex items-center justify-between'>
+        <Text variant='detail' color='text.secondary'>
+          Available: {maxDisplay} {symbol}
         </Text>
+        {tooBig && (
+          <Text variant='detail' color='destructive.main'>
+            Insufficient balance
+          </Text>
+        )}
       </div>
+      <Text variant='detail' color='text.secondary'>
+        Fees are paid separately; the full amount arrives on {chainDisplay}.
+      </Text>
 
-      <div className='rounded-md border border-caution-main/40 bg-caution-main/10 p-3'>
+      <div className='flex flex-col gap-1 rounded-md border border-caution-main/40 bg-caution-main/10 p-3'>
         <Text variant='detail' color='caution.light'>
-          Only send to an address that supports the {chainDisplay} network. Funds sent to an incompatible address may be lost.
+          Only send to a {chainDisplay} address. Other networks may lose funds.
+        </Text>
+        <Text variant='detail' color='caution.light'>
+          This transfer can&apos;t carry a memo: withdraw to your own wallet, not an exchange
+          deposit address, then forward from there.
         </Text>
       </div>
 
@@ -155,14 +227,14 @@ export function DestinationStep({
         </Button>
         <Button
           priority='primary'
-          disabled={!isValid || !destinationChain}
+          disabled={!canSubmit}
           onClick={() => {
-            if (destinationChain && isValid) {
-              onNext(address, destinationChain);
+            if (destinationChain && canSubmit) {
+              onNext(address, destinationChain, amount);
             }
           }}
         >
-          Continue
+          {buttonLabel}
         </Button>
       </div>
     </div>

@@ -16,12 +16,11 @@ import type {
 
 import { AssetSelectStep } from './steps/asset-select';
 import { DestinationStep } from './steps/destination';
-import { AmountStep } from './steps/amount';
 import { ConfirmPendingSuccess } from './steps/confirm-pending-success';
 
 // `useChain` from cosmos-kit must run under `<ChainProvider>`. The
 // portfolio route already wires that provider via `IbcChainProvider` in
-// the desktop page — reuse the same wrapper here so the destination
+// the desktop page - reuse the same wrapper here so the destination
 // step can read the user's connected Keplr/Leap address on the source
 // chain.
 const IbcChainProviderClient = dynamic(
@@ -29,7 +28,7 @@ const IbcChainProviderClient = dynamic(
   { ssr: false },
 );
 
-type Step = 'asset' | 'destination' | 'amount' | 'confirm';
+type Step = 'asset' | 'destination' | 'confirm';
 
 export const WithdrawPage = observer(() => {
   const { data: registry } = useRegistry();
@@ -92,23 +91,11 @@ function WithdrawFlow() {
       <DestinationStep
         balance={balance}
         initialAddress={address}
+        initialAmount={amount}
         onBack={() => setStep('asset')}
-        onNext={(addr, chain) => {
+        onNext={(addr, chain, amt) => {
           setAddress(addr);
           setDestChain(chain);
-          setStep('amount');
-        }}
-      />
-    );
-  }
-
-  if (step === 'amount') {
-    return (
-      <AmountStep
-        balance={balance}
-        initialAmount={amount}
-        onBack={() => setStep('destination')}
-        onNext={amt => {
           setAmount(amt);
           setStep('confirm');
         }}
@@ -123,9 +110,9 @@ function WithdrawFlow() {
         destinationChain={destChain}
         address={address}
         amount={amount}
-        onBack={() => setStep('amount')}
+        onBack={() => setStep('destination')}
         onDone={() => {
-          // Reset for a hypothetical "withdraw another" — the success
+          // Reset for a hypothetical "withdraw another" - the success
           // screen navigates away via the "Return to portfolio" Link,
           // so this only runs if someone wires an in-place reset.
           setStep('asset');
