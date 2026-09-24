@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import cn from 'clsx';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { observer } from 'mobx-react-lite';
@@ -120,11 +120,42 @@ const bucketTraces = (rows: Trace[], bucketSize: number): Trace[] => {
 
 // Click on a sell row → user wants to buy at the asking price.
 // Click on a buy row  → user wants to sell into that bid.
-// Mirrors TradingView / Binance behavior.
-const prefillFromBookRow = (price: string, isSell: boolean) => {
+// Mirrors TradingView / Binance behavior: the amount is the cumulative
+// size from the touch through the clicked level, capped at the balance
+// that would fund the order (quote for a buy, base for a sell) when the
+// wallet has reported one.
+const prefillFromBookRow = (rows: Trace[], price: string, isSell: boolean) => {
+  const idx = rows.findIndex(r => r.price === price);
+  // Sell rows render worst-first, so the touch is the last row; buy rows
+  // render best-first, so the touch is the first row.
+  let levels: Trace[] = [];
+  if (idx >= 0) {
+    levels = isSell ? rows.slice(idx) : rows.slice(0, idx + 1);
+  }
+  const cumBase = levels.reduce((sum, r) => sum + pnum(r.amount).toNumber(), 0);
+
+  const form = tradeFormStore.limitForm;
   tradeFormStore.setWhichForm('Limit');
-  tradeFormStore.limitForm.setDirection(isSell ? 'buy' : 'sell');
-  tradeFormStore.limitForm.setPriceInput(price);
+  form.setDirection(isSell ? 'buy' : 'sell');
+  form.setPriceInput(price);
+  if (!(cumBase > 0)) {
+    return;
+  }
+
+  if (isSell) {
+    const quoteBalance = form.quoteAsset?.balance;
+    const limitPrice = pnum(price).toNumber();
+    if (quoteBalance !== undefined && cumBase * limitPrice > quoteBalance) {
+      form.setQuoteInput(quoteBalance.toString());
+    } else {
+      form.setBaseInput(cumBase.toString());
+    }
+  } else {
+    const baseBalance = form.baseAsset?.balance;
+    form.setBaseInput(
+      (baseBalance !== undefined ? Math.min(cumBase, baseBalance) : cumBase).toString(),
+    );
+  }
 };
 
 /**
@@ -349,8 +380,18 @@ export const RouteBook = observer(() => {
   // function references on every render, busting any future memo() on
   // <TradeRow>. The handlers don't depend on any state inside the
   // component, so empty deps are safe.
-  const onSellClick = useCallback((price: string) => prefillFromBookRow(price, true), []);
-  const onBuyClick = useCallback((price: string) => prefillFromBookRow(price, false), []);
+  // Rows live in a ref so the click handlers stay referentially stable and
+  // TradeRow's memo doesn't re-render every row on each book update.
+  const rowsRef = useRef({ sell: sellRows, buy: buyRows });
+  rowsRef.current = { sell: sellRows, buy: buyRows };
+  const onSellClick = useCallback(
+    (price: string) => prefillFromBookRow(rowsRef.current.sell, price, true),
+    [],
+  );
+  const onBuyClick = useCallback(
+    (price: string) => prefillFromBookRow(rowsRef.current.buy, price, false),
+    [],
+  );
 
   if (bookErr) {
     return (
