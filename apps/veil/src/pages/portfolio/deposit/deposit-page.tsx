@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
 import { observer } from 'mobx-react-lite';
 import { useRegistry } from '@/shared/api/registry';
 import { IbcChainProvider } from '@/features/cosmos/chain-provider';
@@ -33,6 +35,16 @@ export const DepositPage = observer(() => {
     <IbcChainProvider registry={registry}>
       <PenumbraWaves />
       <div className='container mx-auto flex max-w-[720px] flex-col gap-4 py-8'>
+        {/* way back out - same link the withdraw page has */}
+        <div>
+          <Link
+            href='/portfolio'
+            className='inline-flex items-center gap-1 text-sm text-text-secondary hover:text-text-primary focus:outline-none'
+          >
+            <ArrowLeft className='h-4 w-4' />
+            Portfolio
+          </Link>
+        </div>
         <PortfolioCard title='Deposit'>
           <DepositFlow />
         </PortfolioCard>
