@@ -7,15 +7,21 @@ import {
 } from '@/pages/inspect/explorer/lib/graphql/generated/types'
 import { votingQuery } from '@/pages/inspect/explorer/lib/graphql/queries'
 import { TransformedVoting, VotingState } from '@/pages/inspect/explorer/lib/types'
+import { getChainQuorum } from './chainQuorum'
 
 const getVoting = async (
     proposalId: number
 ): Promise<TransformedVoting | undefined> => {
     const graphqlClient = createGraphqlClient()
 
-    const result = await graphqlClient
-        .query<VotingQuery, VotingQueryVariables>(votingQuery, { proposalId })
-        .toPromise()
+    const [result, chainQuorum] = await Promise.all([
+        graphqlClient
+            .query<VotingQuery, VotingQueryVariables>(votingQuery, {
+                proposalId,
+            })
+            .toPromise(),
+        getChainQuorum(proposalId),
+    ])
 
     if (result.error) {
         throw result.error
@@ -48,7 +54,9 @@ const getVoting = async (
         ),
         no: Number(result.data.proposalDetail.noVotes),
         noPercentage: Number(result.data.proposalDetail.noVotesPercentage),
-        quorum: Number(result.data.proposalDetail.quorum),
+        // The indexer's quorum is computed over every validator it knows,
+        // not the active set pd counts; see chainQuorum.ts.
+        quorum: chainQuorum ?? Number(result.data.proposalDetail.quorum),
         state,
         total: Number(result.data.proposalDetail.totalVotes),
         yes: Number(result.data.proposalDetail.yesVotes),

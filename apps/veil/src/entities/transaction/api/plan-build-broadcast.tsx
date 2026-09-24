@@ -1,7 +1,10 @@
 import Link from 'next/link';
 import { TransactionPlannerRequest } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
 import { ViewService } from '@penumbra-zone/protobuf';
-import { Transaction } from '@penumbra-zone/protobuf/penumbra/core/transaction/v1/transaction_pb';
+import {
+  Transaction,
+  TransactionPlan,
+} from '@penumbra-zone/protobuf/penumbra/core/transaction/v1/transaction_pb';
 import { PartialMessage } from '@bufbuild/protobuf';
 import { openToast } from '@penumbra-zone/ui/Toast';
 import {
@@ -82,6 +85,13 @@ export const planBuildBroadcast = async (
      * case of most transactions.) Default: `false`
      */
     skipAuth?: boolean;
+    /**
+     * Runs on the plan before the wallet is asked to sign. Throw to abort.
+     * Use it when the planner can "succeed" with a plan that doesn't do what
+     * the user asked, e.g. a delegator vote with no eligible notes plans a
+     * fee-only transaction that votes nothing.
+     */
+    validatePlan?: (plan: TransactionPlan) => void;
   },
 ): Promise<PlanBuildBroadcastResult | undefined> => {
   const label =
@@ -102,6 +112,7 @@ export const planBuildBroadcast = async (
 
   try {
     const transactionPlan = await planTransaction(req);
+    options?.validatePlan?.(transactionPlan);
 
     const transaction = await buildTransaction({ transactionPlan }, rpcMethod, status => {
       toast.update({

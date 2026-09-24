@@ -13,6 +13,7 @@ import getProposal from '@/pages/inspect/explorer/lib/data/getProposal'
 import { ProposalState } from '@/pages/inspect/explorer/lib/graphql/generated/types'
 import { classNames, formatNumber } from '@/pages/inspect/explorer/lib/utils'
 import { Props } from './proposalContainer'
+import { VotePanel } from './vote-panel'
 
 const ProposalLoader: FC<Props> = async ({ proposalId, ...props }) => {
     const proposal = await getProposal(proposalId)
@@ -34,33 +35,17 @@ const ProposalLoader: FC<Props> = async ({ proposalId, ...props }) => {
                     <ProposalStatePill state={proposal.state} />
                 </div>
                 <h1 className="text-2xl font-medium">{proposal.title}</h1>
-                <div className="text-text-secondary text-xs">
+                <div className="text-xs text-text-secondary">
                     {proposal.kind}
                 </div>
-                {/* This used to be a "Vote" button to https://vote.penumbra.zone/.
-                    That domain belongs to the former core team and no longer
-                    resolves, so the button was dead — and if penumbra.zone ever
-                    lapsed, whoever registered it would control where voters
-                    land. Until voting is built into this page, point at the one
-                    working path: the vote screen in the Zafu wallet. */}
-                {proposal.state === ProposalState.Voting && (
-                    <p className="text-text-secondary text-sm">
-                        Voting is open. Cast your vote from the{' '}
-                        <strong className="text-text-primary">Vote</strong> screen
-                        in the{' '}
-                        <a
-                            className="underline hover:text-text-primary"
-                            href="https://zafu.pro/"
-                            rel="noreferrer"
-                            target="_blank"
-                        >
-                            Zafu wallet
-                        </a>
-                        , which shows this proposal and its full payload before
-                        you sign.
-                    </p>
-                )}
             </header>
+            {/* Voting happens here, through the connected wallet. This used to
+                link to https://vote.penumbra.zone/, which no longer resolves
+                (and whoever re-registers penumbra.zone would control where
+                voters land). */}
+            {proposal.state === ProposalState.Voting && (
+                <VotePanel proposalId={proposal.id} />
+            )}
             <ReadMore
                 className="text-sm"
                 minParagraphs={3}
