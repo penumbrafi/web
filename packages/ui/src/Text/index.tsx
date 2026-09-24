@@ -190,6 +190,26 @@ const VARIANT_MAP: Record<TextVariant, { element: ElementType; classes: string }
  * <Text variant={emphasized ? 'strong' : 'body'}>Content</Text>
  * ```
  */
+/**
+ * Props `Text` consumes itself; everything else is forwarded to the rendered
+ * element. Listing them explicitly (rather than spreading `props` wholesale)
+ * keeps the variant booleans like `xxl` from leaking onto the DOM, where React
+ * would warn about an unknown attribute.
+ */
+const OWN_PROP_KEYS = new Set<string>([
+  ...Object.keys(VARIANT_MAP),
+  'children',
+  'as',
+  'variant',
+  'truncate',
+  'color',
+  'align',
+  'decoration',
+  'transform',
+  'break',
+  'whitespace',
+]);
+
 export const Text = (props: TextProps) => {
   const classes = getTextOptionClasses(props);
 
@@ -201,5 +221,20 @@ export const Text = (props: TextProps) => {
   const variant = VARIANT_MAP[variantKey];
   const Element = props.as ?? variant.element;
 
-  return <Element className={cn(variant.classes, classes)}>{props.children}</Element>;
+  // Anything not in `OWN_PROP_KEYS` belongs to the caller, not to `Text`, so it
+  // has to reach the DOM node. Radix's `asChild` works by cloning this element
+  // with props of its own — `id`, `aria-*`, handlers — and then verifying they
+  // landed, e.g. `Dialog.Title` does `document.getElementById(titleId)`.
+  // Dropping them silently broke that check: every `Dialog.Content` logged
+  // "`DialogContent` requires a `DialogTitle`" and shipped with no accessible
+  // name, despite rendering a perfectly good title.
+  const forwarded = Object.fromEntries(
+    Object.entries(props).filter(([key]) => !OWN_PROP_KEYS.has(key)),
+  );
+
+  return (
+    <Element {...forwarded} className={cn(variant.classes, classes)}>
+      {props.children}
+    </Element>
+  );
 };

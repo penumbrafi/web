@@ -993,7 +993,17 @@ export const LPOrderForm = observer(
                   {SIMPLE_SHAPES.map(shape => {
                     const art = SHAPE_ART[shape];
                     if (!art) return null;
-                    const selected = store.liquidityShape === shape;
+                    // Dragging a bar flips the shape to CUSTOM, which is not
+                    // one of the three badges — so the row used to show NO
+                    // selection at all and the controls read as broken. Keep
+                    // the button the overrides were sculpted from selected and
+                    // relabel it "Custom"; clicking it clears the overrides and
+                    // returns to the pure shape.
+                    const isCustomBase =
+                      store.liquidityShape === LiquidityDistributionShape.CUSTOM &&
+                      store.customBaseShape === shape;
+                    const selected = store.liquidityShape === shape || isCustomBase;
+                    const label = isCustomBase ? 'Custom' : SHAPE_LABELS[shape];
                     const Bg = selected ? art.Selected : art.Default;
                     return (
                       <button
@@ -1029,7 +1039,7 @@ export const LPOrderForm = observer(
                               '0 1px 2px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.7)',
                           }}
                         >
-                          {SHAPE_LABELS[shape]}
+                          {label}
                         </span>
                       </button>
                     );

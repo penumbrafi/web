@@ -99,6 +99,28 @@ Verify with `sshd -t && sshd -T -C user=deploy-jump | grep -i permitopen`, and
 prove the confinement by checking that a forward to any other host/port is
 refused with `administratively prohibited`.
 
+## Fullnode RPC vhost (the broadcast path)
+
+`deploy/nginx-penumbra-rpc.conf.example` documents the vhost in front of the
+Penumbra fullnode — CometBFT RPC and pd gRPC. This is what veil's server-side
+`/api/penumbra/broadcast` route calls via `PENUMBRA_GRPC_ENDPOINT`.
+
+**It must set `large_client_header_buffers 4 64k;`.** CometBFT's
+`/broadcast_tx_sync` reads the transaction from the query string, so veil puts
+the whole hex-encoded transaction in the request line. nginx's default
+`4 8k` caps that line at 8192 bytes, and real broadcasts already reach ~7900 —
+so larger transactions get a 414 from nginx and never reach the chain.
+
+That failure is deceptive from the browser. The veil route turns the upstream
+414 into a 502, and any fronting vhost with `proxy_intercept_errors on`
+(the dev vhost has it) replaces that 502's JSON body with an error page, so the
+console shows only a bare `HTTP 502` with no cause. If you see unexplained
+broadcast 502s, check the fullnode vhost's access log for `414` first.
+
+The example also shows a `location = /rpc` block proxying CometBFT's JSON-RPC
+root, which removes the URI limit entirely — the migration path if transactions
+keep growing.
+
 ## Secrets and variables to create
 
 Create two GitHub **Environments** in `penumbrafi/web` (Settings ->

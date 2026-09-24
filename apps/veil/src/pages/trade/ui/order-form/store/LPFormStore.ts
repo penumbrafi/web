@@ -84,6 +84,11 @@ export class LPFormStore {
   // shape's computed per-rung amount. Length is aligned to `positions`.
   // Cleared when the user picks any non-CUSTOM shape.
   customWeights: number[] | null = null;
+  // Which shape the current `customWeights` were seeded from, so the shape
+  // row can keep that button selected and relabel it "Custom" rather than
+  // showing no selection at all once the user drags a bar. Null whenever
+  // `liquidityShape` is not CUSTOM.
+  customBaseShape: LiquidityDistributionShape | null = null;
 
   /**
    * Fraction of each side's wallet balance the `suggestPosition` helper
@@ -512,6 +517,7 @@ export class LPFormStore {
     // fully takes over. Users pick FLAT / PYRAMID / VOLATILE to reset.
     if (shape !== LiquidityDistributionShape.CUSTOM) {
       this.customWeights = null;
+      this.customBaseShape = null;
     }
   };
 
@@ -532,12 +538,22 @@ export class LPFormStore {
         ? [...this.customWeights]
         : deriveWeightsFromShape(n, this.liquidityShape);
     seed[index] = clamped;
+    // Remember the shape we sculpted FROM the first time only, so repeated
+    // drags don't lose the original base.
+    if (this.liquidityShape !== LiquidityDistributionShape.CUSTOM) {
+      this.customBaseShape = this.liquidityShape;
+    }
     this.customWeights = seed;
     this.liquidityShape = LiquidityDistributionShape.CUSTOM;
   };
 
   clearCustomWeights = () => {
     this.customWeights = null;
+    // Drop back to whatever shape the overrides were sculpted from.
+    if (this.liquidityShape === LiquidityDistributionShape.CUSTOM) {
+      this.liquidityShape = this.customBaseShape ?? LiquidityDistributionShape.FLAT;
+    }
+    this.customBaseShape = null;
   };
 
   /**
@@ -658,6 +674,7 @@ export class LPFormStore {
     this.feeTierPercentInput = LP_FEE_TIER_PERCENTS[LPFeeTierOptions.Volatile];
     this.liquidityShape = LiquidityDistributionShape.FLAT;
     this.customWeights = null;
+    this.customBaseShape = null;
     this.positions = DEFAULT_POSITION_COUNT;
   };
 }

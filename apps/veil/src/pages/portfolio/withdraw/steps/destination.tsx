@@ -21,18 +21,6 @@ interface DestinationStepProps {
   onNext: (address: string, chain: Chain) => void;
 }
 
-// Common exchanges users typically withdraw to. This list only powers a
-// labelling helper — nothing about a chip choice authorizes or transmits
-// funds; the user still pastes their own deposit address.
-const EXCHANGE_CHIPS = [
-  { id: 'binance', label: 'Binance' },
-  { id: 'kraken', label: 'Kraken' },
-  { id: 'okx', label: 'OKX' },
-  { id: 'bybit', label: 'Bybit' },
-  { id: 'coinbase', label: 'Coinbase' },
-] as const;
-
-type ExchangeId = (typeof EXCHANGE_CHIPS)[number]['id'];
 
 export function DestinationStep({
   balance,
@@ -68,7 +56,6 @@ export function DestinationStep({
   const cosmosAddress = chainName && chain.isWalletConnected ? chain.address : undefined;
 
   const [address, setAddress] = useState(initialAddress);
-  const [selectedExchange, setSelectedExchange] = useState<ExchangeId | null>(null);
   const [touched, setTouched] = useState(false);
 
   // Pre-fill on first mount if the user has a Keplr address on this chain
@@ -112,7 +99,6 @@ export function DestinationStep({
             type='button'
             onClick={() => {
               setAddress(cosmosAddress);
-              setSelectedExchange(null);
               setTouched(true);
             }}
             className='text-xs text-primary-light hover:underline focus:outline-none'
@@ -136,34 +122,25 @@ export function DestinationStep({
         </Text>
       )}
 
-      <div className='flex flex-col gap-2'>
-        <Text variant='detail' color='text.secondary'>
-          Sending to an exchange?
+      {/* This withdrawal is a raw ICS-20 transfer and CANNOT carry a memo:
+          `Ics20Withdrawal` has seven fields and none of them is one, and the
+          Penumbra transaction memo is `MemoCiphertext` — encrypted to the
+          recipient's viewing key, invisible off-chain. Most exchanges credit
+          a deposit by its memo/tag, so a direct transfer here can arrive
+          uncredited and unrecoverable.
+
+          There used to be Binance / Kraken / OKX / Bybit / Coinbase chips
+          here. They steered users into exactly that. Removed rather than
+          re-worded: no wording makes the direct path correct, because the
+          field the exchange needs does not exist in the protocol. */}
+      <div className='rounded-md border border-caution-main/40 bg-caution-main/10 p-3'>
+        <Text variant='detail' color='caution.light'>
+          Withdraw to an address you control — not an exchange deposit address.
+          This transfer cannot carry a memo or tag, and most exchanges need one
+          to credit your deposit; without it funds can arrive uncredited. To
+          reach an exchange, withdraw to your own wallet on {chainDisplay}
+          first, then send from there with the memo.
         </Text>
-        <div className='flex flex-wrap gap-2'>
-          {EXCHANGE_CHIPS.map(ex => {
-            const active = selectedExchange === ex.id;
-            return (
-              <button
-                key={ex.id}
-                type='button'
-                onClick={() => setSelectedExchange(active ? null : ex.id)}
-                className={`rounded-full border px-3 py-1 text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-main ${
-                  active
-                    ? 'border-primary-main bg-primary-main/20 text-primary-light'
-                    : 'border-other-tonal-stroke text-text-secondary hover:bg-other-tonal-fill5'
-                }`}
-              >
-                {ex.label}
-              </button>
-            );
-          })}
-        </div>
-        {selectedExchange && (
-          <Text variant='detail' color='text.secondary'>
-            Paste your {EXCHANGE_CHIPS.find(e => e.id === selectedExchange)?.label} {symbol} deposit address for the {chainDisplay} network here — not an address from another network.
-          </Text>
-        )}
       </div>
 
       <div className='rounded-md border border-caution-main/40 bg-caution-main/10 p-3'>

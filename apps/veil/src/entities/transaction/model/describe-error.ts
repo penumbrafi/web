@@ -160,6 +160,22 @@ const RULES: Rule[] = [
       'There is not enough liquidity on this route to fill your order. Try a smaller size, or a different pair.',
   },
 
+  {
+    // A spend in this tx re-used a note that an EARLIER transaction already
+    // consumed, so pd rejected it at delivery. Almost always the wallet's
+    // view service hadn't yet scanned the block containing that earlier tx,
+    // so the planner picked a note it still believed was unspent. The funds
+    // are fine — they moved in the tx named in the message. The one thing
+    // the user must NOT do is "adjust and retry", which is what the unmapped
+    // fallback used to tell them: the planner would pick the same stale note
+    // and fail identically until the wallet catches up.
+    match: /nullifier .*(was )?already spent/i,
+    title: 'Those funds were already spent',
+    description:
+      'An earlier transaction already used these notes, and your wallet had not finished scanning it when this one was built. Nothing new was submitted. Wait for the sync bar to finish, then check your balance before trying again.',
+    txAlreadyOnChain: true,
+  },
+
   // -- transport -------------------------------------------------------------
   {
     match: /\[unavailable\]|\[deadline_exceeded\]|failed to fetch|network ?error/i,

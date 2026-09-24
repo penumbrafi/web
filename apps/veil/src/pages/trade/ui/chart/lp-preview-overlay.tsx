@@ -52,8 +52,12 @@ interface Rung {
   side: 'buy' | 'sell';
   /** Per-rung quantity in normalized units, used for bar width. */
   qty: number;
-  /** Nominal price of this rung. */
+  /** Nominal price of this rung, before the fee spread. */
   price: number;
+  /** Where the rung actually quotes once the fee tier is applied — a bid
+   *  sits a fee below its nominal price, an ask a fee above. This is the
+   *  price the bar is drawn at, because it is the price that trades. */
+  effectivePrice: number;
   /** Amount of BASE this rung will offer (only meaningful on `sell`). */
   baseAmount: number;
   /** Amount of QUOTE this rung will offer (only meaningful on `buy`). */
@@ -133,6 +137,7 @@ export const LpPreviewOverlay = observer(
     let baseLiq = 0;
     let quoteLiq = 0;
     let customWeights: number[] | null = null;
+    let feePct = 0;
     if (isLp) {
       if (whichForm === 'LP') {
         lower = lpForm.lowerPriceInput ?? undefined;
@@ -142,6 +147,7 @@ export const LpPreviewOverlay = observer(
         baseLiq = parseFloat(lpForm.baseInput) || 0;
         quoteLiq = parseFloat(lpForm.quoteInput) || 0;
         customWeights = lpForm.customWeights;
+        feePct = lpForm.feeTierPercent;
       } else {
         lower = rangeForm.lowerPrice;
         upper = rangeForm.upperPrice;
@@ -149,6 +155,7 @@ export const LpPreviewOverlay = observer(
         shape = rangeForm._liquidityShape;
         // RangeLP uses a single liquidityTarget split per position; treat
         // both sides as equal allocation since the form doesn't separate.
+        feePct = rangeForm.feeTierPercent;
         const tgt = rangeForm.liquidityTarget ?? 0;
         baseLiq = tgt;
         quoteLiq = tgt;
@@ -277,9 +284,15 @@ export const LpPreviewOverlay = observer(
         // side only; for two-sided it's [lo, hi]/n across the full range.
         const step = oneSided && oneSidedSpan > 0 ? oneSidedSpan / n : (hi - lo) / n;
         const start = oneSided && oneSidedSpan > 0 ? oneSidedFrom : lo;
+        // The fee widens the quote around the nominal price: a bid buys a
+        // fee below it, an ask sells a fee above it. Drawing at the nominal
+        // price put every bar where nothing actually trades, which is why
+        // the ladder never lined up with the book.
+        const feeFrac = Math.max(0, feePct) / 100;
         for (let i = 0; i < n; i++) {
           const price = start + i * step;
-          const y = yAtPrice(price);
+          const effectivePrice = price < m ? price * (1 - feeFrac) : price * (1 + feeFrac);
+          const y = yAtPrice(effectivePrice);
           if (y === undefined) continue;
           const w = weights[i] ?? 0;
           if (price < m) {
@@ -290,6 +303,7 @@ export const LpPreviewOverlay = observer(
               side: 'buy',
               qty: q,
               price,
+              effectivePrice,
               baseAmount: 0,
               quoteAmount: q,
             });
@@ -302,6 +316,7 @@ export const LpPreviewOverlay = observer(
               side: 'sell',
               qty: b * price,
               price,
+              effectivePrice,
               baseAmount: b,
               quoteAmount: 0,
             });
@@ -340,6 +355,7 @@ export const LpPreviewOverlay = observer(
       shape,
       baseLiq,
       quoteLiq,
+      feePct,
       customWeights,
       yAtPrice,
       subscribeRedraw,
@@ -537,6 +553,14 @@ export const LpPreviewOverlay = observer(
     // shape's relative weighting is what the eye reads, not the absolute
     // currency amount (which is captured numerically in the form).
     const maxQty = pos.rungs.reduce((m, r) => Math.max(m, r.qty), 0) || 1;
+    // Price pills only when the ladder is loose enough to read. With many
+    // rungs in a tight range the labels would overlap into mush, so measure
+    // the tightest gap actually laid out and drop the pills below ~13px.
+    const tightestGap = pos.rungs.reduce((min, r, i) => {
+      const prev = pos.rungs[i - 1];
+      return prev ? Math.min(min, Math.abs(r.y - prev.y)) : min;
+    }, Number.POSITIVE_INFINITY);
+    const showPricePills = tightestGap >= 13;
 
     return (
       <div
@@ -630,6 +654,29 @@ export const LpPreviewOverlay = observer(
                   opacity: 0.7,
                 }}
               />
+              {/* Price pill — the price this rung actually quotes at, fee
+                  included. Left-anchored so it reads as a label ON the line
+                  rather than competing with the amount column at the right. */}
+              {showPricePills && (
+                <div
+                  className='pointer-events-none absolute tabular-nums'
+                  style={{
+                    left: 4,
+                    top: r.y - 8,
+                    height: 16,
+                    lineHeight: '16px',
+                    padding: '0 5px',
+                    borderRadius: 8,
+                    fontSize: 9,
+                    color: r.side === 'buy' ? BUY_COLOR : SELL_COLOR,
+                    background: 'rgba(0,0,0,0.55)',
+                    border: `1px solid ${r.side === 'buy' ? BUY_COLOR : SELL_COLOR}44`,
+                    opacity: isDraggingThis ? 1 : 0.9,
+                  }}
+                >
+                  {formatRungAmount(r.effectivePrice)}
+                </div>
+              )}
               {/* Per-rung amount readout. Sits at the far right of the
                   row so it stays inside the chart even when the bar is
                   short, and the eye can scan the column of amounts
