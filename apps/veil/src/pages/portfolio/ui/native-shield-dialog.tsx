@@ -12,6 +12,7 @@ import { pnum } from '@penumbra-zone/types/pnum';
 import type { UnifiedAsset } from '@/pages/portfolio/api/use-unified-assets.ts';
 import { useIbcShield } from '@/features/deposit/use-ibc-shield';
 import { useRegistry } from '@/shared/api/registry.tsx';
+import { PrivateTxHash } from '@/shared/ui/private-tx-hash';
 
 interface NativeShieldDialogProps {
   asset: UnifiedAsset;
@@ -159,18 +160,7 @@ export const NativeShieldDialog = ({ asset, isOpen, onClose }: NativeShieldDialo
               <Text small color='text.secondary'>
                 Your shield will land in ~1 minute once Penumbra relays the packet.
               </Text>
-              {explorer ? (
-                <a
-                  href={explorer}
-                  target='_blank'
-                  rel='noreferrer'
-                  className='font-mono text-xs break-all text-primary-main hover:underline'
-                >
-                  {txHash}
-                </a>
-              ) : (
-                <span className='font-mono text-xs break-all text-text-secondary'>{txHash}</span>
-              )}
+              {txHash && <PrivateTxHash hash={txHash} explorerUrl={explorer} />}
               <div className='pt-2'>
                 <Button actionType='default' priority='secondary' onClick={handleClose}>
                   Close

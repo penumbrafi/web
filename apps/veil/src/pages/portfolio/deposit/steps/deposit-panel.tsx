@@ -14,6 +14,7 @@ import { pnum } from '@penumbra-zone/types/pnum';
 import type { CexAsset, CexConfig } from '@/features/deposit/cex-config';
 import { useIbcShield } from '@/features/deposit/use-ibc-shield';
 import { useZafuHandoff } from '@/features/deposit/use-zafu-handoff';
+import { PrivateTxHash } from '@/shared/ui/private-tx-hash';
 import { SUPPORTED_CHAINS } from '@/features/cosmos/supported-chains';
 import { useUnifiedAssets, type UnifiedAsset } from '@/pages/portfolio/api/use-unified-assets';
 
@@ -438,20 +439,7 @@ const OneClickShieldPanel = ({
           <Text small color='text.primary'>
             Shield sent. Funds arrive on Penumbra in ~1 minute.
           </Text>
-          {explorer && txHash ? (
-            <a
-              href={explorer}
-              target='_blank'
-              rel='noreferrer'
-              className='font-mono text-xs break-all text-primary-main hover:underline'
-            >
-              {txHash}
-            </a>
-          ) : (
-            txHash && (
-              <span className='font-mono text-xs break-all text-text-secondary'>{txHash}</span>
-            )
-          )}
+          {txHash && <PrivateTxHash hash={txHash} explorerUrl={explorer} />}
           <div className='pt-1'>
             <Button actionType='default' priority='secondary' onClick={handleReset}>
               Shield more
