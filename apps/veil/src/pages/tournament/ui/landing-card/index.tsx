@@ -13,6 +13,8 @@ import { VotingInfo } from '../voting-info';
 import { IncentivePool } from './incentive-pool';
 import { TournamentResults } from './results';
 import { Explainer } from './explainer';
+import { TournamentInactive } from './inactive';
+import { useLqtStatus } from '@/shared/api/use-lqt-status';
 import {
   SocialCardDialog,
   useTournamentSocialCard,
@@ -52,6 +54,10 @@ export const LandingCard = observer(() => {
     epochLoading,
   );
 
+  // Read from the chain, not a const: see useLqtStatus.
+  const lqt = useLqtStatus();
+  const paused = !lqt.isLoading && !lqt.active;
+
   const { subaccount } = connectionStore;
   const { data: rewards } = usePersonalRewards(subaccount, epoch, false, 1, 1);
   const latestReward = rewards.values().next().value as LqtDelegatorHistoryData | undefined;
@@ -87,28 +93,35 @@ export const LandingCard = observer(() => {
                 </Text>
               )}
 
-              {epochEndsIn && epochEndsIn <= 0 ? (
-                <Text technical color='text.secondary'>
-                  Ended
-                </Text>
-              ) : (
-                typeof epochEndsIn === 'number' && (
-                  <Tooltip message={endingTime}>
-                    <div className='flex items-center gap-2'>
-                      <Hourglass className='h-5 w-5 text-white/80' />
-                      <Text>Ends in {formatTimeRemaining(epochEndsIn)}</Text>
-                    </div>
-                  </Tooltip>
-                )
-              )}
+              {!paused &&
+                (epochEndsIn && epochEndsIn <= 0 ? (
+                  <Text technical color='text.secondary'>
+                    Ended
+                  </Text>
+                ) : (
+                  typeof epochEndsIn === 'number' && (
+                    <Tooltip message={endingTime}>
+                      <div className='flex items-center gap-2'>
+                        <Hourglass className='h-5 w-5 text-white/80' />
+                        <Text>Ends in {formatTimeRemaining(epochEndsIn)}</Text>
+                      </div>
+                    </Tooltip>
+                  )
+                ))}
             </div>
 
-            <IncentivePool summary={summary?.[0]} loading={summaryLoading} />
-            <TournamentResults
-              results={assetGauges.slice(0, 5)}
-              loading={isPending || epochGaugeLoading}
-            />
-            <VotingInfo epoch={epoch} identifier='landing-card' />
+            {paused ? (
+              <TournamentInactive />
+            ) : (
+              <>
+                <IncentivePool summary={summary?.[0]} loading={summaryLoading} />
+                <TournamentResults
+                  results={assetGauges.slice(0, 5)}
+                  loading={isPending || epochGaugeLoading}
+                />
+                <VotingInfo epoch={epoch} identifier='landing-card' />
+              </>
+            )}
           </div>
         </div>
       </GradientCard>

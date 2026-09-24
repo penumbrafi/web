@@ -1,29 +1,22 @@
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { assetPatterns } from '@penumbra-zone/types/assets';
 import { useStakingTokenMetadata } from '@/shared/api/registry';
-
-/**
- * Master feature flag for the Liquidity Tournament UI. When false, all
- * LQT-derived UI (the "Rewards" badge in the pair selector, the
- * "LQT Rewards" row in the simple-liquidity order form, the Tournament
- * header link) is suppressed because there's no live epoch.
- *
- * Flip back to true when the next LQT epoch is announced.
- */
-export const LQT_ENABLED = false;
+import { useLqtStatus } from '@/shared/api/use-lqt-status';
 
 /**
  * Checks if any of the provided assets is eligible for rewards in the
  * liquidity tournament. Only IBC assets are eligible. Always returns
- * false when {@link LQT_ENABLED} is off.
+ * false while the tournament is not live on-chain (see `useLqtStatus`),
+ * so no badge advertises rewards from an unfunded pool.
  */
 export const useIsLqtEligible = (
   asset1: Metadata | undefined,
   asset2: Metadata | undefined,
 ): boolean => {
   const { data: umMetadata } = useStakingTokenMetadata();
+  const { active } = useLqtStatus();
 
-  if (!LQT_ENABLED) {
+  if (!active) {
     return false;
   }
 

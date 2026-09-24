@@ -6,6 +6,7 @@ import { Text } from '@penumbra-zone/ui/Text';
 import { shortify } from '@penumbra-zone/types/shortify';
 import { useStakingTokenMetadata } from '@/shared/api/registry';
 import { getDisplayDenomExponent } from '@penumbra-zone/getters/metadata';
+import { useLqtStatus } from '@/shared/api/use-lqt-status';
 
 export interface IncentivePoolProps {
   summary?: LqtSummary;
@@ -17,6 +18,33 @@ export const IncentivePool = ({ summary, loading }: IncentivePoolProps) => {
 
   const { data: stakingToken } = useStakingTokenMetadata();
   const exponent = getDisplayDenomExponent.optional(stakingToken) ?? 6;
+  const lqt = useLqtStatus();
+
+  // `lqt.summary` projects the OPEN epoch's pool from `rewards_per_block`,
+  // and that projection ignores the tournament's on-chain end block. So after
+  // the tournament is ended it keeps showing a full pool (it showed ~14.5k UM
+  // for epoch 443) that the chain zeroes every block. For the open epoch, trust
+  // the chain's accrued pool instead. Closed epochs use the accrued figure in
+  // the view already, so they are left alone.
+  const isOpenEpoch = summary !== undefined && summary.epoch === lqt.epoch;
+  const statusPending = isOpenEpoch && lqt.isLoading;
+  if (isOpenEpoch && !lqt.isLoading && !lqt.active) {
+    return (
+      <div className='flex flex-col gap-2'>
+        <div className='flex justify-between'>
+          <Text strong color='text.primary'>
+            Incentive Pool
+          </Text>
+          <Text technical color='text.secondary'>
+            Not funded
+          </Text>
+        </div>
+        <Text small color='text.secondary'>
+          No rewards are being paid this epoch.
+        </Text>
+      </div>
+    );
+  }
 
   return (
     <div className='flex flex-col gap-2'>
@@ -25,7 +53,7 @@ export const IncentivePool = ({ summary, loading }: IncentivePoolProps) => {
           Incentive Pool
         </Text>
 
-        {loading ? (
+        {loading || statusPending ? (
           <div className='h-6 w-20'>
             <Skeleton />
           </div>
@@ -37,7 +65,7 @@ export const IncentivePool = ({ summary, loading }: IncentivePoolProps) => {
       </div>
 
       <div className='flex h-[6px] w-full justify-between overflow-hidden rounded-full bg-base-black-alt'>
-        {loading ? (
+        {loading || statusPending ? (
           <div className='h-full w-full'>
             <Skeleton />
           </div>
@@ -68,7 +96,7 @@ export const IncentivePool = ({ summary, loading }: IncentivePoolProps) => {
           <Text technical color='text.primary'>
             LPs
           </Text>
-          {loading ? (
+          {loading || statusPending ? (
             <div className='h-6 w-28'>
               <Skeleton />
             </div>
@@ -94,7 +122,7 @@ export const IncentivePool = ({ summary, loading }: IncentivePoolProps) => {
             Delegators
           </Text>
 
-          {loading ? (
+          {loading || statusPending ? (
             <div className='h-6 w-28'>
               <Skeleton />
             </div>

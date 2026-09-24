@@ -382,6 +382,24 @@ export interface LqtDelegatorHistory {
   reward: number;
 }
 
+/**
+ * `lqt._epoch_info` — one row per tournament epoch. `available_rewards` is the
+ * pool ACTUALLY ACCRUED so far, written by pindexer from the chain's
+ * per-block `EventLqtPoolSizeIncrease`. Use this, not `lqt.summary.total_rewards`,
+ * to decide whether the tournament is live: the summary view projects the open
+ * epoch's pool from `lqt._params.rewards_per_block`, which has no notion of
+ * `liquidity_tournament_end_block`, so after the tournament is ended on-chain it
+ * still projects rewards the chain zeroes every block.
+ */
+export interface LqtEpochInfo {
+  epoch: number;
+  start_block: number;
+  updated_block: number;
+  end_block: number | null;
+  /** Postgres NUMERIC — arrives as a string. */
+  available_rewards: string;
+}
+
 export interface LqtSummary {
   start_block: number;
   end_block: number;
@@ -443,6 +461,7 @@ interface RawDB {
   'lqt.delegator_summary': LqtDelegatorSummary;
   'lqt.summary': LqtSummary;
   'lqt.lps': LQTLPs;
+  'lqt._epoch_info': LqtEpochInfo;
 }
 
 export type DB = Pick<
@@ -466,4 +485,5 @@ export type DB = Pick<
   | 'lqt.delegator_summary'
   | 'lqt.summary'
   | 'lqt.lps'
+  | 'lqt._epoch_info'
 >;

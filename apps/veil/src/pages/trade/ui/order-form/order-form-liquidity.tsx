@@ -21,7 +21,7 @@ import { PriceSlider, roundToDecimals } from './price-slider';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@penumbra-zone/ui/Icon';
 import { Density } from '@penumbra-zone/ui/Density';
-import { useIsLqtEligible, LQT_ENABLED } from '@/shared/utils/is-lqt-eligible';
+import { useIsLqtEligible } from '@/shared/utils/is-lqt-eligible';
 import { LiquidityDistributionShape } from '@/shared/math/position';
 import { ConfirmInfoRow, ConfirmOrderModal, ConfirmWarning } from './confirm-order-modal';
 import { FormIssueNotice } from './form-issue';
@@ -1149,7 +1149,7 @@ export const LPOrderForm = observer(
             }
             parts.push(`${store.feeTierPercentInput}% fee`);
             parts.push(`${actualPositions} pos`);
-            if (LQT_ENABLED && isLQTEligible) parts.push('LQT eligible');
+            if (isLQTEligible) parts.push('LQT eligible');
             parts.push(
               `gas ${parentStore.gasFee.display} ${parentStore.gasFee.symbol}`,
             );

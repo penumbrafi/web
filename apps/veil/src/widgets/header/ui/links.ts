@@ -1,11 +1,7 @@
 import Link from 'next/link';
-import { MoonStar, ArrowUpFromDot, Coins, BookOpen } from 'lucide-react';
+import { MoonStar, ArrowUpFromDot, Coins, BookOpen, Star } from 'lucide-react';
 import { PagePath } from '@/shared/const/pages';
 
-// Note: Tournament link is intentionally hidden from the header until the
-// next LQT epoch is live. The route handlers under /tournament still
-// exist so existing bookmarks resolve, but we don't advertise the page
-// while it has no fresh data to show.
 export const HEADER_LINKS = [
   {
     // Root `/`. The landing/market page (DEX pairs + stats).
@@ -28,6 +24,17 @@ export const HEADER_LINKS = [
     label: 'Trade',
     value: PagePath.Trade,
     icon: ArrowUpFromDot,
+  },
+  {
+    // /tournament — always listed. Whether the tournament is running is read
+    // from the chain (useLqtStatus), and the page shows an explicit "not
+    // running" state instead of disappearing, so the link never needs hiding
+    // or un-hiding by hand again.
+    as: Link,
+    tabProps: { href: PagePath.Tournament },
+    label: 'Tournament',
+    value: PagePath.Tournament,
+    icon: Star,
   },
   {
     // /explore — on-chain explorer (blocks, txs, validators, governance,
