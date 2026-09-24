@@ -13,6 +13,7 @@ import { pnum } from '@penumbra-zone/types/pnum';
 
 import type { CexAsset, CexConfig } from '@/features/deposit/cex-config';
 import { useIbcShield } from '@/features/deposit/use-ibc-shield';
+import { useZafuHandoff } from '@/features/deposit/use-zafu-handoff';
 import { SUPPORTED_CHAINS } from '@/features/cosmos/supported-chains';
 import { useUnifiedAssets, type UnifiedAsset } from '@/pages/portfolio/api/use-unified-assets';
 
@@ -49,6 +50,7 @@ export const DepositPanel = observer(({ cex, asset, onBack }: DepositPanelProps)
   const chain = useChain(chainName ?? SUPPORTED_CHAINS[0]?.chain_name ?? 'injective');
   const sourceAddress = chainName && chain.isWalletConnected ? chain.address : undefined;
   const chainLabel = chainName ? (chain.chain.pretty_name ?? asset.network) : asset.network;
+  const zafu = useZafuHandoff();
 
   // Ephemeral addresses are single-use. `useDepositAddress` caches for
   // 60s under a fixed key, so a remount within that window would reuse
@@ -98,6 +100,7 @@ export const DepositPanel = observer(({ cex, asset, onBack }: DepositPanelProps)
         onConnect={() => {
           void chain.connect();
         }}
+        zafu={zafu.isZafu && asset.chainId === 'injective-1' ? zafu : undefined}
       />
 
       <div className='grid grid-cols-2 gap-3 rounded-xl bg-other-tonal-fill5 p-4'>
@@ -176,6 +179,8 @@ const NetworkWarning = ({ network, symbol }: { network: string; symbol: string }
  * The exchange's withdrawal destination: the user's own address on the
  * source chain, from the connected Keplr/Leap wallet. Without a connected
  * wallet we ask them to connect rather than falling back to anything else.
+ * When the Penumbra wallet is Zafu, the primary action hands off to Zafu's own
+ * shield screen instead (it shows its Injective address and shields for them).
  */
 const SourceAddressPanel = ({
   chainLabel,
@@ -183,12 +188,14 @@ const SourceAddressPanel = ({
   address,
   canConnect,
   onConnect,
+  zafu,
 }: {
   chainLabel: string;
   cexName: string;
   address?: string;
   canConnect: boolean;
   onConnect: () => void;
+  zafu?: { openShield: () => Promise<void>; isOpening: boolean; error?: string };
 }) => {
   const [copied, setCopied] = useState(false);
 
@@ -200,6 +207,42 @@ const SourceAddressPanel = ({
     });
   };
 
+  if (!address && zafu) {
+    return (
+      <div className='flex flex-col items-start gap-3 rounded-xl border border-primary-main/40 bg-primary-main/5 p-4'>
+        <div className='flex flex-col gap-1'>
+          <Text variant='strong' color='text.primary'>
+            Shield with Zafu
+          </Text>
+          <Text small color='text.secondary'>
+            {cexName} withdraws to your own {chainLabel} address. Zafu shows yours, then shields
+            it into Penumbra.
+          </Text>
+        </div>
+        <div className='flex flex-wrap gap-2'>
+          <Button
+            actionType='accent'
+            priority='primary'
+            disabled={zafu.isOpening}
+            onClick={() => {
+              void zafu.openShield();
+            }}
+          >
+            {zafu.isOpening ? 'Opening Zafu...' : 'Open in Zafu'}
+          </Button>
+          <Button actionType='default' priority='secondary' disabled={!canConnect} onClick={onConnect}>
+            Use Keplr or Leap
+          </Button>
+        </div>
+        {zafu.error && (
+          <Text detail color='destructive.light'>
+            {zafu.error}
+          </Text>
+        )}
+      </div>
+    );
+  }
+
   if (!address) {
     return (
       <div className='flex flex-col items-start gap-3 rounded-xl border border-primary-main/40 bg-primary-main/5 p-4'>
@@ -209,7 +252,7 @@ const SourceAddressPanel = ({
           </Text>
           <Text small color='text.secondary'>
             {cexName} withdraws to your own {chainLabel} address. Connect Keplr or Leap and it
-            appears here. Using Zafu? Open Zafu, go to Receive, then Shield USDC.
+            appears here.
           </Text>
         </div>
         <Button actionType='accent' priority='primary' disabled={!canConnect} onClick={onConnect}>
