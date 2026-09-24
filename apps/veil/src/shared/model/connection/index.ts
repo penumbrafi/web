@@ -31,6 +31,17 @@ class ConnectionStateStore {
   /** Index of the selected subaccount */
   subaccount = 0;
 
+  /** True while a connect request is waiting on the wallet. */
+  connecting = false;
+
+  /**
+   * The one connect request in flight. Every click while the wallet is
+   * still showing its approval reuses it: a second penumbra.connect() used
+   * to send the wallet a second approval request (a second side panel or
+   * popup), and whichever resolved last won.
+   */
+  private connectInFlight: Promise<void> | undefined;
+
   constructor() {
     makeAutoObservable(this);
   }
@@ -118,35 +129,40 @@ class ConnectionStateStore {
     }
   }
 
-  async connect(provider: string) {
-    // If the extension never resolves the request — its service worker
-    // received our message but silently declined to open its approval
-    // sidebar, or the MV3 gesture window elapsed before it could —
-    // penumbra.connect() just hangs. Bound the wait so the user gets
-    // a toast instead of a stuck click; the real fix belongs on the
-    // wallet side, this is defence-in-depth.
-    const CONNECT_TIMEOUT_MS = 8_000;
-    const NO_RESPONSE = 'ZAFU_NO_RESPONSE';
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  private setConnecting(connecting: boolean) {
+    this.connecting = connecting;
+  }
+
+  connect(provider: string): Promise<void> {
+    this.connectInFlight ??= this.runConnect(provider).finally(() => {
+      this.connectInFlight = undefined;
+      this.setConnecting(false);
+    });
+    return this.connectInFlight;
+  }
+
+  private async runConnect(provider: string) {
+    this.setConnecting(true);
+    // If the extension never resolves the request (its approval UI never
+    // appeared), penumbra.connect() just hangs. After a while, tell the
+    // user where to look - but keep waiting: they may simply be typing
+    // their password, and giving up here (the old 8s hard timeout) showed
+    // "didn't respond" mid-approval and invited a second click, which sent
+    // a second request.
+    const SLOW_MS = 15_000;
+    const slowTimer = setTimeout(() => {
+      openToast({
+        type: 'info',
+        message: 'Waiting for your wallet',
+        description:
+          'Approve the connection in the wallet. If nothing opened, click the wallet icon in the browser toolbar.',
+      });
+    }, SLOW_MS);
     try {
-      await Promise.race([
-        penumbra.connect(provider),
-        new Promise<never>((_, reject) => {
-          timeoutId = setTimeout(() => reject(new Error(NO_RESPONSE)), CONNECT_TIMEOUT_MS);
-        }),
-      ]);
+      await penumbra.connect(provider);
       await this.checkWrongChain();
       this.setPreferredSubaccount();
     } catch (error) {
-      if (error instanceof Error && error.message === NO_RESPONSE) {
-        openToast({
-          type: 'error',
-          message: "Wallet didn't respond",
-          description:
-            'Open the wallet extension manually (click its icon in the browser toolbar), unlock it, then try connecting again.',
-        });
-        return;
-      }
       if (error instanceof Error && error.cause) {
         if (error.cause === PenumbraRequestFailure.Denied) {
           openToast({
@@ -164,7 +180,7 @@ class ConnectionStateStore {
         }
       }
     } finally {
-      if (timeoutId !== undefined) clearTimeout(timeoutId);
+      clearTimeout(slowTimer);
     }
   }
 

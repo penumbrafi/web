@@ -83,8 +83,9 @@ const ConnectButtonInner = observer(
               iconOnly={variant === 'mobile'}
               actionType={actionType}
               onClick={onConnectClick}
+              disabled={connectionStore.connecting}
             >
-              {children ?? 'Connect wallet'}
+              {connectionStore.connecting ? 'Approve in wallet...' : (children ?? 'Connect wallet')}
             </Button>
           )}
         </Density>
