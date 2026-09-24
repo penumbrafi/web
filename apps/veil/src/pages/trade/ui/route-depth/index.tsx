@@ -13,9 +13,9 @@ import { formatDepthPrice, useDepthChart, type DepthHover } from './use-depth-ch
 const ZOOM_KEY = 'veil-route-depth-zoom-pct';
 // `null` means "all levels" — no filter. Percent values are half-widths
 // around mid (±X%).
-const ZOOM_OPTIONS: readonly (number | null)[] = [0.5, 2, 10, null];
+const ZOOM_OPTIONS: readonly (number | null)[] = [0.5, 2, 10, 25, null];
 const ZOOM_OPTIONS_MIN = 0.5;
-const DEFAULT_ZOOM: number | null = 2;
+const DEFAULT_ZOOM: number | null = 10;
 const ZOOM_LABEL = (v: number | null) => {
   if (v === null) {
     return 'All';
