@@ -35,6 +35,12 @@ interface EthermintChainConfig {
   feeDenom: string;
   /** Fee per unit of gas, in base units of feeDenom. */
   gasPrice: bigint;
+  /**
+   * Gas sponsor (zafu apps/feegrant). When the sender cannot pay the fee, it
+   * issues an x/feegrant allowance and the tx sets fee.granter, so users who
+   * hold USDC.inj but no INJ can still shield.
+   */
+  sponsorUrl?: string;
 }
 
 const ETHERMINT_CHAINS: Record<string, EthermintChainConfig> = {
@@ -46,6 +52,7 @@ const ETHERMINT_CHAINS: Record<string, EthermintChainConfig> = {
     ],
     feeDenom: 'inj',
     gasPrice: 500_000_000n,
+    sponsorUrl: 'https://sponsor.zafu.pro',
   },
 };
 
@@ -138,7 +145,7 @@ const queryAccount = async (
   const res = await lcdGet(cfg, `/cosmos/auth/v1beta1/accounts/${address}`);
   if (res.status === 404) {
     throw new Error(
-      'This Injective address has no on-chain history yet. Send it a little INJ for gas first.',
+      'This Injective address has never received funds, so there is nothing to shield.',
     );
   }
   if (!res.ok) {
@@ -158,6 +165,32 @@ const queryAccount = async (
     throw new Error('Unexpected Injective account format');
   }
   return { accountNumber: Number(base.account_number), sequence: Number(base.sequence) };
+};
+
+const queryFeeBalance = async (cfg: EthermintChainConfig, address: string): Promise<bigint> => {
+  const res = await lcdGet(
+    cfg,
+    `/cosmos/bank/v1beta1/balances/${address}/by_denom?denom=${cfg.feeDenom}`,
+  );
+  if (!res.ok) {
+    throw new Error(`Could not load the gas balance (HTTP ${res.status})`);
+  }
+  const json = (await res.json()) as { balance?: { amount?: string } };
+  return BigInt(json.balance?.amount ?? '0');
+};
+
+/** Ask the gas sponsor for a fee allowance. Resolves once the grant is on-chain. */
+const requestFeeGrant = async (sponsorUrl: string, address: string): Promise<string> => {
+  const res = await fetch(`${sponsorUrl}/v1/injective/grant`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ address }),
+  });
+  const json = (await res.json().catch(() => ({}))) as { granter?: string; error?: string };
+  if (!res.ok || !json.granter) {
+    throw new Error(json.error ?? `HTTP ${res.status}`);
+  }
+  return json.granter;
 };
 
 /**
@@ -226,18 +259,39 @@ export const signAndBroadcastEthermint = async ({
 
   const { accountNumber, sequence } = await queryAccount(cfg, address);
 
+  // Not enough of the fee token for gas: have the sponsor pay it via
+  // fee.granter. It only covers IBC transfers, for addresses holding USDC.inj.
+  const fee = cfg.gasPrice * GAS_LIMIT;
+  let feeGranter: string | undefined;
+  if ((await queryFeeBalance(cfg, address)) < fee) {
+    const need = `${Number(fee) / 1e18} ${cfg.feeDenom.toUpperCase()}`;
+    if (!cfg.sponsorUrl) {
+      throw new Error(`Not enough ${cfg.feeDenom.toUpperCase()} for gas (needs ~${need}).`);
+    }
+    try {
+      feeGranter = await requestFeeGrant(cfg.sponsorUrl, address);
+    } catch (e) {
+      throw new Error(
+        `Not enough ${cfg.feeDenom.toUpperCase()} for gas (needs ~${need}), and the gas sponsor could not cover it: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }
+
   const bodyBytes = new Registry(defaultRegistryTypes).encodeTxBody({ messages, memo });
   const authInfoBytes = makeAuthInfoBytes(
     [
       {
         // PubKey { bytes key = 1; } under the Ethermint type URL
-        pubkey: { typeUrl: ETHSECP256K1_PUBKEY_TYPE_URL, value: lengthDelimited(1, account.pubkey) },
+        pubkey: {
+          typeUrl: ETHSECP256K1_PUBKEY_TYPE_URL,
+          value: lengthDelimited(1, account.pubkey),
+        },
         sequence,
       },
     ],
-    [{ denom: cfg.feeDenom, amount: (cfg.gasPrice * GAS_LIMIT).toString() }],
+    [{ denom: cfg.feeDenom, amount: fee.toString() }],
     Number(GAS_LIMIT),
-    undefined,
+    feeGranter,
     undefined,
   );
   const signDoc = makeSignDoc(bodyBytes, authInfoBytes, chainId, accountNumber);
@@ -251,5 +305,18 @@ export const signAndBroadcastEthermint = async ({
     fromBase64(signature.signature),
   );
 
-  return { txHash: await broadcastTx(cfg, txBytes) };
+  try {
+    return { txHash: await broadcastTx(cfg, txBytes) };
+  } catch (e) {
+    // The grant is in a block the sponsor's node has seen but this node may
+    // not have yet. A CheckTx rejection consumes no sequence, so the same
+    // signed bytes can be resent once.
+    if (!feeGranter || !(e instanceof Error) || !/fee-grant not found/i.test(e.message)) {
+      throw e;
+    }
+    await new Promise<void>(resolve => {
+      setTimeout(resolve, 3000);
+    });
+    return { txHash: await broadcastTx(cfg, txBytes) };
+  }
 };
