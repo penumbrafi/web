@@ -9,6 +9,7 @@ import { openToast } from '@penumbra-zone/ui/Toast';
 import { penumbra } from '@/shared/const/penumbra';
 import { ViewService } from '@penumbra-zone/protobuf';
 import { ClientEnv } from '@/shared/api/env/types';
+import { queryClient } from '@/shared/const/queryClient';
 
 const SUBACCOUNT_LS_KEY = 'veil-connection-subaccount';
 
@@ -160,8 +161,11 @@ class ConnectionStateStore {
     }, SLOW_MS);
     try {
       await penumbra.connect(provider);
-      await this.checkWrongChain();
       this.setPreferredSubaccount();
+      // Don't hold the connect spinner on the chain check: it goes through
+      // the wallet's view service, which can take seconds while the wallet
+      // syncs. A wrong chain still alerts and disconnects when it resolves.
+      void this.checkWrongChain().catch((error: unknown) => console.warn(error));
     } catch (error) {
       if (error instanceof Error && error.cause) {
         if (error.cause === PenumbraRequestFailure.Denied) {
@@ -195,7 +199,13 @@ class ConnectionStateStore {
     } catch (error) {
       console.error(error);
     } finally {
-      window.location.reload();
+      // Clear wallet state in place instead of reloading the whole page.
+      // resetQueries drops cached wallet data (balances, positions, …) and
+      // refetches the active public queries; wallet queries stay empty
+      // because they are gated on `connected`.
+      this.setSubaccount('0');
+      this.setConnected(false);
+      void queryClient.resetQueries();
     }
   }
 
