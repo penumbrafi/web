@@ -7,6 +7,7 @@ import type { UnifiedAsset } from '@/pages/portfolio/api/use-unified-assets.ts';
 import { useRegistry } from '@/shared/api/registry.tsx';
 import { SUPPORTED_CHAINS } from '@/features/cosmos/supported-chains';
 import { useDepositAddress } from './use-deposit-address';
+import { isEthermintChain, signAndBroadcastEthermint } from './ethermint-sign';
 
 interface UseIbcShieldResult {
   /** Ready to build & broadcast: registry entry + wallet + deposit address are all present. */
@@ -163,6 +164,19 @@ export const useIbcShield = (asset: UnifiedAsset): UseIbcShieldResult => {
 
       setIsPending(true);
       try {
+        // Injective (Ethermint) cannot go through cosmjs's signing client: it
+        // fails to parse EthAccount and writes the wrong pubkey type. Build and
+        // broadcast it ourselves; see ethermint-sign.ts.
+        if (isEthermintChain(sourceChainId)) {
+          return await signAndBroadcastEthermint({
+            chainId: sourceChainId,
+            signer: chain.getOfflineSignerDirect(),
+            address: chain.address,
+            messages: [msg],
+            memo: 'Shield to Penumbra via veil',
+          });
+        }
+
         const client = await chain.getSigningStargateClient();
         // 'auto' triggers gas simulation using cosmos-kit's per-chain
         // gasPrice defaults (Injective: 500000000inj, Noble: 0.1uusdc).
