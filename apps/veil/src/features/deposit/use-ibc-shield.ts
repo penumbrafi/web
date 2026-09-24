@@ -173,19 +173,16 @@ export const useIbcShield = (asset: UnifiedAsset): UseIbcShieldResult => {
             signer: chain.getOfflineSignerDirect(),
             address: chain.address,
             messages: [msg],
-            memo: 'Shield to Penumbra via veil',
+            // no memo: a fixed string would tag every Veil user's shield on
+            // Injective's public chain
+            memo: '',
           });
         }
 
         const client = await chain.getSigningStargateClient();
         // 'auto' triggers gas simulation using cosmos-kit's per-chain
         // gasPrice defaults (Injective: 500000000inj, Noble: 0.1uusdc).
-        const result = await client.signAndBroadcast(
-          chain.address,
-          [msg],
-          'auto',
-          'Shield to Penumbra via veil',
-        );
+        const result = await client.signAndBroadcast(chain.address, [msg], 'auto', '');
         if (result.code !== 0) {
           throw new Error(`IBC transfer failed (code ${result.code}): ${result.rawLog ?? ''}`);
         }

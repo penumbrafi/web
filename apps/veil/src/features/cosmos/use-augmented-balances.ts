@@ -113,12 +113,12 @@ export const fetchChainBalances = async (
     }
   }
 
-  // All endpoints failed
-  console.error(
-    `All RPC endpoints failed for ${chain.chainName} (${chainId}). Retrying will be attempted after cooldown period.`,
-  );
-
-  return [];
+  // All endpoints failed. Throw rather than return []: an empty list is
+  // cached as a successful "this wallet holds nothing", which is how Veil
+  // showed "Ready to shield" empty while Keplr held 410 USDC.inj. As an
+  // error, react-query keeps the last good balances and callers can say
+  // "couldn't reach Injective" instead of lying with a zero.
+  throw new Error(`Couldn't reach ${chain.chainName}: every RPC endpoint failed`);
 };
 
 /**
@@ -228,6 +228,8 @@ export const useBalances = () => {
             };
           });
         }, // Cap at 30s
+        // one retry: each attempt already walks every endpoint with backoff
+        retry: 1,
         staleTime: 30 * 1000, // Consider data stale after 30 seconds
         gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
       })),
@@ -239,14 +241,23 @@ export const useBalances = () => {
           .filter(Boolean) as { asset: Asset; amount: string; chainId: string }[],
         isLoading: results.some(result => result.isLoading),
         error: results.find(r => r.error !== null)?.error ?? null,
-        refetch: () => Promise.all(results.map(result => result.refetch())),
+        // A manual retry means "try again now": forget the 5-minute
+        // endpoint cooldowns, or the retry silently skips every endpoint.
+        refetch: () => {
+          failedEndpoints.clear();
+          return Promise.all(results.map(result => result.refetch()));
+        },
       };
     },
   });
 
   return {
     balances: result.data,
-    isLoading: result.isLoading && status === WalletStatus.Connected,
+    // Connecting counts as loading: otherwise the gap before the wallet
+    // reports an address reads as "no balances".
+    isLoading:
+      (result.isLoading && status === WalletStatus.Connected) ||
+      status === WalletStatus.Connecting,
     error: result.error ? String(result.error) : null,
     refetch: result.refetch,
   };

@@ -1,31 +1,21 @@
 'use client';
 
-import { useState } from 'react';
 import { ArrowRightLeft, Building2, ChevronRight } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Text } from '@penumbra-zone/ui/Text';
-import dynamic from 'next/dynamic';
 import { ReadyToShield } from './ready-to-shield';
-
-// The multi-chain widget lives inside DepositDialog; import lazily so its
-// ~1.5MB of chain-registry + skip client only lands if the user picks it.
-const DepositDialog = dynamic(
-  () => import('@/features/deposit/deposit-dialog').then(m => ({ default: m.DepositDialog })),
-  { ssr: false },
-);
 
 interface MethodSelectProps {
   onPickCex: () => void;
+  onPickWallet: () => void;
 }
 
 /**
  * Entry step: the user chooses whether they're moving funds in from an
- * exchange withdrawal (CEX-guided flow) or from another wallet they
- * already control (opens the existing multi-chain deposit dialog).
+ * exchange withdrawal (CEX-guided flow) or from an Injective wallet they
+ * already control.
  */
-export const MethodSelect = ({ onPickCex }: MethodSelectProps) => {
-  const [walletFlowOpen, setWalletFlowOpen] = useState(false);
-
+export const MethodSelect = ({ onPickCex, onPickWallet }: MethodSelectProps) => {
   return (
     <div className='flex flex-col gap-6'>
       <div className='flex flex-col gap-2'>
@@ -46,20 +36,16 @@ export const MethodSelect = ({ onPickCex }: MethodSelectProps) => {
         <MethodCard
           icon={Building2}
           title='From an exchange'
-          description='Withdraw from Kraken, Binance, Coinbase and others directly to Penumbra.'
+          description='Withdraw to your Injective address, then move it into Penumbra.'
           onClick={onPickCex}
         />
         <MethodCard
           icon={ArrowRightLeft}
           title='From another wallet'
-          description='Bring assets from another chain wallet you control.'
-          onClick={() => setWalletFlowOpen(true)}
+          description='Move funds you hold on Injective in Keplr or Leap.'
+          onClick={onPickWallet}
         />
       </div>
-
-      {walletFlowOpen && (
-        <DepositDialog isOpen={walletFlowOpen} onClose={() => setWalletFlowOpen(false)} />
-      )}
     </div>
   );
 };

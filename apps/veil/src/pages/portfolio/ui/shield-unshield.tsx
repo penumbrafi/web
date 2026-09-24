@@ -5,33 +5,26 @@ import { useCallback, useState } from 'react';
 import { useRegistry } from '@/shared/api/registry.tsx';
 import { UnshieldDialog } from '@/pages/portfolio/ui/unshield-dialog.tsx';
 import { NativeShieldDialog } from '@/pages/portfolio/ui/native-shield-dialog.tsx';
-import { DepositDialog } from '@/features/deposit/deposit-dialog';
+import { useRouter } from 'next/navigation';
 
 export function UnshieldButton({ asset }: { asset: ShieldedBalance }) {
   return <UnshieldDialog asset={asset} />;
 }
 
-/**
- * Generic "Shield Assets" entry point. Opens the shared deposit picker rather
- * than a hard-coded Skip route, so this button and the Deposit dialog offer
- * the same sources (Injective first) and the same manual ICS-20 fallback for
- * the ones Skip cannot route.
- */
+/** Generic "Shield Assets" entry point: the same deposit flow as every
+ *  other Deposit button. */
 export function GenericShieldButton() {
-  const [isOpen, setIsOpen] = useState(false);
+  const router = useRouter();
 
   return (
-    <>
-      <Button
-        actionType='accent'
-        density='compact'
-        priority='primary'
-        onClick={() => setIsOpen(true)}
-      >
-        Shield Assets
-      </Button>
-      <DepositDialog isOpen={isOpen} onClose={() => setIsOpen(false)} />
-    </>
+    <Button
+      actionType='accent'
+      density='compact'
+      priority='primary'
+      onClick={() => router.push('/portfolio/deposit')}
+    >
+      Shield Assets
+    </Button>
   );
 }
 

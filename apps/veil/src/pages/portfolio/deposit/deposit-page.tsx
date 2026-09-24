@@ -13,10 +13,12 @@ import { DepositHeader } from './steps/deposit-header';
 import { MethodSelect } from './steps/method-select';
 import { CexAssetSelect } from './steps/cex-asset-select';
 import { DepositPanel } from './steps/deposit-panel';
+import { WalletSource } from './steps/ready-to-shield';
 
 type Step =
   | { name: 'method' }
   | { name: 'cex-asset' }
+  | { name: 'wallet' }
   | { name: 'deposit'; cex: CexConfig; asset: CexAsset };
 
 /**
@@ -65,6 +67,11 @@ const DepositFlow = () => {
           { label: 'From an exchange', onClick: () => setStep({ name: 'method' }) },
           { label: 'Pick asset' },
         ];
+      case 'wallet':
+        return [
+          { label: 'Choose a source', onClick: () => setStep({ name: 'method' }) },
+          { label: 'From your wallet' },
+        ];
       case 'deposit':
         return [
           { label: 'From an exchange', onClick: () => setStep({ name: 'method' }) },
@@ -79,8 +86,13 @@ const DepositFlow = () => {
       <DepositHeader crumbs={crumbs} />
 
       {step.name === 'method' && (
-        <MethodSelect onPickCex={() => setStep({ name: 'cex-asset' })} />
+        <MethodSelect
+          onPickCex={() => setStep({ name: 'cex-asset' })}
+          onPickWallet={() => setStep({ name: 'wallet' })}
+        />
       )}
+
+      {step.name === 'wallet' && <WalletSource />}
 
       {step.name === 'cex-asset' && (
         <CexAssetSelect
