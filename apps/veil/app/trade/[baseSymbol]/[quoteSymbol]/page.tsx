@@ -1,9 +1,9 @@
 import { Suspense } from 'react';
 import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
-import { headers } from 'next/headers';
+import { NextRequest } from 'next/server';
 import { TradePage } from '@/pages/trade';
 import { deserializeRouteBookResponseJson } from '@/shared/api/server/book/serialization';
-import { RouteBookApiResponse } from '@/shared/api/server/book';
+import { GET as getBook, RouteBookApiResponse } from '@/shared/api/server/book';
 
 interface Params {
   baseSymbol: string;
@@ -49,33 +49,31 @@ async function BookPrefetch({ baseSymbol, quoteSymbol }: Params) {
 }
 
 async function prefetchBook(qc: QueryClient, baseSymbol: string, quoteSymbol: string) {
-  // Same-origin fetch from the server component. Next 16 dedupes and
-  // this executes within the request context, so `pindexer_stream` and
-  // pd calls made during handleGet run in the same isolate. `headers()`
-  // gives us the request's own origin so we don't hard-code a URL.
+  // Call the book route IN-PROCESS. This used to fetch its own public URL,
+  // which from the app host means a round trip out through the CDN, and
+  // the host's IPv6 egress is broken, so it hit the 2.5s budget and failed
+  // on every render. The URL's origin is irrelevant here; only the query
+  // string is read. The route's per-block cache makes this ~free.
   try {
-    const h = await headers();
-    const host = h.get('x-forwarded-host') ?? h.get('host');
-    const proto = h.get('x-forwarded-proto') ?? 'http';
-    if (!host) return;
-    const url = `${proto}://${host}/api/book?baseAsset=${encodeURIComponent(baseSymbol)}&quoteAsset=${encodeURIComponent(quoteSymbol)}`;
-    // Prefetch under the same key the client's `useBook` uses. Default
-    // (undefined) traceLimit — matches useMarketPrice/depth-overlay.
-    // Time-boxed; it runs inside a Suspense boundary, so this only bounds
-    // how long the stream stays open, never the first paint.
-    const res = await fetch(url, {
-      // Server-render this specific request; the internal /api/book
-      // has its own 6s SWR cache so Next's fetch cache would only
-      // duplicate that layer. Keep it simple.
-      cache: 'no-store',
-      signal: AbortSignal.timeout(2_500),
-    });
-    if (!res.ok) return;
+    const url = `http://localhost/api/book?baseAsset=${encodeURIComponent(baseSymbol)}&quoteAsset=${encodeURIComponent(quoteSymbol)}`;
+    const res = await Promise.race([
+      getBook(new NextRequest(url, { signal: AbortSignal.timeout(2_500) })),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('book prefetch timeout')), 2_500);
+      }),
+    ]);
+    if (!res.ok || res.headers.get('X-Book-Fallback') === 'empty') {
+      return;
+    }
     const json = (await res.json()) as RouteBookApiResponse;
-    if ('error' in json) return;
+    if ('error' in json) {
+      return;
+    }
+    // Same key the client's `useBook` uses. Default (undefined) traceLimit —
+    // matches useMarketPrice/depth-overlay.
     qc.setQueryData(['book', baseSymbol, quoteSymbol, undefined], deserializeRouteBookResponseJson(json));
   } catch {
-    // Never break the trade page on prefetch failure — client fetches
-    // normally as before.
+    // Never break the trade page on prefetch failure — the client fetches
+    // normally.
   }
 }

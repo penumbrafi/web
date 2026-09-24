@@ -323,11 +323,24 @@ async function handleGet(req: NextRequest): Promise<NextResponse<RouteBookApiRes
         },
       });
     }
-    // New block -> fall through to a fresh single-flight compute (the old
-    // entry stays as the salvage fallback if pd fails on the way).
+    // New block: serve this book now and refresh in the background, rather
+    // than holding the request for the ~3-6s a compute takes. It is no less
+    // fresh in practice: a request that waited would get block H's book only
+    // after that same delay, and the client polls again next block anyway.
+    // Still one compute per pair per block: the in-flight entry gates it.
+    const running = inflight.get(cacheKey);
+    if (!running || running.controller.signal.aborted) {
+      // Background compute: nobody waits on it, so it must not cancel when
+      // this request ends, and its failure is handled (salvage + backoff).
+      startCompute(false).promise.catch(() => undefined);
+    }
+    return NextResponse.json(sliceBook(cached.data, limit), {
+      headers: { ...cacheHeaders(cached, now, age), 'X-Cache': 'STALE-REVALIDATE' },
+    });
   }
 
-  // No cached entry — must compute synchronously. Single-flight to avoid
+  // No cached entry at all (cold start, or a pair nobody has viewed) — must
+  // compute synchronously. Single-flight to avoid
   // duplicate pd queries for concurrent first-time requests. An in-flight
   // entry whose controller already fired is a dying promise (its
   // rejection lands a microtask later); don't attach to it, start fresh.
