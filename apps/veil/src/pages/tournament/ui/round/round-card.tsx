@@ -12,6 +12,8 @@ import { PagePath } from '@/shared/const/pages';
 import { useTournamentSummary } from '../../api/use-tournament-summary';
 import { useCurrentEpoch } from '../../api/use-current-epoch';
 import { IncentivePool } from '../landing-card/incentive-pool';
+import { TournamentInactive } from '../landing-card/inactive';
+import { useLqtStatus } from '@/shared/api/use-lqt-status';
 import { GradientCard } from '../shared/gradient-card';
 import { VotingInfo } from '../voting-info';
 import { formatTimeRemaining } from '@/shared/utils/format-time';
@@ -34,6 +36,9 @@ export const RoundCard = observer(({ epoch }: RoundCardProps) => {
 
   const { epoch: currentEpoch } = useCurrentEpoch();
   const ended = !!currentEpoch && !!epoch && epoch !== currentEpoch;
+  // Only the CURRENT round can be paused; past rounds keep their history.
+  const lqt = useLqtStatus();
+  const paused = !ended && !lqt.isLoading && !lqt.active;
 
   const { data: summary, isLoading } = useTournamentSummary(
     {
@@ -83,7 +88,7 @@ export const RoundCard = observer(({ epoch }: RoundCardProps) => {
                 </Text>
               )}
 
-              {!ended && summary?.[0]?.ends_in_s && (
+              {!ended && !paused && summary?.[0]?.ends_in_s && (
                 <Tooltip message={endingTime}>
                   <div className='flex items-center gap-2'>
                     <Hourglass className='h-5 w-5 text-white/80' />
@@ -132,10 +137,16 @@ export const RoundCard = observer(({ epoch }: RoundCardProps) => {
 
           <div className='h-px w-full shrink-0 bg-other-tonal-stroke md:h-auto md:w-px' />
           <div className='flex w-full flex-col gap-6 md:w-1/2 md:justify-between md:gap-0'>
-            <Text variant='h4' color='text.primary'>
-              {ended ? 'This Epoch has Ended' : 'Cast Your Vote'}
-            </Text>
-            <VotingInfo epoch={epoch} identifier='round-card' />
+            {paused ? (
+              <TournamentInactive />
+            ) : (
+              <>
+                <Text variant='h4' color='text.primary'>
+                  {ended ? 'This Epoch has Ended' : 'Cast Your Vote'}
+                </Text>
+                <VotingInfo epoch={epoch} identifier='round-card' />
+              </>
+            )}
           </div>
         </div>
       </GradientCard>
