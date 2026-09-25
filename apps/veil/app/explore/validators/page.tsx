@@ -40,7 +40,11 @@ const SORT_KEYS = ['commission', 'growth30d', 'growth7d', 'name', 'power', 'upti
 async function StakeChartSection({ range }: { range: StakeRangeKey }) {
   const days = stakeRangeDays(range);
   const { coarse, dense } = stakeStepFor(days);
-  const coarseData = await fetchActiveStakeHistory(days, coarse);
+  // pindexer DB down -> empty chart, not a dead validators page.
+  const coarseData = await fetchActiveStakeHistory(days, coarse).catch((err: unknown) => {
+    console.warn('[validators page] stake history unavailable', err);
+    return [];
+  });
   // NOT awaited — gets passed across the RSC boundary as a pending Promise.
   // A failed refinement keeps the coarse series rather than throwing
   // through use() on the client and taking the whole page down.

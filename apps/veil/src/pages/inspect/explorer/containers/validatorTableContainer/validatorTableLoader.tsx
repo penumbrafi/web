@@ -15,7 +15,11 @@ const ValidatorTableLoader: FC<Props> = async props => {
                 ? ValidatorStateFilter.Inactive
                 : ValidatorStateFilter.Active,
         }),
-        fetchValidatorStakeDeltas(),
+        // pindexer DB down -> no delta columns, not a dead table
+        fetchValidatorStakeDeltas().catch((err: unknown) => {
+            console.warn('[validators] stake deltas unavailable', err)
+            return new Map<string, never>()
+        }),
     ])
 
     if (!validators) {

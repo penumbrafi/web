@@ -19,6 +19,13 @@ import { classNames } from '@/pages/inspect/explorer/lib/utils';
 import { StakingDialogHostClient } from './staking-dialog-host-client';
 export const dynamic = 'force-dynamic';
 
+const degraded =
+  (what: string) =>
+  (err: unknown): never[] => {
+    console.warn(`[validator page] ${what} unavailable`, err);
+    return [];
+  };
+
 interface Props {
   params: Promise<{ identityKey: string }>;
 }
@@ -27,9 +34,11 @@ const ValidatorDetailPage: FC<Props> = async props => {
   const { identityKey: rawIdentityKey } = await props.params;
   const identityKey = decodeURIComponent(rawIdentityKey);
 
+  // Both read pindexer's database. If it is unreachable the charts show
+  // their empty state; the chain-backed panels above still render.
   const [stakeHistory, slashings] = await Promise.all([
-    fetchValidatorStakeHistory(identityKey, 90),
-    fetchValidatorSlashings(identityKey, 50),
+    fetchValidatorStakeHistory(identityKey, 90).catch(degraded('stake history')),
+    fetchValidatorSlashings(identityKey, 50).catch(degraded('slashings')),
   ]);
 
   return (
