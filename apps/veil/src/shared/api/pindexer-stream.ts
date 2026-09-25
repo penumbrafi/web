@@ -157,6 +157,6 @@ export const useOnPindexerTick = (
       void queryClient.invalidateQueries({ queryKey: queryKey as unknown[] });
     });
     return unsub;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- arrays are compared by their serialized keys
   }, [indexersKey, queryKeyString]);
 };

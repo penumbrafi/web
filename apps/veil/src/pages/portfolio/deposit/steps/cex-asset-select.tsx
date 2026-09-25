@@ -31,7 +31,7 @@ export const CexAssetSelect = ({ onPick }: CexAssetSelectProps) => {
           Which exchange are you withdrawing from?
         </Text>
         <Text small color='text.secondary'>
-          Pick your exchange, then the asset and network you'll withdraw over.
+          Pick your exchange, then the asset and network you&apos;ll withdraw over.
         </Text>
       </div>
 

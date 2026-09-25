@@ -70,7 +70,7 @@ export function DestinationStep({
     if (!address && cosmosAddress) {
       setAddress(cosmosAddress);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- prefill only when the connected address changes, never over what the user typed
   }, [cosmosAddress]);
 
   const isValid = unknownAddrIsValid(destinationChain, address);

@@ -51,7 +51,9 @@ export async function fetchChainIssuanceParams(): Promise<ChainIssuanceParams | 
     // options — Promise.race with a timeout is the portable fallback.
     const res = await Promise.race([
       client.appParameters({}),
-      new Promise<never>((_, r) => setTimeout(() => r(new Error('timeout')), 4_000)),
+      new Promise<never>((_, r) => {
+        setTimeout(() => r(new Error('timeout')), 4_000);
+      }),
     ]);
     const p = res.appParameters;
     if (!p?.distributionsParams || !p.sctParams) {

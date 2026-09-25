@@ -6,6 +6,7 @@ import {
     ChangeEvent,
     FC,
     MouseEvent,
+    ReactNode,
     useCallback,
     useEffect,
     useRef,
@@ -183,7 +184,7 @@ const SearchContainer: FC<Props> = props => {
     // istanbul ignore next
     const onClick = useCallback((e: MouseEvent) => e.stopPropagation(), [])
 
-    let searchResults
+    let searchResults: ReactNode
 
     if (inputQuery && queryExecuted) {
         if (searchResult) {

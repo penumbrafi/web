@@ -54,7 +54,7 @@ export const RoundCard = observer(({ epoch }: RoundCardProps) => {
       summary?.[0]?.ends_in_s
         ? format(addSeconds(new Date(), summary[0].ends_in_s), 'MMM d, yyyy, hh:mm aa OOO')
         : undefined,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ending time is fixed at first render so it doesn't drift on refetch
     [],
   );
 

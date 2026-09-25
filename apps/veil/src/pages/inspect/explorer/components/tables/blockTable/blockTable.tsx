@@ -45,7 +45,7 @@ const BlockTable: FC<Props> = props => {
                                     prevBlock =>
                                         prevBlock.height === block.height
                                 )
-                                    ? 'animate-new-data-bg'
+                                    ? 'animate-[new-data-bg_3s_ease-out]'
                                     : undefined
                             }
                             href={`/explore/block/${block.height}`}

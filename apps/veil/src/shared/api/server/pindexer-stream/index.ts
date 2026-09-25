@@ -69,6 +69,7 @@ async function ensureListener(): Promise<void> {
     // late 'error'/'end' must not wipe a NEWER healthy singleton, nor kill
     // subscribers that are now served by it. `subs` is module-global.
     let tornDown = false;
+    // eslint-disable-next-line prefer-const -- assigned below, after teardown (which reads it) is defined
     let ping: ReturnType<typeof setInterval> | undefined;
     const teardown = (reason: string, err?: unknown) => {
       if (tornDown) {

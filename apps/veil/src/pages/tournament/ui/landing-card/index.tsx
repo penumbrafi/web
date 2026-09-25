@@ -69,7 +69,7 @@ export const LandingCard = observer(() => {
       epochEndsIn
         ? format(addSeconds(new Date(), epochEndsIn), 'MMM d, yyyy, hh:mm aa OOO')
         : undefined,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ending time is fixed at first render so it doesn't drift on refetch
     [],
   );
 

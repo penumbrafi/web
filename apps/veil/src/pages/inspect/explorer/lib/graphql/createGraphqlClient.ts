@@ -27,7 +27,9 @@ const fetchWithRetry: typeof fetch = async (input, init) => {
         if (init?.signal?.aborted) {
             throw err
         }
-        await new Promise(resolve => setTimeout(resolve, 250))
+        await new Promise(resolve => {
+                setTimeout(resolve, 250)
+            })
         return fetch(input, init)
     }
 }

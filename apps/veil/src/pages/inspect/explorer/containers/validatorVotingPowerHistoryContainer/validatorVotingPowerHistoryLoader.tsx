@@ -62,19 +62,19 @@ const ValidatorVotingPowerHistoryLoader: FC<Props> = async props => {
             </header>
 
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <div className="bg-surface-secondary rounded-lg p-4">
+                <div className="rounded-lg bg-other-tonal-fill5 p-4">
                     <div className="text-xs text-text-secondary">Current</div>
                     <div className="mt-1 text-lg font-medium">
                         {lastEntry.votingPower.toLocaleString('en-US')} UM
                     </div>
                 </div>
-                <div className="bg-surface-secondary rounded-lg p-4">
+                <div className="rounded-lg bg-other-tonal-fill5 p-4">
                     <div className="text-xs text-text-secondary">Initial</div>
                     <div className="mt-1 text-lg font-medium">
                         {firstEntry.votingPower.toLocaleString('en-US')} UM
                     </div>
                 </div>
-                <div className="bg-surface-secondary rounded-lg p-4">
+                <div className="rounded-lg bg-other-tonal-fill5 p-4">
                     <div className="text-xs text-text-secondary">Change</div>
                     <div
                         className={classNames(
@@ -90,7 +90,7 @@ const ValidatorVotingPowerHistoryLoader: FC<Props> = async props => {
                         {totalChange.toLocaleString('en-US')} UM
                     </div>
                 </div>
-                <div className="bg-surface-secondary rounded-lg p-4">
+                <div className="rounded-lg bg-other-tonal-fill5 p-4">
                     <div className="text-xs text-text-secondary">% Change</div>
                     <div
                         className={classNames(
@@ -117,7 +117,7 @@ const ValidatorVotingPowerHistoryLoader: FC<Props> = async props => {
                 <div className="mt-4 overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
-                            <tr className="border-border-secondary border-b">
+                            <tr className="border-b border-other-tonal-stroke">
                                 <th className="pr-4 pb-2 text-left font-medium">
                                     Block
                                 </th>
@@ -143,7 +143,7 @@ const ValidatorVotingPowerHistoryLoader: FC<Props> = async props => {
                                 return (
                                     <tr
                                         key={entry.blockHeight}
-                                        className="border-border-secondary border-b"
+                                        className="border-b border-other-tonal-stroke"
                                     >
                                         <td className="py-3 pr-4 font-mono">
                                             {entry.blockHeight.toLocaleString('en-US')}

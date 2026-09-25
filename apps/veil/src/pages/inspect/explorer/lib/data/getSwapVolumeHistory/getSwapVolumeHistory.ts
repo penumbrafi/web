@@ -14,14 +14,14 @@ const getSwapVolumeHistory = async (
         .query<
             SwapVolumeHistoryQuery,
             SwapVolumeHistoryQueryVariables
-        >(swapVolumeHistoryQuery, { days: days || null })
+        >(swapVolumeHistoryQuery, { days: days ?? null })
         .toPromise()
 
     if (result.error) {
         throw result.error
     }
 
-    return result.data?.swapVolumeHistory || []
+    return result.data?.swapVolumeHistory ?? []
 }
 
 export default getSwapVolumeHistory

@@ -21,15 +21,11 @@ const useStore = create<State>(set => {
 
         initializationAttempted = true
 
-        try {
-            const client = new ChainRegistryClient()
-            const registry = await client.remote.get('penumbra-1')
-            const getMetadata = registry.tryGetMetadata.bind(registry)
+        const client = new ChainRegistryClient()
+        const registry = await client.remote.get('penumbra-1')
+        const getMetadata = registry.tryGetMetadata.bind(registry)
 
-            set({ getMetadata })
-        } catch (e) {
-            throw e
-        }
+        set({ getMetadata })
     }
 
     initialize().catch(console.error)

@@ -22,7 +22,7 @@ export const MethodSelect = ({ onPickCex, onPickWallet }: MethodSelectProps) => 
           Deposit to Penumbra
         </Text>
         <Text small color='text.secondary'>
-          Choose where your funds are today. We'll walk you through the rest.
+          Choose where your funds are today. We&apos;ll walk you through the rest.
         </Text>
       </div>
 

@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { FC } from 'react'
 import { ValidatorsQuery } from '@/pages/inspect/explorer/lib/graphql/generated/types'
 import { penumbraImage, placeholderAvatarImage } from '@/pages/inspect/explorer/lib/images'
-import { classNames, formatNumber, shortenHash } from '@/pages/inspect/explorer/lib/utils'
+import { classNames, formatNumber, nonEmpty, shortenHash } from '@/pages/inspect/explorer/lib/utils'
 import { validatorImages } from '@/pages/inspect/explorer/lib/validators'
 import Avatar from '../../avatar'
 import EmptyState from '../../emptyState'
@@ -70,7 +70,7 @@ function sortValidators(
     sorted.sort((a, b) => {
         switch (sort) {
             case 'name':
-                return mul * (a.name || a.id).localeCompare(b.name || b.id)
+                return mul * (nonEmpty(a.name) ?? a.id).localeCompare(nonEmpty(b.name) ?? b.id)
             case 'power':
                 return (
                     mul *
@@ -78,7 +78,7 @@ function sortValidators(
                         (b.currentStake ?? b.votingPower))
                 )
             case 'uptime':
-                return mul * ((a.uptime || 0) - (b.uptime || 0))
+                return mul * ((a.uptime ?? 0) - (b.uptime ?? 0))
             case 'commission':
                 return mul * (a.commission - b.commission)
             case 'growth7d':
@@ -171,13 +171,13 @@ const ValidatorTable: FC<Props> = ({
                         <TableRow key={i} href={`/explore/validators/${encodeURIComponent(validator.id)}`}>
                             <TableCell className="h-15">
                                 <Avatar
-                                    alt={validator.name || validator.id}
+                                    alt={nonEmpty(validator.name) ?? validator.id}
                                     fallback={placeholderAvatarImage}
                                     src={validatorImages[validator.id]}
                                     fallbackLetter
                                 />
                                 <Link href={`/explore/validators/${encodeURIComponent(validator.id)}`}>
-                                    {validator.name ||
+                                    {nonEmpty(validator.name) ??
                                         shortenHash(validator.id, 19, 'end')}
                                 </Link>
                             </TableCell>

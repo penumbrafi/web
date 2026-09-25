@@ -206,25 +206,25 @@ const BlockPanelChart: FC<Props> = props => {
         }
     }, [syncState])
 
-    let message
-    let color
+    let message: string | undefined
+    let color: string | undefined
 
     switch (syncState) {
         case SyncState.Upcoming:
             message = `Next block in ~${counter}s`
-            color = 'text-primary'
+            color = 'text-text-primary'
             break
         case SyncState.Late:
             message = `Next block late by ~${counter}s`
-            color = 'text-secondary'
+            color = 'text-text-secondary'
             break
         case SyncState.NotSynced:
             message = 'Blocks not synced'
-            color = 'caution-light'
+            color = 'text-caution-light'
             break
         default:
             message = 'Syncing to blocks ...'
-            color = 'text-secondary'
+            color = 'text-text-secondary'
             break
     }
 
@@ -264,7 +264,7 @@ const BlockPanelChart: FC<Props> = props => {
                         />
                     ))}
                 </div>
-                <div className={`text-${color} self-end font-mono text-xs`}>
+                <div className={`${color} self-end font-mono text-xs`}>
                     {message}
                 </div>
             </div>

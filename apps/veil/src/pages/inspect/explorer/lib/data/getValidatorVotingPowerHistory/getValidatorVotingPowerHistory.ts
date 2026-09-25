@@ -4,6 +4,7 @@ import {
     ValidatorVotingPowerHistoryQueryVariables,
 } from '@/pages/inspect/explorer/lib/graphql/generated/types'
 import { validatorVotingPowerHistoryQuery } from '@/pages/inspect/explorer/lib/graphql/queries'
+import { nonEmpty } from '@/pages/inspect/explorer/lib/utils'
 
 const getValidatorVotingPowerHistory = async (
     validatorId: string,
@@ -18,9 +19,9 @@ const getValidatorVotingPowerHistory = async (
             ValidatorVotingPowerHistoryQuery,
             ValidatorVotingPowerHistoryQueryVariables
         >(validatorVotingPowerHistoryQuery, {
-            endTime: endTime || null,
-            limit: limit || null,
-            startTime: startTime || null,
+            endTime: nonEmpty(endTime) ?? null,
+            limit: limit ?? null,
+            startTime: nonEmpty(startTime) ?? null,
             validatorId,
         })
         .toPromise()
@@ -29,7 +30,7 @@ const getValidatorVotingPowerHistory = async (
         throw result.error
     }
 
-    return result.data?.validatorVotingPowerHistory || []
+    return result.data?.validatorVotingPowerHistory ?? []
 }
 
 export default getValidatorVotingPowerHistory

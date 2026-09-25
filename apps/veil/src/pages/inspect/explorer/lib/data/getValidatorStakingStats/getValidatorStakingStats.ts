@@ -23,7 +23,7 @@ const getValidatorStakingStats = async (
         throw result.error
     }
 
-    return result.data?.validatorStakingStats || null
+    return result.data?.validatorStakingStats ?? null
 }
 
 export default getValidatorStakingStats

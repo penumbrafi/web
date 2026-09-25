@@ -50,7 +50,9 @@ const POLL_TIMEOUT_MS = 60_000;
 const VIEW_POLL_INTERVAL_MS = 750;
 const VIEW_POLL_TIMEOUT_MS = 30_000;
 
-const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
+const sleep = (ms: number) => new Promise<void>(resolve => {
+    setTimeout(resolve, ms);
+  });
 
 const pollDetection = async (txHash: string, signal: AbortSignal): Promise<bigint | undefined> => {
   const deadline = Date.now() + POLL_TIMEOUT_MS;

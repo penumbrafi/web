@@ -5,7 +5,7 @@ import { ChainRegistryClient } from '@penumbrafi/registry'
 import { Surface } from '@/pages/inspect/explorer/components'
 import getTradingPairLiquidity from '@/pages/inspect/explorer/lib/data/getTradingPairLiquidity'
 import getTradingVolume24h from '@/pages/inspect/explorer/lib/data/getTradingVolume24h'
-import { classNames } from '@/pages/inspect/explorer/lib/utils'
+import { classNames, nonEmpty } from '@/pages/inspect/explorer/lib/utils'
 import type { Props } from './dexMarketOverviewContainer'
 
 function truncateAssetId(id: string): string {
@@ -20,7 +20,7 @@ function displayExponent(metadata: Metadata | undefined): number {
 }
 
 function assetLabel(id: string, metadata: Metadata | undefined): string {
-    return metadata?.symbol || truncateAssetId(id)
+    return nonEmpty(metadata?.symbol) ?? truncateAssetId(id)
 }
 
 function formatDisplayAmount(raw: string, exponent: number): string {
@@ -118,7 +118,7 @@ const DexMarketOverviewLoader: FC<Props> = async props => {
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
-                                <tr className="border-border-secondary border-b">
+                                <tr className="border-b border-other-tonal-stroke">
                                     <th className="pr-4 pb-2 text-left font-medium">
                                         Asset
                                     </th>
@@ -136,7 +136,7 @@ const DexMarketOverviewLoader: FC<Props> = async props => {
                                     return (
                                         <tr
                                             key={v.assetId}
-                                            className="border-border-secondary border-b"
+                                            className="border-b border-other-tonal-stroke"
                                         >
                                             <td className="py-2 pr-4 text-xs">
                                                 {meta?.symbol ? (
@@ -175,7 +175,7 @@ const DexMarketOverviewLoader: FC<Props> = async props => {
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
-                                <tr className="border-border-secondary border-b">
+                                <tr className="border-b border-other-tonal-stroke">
                                     <th className="pr-4 pb-2 text-left font-medium">
                                         Pair
                                     </th>
@@ -209,7 +209,7 @@ const DexMarketOverviewLoader: FC<Props> = async props => {
                                     return (
                                         <tr
                                             key={i}
-                                            className="border-border-secondary border-b"
+                                            className="border-b border-other-tonal-stroke"
                                         >
                                             <td
                                                 className={classNames(

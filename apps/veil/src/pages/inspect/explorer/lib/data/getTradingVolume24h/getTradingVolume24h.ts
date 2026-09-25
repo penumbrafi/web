@@ -14,14 +14,14 @@ const getTradingVolume24h = async (
         .query<
             TradingVolume24hQuery,
             TradingVolume24hQueryVariables
-        >(tradingVolume24hQuery, { limit: limit || null })
+        >(tradingVolume24hQuery, { limit: limit ?? null })
         .toPromise()
 
     if (result.error) {
         throw result.error
     }
 
-    return result.data?.tradingVolume24h || []
+    return result.data?.tradingVolume24h ?? []
 }
 
 export default getTradingVolume24h

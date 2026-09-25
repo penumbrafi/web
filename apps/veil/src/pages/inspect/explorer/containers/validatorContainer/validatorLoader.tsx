@@ -12,7 +12,7 @@ import {
 } from '@/pages/inspect/explorer/components'
 import { getValidator } from '@/pages/inspect/explorer/lib/data'
 import { placeholderAvatarImage } from '@/pages/inspect/explorer/lib/images'
-import { classNames, formatNumber, shortenHash } from '@/pages/inspect/explorer/lib/utils'
+import { classNames, formatNumber, nonEmpty, shortenHash } from '@/pages/inspect/explorer/lib/utils'
 import { validatorImages } from '@/pages/inspect/explorer/lib/validators'
 import type { Props } from './validatorContainer'
 
@@ -31,7 +31,7 @@ const ValidatorLoader: FC<Props> = async props => {
             <header className="flex justify-between gap-4">
                 <span className="flex gap-2">
                     <Avatar
-                        alt={validator.name || validator.id}
+                        alt={nonEmpty(validator.name) ?? validator.id}
                         className="h-10 w-10 shrink-0 text-base"
                         fallback={placeholderAvatarImage}
                         src={validatorImages[validator.id]}
@@ -39,7 +39,7 @@ const ValidatorLoader: FC<Props> = async props => {
                     />
                     <span className="inline-flex flex-col gap-1">
                         <h1 className="text-2xl break-all">
-                            {validator.name ||
+                            {nonEmpty(validator.name) ??
                                 shortenHash(validator.id, 19, 'end')}
                         </h1>
                         {validator.website && (

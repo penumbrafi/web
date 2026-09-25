@@ -41,7 +41,7 @@ export const ValidatorSlashingsPanel: FC<Props> = ({ className, slashings }) => 
       <div className='overflow-x-auto'>
         <table className='w-full text-sm'>
           <thead>
-            <tr className='border-border-secondary border-b'>
+            <tr className='border-b border-other-tonal-stroke'>
               <th className='pr-4 pb-2 text-left font-medium'>Block</th>
               <th className='pr-4 pb-2 text-left font-medium'>Epoch</th>
               <th className='pr-4 pb-2 text-left font-medium'>Penalty</th>
@@ -52,7 +52,7 @@ export const ValidatorSlashingsPanel: FC<Props> = ({ className, slashings }) => 
             {slashings.map(s => (
               <tr
                 key={`${s.height}-${s.epoch}`}
-                className='border-border-secondary border-b'
+                className='border-b border-other-tonal-stroke'
               >
                 <td className='py-3 pr-4 font-mono'>{s.height.toLocaleString('en-US')}</td>
                 <td className='py-3 pr-4 font-mono'>{s.epoch.toLocaleString('en-US')}</td>

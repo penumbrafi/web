@@ -12,3 +12,14 @@ body > section {
 body > section[aria-live='polite'] {
   z-index: 9999999999999;
 }
+
+/* Flash for rows that just arrived over a subscription (explorer block/tx
+   tables); used as animate-[new-data-bg_3s_ease-out]. */
+@keyframes new-data-bg {
+  from {
+    background-color: var(--color-action-hover-overlay);
+  }
+  to {
+    background-color: transparent;
+  }
+}

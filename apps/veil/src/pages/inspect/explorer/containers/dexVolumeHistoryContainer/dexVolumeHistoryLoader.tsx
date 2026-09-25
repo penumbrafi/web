@@ -6,7 +6,7 @@ import { classNames } from '@/pages/inspect/explorer/lib/utils'
 import type { Props } from './dexVolumeHistoryContainer'
 
 const DexVolumeHistoryLoader: FC<Props> = async props => {
-    const days = props.days || 30
+    const days = props.days ?? 30
     const history = await getSwapVolumeHistory(days)
 
     if (history.length === 0) {
@@ -55,7 +55,7 @@ const DexVolumeHistoryLoader: FC<Props> = async props => {
             </header>
 
             <div className="grid grid-cols-3 gap-4">
-                <div className="bg-surface-secondary rounded-lg p-4">
+                <div className="rounded-lg bg-other-tonal-fill5 p-4">
                     <div className="text-xs text-text-secondary">
                         Total swaps
                     </div>
@@ -63,13 +63,13 @@ const DexVolumeHistoryLoader: FC<Props> = async props => {
                         {totalSwaps.toLocaleString('en-US')}
                     </div>
                 </div>
-                <div className="bg-surface-secondary rounded-lg p-4">
+                <div className="rounded-lg bg-other-tonal-fill5 p-4">
                     <div className="text-xs text-text-secondary">Organic</div>
                     <div className="mt-1 text-lg font-medium text-blue-500">
                         {totalOrganic.toLocaleString('en-US')}
                     </div>
                 </div>
-                <div className="bg-surface-secondary rounded-lg p-4">
+                <div className="rounded-lg bg-other-tonal-fill5 p-4">
                     <div className="text-xs text-text-secondary">Arbitrage</div>
                     <div className="mt-1 text-lg font-medium text-amber-500">
                         {totalArbs.toLocaleString('en-US')}

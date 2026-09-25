@@ -3,6 +3,7 @@
 import { QueryService } from '@penumbra-zone/protobuf/penumbra/core/component/community_pool/v1/community_pool_connect';
 import { createClient } from '@/shared/utils/protos/utils';
 import { ChainRegistryClient } from '@penumbrafi/registry';
+import { joinLoHi } from '@penumbra-zone/types/lo-hi';
 
 // Community-pool balance is NOT indexed by pindexer. `supply_total_unstaked.um`
 // folds the pool's genesis allocation and every funding-stream reward into
@@ -79,7 +80,7 @@ export async function fetchCommunityPoolUM(): Promise<number | null> {
         // Amount is a u128 split into lo (u64) + hi (u64). Community-pool
         // balance is at most ~10^12 upenumbra today, well under 2^63, but
         // compose both halves to future-proof.
-        umBalance += (BigInt(amt.hi) << 64n) + BigInt(amt.lo);
+        umBalance += joinLoHi(BigInt(amt.lo), BigInt(amt.hi));
       }
     } finally {
       clearTimeout(timeout);

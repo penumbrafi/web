@@ -23,7 +23,7 @@ export interface Props {
 
 const TransactionTableRow: FC<Props> = props => (
     <TableRow
-        className={props.new ? 'animate-new-data-bg' : undefined}
+        className={props.new ? 'animate-[new-data-bg_3s_ease-out]' : undefined}
         href={`/explore/tx/${props.transaction.hash}`}
     >
         <TableCell>

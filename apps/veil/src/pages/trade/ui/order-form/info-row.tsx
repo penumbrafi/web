@@ -56,3 +56,4 @@ export const InfoRow = memo(
     );
   },
 );
+InfoRow.displayName = 'InfoRow';

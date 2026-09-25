@@ -11,7 +11,7 @@ const ValidatorActiveSincePanelLoader: FC<Props> = async props => {
         <Panel
             className={props.className}
             header={
-                <span className="font-medium' font-mono text-3xl">
+                <span className="font-mono text-3xl font-medium">
                     {activeSince}
                 </span>
             }

@@ -16,14 +16,14 @@ function aggregateByDay(
 
     for (const d of delegates) {
         const day = d.timestamp.slice(0, 10)
-        const entry = dayMap.get(day) || { delegated: 0, undelegated: 0 }
+        const entry = dayMap.get(day) ?? { delegated: 0, undelegated: 0 }
         entry.delegated += Number(d.unbondedAmount) / 1_000_000
         dayMap.set(day, entry)
     }
 
     for (const u of undelegates) {
         const day = u.timestamp.slice(0, 10)
-        const entry = dayMap.get(day) || { delegated: 0, undelegated: 0 }
+        const entry = dayMap.get(day) ?? { delegated: 0, undelegated: 0 }
         entry.undelegated += Number(u.unbondedAmount) / 1_000_000
         dayMap.set(day, entry)
     }
@@ -91,7 +91,7 @@ const ValidatorDelegationFlowLoader: FC<Props> = async props => {
 
             {stats && (
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                    <div className="bg-surface-secondary rounded-lg p-4">
+                    <div className="rounded-lg bg-other-tonal-fill5 p-4">
                         <div className="text-xs text-text-secondary">
                             Total delegated
                         </div>
@@ -99,7 +99,7 @@ const ValidatorDelegationFlowLoader: FC<Props> = async props => {
                             {formatUm(stats.totalDelegations)} UM
                         </div>
                     </div>
-                    <div className="bg-surface-secondary rounded-lg p-4">
+                    <div className="rounded-lg bg-other-tonal-fill5 p-4">
                         <div className="text-xs text-text-secondary">
                             Total undelegated
                         </div>
@@ -107,7 +107,7 @@ const ValidatorDelegationFlowLoader: FC<Props> = async props => {
                             {formatUm(stats.totalUndelegations)} UM
                         </div>
                     </div>
-                    <div className="bg-surface-secondary rounded-lg p-4">
+                    <div className="rounded-lg bg-other-tonal-fill5 p-4">
                         <div className="text-xs text-text-secondary">
                             Pending undelegations
                         </div>
@@ -118,7 +118,7 @@ const ValidatorDelegationFlowLoader: FC<Props> = async props => {
                             </span>
                         </div>
                     </div>
-                    <div className="bg-surface-secondary rounded-lg p-4">
+                    <div className="rounded-lg bg-other-tonal-fill5 p-4">
                         <div className="text-xs text-text-secondary">
                             Next release height
                         </div>
@@ -140,7 +140,7 @@ const ValidatorDelegationFlowLoader: FC<Props> = async props => {
                 <div className="mt-4 overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
-                            <tr className="border-border-secondary border-b">
+                            <tr className="border-b border-other-tonal-stroke">
                                 <th className="pr-4 pb-2 text-left font-medium">
                                     Type
                                 </th>
@@ -175,7 +175,7 @@ const ValidatorDelegationFlowLoader: FC<Props> = async props => {
                                 .map(entry => (
                                     <tr
                                         key={`${entry.type}-${entry.id}`}
-                                        className="border-border-secondary border-b"
+                                        className="border-b border-other-tonal-stroke"
                                     >
                                         <td
                                             className={classNames(

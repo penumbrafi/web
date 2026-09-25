@@ -14,14 +14,14 @@ const getRecentSwapPrices = async (
         .query<
             RecentSwapPricesQuery,
             RecentSwapPricesQueryVariables
-        >(recentSwapPricesQuery, { limit: limit || null })
+        >(recentSwapPricesQuery, { limit: limit ?? null })
         .toPromise()
 
     if (result.error) {
         throw result.error
     }
 
-    return result.data?.recentSwapPrices || []
+    return result.data?.recentSwapPrices ?? []
 }
 
 export default getRecentSwapPrices

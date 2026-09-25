@@ -273,9 +273,7 @@ export async function fetchTokenomicsMetrics(): Promise<TokenomicsMetrics> {
       }
     }
   }
-  if (blocksPerYearEmpirical == null) {
-    blocksPerYearEmpirical = BLOCKS_PER_DAY * 365;
-  }
+  blocksPerYearEmpirical ??= BLOCKS_PER_DAY * 365;
 
   // Chain-configured, fixed-budget issuance. When AppParameters is
   // unreachable we drop the whole block — page falls back to the

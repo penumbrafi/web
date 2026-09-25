@@ -74,11 +74,7 @@ export const combineDbCandles = (
   // express buy volume in display quote units. If forward isn't present in
   // this bucket, fall back to 1 / reverseClose for the price.
   const conversionPrice =
-    fwdClose !== undefined
-      ? fwdClose
-      : revClose !== undefined && revClose > 0
-        ? 1 / revClose
-        : 0;
+    fwdClose ?? (revClose !== undefined && revClose > 0 ? 1 / revClose : 0);
   const buyVolume =
     ((reverse?.swap_volume ?? 0) / Math.pow(10, baseExponent)) * conversionPrice;
 

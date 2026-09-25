@@ -7,7 +7,7 @@ import {
     TransactionsQueryVariables,
 } from '@/pages/inspect/explorer/lib/graphql/generated/types'
 import { transactionsQuery } from '@/pages/inspect/explorer/lib/graphql/queries'
-import { TransformedPartialTransactionFragment } from '@/pages/inspect/explorer/lib/types'
+import { ActionType, TransformedPartialTransactionFragment } from '@/pages/inspect/explorer/lib/types'
 import { decodeTransaction, findPrimaryAction } from '@/pages/inspect/explorer/lib/utils'
 
 const getTransactions = async (
@@ -36,8 +36,8 @@ const getTransactions = async (
     }
 
     const transactions = result.data.transactions.items.map(transaction => {
-        let primaryAction
-        let actionCount
+        let primaryAction: ActionType | undefined
+        let actionCount: number | undefined
 
         try {
             const decoded = decodeTransaction(transaction.raw)

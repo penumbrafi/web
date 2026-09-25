@@ -17,9 +17,9 @@ const getValidatorUndelegates = async (
         .query<ValidatorUndelegatesQuery, ValidatorUndelegatesQueryVariables>(
             validatorUndelegatesQuery,
             {
-                limit: limit || null,
-                offset: offset || null,
-                pendingOnly: pendingOnly || null,
+                limit: limit ?? null,
+                offset: offset ?? null,
+                pendingOnly: pendingOnly ? true : null,
                 validatorId,
             }
         )
@@ -29,7 +29,7 @@ const getValidatorUndelegates = async (
         throw result.error
     }
 
-    return result.data?.validatorUndelegates || []
+    return result.data?.validatorUndelegates ?? []
 }
 
 export default getValidatorUndelegates

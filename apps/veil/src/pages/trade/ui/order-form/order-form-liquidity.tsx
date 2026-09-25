@@ -709,7 +709,7 @@ export const LPOrderForm = observer(
       if (!rangeMenuOpen) {return;}
       const onDoc = (e: MouseEvent) => {
         const t = e.target as HTMLElement | null;
-        if (t && t.closest('[data-range-menu]')) {return;}
+        if (t?.closest('[data-range-menu]')) {return;}
         setRangeMenuOpen(false);
       };
       const onKey = (e: KeyboardEvent) => {

@@ -17,7 +17,7 @@ import {
 
 const makeAssetId = (seed: number): AssetId => {
   const inner = new Uint8Array(32);
-  inner[0] = seed & 0xff;
+  inner[0] = seed % 256;
   return new AssetId({ inner });
 };
 
@@ -39,9 +39,9 @@ const symbolOf = (id: AssetId, tables: { assetId: AssetId; symbol: string }[]): 
 };
 
 const makeSimulate = (books: BookMap, everything: { assetId: AssetId; symbol: string }[]): Simulate =>
-  async (inAssetId, outAssetId) => {
+  (inAssetId, outAssetId) => {
     const key: LookupKey = `${symbolOf(inAssetId, everything)}->${symbolOf(outAssetId, everything)}`;
-    return books[key] ?? null;
+    return Promise.resolve(books[key] ?? null);
   };
 
 const tables = [um, usdcInj, usdtInj];

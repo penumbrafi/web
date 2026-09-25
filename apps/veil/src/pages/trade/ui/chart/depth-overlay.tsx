@@ -153,7 +153,7 @@ export const DepthOverlay = observer(
       const recompute = () => {
         const max = levels.max || 1;
         // sqrt scaling so deep books still show smaller levels visibly
-        const scale = (v: number) => (Math.sqrt(v / max) * width * 0.95) | 0;
+        const scale = (v: number) => Math.trunc(Math.sqrt(v / max) * width * 0.95);
         const next: BarPos[] = [];
         const push = (side: 'bid' | 'ask', rows: Level[], color: string) => {
           for (const lvl of rows) {

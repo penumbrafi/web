@@ -102,7 +102,7 @@ const VotingNumbers: FC<Props> = props => (
                     />
                 </div>
             </div>
-            <div className="bg-other-tonal-fill20 relative h-2 rounded-full">
+            <div className="relative h-2 rounded-full bg-other-tonal-fill15">
                 <motion.div
                     animate={{ width: `${props.yesPercentage}%` }}
                     className={classNames(

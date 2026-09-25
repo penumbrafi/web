@@ -10,8 +10,8 @@ interface Props {
 }
 
 const ResultCount: FC<Props> = props => {
-    const start = (props.offset || 0) + 1
-    const end = Math.min((props.offset || 0) + props.length, props.total)
+    const start = (props.offset ?? 0) + 1
+    const end = Math.min((props.offset ?? 0) + props.length, props.total)
 
     return (
         <span

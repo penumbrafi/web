@@ -16,10 +16,10 @@ import { PositionState_PositionStateEnum } from '@penumbra-zone/protobuf/penumbr
 import { connectionStore } from '@/shared/model/connection';
 import { useGetMetadata } from '@/shared/api/assets';
 import { AssetTotal, usePositionsSummary } from '../api/use-positions-summary';
+import { splitLoHi } from '@penumbra-zone/types/lo-hi';
 
 const toValueView = (total: AssetTotal, metadata: Metadata | undefined): ValueView => {
-  const lo = total.amount & ((1n << 64n) - 1n);
-  const hi = total.amount >> 64n;
+  const { lo, hi } = splitLoHi(total.amount);
   const value = new Value({
     amount: new Amount({ lo, hi }),
     assetId: total.assetId,

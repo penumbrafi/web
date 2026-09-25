@@ -4,6 +4,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { FC, useCallback } from 'react'
 import Density from '../density'
 import SegmentedControl from '../segmentedControl'
+import { nonEmpty } from '@/pages/inspect/explorer/lib/utils'
 
 interface Props {
     className?: string
@@ -16,7 +17,7 @@ const TimeRangeSelector: FC<Props> = props => {
     const pathname = usePathname()
     const searchParams = useSearchParams()
     const router = useRouter()
-    const paramName = props.paramName || 'range'
+    const paramName = nonEmpty(props.paramName) ?? 'range'
     const selectedRange = props.selectedRange ?? props.ranges.at(0)?.value
 
     const onChange = useCallback(

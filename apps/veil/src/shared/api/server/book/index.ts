@@ -69,9 +69,7 @@ const PD_TIMEOUT_MS = 10_000;
 // registry is likewise process-wide via `getCachedRegistry`.
 let cachedClient: Client<typeof SimulationService> | undefined;
 const getSimClient = (endpoint: string): Client<typeof SimulationService> => {
-  if (!cachedClient) {
-    cachedClient = createClient(endpoint, SimulationService);
-  }
+  cachedClient ??= createClient(endpoint, SimulationService);
   return cachedClient;
 };
 
@@ -405,7 +403,7 @@ async function handleGet(req: NextRequest): Promise<NextResponse<RouteBookApiRes
       // Every requester disconnected and we aborted pd on their behalf.
       // Not an outage — log quietly so ops don't read tab-closes as pd
       // failures.
-      console.info('[book] compute cancelled, all requesters disconnected', { cacheKey });
+      console.warn('[book] compute cancelled, all requesters disconnected', { cacheKey });
       return emptyFallback('MISS-ABORT');
     }
     // pd unreachable, slow, or throwing. Prefer the last-known cache

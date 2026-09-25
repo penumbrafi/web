@@ -41,8 +41,7 @@ export const FormTabs = observer(() => {
     } catch {
       // ignore storage errors
     }
-    // store is stable, only run once on mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- store is stable; read once on mount
   }, []);
 
   // The top-level Tabs reads 'Liquidity' as the parent option for the LP

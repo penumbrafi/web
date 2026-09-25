@@ -266,7 +266,7 @@ export const DrawingsOverlay = ({
     // own buttons (Delete, colour-pick) have already run their action.
     const onClick = (e: MouseEvent) => {
       const containerEl = menuRef.current;
-      if (containerEl && containerEl.contains(e.target as Node)) {return;}
+      if (containerEl?.contains(e.target as Node)) {return;}
       setMenu(null);
     };
     const onKey = (e: KeyboardEvent) => {

@@ -7,8 +7,8 @@ import { conflictingIds, inFlightPositions, tryAcquire } from './position-action
 // encoder needs exactly 32 bytes; anything shorter throws, so pad.
 const makeId = (seed: number): PositionId => {
   const inner = new Uint8Array(32);
-  inner[0] = seed & 0xff;
-  inner[1] = (seed >> 8) & 0xff;
+  inner[0] = seed % 256;
+  inner[1] = Math.floor(seed / 256) % 256;
   return new PositionId({ inner });
 };
 

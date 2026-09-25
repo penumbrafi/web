@@ -4,6 +4,7 @@ import {
     IbcFlowHistoryQueryVariables,
 } from '@/pages/inspect/explorer/lib/graphql/generated/types'
 import { ibcFlowHistoryQuery } from '@/pages/inspect/explorer/lib/graphql/queries'
+import { nonEmpty } from '@/pages/inspect/explorer/lib/utils'
 
 const getIbcFlowHistory = async (
     clientId?: string,
@@ -15,8 +16,8 @@ const getIbcFlowHistory = async (
         .query<IbcFlowHistoryQuery, IbcFlowHistoryQueryVariables>(
             ibcFlowHistoryQuery,
             {
-                clientId: clientId || null,
-                days: days || null,
+                clientId: nonEmpty(clientId) ?? null,
+                days: days ?? null,
             }
         )
         .toPromise()
@@ -25,7 +26,7 @@ const getIbcFlowHistory = async (
         throw result.error
     }
 
-    return result.data?.ibcFlowHistory || []
+    return result.data?.ibcFlowHistory ?? []
 }
 
 export default getIbcFlowHistory

@@ -102,7 +102,7 @@ const offsetPrice = (
   const y = yAtPrice(price);
   if (y === undefined) {return price * 1.001;}
   const shifted = priceAtY(y + PASTE_PIXEL_OFFSET);
-  return shifted === undefined ? price * 1.001 : shifted;
+  return shifted ?? price * 1.001;
 };
 
 // Vertical beams are time-anchored only, so a y-offset wouldn't move them —
@@ -116,7 +116,7 @@ const offsetTime = (
   const x = xAtTime(time);
   if (x === undefined) {return time;}
   const shifted = timeAtX(x + PASTE_PIXEL_OFFSET);
-  return shifted === undefined ? time : shifted;
+  return shifted ?? time;
 };
 
 const pasteWithOffset = (
@@ -285,8 +285,7 @@ export const Chart = observer(() => {
   useEffect(() => {
     const stored = readStoredDuration();
     if (stored !== duration) {setDurationState(stored);}
-    // duration intentionally excluded — only read once on mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- read stored duration once on mount
   }, []);
 
   // Persist on every change so a tab reload lands the trader on the same

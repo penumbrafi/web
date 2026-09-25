@@ -56,7 +56,7 @@ const DexPriceTableLoader: FC<Props> = async props => {
             <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                     <thead>
-                        <tr className="border-border-secondary border-b">
+                        <tr className="border-b border-other-tonal-stroke">
                             <th className="pr-4 pb-2 text-left font-medium">
                                 Input
                             </th>
@@ -78,7 +78,7 @@ const DexPriceTableLoader: FC<Props> = async props => {
                         {prices.map((p, i) => (
                             <tr
                                 key={i}
-                                className="border-border-secondary border-b"
+                                className="border-b border-other-tonal-stroke"
                             >
                                 <td className="py-2 pr-4 font-mono text-xs">
                                     {truncateAssetId(p.inputAssetId)}

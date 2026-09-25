@@ -423,7 +423,7 @@ const OneClickShieldPanel = ({
   };
 
   return (
-    <div className='bg-accent-radial-background/30 flex flex-col gap-3 rounded-xl border border-other-tonal-stroke p-4'>
+    <div className='flex flex-col gap-3 rounded-xl border border-other-tonal-stroke bg-other-tonal-fill5 p-4'>
       <div className='flex items-center gap-2'>
         <Shield className='h-4 w-4 text-primary-main' />
         <Text variant='strong' color='text.primary'>

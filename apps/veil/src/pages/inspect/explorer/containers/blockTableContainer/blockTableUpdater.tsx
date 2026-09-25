@@ -24,7 +24,7 @@ interface Props extends BlockTableContainerProps {
 }
 
 const BlockTableUpdater: FC<Props> = ({
-    filter,
+    filter: _filter, // consumed by the loader; kept out of ...props
     limit,
     pagination,
     subscription,

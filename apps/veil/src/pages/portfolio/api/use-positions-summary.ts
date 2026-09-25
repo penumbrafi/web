@@ -11,6 +11,7 @@ import { AssetId } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb
 import { penumbra } from '@/shared/const/penumbra';
 import { connectionStore } from '@/shared/model/connection';
 import { uint8ArrayToBase64 } from '@penumbra-zone/types/base64';
+import { joinLoHi } from '@penumbra-zone/types/lo-hi';
 
 export interface AssetTotal {
   assetId: AssetId;
@@ -75,14 +76,10 @@ export const usePositionsSummary = (
         const r1 = p.reserves?.r1;
         const r2 = p.reserves?.r2;
         if (pair?.asset1 && r1) {
-          const lo = r1.lo;
-          const hi = r1.hi;
-          bump(pair.asset1, (hi << 64n) | lo);
+          bump(pair.asset1, joinLoHi(r1.lo, r1.hi));
         }
         if (pair?.asset2 && r2) {
-          const lo = r2.lo;
-          const hi = r2.hi;
-          bump(pair.asset2, (hi << 64n) | lo);
+          bump(pair.asset2, joinLoHi(r2.lo, r2.hi));
         }
       }
 

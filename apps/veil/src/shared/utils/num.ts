@@ -15,7 +15,7 @@ export const parseNumber = (x: string): number | undefined => {
   }
   // Strip common thousand-separators; leave the decimal `.` alone so
   // Number's own parse handles fractional values.
-  const cleaned = x.replace(/[,  \s]/g, '');
+  const cleaned = x.replace(/[,\u202F\u00A0\s]/g, '');
   if (cleaned.length <= 0) {
     return undefined;
   }

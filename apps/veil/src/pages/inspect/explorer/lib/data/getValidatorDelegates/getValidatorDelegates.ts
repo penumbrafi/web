@@ -16,8 +16,8 @@ const getValidatorDelegates = async (
         .query<ValidatorDelegatesQuery, ValidatorDelegatesQueryVariables>(
             validatorDelegatesQuery,
             {
-                limit: limit || null,
-                offset: offset || null,
+                limit: limit ?? null,
+                offset: offset ?? null,
                 validatorId,
             }
         )
@@ -27,7 +27,7 @@ const getValidatorDelegates = async (
         throw result.error
     }
 
-    return result.data?.validatorDelegates || []
+    return result.data?.validatorDelegates ?? []
 }
 
 export default getValidatorDelegates

@@ -120,9 +120,7 @@ export type DerivedOutcome =
 
 let cachedClient: Client<typeof SimulationService> | undefined;
 const getSimClient = (endpoint: string): Client<typeof SimulationService> => {
-  if (!cachedClient) {
-    cachedClient = createClient(endpoint, SimulationService);
-  }
+  cachedClient ??= createClient(endpoint, SimulationService);
   return cachedClient;
 };
 

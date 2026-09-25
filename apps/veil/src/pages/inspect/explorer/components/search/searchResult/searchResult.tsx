@@ -2,7 +2,7 @@
 
 import { BoxIcon, CheckCheckIcon } from 'lucide-react'
 import Link from 'next/link'
-import { FC } from 'react'
+import { FC, ReactNode } from 'react'
 import ibc from '@/pages/inspect/explorer/lib/ibc'
 import { placeholderAvatarImage } from '@/pages/inspect/explorer/lib/images'
 import { StoredSearchResult } from '@/pages/inspect/explorer/lib/types'
@@ -17,7 +17,7 @@ export interface Props {
 const SearchResult: FC<Props> = props => {
     const linkClassName = 'text-text-primary! flex gap-1 px-2 py-1 break-all'
     const iconClassName = '-mt-0.5 min-w-6 p-1'
-    let link
+    let link: ReactNode
 
     switch (props.searchResult.type) {
         case 'block':
@@ -42,29 +42,30 @@ const SearchResult: FC<Props> = props => {
                 </Link>
             )
             break
-        case 'client':
-            const client = ibc.find(
-                c =>
-                    props.searchResult.type === 'client' &&
-                    c.id === props.searchResult.id
-            )
+        case 'client': {
+                const client = ibc.find(
+                    c =>
+                        props.searchResult.type === 'client' &&
+                        c.id === props.searchResult.id
+                )
 
-            if (!client) {
+                if (!client) {
+                    break
+                }
+
+                link = (
+                    <Link className={linkClassName} href={`/explore/ibc/${client.slug}`}>
+                        <Avatar
+                            alt={client.name}
+                            className="-mt-0.5 h-6 w-6 p-1"
+                            fallback={placeholderAvatarImage}
+                            src={client.image}
+                        />
+                        {client.name}
+                    </Link>
+                )
                 break
-            }
-
-            link = (
-                <Link className={linkClassName} href={`/explore/ibc/${client.slug}`}>
-                    <Avatar
-                        alt={client.name}
-                        className="-mt-0.5 h-6 w-6 p-1"
-                        fallback={placeholderAvatarImage}
-                        src={client.image}
-                    />
-                    {client.name}
-                </Link>
-            )
-            break
+        }
         case 'validator':
             link = (
                 <Link

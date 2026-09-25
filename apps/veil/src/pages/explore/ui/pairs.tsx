@@ -11,6 +11,7 @@ import { useDebounce } from '@/shared/utils/use-debounce';
 import { deserialize, Serialized } from '@/shared/utils/serializer';
 import { isPairMarked } from '@/shared/config/bridge-health';
 import { usePausedChannels } from '@/shared/api/ibc-bridge';
+import { joinLoHi } from '@penumbra-zone/types/lo-hi';
 
 interface ExplorePairsProps {
   summaries: Serialized<SummaryWithPrices[]>;
@@ -20,7 +21,7 @@ interface ExplorePairsProps {
 // same indexing asset, so raw amounts compare directly across pairs.
 const volumeBigInt = (s: SummaryWithPrices): bigint => {
   const amt = s.volume.amount;
-  return ((amt?.hi ?? 0n) << 64n) | (amt?.lo ?? 0n);
+  return joinLoHi(amt?.lo, amt?.hi);
 };
 
 export const ExplorePairs = ({ summaries }: ExplorePairsProps) => {

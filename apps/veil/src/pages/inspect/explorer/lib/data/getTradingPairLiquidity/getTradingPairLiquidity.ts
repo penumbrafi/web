@@ -14,14 +14,14 @@ const getTradingPairLiquidity = async (
         .query<
             TradingPairLiquidityQuery,
             TradingPairLiquidityQueryVariables
-        >(tradingPairLiquidityQuery, { limit: limit || null })
+        >(tradingPairLiquidityQuery, { limit: limit ?? null })
         .toPromise()
 
     if (result.error) {
         throw result.error
     }
 
-    return result.data?.tradingPairLiquidity || []
+    return result.data?.tradingPairLiquidity ?? []
 }
 
 export default getTradingPairLiquidity

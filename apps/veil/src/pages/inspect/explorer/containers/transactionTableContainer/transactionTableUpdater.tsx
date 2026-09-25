@@ -12,7 +12,7 @@ import {
     TransactionUpdateSubscriptionVariables,
 } from '@/pages/inspect/explorer/lib/graphql/generated/types'
 import transactionSubscription from '@/pages/inspect/explorer/lib/graphql/subscriptions/transactionSubscription'
-import { TransformedPartialTransactionFragment } from '@/pages/inspect/explorer/lib/types'
+import { ActionType, TransformedPartialTransactionFragment } from '@/pages/inspect/explorer/lib/types'
 import { decodeTransaction, findPrimaryAction } from '@/pages/inspect/explorer/lib/utils'
 import type { Props as TransactionTableContainerProps } from './transactionTableContainer'
 
@@ -22,7 +22,7 @@ interface Props extends TransactionTableContainerProps {
 }
 
 const TransactionTableUpdater: FC<Props> = ({
-    filter,
+    filter: _filter, // consumed by the loader; kept out of ...props
     limit,
     pagination,
     subscription,
@@ -64,8 +64,8 @@ const TransactionTableUpdater: FC<Props> = ({
                     return
                 }
 
-                let primaryAction
-                let actionCount
+                let primaryAction: ActionType | undefined
+                let actionCount: number | undefined
 
                 try {
                     const decoded = decodeTransaction(transaction.raw)

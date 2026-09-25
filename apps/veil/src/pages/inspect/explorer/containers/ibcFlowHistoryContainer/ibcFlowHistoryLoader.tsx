@@ -6,7 +6,7 @@ import { classNames } from '@/pages/inspect/explorer/lib/utils'
 import type { Props } from './ibcFlowHistoryContainer'
 
 const IbcFlowHistoryLoader: FC<Props> = async props => {
-    const days = props.days || 30
+    const days = props.days ?? 30
     const history = await getIbcFlowHistory(props.clientId, days)
 
     if (history.length === 0) {
@@ -58,7 +58,7 @@ const IbcFlowHistoryLoader: FC<Props> = async props => {
             </header>
 
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                <div className="bg-surface-secondary rounded-lg p-4">
+                <div className="rounded-lg bg-other-tonal-fill5 p-4">
                     <div className="text-xs text-text-secondary">
                         Total transfers
                     </div>
@@ -66,7 +66,7 @@ const IbcFlowHistoryLoader: FC<Props> = async props => {
                         {(totalInflows + totalOutflows).toLocaleString('en-US')}
                     </div>
                 </div>
-                <div className="bg-surface-secondary rounded-lg p-4">
+                <div className="rounded-lg bg-other-tonal-fill5 p-4">
                     <div className="text-xs text-text-secondary">
                         Inflows (shielded)
                     </div>
@@ -74,7 +74,7 @@ const IbcFlowHistoryLoader: FC<Props> = async props => {
                         {totalInflows.toLocaleString('en-US')}
                     </div>
                 </div>
-                <div className="bg-surface-secondary rounded-lg p-4">
+                <div className="rounded-lg bg-other-tonal-fill5 p-4">
                     <div className="text-xs text-text-secondary">
                         Outflows (unshielded)
                     </div>
