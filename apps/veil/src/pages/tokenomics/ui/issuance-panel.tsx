@@ -14,6 +14,7 @@ import {
 } from 'recharts';
 import type { InflationPoint } from '../server/timeseries';
 import type { TokenomicsMetrics } from '../server/metrics';
+import { tooltipNumber, type ChartTooltipProps } from './chart-tooltip';
 
 const fmtPct = (n: number, digits = 2) => `${n.toFixed(digits)}%`;
 // Pin locale + tz so SSR and client render the exact same label.
@@ -24,14 +25,14 @@ const fmtDate = (d: string) =>
     timeZone: 'UTC',
   });
 
-const InflationTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) {return null;}
-  const p = payload[0];
+const InflationTooltip = ({ active, payload, label }: ChartTooltipProps) => {
+  const p = payload?.[0];
+  if (!active || !p) {return null;}
   return (
     <div className='rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm shadow-lg'>
-      <div className='text-text-secondary'>{fmtDate(label)}</div>
+      <div className='text-text-secondary'>{fmtDate(String(label ?? ''))}</div>
       <div className='mt-1 font-mono text-orange-400'>
-        {fmtPct(Number(p.value))} annualized
+        {fmtPct(tooltipNumber(p.value))} annualized
       </div>
     </div>
   );

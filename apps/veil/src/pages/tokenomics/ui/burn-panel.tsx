@@ -11,6 +11,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { tooltipNumber, type ChartTooltipProps } from './chart-tooltip';
 import type { BurnPoint } from '../server/timeseries';
 import type { TokenomicsMetrics } from '../server/metrics';
 
@@ -28,14 +29,14 @@ const fmtDate = (d: string) =>
     timeZone: 'UTC',
   });
 
-const BurnTooltip = ({ active, payload, label }: any) => {
+const BurnTooltip = ({ active, payload, label }: ChartTooltipProps) => {
   if (!active || !payload?.length) {return null;}
   return (
     <div className='rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm shadow-lg'>
-      <div className='text-text-secondary'>{fmtDate(label)}</div>
-      {payload.map((p: any) => (
-        <div key={p.name} className='mt-1 font-mono' style={{ color: p.color }}>
-          {p.name}: {fmtUM(p.value)} UM
+      <div className='text-text-secondary'>{fmtDate(String(label ?? ''))}</div>
+      {payload.map(p => (
+        <div key={String(p.name)} className='mt-1 font-mono' style={{ color: p.color }}>
+          {p.name}: {fmtUM(tooltipNumber(p.value))} UM
         </div>
       ))}
     </div>
@@ -135,7 +136,7 @@ export const BurnPanel = ({ metrics, burns }: Props) => {
             <YAxis
               fontSize={11}
               stroke='#666'
-              tickFormatter={v => fmtUM(v)}
+              tickFormatter={(v: unknown) => fmtUM(tooltipNumber(v))}
               tickLine={false}
               width={40}
             />

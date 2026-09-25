@@ -687,7 +687,7 @@ export const Chart = observer(() => {
     // page-1 times — lightweight-charts throws "data must be asc
     // ordered by time" and the chart dies on scroll-back. Keep the
     // latest occurrence per bucket (later pages are canonical).
-    const flat = historyCandles!.pages.toReversed().flat();
+    const flat = (historyCandles?.pages ?? []).toReversed().flat();
     const byTime = new Map<number, (typeof flat)[number]>();
     for (const c of flat) {
       byTime.set(c.ohlc.time as unknown as number, c);

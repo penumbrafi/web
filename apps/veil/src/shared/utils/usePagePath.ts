@@ -11,29 +11,36 @@ const removeTrailingSlash = (url: string): string => {
 // participates in a circular import with pages.ts (which itself
 // imports usePagePath), so reading PagePath at module top-level
 // evaluates to undefined under SSR.
-let _pathValues: string[] | null = null;
-let _pathValuesSet: Set<string> | null = null;
-let _parametricPaths: { value: PagePath; regex: RegExp }[] | null = null;
-const ensureCache = () => {
-  if (_pathValues) {
-    return;
+interface PathCache {
+  values: string[];
+  valueSet: Set<string>;
+  parametric: { value: PagePath; regex: RegExp }[];
+}
+let cache: PathCache | null = null;
+const ensureCache = (): PathCache => {
+  if (cache) {
+    return cache;
   }
-  _pathValues = Object.values(PagePath);
-  _pathValuesSet = new Set<string>(_pathValues);
-  _parametricPaths = _pathValues
-    .filter(p => p.includes(':'))
-    .map(p => ({
-      value: p as PagePath,
-      regex: new RegExp('^' + p.replace(/:(\w+)/g, '([^/]+)') + '$'),
-    }));
+  const values: string[] = Object.values(PagePath);
+  cache = {
+    values,
+    valueSet: new Set(values),
+    parametric: values
+      .filter(p => p.includes(':'))
+      .map(p => ({
+        value: p as PagePath,
+        regex: new RegExp('^' + p.replace(/:(\w+)/g, '([^/]+)') + '$'),
+      })),
+  };
+  return cache;
 };
 
 const matchPagePath = (str: string): PagePath => {
-  ensureCache();
-  if (_pathValuesSet!.has(str)) {
+  const { values, valueSet, parametric } = ensureCache();
+  if (valueSet.has(str)) {
     return str as PagePath;
   }
-  for (const { value, regex } of _parametricPaths!) {
+  for (const { value, regex } of parametric) {
     if (regex.test(str)) {
       return value;
     }
@@ -44,7 +51,7 @@ const matchPagePath = (str: string): PagePath => {
   // entries (handled above) and the bare '/' (it'd match everything).
   let bestMatch: PagePath = PagePath.Home;
   let bestLen = 0;
-  for (const candidate of _pathValues!) {
+  for (const candidate of values) {
     if (candidate.includes(':') || candidate === '/') {
       continue;
     }

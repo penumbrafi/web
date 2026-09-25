@@ -38,7 +38,10 @@ const DepthCurveImpl = ({ rows, relativeSizes, side, gridRowStart }: Props) => {
     if (n === 0) {return '';}
     const parts: string[] = ['M 100,0'];
     for (let i = 0; i < n; i++) {
-      const trace = rows[i]!;
+      const trace = rows[i];
+      if (!trace) {
+        continue;
+      }
       // Clamp to [0, 100] so a malformed size (shouldn't happen given
       // `calculateCumulativeDepthByPrice` output, but cheap insurance)
       // can never draw off-canvas.

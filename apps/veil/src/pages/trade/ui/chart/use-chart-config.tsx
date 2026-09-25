@@ -642,9 +642,9 @@ export const useChartConfig = (
           const dataMin = src?.priceRange?.minValue;
           const dataMax = src?.priceRange?.maxValue;
           const minValue =
-            Number.isFinite(dataMin) ? Math.min(anchorMin, dataMin!) : anchorMin;
+            dataMin !== undefined && Number.isFinite(dataMin) ? Math.min(anchorMin, dataMin) : anchorMin;
           const maxValue =
-            Number.isFinite(dataMax) ? Math.max(anchorMax, dataMax!) : anchorMax;
+            dataMax !== undefined && Number.isFinite(dataMax) ? Math.max(anchorMax, dataMax) : anchorMax;
           const margins = src?.margins;
           return margins ? { priceRange: { minValue, maxValue }, margins } : { priceRange: { minValue, maxValue } };
         },

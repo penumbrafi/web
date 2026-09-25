@@ -219,7 +219,7 @@ export class OrderFormStore {
     // balances too, since those queries all errored while locked and
     // won't retry until something triggers them.
     connectionStore.onWalletUnlock(() => {
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         predicate: q =>
           typeof q.queryKey[0] === 'string' &&
           ['view-service-balances', 'positions', 'my-trades'].includes(q.queryKey[0]),

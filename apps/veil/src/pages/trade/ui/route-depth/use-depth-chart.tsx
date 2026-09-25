@@ -182,8 +182,8 @@ export const useDepthChart = (
       const time = param.time as UTCTimestamp;
       const price = data.timeToPrice(time as number);
       const side: 'bid' | 'ask' = (time as number) < (data.midTime as number) ? 'bid' : 'ask';
-      const bidEntry = bidSeries ? param.seriesData.get(bidSeries) : undefined;
-      const askEntry = askSeries ? param.seriesData.get(askSeries) : undefined;
+      const bidEntry = param.seriesData.get(bidSeries);
+      const askEntry = param.seriesData.get(askSeries);
       const bidValue =
         bidEntry && 'value' in bidEntry && typeof bidEntry.value === 'number'
           ? bidEntry.value

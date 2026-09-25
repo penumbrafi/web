@@ -216,12 +216,12 @@ export const LpPreviewOverlay = observer(
     const recomputeRef = useRef<(() => void) | null>(null);
 
     useEffect(() => {
-      if (!valid) {
+      if (!valid || lower === undefined || upper === undefined) {
         setPos(null);
         return;
       }
-      const lo = lower!;
-      const hi = upper!;
+      const lo = lower;
+      const hi = upper;
       const n = count;
 
       // Mirror simpleLiquidityPositions on the chain side. When only one
@@ -433,11 +433,9 @@ export const LpPreviewOverlay = observer(
       // currently-committed opposite bound as the anchor.
       let price = rawPrice;
       if (state.edge === 'upper') {
-        const lo = lower!;
-        if (price <= lo * MIN_GAP) {price = lo * MIN_GAP;}
+        if (lower !== undefined && price <= lower * MIN_GAP) {price = lower * MIN_GAP;}
       } else {
-        const hi = upper!;
-        if (price >= hi / MIN_GAP) {price = hi / MIN_GAP;}
+        if (upper !== undefined && price >= upper / MIN_GAP) {price = upper / MIN_GAP;}
       }
       // Re-map clamped price back to a y so the strip visibly stops at
       // the clamp instead of tracking past it.

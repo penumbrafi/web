@@ -97,8 +97,7 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
       const out: Rung[] = [];
       for (const dp of display) {
         if (!dp.isOpened) {continue;}
-        for (let i = 0; i < dp.orders.length; i++) {
-          const o = dp.orders[i]!;
+        for (const [i, o] of dp.orders.entries()) {
           const price = pnum(o.effectivePrice).toNumber();
           if (!Number.isFinite(price) || price <= 0) {continue;}
           const dir = o.direction.toLowerCase();

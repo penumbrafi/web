@@ -51,7 +51,7 @@ export function getCachedRegistry(chainId: string): Promise<Registry> {
             refreshing: false,
           });
         })
-        .catch(err => {
+        .catch((err: unknown) => {
           cached.refreshing = false;
           console.warn('[registry-cache] background refresh failed, keeping cached', {
             chainId,

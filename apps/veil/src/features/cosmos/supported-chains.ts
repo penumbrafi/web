@@ -23,6 +23,10 @@ import * as noble from 'chain-registry/mainnet/noble';
 
 import type { Chain, AssetList } from '@chain-registry/types';
 
-export const SUPPORTED_CHAINS: Chain[] = [injective.chain, noble.chain];
+// chain-registry's per-chain modules are untyped (any); pin them to its types
+export const SUPPORTED_CHAINS: Chain[] = [injective.chain as Chain, noble.chain as Chain];
 
-export const SUPPORTED_ASSETS: AssetList[] = [injective.assets, noble.assets];
+export const SUPPORTED_ASSETS: AssetList[] = [
+  injective.assets as AssetList,
+  noble.assets as AssetList,
+];

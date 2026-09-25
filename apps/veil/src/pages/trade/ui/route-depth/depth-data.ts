@@ -56,12 +56,11 @@ export const buildDepthData = (
     .filter(p => Number.isFinite(p.price) && p.price > 0 && Number.isFinite(p.total))
     .sort((a, b) => a.price - b.price);
 
-  if (!bidsDesc.length || !asksAsc.length) {
+  const highestBid = bidsDesc[0]?.price;
+  const lowestAsk = asksAsc[0]?.price;
+  if (highestBid === undefined || lowestAsk === undefined) {
     return undefined;
   }
-
-  const highestBid = bidsDesc[0]!.price;
-  const lowestAsk = asksAsc[0]!.price;
   const mid = (highestBid + lowestAsk) / 2;
 
   // Cumulative bids walking from highest bid downward.
@@ -80,8 +79,9 @@ export const buildDepthData = (
     return { price: p.price, value: cumAsk };
   });
 
-  const minPrice = bidsCum[0]!.price;
-  const maxPrice = asksCum[asksCum.length - 1]!.price;
+  // both non-empty: built from the non-empty bidsDesc / asksAsc above
+  const minPrice = bidsCum[0]?.price ?? highestBid;
+  const maxPrice = asksCum[asksCum.length - 1]?.price ?? lowestAsk;
 
   // Map price → integer timestamp. Choose a scale that keeps adjacent
   // levels at least 1 unit apart while keeping the range comfortably
@@ -92,10 +92,11 @@ export const buildDepthData = (
     (a, b) => a - b,
   );
   let minGap = span;
-  for (let i = 1; i < allPrices.length; i++) {
-    const gap = allPrices[i]! - allPrices[i - 1]!;
+  allPrices.forEach((price, i) => {
+    const prev = allPrices[i - 1];
+    const gap = prev === undefined ? 0 : price - prev;
     if (gap > 0 && gap < minGap) {minGap = gap;}
-  }
+  });
   // Pick a scale large enough to keep adjacent levels distinct after
   // rounding, but capped so the resulting timestamps stay well within
   // Number.MAX_SAFE_INTEGER (2^53 - 1).
@@ -144,15 +145,15 @@ export const buildDepthData = (
   // inside the spread (the standard depth-chart shape). The bid area runs
   // from the left edge up to the mid; the ask area runs from the mid out
   // to the right edge. Use the integer timestamp just inside the spread.
-  if (bids.length > 0) {
-    const last = bids[bids.length - 1]!;
+  const last = bids[bids.length - 1];
+  if (last) {
     const closeTime = ((midTime as number) > (last.time as number)
       ? (midTime as number)
       : (last.time as number) + 1) as UTCTimestamp;
     bids.push({ time: closeTime, value: 0, price: timeToPrice(closeTime as number) });
   }
-  if (asks.length > 0) {
-    const first = asks[0]!;
+  const first = asks[0];
+  if (first) {
     const openTime = ((midTime as number) < (first.time as number)
       ? (midTime as number)
       : (first.time as number) - 1) as UTCTimestamp;

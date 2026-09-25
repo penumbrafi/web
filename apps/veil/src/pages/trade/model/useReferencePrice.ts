@@ -115,7 +115,8 @@ export const useReferencePrice = (
     }
 
     let cancelled = false;
-    Promise.all(
+    // each fetch catches to null, so this never rejects
+    void Promise.all(
       needed.map(sym =>
         fetch(`/api/derived-usd-price?symbol=${encodeURIComponent(sym)}`)
           .then(r =>

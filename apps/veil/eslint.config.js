@@ -19,6 +19,12 @@ const config = [
 
   ...eslintConfig.filter(config => config.name !== 'custom:turbo-config'),
 
+  // graphql-codegen output: regenerated, never hand-edited, never linted
+  {
+    name: 'ignore-generated',
+    ignores: ['src/pages/inspect/explorer/lib/graphql/generated/**'],
+  },
+
   {
     name: 'ignore-old-ts-files',
     rules: {

@@ -34,6 +34,20 @@ const BACKOFF_MS = [1_000, 2_000, 4_000, 8_000, 15_000] as const;
 
 const SUBSCRIBE_ID = 'penumbra-veil-newblock';
 
+/** A CometBFT NewBlock event frame; the subscribe ack and keepalives lack most of it. */
+interface NewBlockMessage {
+  result?: {
+    data?: {
+      value?: {
+        block?: {
+          header?: { height?: string | number; time?: string };
+          data?: { txs?: unknown };
+        };
+      };
+    };
+  };
+}
+
 export const subscribeToNewBlocks = ({ url, onBlock, onError }: SubscribeOptions): (() => void) => {
   let ws: WebSocket | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -44,7 +58,7 @@ export const subscribeToNewBlocks = ({ url, onBlock, onError }: SubscribeOptions
     if (stopped) {
       return;
     }
-    const delay = BACKOFF_MS[Math.min(attempt, BACKOFF_MS.length - 1)]!;
+    const delay = BACKOFF_MS[Math.min(attempt, BACKOFF_MS.length - 1)];
     attempt += 1;
     reconnectTimer = setTimeout(connect, delay);
   };
@@ -75,14 +89,14 @@ export const subscribeToNewBlocks = ({ url, onBlock, onError }: SubscribeOptions
 
     ws.addEventListener('message', e => {
       try {
-        const msg = JSON.parse(String(e.data));
+        const msg = JSON.parse(String(e.data)) as NewBlockMessage;
         // The first message after subscribe is an empty ack; skip it.
         // Subsequent messages carry the block under result.data.value.
         const header = msg?.result?.data?.value?.block?.header;
         if (!header) {
           return;
         }
-        const txs = msg.result.data.value.block.data?.txs ?? [];
+        const txs = msg.result?.data?.value?.block?.data?.txs ?? [];
         onBlock({
           height: Number(header.height),
           time: String(header.time),

@@ -170,13 +170,15 @@ const accumulate = (rows: Trace[], side: 'sell' | 'buy'): Trace[] => {
   let running = 0;
   if (side === 'sell') {
     for (let i = rows.length - 1; i >= 0; i--) {
-      const r = rows[i]!;
+      const r = rows[i];
+      if (!r) {
+        continue;
+      }
       running += pnum(r.total).toNumber();
       out[i] = { ...r, total: running.toString() };
     }
   } else {
-    for (let i = 0; i < rows.length; i++) {
-      const r = rows[i]!;
+    for (const [i, r] of rows.entries()) {
       running += pnum(r.total).toNumber();
       out[i] = { ...r, total: running.toString() };
     }

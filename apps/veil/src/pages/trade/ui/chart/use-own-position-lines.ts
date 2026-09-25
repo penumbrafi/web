@@ -101,8 +101,7 @@ export const useOwnPositionLines = (
         if (!dp.isOpened) {
           continue;
         }
-        for (let i = 0; i < dp.orders.length; i++) {
-          const o = dp.orders[i]!;
+        for (const [i, o] of dp.orders.entries()) {
           const key = `${dp.idString}-${i}`;
           // If the user is dragging this rung right now, paint the OG
           // line at the pointer-mapped price. Cleared on drop by the

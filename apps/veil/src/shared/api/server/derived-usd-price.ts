@@ -305,7 +305,8 @@ export const deriveMultiBridge = async (
   // more than one bridge cleared the gates. Callers wanting the full
   // breakdown can be added later; the LP form just displays it.
   const sorted = [...attempts].sort((a, b) => b.depthUsd - a.depthUsd);
-  const winnerSym = sorted[0]!.bridge;
+  // non-empty: attempts.length === 0 returned above
+  const winnerSym = sorted[0]?.bridge ?? '';
   const bridgeLabel = attempts.length === 1 ? winnerSym : `${winnerSym}+${attempts.length - 1}`;
 
   if (cached) {

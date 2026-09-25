@@ -34,12 +34,12 @@ function fillDailyGaps<T extends { date: string }>(
   rows: T[],
   synthesize: (prev: T, date: string) => T,
 ): T[] {
-  if (rows.length === 0) {return rows;}
+  const [first, ...rest] = rows;
+  if (!first) {return rows;}
   const out: T[] = [];
-  let prev = rows[0]!;
+  let prev = first;
   out.push(prev);
-  for (let i = 1; i < rows.length; i++) {
-    const next = rows[i]!;
+  for (const next of rest) {
     let gapStarted = false;
     for (const day of eachDay(prev.date, next.date)) {
       if (day === prev.date) {continue;} // already pushed
@@ -173,21 +173,20 @@ export async function fetchTokenomicsTimeseries(
 
   // Trailing 30d annualized inflation per day from the supply curve.
   const inflation: InflationPoint[] = [];
-  for (let i = 0; i < supply.length; i++) {
-    const cur = supply[i]!;
-    // Find the supply point ~30 days before, fall back to first if too short.
-    let pastIdx = -1;
+  for (const [i, cur] of supply.entries()) {
+    // Find the supply point ~30 days before; skip days without one.
+    let past: (typeof supply)[number] | undefined;
     for (let j = i - 1; j >= 0; j--) {
-      const candidate = supply[j]!;
+      const candidate = supply[j];
+      if (!candidate) {continue;}
       const dDays =
         (Date.parse(cur.date) - Date.parse(candidate.date)) / (1000 * 86_400);
       if (dDays >= 30) {
-        pastIdx = j;
+        past = candidate;
         break;
       }
     }
-    if (pastIdx < 0) {continue;}
-    const past = supply[pastIdx]!;
+    if (!past) {continue;}
     if (past.total <= 0) {continue;}
     const dDays =
       (Date.parse(cur.date) - Date.parse(past.date)) / (1000 * 86_400);

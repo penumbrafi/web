@@ -35,20 +35,9 @@ export const inFlightPositions = {
     return inFlight.has(bech32);
   },
   hasAny(bech32s: string[]): boolean {
-    // Iterate the observable's values so MobX tracks a read that changes
-    // whenever the set membership changes — `.has` alone in a loop would
-    // also work, but iterating once is cheaper and matches the tracking
-    // guidance for ObservableSet.
-    if (bech32s.length === 0) {
-      return false;
-    }
-    const needle = new Set(bech32s);
-    for (const held of inFlight.values()) {
-      if (needle.has(held)) {
-        return true;
-      }
-    }
-    return false;
+    // MobX tracks ObservableSet.has per key, so a reaction reading this
+    // re-runs whenever any of these ids is added or removed.
+    return bech32s.some(b => inFlight.has(b));
   },
 };
 

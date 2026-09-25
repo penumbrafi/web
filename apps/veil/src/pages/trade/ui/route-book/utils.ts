@@ -27,13 +27,13 @@ export const calculateCumulativeDepthByPrice = (
   if (side === 'sell') {
     // sells: worst price at top (idx 0), best at spread (idx n-1) → walk up
     for (let i = orders.length - 1; i >= 0; i--) {
-      running += parseFloat(orders[i]!.total);
+      running += parseFloat(orders[i]?.total ?? '0');
       cum[i] = running;
     }
   } else {
     // buys: best bid at top (idx 0), worst at bottom → walk down
-    for (let i = 0; i < orders.length; i++) {
-      running += parseFloat(orders[i]!.total);
+    for (const [i, order] of orders.entries()) {
+      running += parseFloat(order.total);
       cum[i] = running;
     }
   }
@@ -42,8 +42,8 @@ export const calculateCumulativeDepthByPrice = (
   if (maxCum <= 0) {
     return out;
   }
-  for (let i = 0; i < orders.length; i++) {
-    out.set(orders[i]!.price, (cum[i]! / maxCum) * 100);
+  for (const [i, order] of orders.entries()) {
+    out.set(order.price, ((cum[i] ?? 0) / maxCum) * 100);
   }
   return out;
 };

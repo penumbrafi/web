@@ -109,17 +109,20 @@ export const combineDbCandles = (
       if (revLow > 0) {high = Math.max(high, 1 / revLow);}
       if (revHigh > 0) {low = Math.min(low, 1 / revHigh);}
     }
-  } else {
+  } else if (reverse) {
     // reverse-only bucket
-    const revOpen = calculateDisplayPrice(reverse!.open, quote, base);
-    const revClose2 = calculateDisplayPrice(reverse!.close, quote, base);
-    const revHigh = calculateDisplayPrice(reverse!.high, quote, base);
-    const revLow = calculateDisplayPrice(reverse!.low, quote, base);
+    const revOpen = calculateDisplayPrice(reverse.open, quote, base);
+    const revClose2 = calculateDisplayPrice(reverse.close, quote, base);
+    const revHigh = calculateDisplayPrice(reverse.high, quote, base);
+    const revLow = calculateDisplayPrice(reverse.low, quote, base);
     open = revOpen > 0 ? 1 / revOpen : 0;
     close = revClose2 > 0 ? 1 / revClose2 : 0;
     high = revLow > 0 ? 1 / revLow : 0;
     low = revHigh > 0 ? 1 / revHigh : 0;
-    timeMs = reverse!.start_time.getTime();
+    timeMs = reverse.start_time.getTime();
+  } else {
+    // unreachable: the guard at the top throws when both are undefined
+    throw new Error('combineDbCandles: both sides are undefined');
   }
 
   return {
