@@ -118,7 +118,7 @@ const ValidatorLoader: FC<Props> = async props => {
                 <h3 className="text-base font-medium">
                     Commission {validator.commissionPercentage.toFixed(2)}%
                 </h3>
-                {validator.commissionStreams?.length && (
+                {validator.commissionStreams.length > 0 && (
                     <Parameters>
                         {validator.commissionStreams.map((stream, i) => (
                             <Parameter

@@ -261,7 +261,7 @@ export async function fetchTokenomicsMetrics(): Promise<TokenomicsMetrics> {
       // Empirical blocks/year: measure block cadence over the 30d window
       // from the recorded heights. Falls back to the 5s constant if either
       // endpoint is missing.
-      if (latestBlockRow && supply30dAgo.timestamp) {
+      if (latestBlockRow) {
         const heightDelta = Number(latestBlockRow.height) - Number(supply30dAgo.height);
         const timestampMsDelta =
           new Date(latestBlockRow.timestamp).getTime() -

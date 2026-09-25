@@ -238,7 +238,7 @@ export const DrawingsOverlay = ({
             price2: d.price2,
             color: d.color,
           });
-        } else if (d.kind === 'text') {
+        } else {
           const x = xAtTime(d.time);
           const y = yAtPrice(d.price);
           if (x === undefined || y === undefined) {continue;}
@@ -274,7 +274,7 @@ export const DrawingsOverlay = ({
       // it's pointing at — same affordance Bybit / TradingView ship.
       // Skip when focus is in an input/textarea so the user's typing
       // isn't hijacked.
-      const tag = (document.activeElement as HTMLElement | null)?.tagName?.toLowerCase();
+      const tag = (document.activeElement as HTMLElement | null)?.tagName.toLowerCase();
       const inEditable =
         tag === 'input' ||
         tag === 'textarea' ||
@@ -340,7 +340,7 @@ export const DrawingsOverlay = ({
       e.preventDefault();
       e.stopPropagation();
       try {
-        (e.target as Element).setPointerCapture?.(e.pointerId);
+        (e.target as Element).setPointerCapture(e.pointerId);
       } catch {
         // ignore
       }
@@ -407,7 +407,7 @@ export const DrawingsOverlay = ({
       e.preventDefault();
       e.stopPropagation();
       try {
-        (e.target as Element).setPointerCapture?.(e.pointerId);
+        (e.target as Element).setPointerCapture(e.pointerId);
       } catch {
         // ignore
       }
@@ -516,7 +516,7 @@ export const DrawingsOverlay = ({
     e.preventDefault();
     e.stopPropagation();
     try {
-      (e.target as Element).setPointerCapture?.(e.pointerId);
+      (e.target as Element).setPointerCapture(e.pointerId);
     } catch {
       // older browsers — window-level listeners below still work.
     }
@@ -577,7 +577,7 @@ export const DrawingsOverlay = ({
     e.preventDefault();
     e.stopPropagation();
     try {
-      (e.target as Element).setPointerCapture?.(e.pointerId);
+      (e.target as Element).setPointerCapture(e.pointerId);
     } catch {
       // ignore
     }

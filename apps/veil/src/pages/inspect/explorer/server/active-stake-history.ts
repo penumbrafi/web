@@ -266,7 +266,7 @@ async function fetchActiveStakeHistoryUncached(
   for (const r of stakeRows.rows) {
     const p = point(r.date);
     if (r.bucket === 'active') {p.activeStake = toUM(r.um);}
-    else if (r.bucket === 'inactive') {p.inactiveStake = toUM(r.um);}
+    else {p.inactiveStake = toUM(r.um);}
   }
   for (const r of supplyRows.rows) {
     point(r.date).totalSupply = toUM(r.supply);

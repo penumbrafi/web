@@ -103,8 +103,8 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
           const dir = o.direction.toLowerCase();
           const amt = pnum(o.amount).toNumber();
           const sym = dir === 'buy'
-            ? (o.quoteAsset?.asset?.symbol ?? '')
-            : (o.baseAsset?.asset?.symbol ?? '');
+            ? o.quoteAsset.asset.symbol
+            : o.baseAsset.asset.symbol;
           const amountLabel = Number.isFinite(amt) && amt > 0
             ? `${amt >= 100 ? amt.toFixed(0) : amt.toFixed(4)} ${sym}`
             : '';
@@ -145,7 +145,7 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
 
     const onPointerDown =
       (rung: Rung) => (ev: React.PointerEvent<HTMLDivElement>) => {
-        if (ev.button !== undefined && ev.button !== 0) {return;}
+        if (ev.button !== 0) {return;}
         const container = containerRef.current;
         if (!container) {return;}
         const rect = container.getBoundingClientRect();

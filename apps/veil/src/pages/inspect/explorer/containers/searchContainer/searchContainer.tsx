@@ -66,7 +66,7 @@ const SearchContainer: FC<Props> = props => {
                 hash: result.data.search.hash.toLowerCase(),
                 type: 'transaction',
             }
-        } else if (result.data.search.__typename === 'ValidatorSearchResults') {
+        } else {
             const first = result.data.search.items[0]
             if (first) {
                 return {

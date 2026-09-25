@@ -51,7 +51,7 @@ const AssetTotalsCard: FC<CardProps> = ({ title, hint, states }) => {
     if (!data) {return [];}
     return data.map(t => ({
       total: t,
-      metadata: getMetadata?.(t.assetId),
+      metadata: getMetadata(t.assetId),
     }));
   }, [data, getMetadata]);
 

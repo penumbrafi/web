@@ -58,7 +58,7 @@ const TransactionTableUpdater: FC<Props> = ({
                     return
                 }
 
-                const hash = transaction?.hash.toLowerCase()
+                const hash = transaction.hash.toLowerCase()
 
                 if (hashesRef.current.has(hash)) {
                     return

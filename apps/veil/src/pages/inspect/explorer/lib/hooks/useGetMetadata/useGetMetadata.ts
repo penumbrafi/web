@@ -24,7 +24,7 @@ const useStore = create<State>(set => {
         try {
             const client = new ChainRegistryClient()
             const registry = await client.remote.get('penumbra-1')
-            const getMetadata = registry?.tryGetMetadata.bind(registry)
+            const getMetadata = registry.tryGetMetadata.bind(registry)
 
             set({ getMetadata })
         } catch (e) {

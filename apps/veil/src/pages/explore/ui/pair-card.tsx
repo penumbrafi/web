@@ -77,6 +77,7 @@ export const PairCard = memo(({ summary }: PairCardProps) => {
   // Belt-and-braces: server-side resolution guarantees these, but the
   // page must never crash if a future refactor ships an unresolved row.
   // Hooks come first so this early-return doesn't violate the rules.
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- server data; types promise these but a bad row must not crash the page
   if (!startMetadata || !endMetadata) {
     console.warn('[pair-card] summary missing server-resolved metadata; skipping');
     return null;

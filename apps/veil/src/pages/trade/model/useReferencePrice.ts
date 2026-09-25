@@ -81,7 +81,7 @@ export const useReferencePrice = (
     let cancelled = false;
     const params = new URLSearchParams({ ids: [...ids].join(',') });
     fetch(`/api/coingecko-price?${params.toString()}`)
-      .then(r => (r.ok ? (r.json() as Promise<Record<string, { usd?: number }>>) : null))
+      .then(r => (r.ok ? (r.json() as Promise<Record<string, { usd?: number } | null>>) : null))
       .then(data => {
         if (!data || cancelled) {
           return;
@@ -168,6 +168,7 @@ export const useReferencePrice = (
         }
         return { symbol: sym, usd, source: 'coingecko' };
       }
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- explicit so a new source kind falls through to undefined
       if (src.kind === 'onchain-bridge') {
         const row = derivedRows[sym.toUpperCase()];
         if (!row) {

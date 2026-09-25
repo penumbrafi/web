@@ -37,7 +37,7 @@ const reloadOnce = () => {
 export const ChunkReloadGuard = () => {
   useEffect(() => {
     const onError = (e: ErrorEvent) => {
-      const msg = (e.error as { name?: string; message?: string } | null)?.message ?? e.message ?? '';
+      const msg = (e.error as { name?: string; message?: string } | null)?.message ?? e.message;
       const name = (e.error as { name?: string } | null)?.name ?? '';
       if (name === 'ChunkLoadError' || isChunkLoadError(msg)) {
         e.preventDefault();

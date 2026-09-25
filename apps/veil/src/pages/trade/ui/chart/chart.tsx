@@ -440,8 +440,8 @@ export const Chart = observer(() => {
   const whichForm = tradeFormStore.whichForm;
   const lpLower = tradeFormStore.lpForm.lowerPrice;
   const lpUpper = tradeFormStore.lpForm.upperPrice;
-  const rangeLower = tradeFormStore.rangeForm?.lowerPrice;
-  const rangeUpper = tradeFormStore.rangeForm?.upperPrice;
+  const rangeLower = tradeFormStore.rangeForm.lowerPrice;
+  const rangeUpper = tradeFormStore.rangeForm.upperPrice;
   const cameraExtras = useMemo<number[]>(() => {
     const bounds: number[] = [];
     if (whichForm === 'LP') {
@@ -917,6 +917,7 @@ export const Chart = observer(() => {
         setTool('none');
         return;
       }
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- explicit so a new tool kind can't silently land in this branch
       if (t === 'trend-line' || t === 'rectangle') {
         if (time === undefined) {return;}
         // First click anchors. Preview line/rect now follows the cursor

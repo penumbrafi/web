@@ -40,7 +40,7 @@ const ValidatorStatusLoader: FC<Props> = async props => {
         <GraphqlClientProvider>
             <ValidatorStatusUpdater
                 active={active}
-                validatorBlocks={validatorBlocks ?? []}
+                validatorBlocks={validatorBlocks}
                 {...props}
             />
         </GraphqlClientProvider>

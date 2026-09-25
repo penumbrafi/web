@@ -82,7 +82,7 @@ export const Summary = () => {
   const setAndPersistWindow = (next: DurationWindow) => {
     setWindow(next);
     try {
-      globalThis.window?.localStorage.setItem(SUMMARY_WINDOW_KEY, next);
+      globalThis.localStorage.setItem(SUMMARY_WINDOW_KEY, next);
     } catch {
       // ignore storage errors
     }

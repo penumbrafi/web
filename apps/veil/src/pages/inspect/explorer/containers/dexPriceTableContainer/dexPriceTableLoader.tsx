@@ -21,7 +21,7 @@ function formatPrice(price: number): string {
 const DexPriceTableLoader: FC<Props> = async props => {
     const prices = await getRecentSwapPrices(20)
 
-    if (!prices || prices.length === 0) {
+    if (prices.length === 0) {
         return (
             <Surface
                 as="section"

@@ -158,7 +158,7 @@ export const useChartConfig = (
           ? theme.color.success.light
           : line.direction === 'sell'
             ? theme.color.destructive.light
-            : theme.color.text.secondary || theme.color.text.primary;
+            : theme.color.text.secondary;
       const opts: CreatePriceLineOptions = {
         price: line.price,
         color,
@@ -433,7 +433,7 @@ export const useChartConfig = (
         // theme stub (values live in theme.css only), which crashes
         // lightweight-charts with "Cannot parse color:". Fall back to
         // the actual secondary text token used elsewhere.
-        color: theme.color.text.secondary || '#a0a0a0',
+        color: theme.color.text.secondary,
         lineWidth: 1,
         priceLineVisible: false,
         lastValueVisible: false,
@@ -639,8 +639,8 @@ export const useChartConfig = (
       series.applyOptions({
         autoscaleInfoProvider: (original: () => AutoscaleInfo | null) => {
           const src = original();
-          const dataMin = src?.priceRange?.minValue;
-          const dataMax = src?.priceRange?.maxValue;
+          const dataMin = src?.priceRange.minValue;
+          const dataMax = src?.priceRange.maxValue;
           const minValue =
             dataMin !== undefined && Number.isFinite(dataMin) ? Math.min(anchorMin, dataMin) : anchorMin;
           const maxValue =

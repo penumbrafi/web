@@ -9,7 +9,7 @@ const IbcFlowHistoryLoader: FC<Props> = async props => {
     const days = props.days || 30
     const history = await getIbcFlowHistory(props.clientId, days)
 
-    if (!history || history.length === 0) {
+    if (history.length === 0) {
         return (
             <Surface
                 as="section"

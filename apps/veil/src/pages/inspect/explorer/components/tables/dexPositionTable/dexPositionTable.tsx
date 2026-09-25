@@ -27,7 +27,7 @@ const DexPositionTable: FC<Props> = ({ positions, ...props }) => (
             </TableRow>
         </thead>
         <tbody>
-            {positions?.length ? (
+            {positions.length > 0 ? (
                 positions.map(position => (
                     <TableRow key={position.id}>
                         <TableCell className="h-20">

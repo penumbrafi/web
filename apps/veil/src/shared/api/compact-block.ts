@@ -68,6 +68,7 @@ const startBlockHeightStream = async (transport: Transport, signal: AbortSignal)
     }
     // The for-await exited without an error (server closed the stream
     // cleanly, e.g. LB rebind). Loop back and reconnect immediately.
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- aborted can flip during the await above; TS narrowed it from an earlier check
     if (signal.aborted) {return;}
   }
 };

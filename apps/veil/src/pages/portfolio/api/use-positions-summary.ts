@@ -75,13 +75,13 @@ export const usePositionsSummary = (
         const r1 = p.reserves?.r1;
         const r2 = p.reserves?.r2;
         if (pair?.asset1 && r1) {
-          const lo = r1.lo ?? 0n;
-          const hi = r1.hi ?? 0n;
+          const lo = r1.lo;
+          const hi = r1.hi;
           bump(pair.asset1, (hi << 64n) | lo);
         }
         if (pair?.asset2 && r2) {
-          const lo = r2.lo ?? 0n;
-          const hi = r2.hi ?? 0n;
+          const lo = r2.lo;
+          const hi = r2.hi;
           bump(pair.asset2, (hi << 64n) | lo);
         }
       }

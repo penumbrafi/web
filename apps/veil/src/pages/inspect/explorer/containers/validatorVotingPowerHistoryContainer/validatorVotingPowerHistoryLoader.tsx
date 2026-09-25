@@ -13,9 +13,9 @@ const ValidatorVotingPowerHistoryLoader: FC<Props> = async props => {
         500
     )
 
-    const firstEntry = history?.[0]
-    const lastEntry = history?.[history.length - 1]
-    if (!history || !firstEntry || !lastEntry) {
+    const firstEntry = history.at(0)
+    const lastEntry = history.at(-1)
+    if (!firstEntry || !lastEntry) {
         return (
             <Surface
                 as="section"

@@ -75,9 +75,6 @@ export const SwapPanel = observer(() => {
   );
 
   const toAssetOptions = useMemo(() => {
-    if (!registryAssets) {
-      return [];
-    }
     if (!fromMetadata?.penumbraAssetId) {
       return registryAssets;
     }
@@ -118,7 +115,7 @@ export const SwapPanel = observer(() => {
   }, [amount, fromSymbol, toSymbol]);
 
   const onConfirm = async () => {
-    if (!canSubmit || !fromSelection || !toAsset) {
+    if (!canSubmit) {
       return;
     }
     setConfirmOpen(false);

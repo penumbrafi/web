@@ -13,6 +13,15 @@ import { compareAssetId } from '@/shared/math/position';
 import { DurationWindow } from '@/shared/utils/duration';
 import { referencePriceFor } from '@/shared/const/reference-price';
 
+/**
+ * Postgres aggregates come back NULL on empty joins and NUMERIC as strings,
+ * whatever the column types say; anything that isn't a finite number is 0.
+ */
+const finite = (value: unknown): number => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+};
+
 export interface Summary {
   price: number;
   high: number;
@@ -264,19 +273,20 @@ export async function fetchSummary(
   }
   // Guard divides so a summary row where `price_then === 0` doesn't
   // produce Infinity / NaN and blow up JSON serialization downstream.
-  const priceThen = Number(data.price_then) || 0;
-  const priceChangePercent = priceThen > 0 ? 100 * (data.price / priceThen - 1.0) : 0;
+  const priceThen = finite(data.price_then);
+  const price = finite(data.price);
+  const priceChangePercent = priceThen > 0 ? 100 * (price / priceThen - 1.0) : 0;
   return serialize({
     liquidity: new Value({
-      amount: pnum(data.liquidity ?? 0.0).toAmount(),
+      amount: pnum(finite(data.liquidity)).toAmount(),
       assetId: theIndexingAsset,
     }),
-    volume: new Value({ amount: pnum(data.volume ?? 0.0).toAmount(), assetId: theIndexingAsset }),
-    price: data.price ?? 0,
-    priceDelta: (data.price ?? 0) - priceThen,
+    volume: new Value({ amount: pnum(finite(data.volume)).toAmount(), assetId: theIndexingAsset }),
+    price,
+    priceDelta: price - priceThen,
     priceChangePercent,
-    high: data.high ?? 0,
-    low: data.low ?? 0,
+    high: finite(data.high),
+    low: finite(data.low),
   });
 }
 

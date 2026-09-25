@@ -27,7 +27,7 @@ const ProposalTable: FC<Props> = ({ proposals, ...props }) => (
             </TableRow>
         </thead>
         <tbody>
-            {proposals?.length ? (
+            {proposals.length > 0 ? (
                 proposals.map(proposal => {
                     const href = `/explore/proposal/${proposal.id}`
 

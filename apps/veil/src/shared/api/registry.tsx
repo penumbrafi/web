@@ -39,7 +39,7 @@ const readCacheEntry = (chainId: string): CachedRegistry | undefined => {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) {return undefined;}
-    const cached = JSON.parse(raw) as Partial<CachedRegistry>;
+    const cached = JSON.parse(raw) as Partial<CachedRegistry> | null;
     if (
       !cached ||
       cached.chainId !== chainId ||

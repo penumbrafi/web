@@ -773,7 +773,7 @@ export const LPOrderForm = observer(
             type='button'
             className='flex items-center gap-1 text-[10px] leading-none text-text-secondary hover:text-text-primary'
             onClick={() => {
-              const target = asset?.balance?.toString();
+              const target = asset.balance?.toString();
               if (target) {
                 if (side === 'base') {store.setBaseInput(target);}
                 else {store.setQuoteInput(target);}

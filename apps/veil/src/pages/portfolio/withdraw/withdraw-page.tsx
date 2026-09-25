@@ -103,7 +103,7 @@ function WithdrawFlow() {
     );
   }
 
-  if (step === 'confirm' && destChain) {
+  if (destChain) {
     return (
       <ConfirmPendingSuccess
         balance={balance}

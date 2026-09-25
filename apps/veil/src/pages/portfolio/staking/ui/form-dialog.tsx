@@ -48,7 +48,7 @@ export const StakingFormDialog = observer(
     const ownIdentityKey = bech32mIdentityKey(getIdentityKey(validator));
     const isActive = !!action && targetIdentityKey === ownIdentityKey;
 
-    if (!isActive || !action) {
+    if (!isActive) {
       return null;
     }
 

@@ -57,7 +57,7 @@ export const StakingDialogHost = observer(() => {
 
   const validator = getValidator(active);
   const identityKey = bech32mIdentityKey(getIdentityKeyFromValidatorInfo(active));
-  const votingPowerPercentage = validatorInfosResult?.votingPowerByIdentityKey?.[identityKey] ?? 0;
+  const votingPowerPercentage = validatorInfosResult?.votingPowerByIdentityKey[identityKey] ?? 0;
   const delegationTokens = delegations.find(d => isDelegationTokenForValidator(d, active));
 
   return (

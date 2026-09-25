@@ -18,7 +18,7 @@ const ActionHistory: FC<Props> = props => {
         return transactionToView(transaction, props.hash, props.blockHeight)
     }, [props.blockHeight, props.hash, props.rawTransaction])
 
-    const actionViews = view?.bodyView?.actionViews
+    const actionViews = view.bodyView?.actionViews
 
     if (!actionViews?.length) {
         return

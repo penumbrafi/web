@@ -46,7 +46,7 @@ const SearchResult: FC<Props> = props => {
             const client = ibc.find(
                 c =>
                     props.searchResult.type === 'client' &&
-                    c?.id === props.searchResult.id
+                    c.id === props.searchResult.id
             )
 
             if (!client) {

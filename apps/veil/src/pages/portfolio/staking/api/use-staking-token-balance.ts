@@ -21,7 +21,7 @@ export const useStakingTokenBalance = (): {
   const { data: stakingTokenMetadata } = useStakingTokenMetadata();
 
   const balance = useMemo<BalancesResponse | undefined>(() => {
-    if (!balances || !stakingTokenMetadata) {
+    if (!balances) {
       return undefined;
     }
     return balances.find(b => {

@@ -37,9 +37,7 @@ export const StakingSummary = observer(() => {
       <div className='flex flex-col gap-3 md:flex-row md:items-center md:gap-8'>
         {hasNotYet && (
           <Stat label='Unbonding'>
-            {notYetClaimable && (
-              <ValueViewComponent valueView={notYetClaimable} priority='secondary' />
-            )}
+            <ValueViewComponent valueView={notYetClaimable} priority='secondary' />
           </Stat>
         )}
         {hasClaimable && claimable && (

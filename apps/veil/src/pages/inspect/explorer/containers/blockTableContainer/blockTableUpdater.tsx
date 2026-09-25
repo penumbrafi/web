@@ -94,7 +94,7 @@ const BlockTableUpdater: FC<Props> = ({
                         { requestPolicy: 'network-only' },
                     )
                     .toPromise()
-                const fresh = result.data?.blocks?.items ?? []
+                const fresh = result.data?.blocks.items ?? []
                 if (!fresh.length) {return}
                 const transformed = fresh.map(b => ({
                     height: b.height,

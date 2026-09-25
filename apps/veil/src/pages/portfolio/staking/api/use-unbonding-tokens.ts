@@ -49,9 +49,6 @@ export const useUnbondingTokens = () => {
     enabled: connected && !!stakingTokenMetadata,
     staleTime: 30_000,
     queryFn: async () => {
-      if (!stakingTokenMetadata) {
-        return undefined;
-      }
       const addressIndex = new AddressIndex({ account: subaccount });
       const claimable: ValueView[] = [];
       const notYetClaimable: ValueView[] = [];

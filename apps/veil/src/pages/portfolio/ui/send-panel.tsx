@@ -84,7 +84,7 @@ export const SendPanel = observer(() => {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canSubmit || !selection) {
+    if (!canSubmit) {
       return;
     }
     setSubmitting(true);

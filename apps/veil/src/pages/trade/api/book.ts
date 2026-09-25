@@ -62,7 +62,7 @@ export const useBook = (
   // Preserve the (base, quote) positional signature the older call-sites
   // still use — new call-sites can pass a single options object.
   const opts: UseBookOptions =
-    typeof overrideBaseOrOpts === 'object' && overrideBaseOrOpts !== null
+    typeof overrideBaseOrOpts === 'object'
       ? overrideBaseOrOpts
       : { overrideBase: overrideBaseOrOpts, overrideQuote: overrideQuoteArg };
   const pathSymbols = usePathSymbols();

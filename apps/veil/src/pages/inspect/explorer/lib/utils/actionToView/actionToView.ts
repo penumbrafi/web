@@ -27,11 +27,7 @@ import {
 
 // https://github.com/penumbra-zone/dex-explorer/blob/main/src/pages/inspect/tx/api/as-action-view.ts
 const actionToView = (action: Action): ActionView | undefined => {
-    const payload = action?.action
-
-    if (!payload) {
-        return
-    }
+    const payload = action.action
 
     switch (payload.case) {
         case 'spend':

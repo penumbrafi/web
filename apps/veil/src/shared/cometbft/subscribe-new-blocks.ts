@@ -89,7 +89,7 @@ export const subscribeToNewBlocks = ({ url, onBlock, onError }: SubscribeOptions
 
     ws.addEventListener('message', e => {
       try {
-        const msg = JSON.parse(String(e.data)) as NewBlockMessage;
+        const msg = JSON.parse(String(e.data)) as NewBlockMessage | null;
         // The first message after subscribe is an empty ack; skip it.
         // Subsequent messages carry the block under result.data.value.
         const header = msg?.result?.data?.value?.block?.header;

@@ -173,7 +173,7 @@ async function handleGet(req: NextRequest): Promise<NextResponse<CandleApiRespon
   // the page itself so the response shape and page size are unchanged.
   const gapFill = searchParams.get('gapFill') !== '0';
   const isFirstPage = page === undefined || page <= 1 || limit === undefined;
-  const wantSeam = gapFill && !isFirstPage && limit !== undefined && page !== undefined;
+  const wantSeam = gapFill && !isFirstPage;
   const baseOffset = limit !== undefined && page !== undefined ? limit * (page - 1) : 0;
   const pagedTimes = await withTimeout(
     getPagedBucketTimes({
@@ -181,7 +181,7 @@ async function handleGet(req: NextRequest): Promise<NextResponse<CandleApiRespon
       assetEnd: quoteAssetMetadata.penumbraAssetId,
       window: durationWindow,
       chainId,
-      limit: wantSeam && limit !== undefined ? limit + 1 : limit,
+      limit: wantSeam ? limit + 1 : limit,
       offset: wantSeam ? baseOffset - 1 : baseOffset,
     }),
     DEFAULT_TIMEOUT_MS,

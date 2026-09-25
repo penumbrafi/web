@@ -394,7 +394,7 @@ export const LpPreviewOverlay = observer(
 
     const onPointerDown = (edge: DragEdge) => (ev: React.PointerEvent<HTMLDivElement>) => {
       // Only left mouse / primary touch; ignore right-click, middle-click.
-      if (ev.button !== undefined && ev.button !== 0) {return;}
+      if (ev.button !== 0) {return;}
       const target = ev.currentTarget;
       const container = containerRef.current;
       if (!container) {return;}
@@ -482,7 +482,7 @@ export const LpPreviewOverlay = observer(
     const onRungPointerDown =
       (index: number) => (ev: React.PointerEvent<HTMLDivElement>) => {
         if (whichForm !== 'LP') {return;}
-        if (ev.button !== undefined && ev.button !== 0) {return;}
+        if (ev.button !== 0) {return;}
         const target = ev.currentTarget;
         const container = containerRef.current;
         if (!container) {return;}
