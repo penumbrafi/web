@@ -4,9 +4,13 @@ import { FC, useCallback, useEffect, useRef, useState } from 'react'
 import { classNames } from '@/pages/inspect/explorer/lib/utils'
 import styles from './blockPanel.module.css'
 
-// CSS-module class names are typed string | undefined under strict indexing;
-// classList.add/remove need strings, and an unknown name should add nothing.
-const css = (name: string): string => styles[name] ?? ''
+// The module's classes are kebab-case (full-bar, delayed-1) and this bundler
+// exports them as written, so camelCase lookups resolve to the kebab name.
+// Never returns '' - classList.add('') throws.
+const kebab = (name: string) =>
+    name.replace(/([a-z])([A-Z0-9])/g, '$1-$2').toLowerCase()
+const css = (name: string): string =>
+    styles[name] ?? styles[kebab(name)] ?? kebab(name)
 
 const barCount = 25
 const upcomingCountdown = 5

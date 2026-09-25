@@ -28,7 +28,7 @@ export const dynamic = 'force-dynamic';
 //    `X-Fallback: stale`) over the error — the LP form gets a slightly old
 //    reference price instead of none.
 
-type PriceRow = { usd?: number; usd_24h_change?: number };
+interface PriceRow { usd?: number; usd_24h_change?: number }
 type PriceMap = Record<string, PriceRow>;
 
 interface CacheEntry {
@@ -63,9 +63,9 @@ const lruSet = <V>(map: Map<string, V>, key: string, value: V) => {
   map.delete(key);
   map.set(key, value);
   while (map.size > MAX_CACHE_ENTRIES) {
-    const oldest = map.keys().next().value;
-    if (oldest === undefined) break;
-    map.delete(oldest);
+    const next = map.keys().next();
+    if (next.done) {break;}
+    map.delete(next.value);
   }
 };
 

@@ -37,6 +37,9 @@ export interface Stats {
 export async function fetchStats(): Promise<Serialized<Stats>> {
   // Kick off the fetching of the indexing asset.
   const indexingAssetP = indexingAsset();
+  // Awaited below; observe it now so a throw from an earlier await doesn't
+  // leave this rejection unhandled.
+  indexingAssetP.catch(() => undefined);
   const raw = await pindexerDb
     .selectFrom('dex_ex_aggregate_summary')
     .select([

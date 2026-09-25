@@ -19,7 +19,7 @@ export const dynamic = 'force-dynamic';
 const InspectHomePage: FC = () => (
   <>
     <Container>
-      <h1 className='font-heading mb-2 text-4xl font-medium'>Penumbra Chain Explorer</h1>
+      <h1 className='mb-2 font-heading text-4xl font-medium'>Penumbra Chain Explorer</h1>
       <SearchContainer />
     </Container>
     <Container className='flex flex-col gap-4'>

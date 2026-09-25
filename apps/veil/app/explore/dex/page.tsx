@@ -1,4 +1,3 @@
-export const dynamic = 'force-dynamic';
 import { FC } from 'react';
 import { Breadcrumb, Breadcrumbs, Container } from '@/pages/inspect/explorer/components';
 import {
@@ -11,6 +10,7 @@ import {
   DexVolumeHistoryContainer,
 } from '@/pages/inspect/explorer/containers';
 import { LiquidityPositionStateFilter } from '@/pages/inspect/explorer/lib/graphql/generated/types';
+export const dynamic = 'force-dynamic';
 
 interface Props {
   searchParams: Promise<{ page?: string; range?: string }>;

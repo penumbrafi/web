@@ -1,7 +1,7 @@
-export const dynamic = 'force-dynamic';
 import { PortfolioPage } from '@/pages/portfolio';
 import { headers } from 'next/headers';
 import { userAgent } from 'next/server';
+export const dynamic = 'force-dynamic';
 
 export default async function Portfolio() {
   const headersList = await headers();

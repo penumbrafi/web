@@ -1,8 +1,8 @@
-export const dynamic = 'force-dynamic';
 import { notFound } from 'next/navigation';
 import { FC } from 'react';
 import { Breadcrumb, Breadcrumbs, Container } from '@/pages/inspect/explorer/components';
 import { BlockViewContainer } from '@/pages/inspect/explorer/containers';
+export const dynamic = 'force-dynamic';
 
 interface Props {
   params: Promise<{ height: string }>;

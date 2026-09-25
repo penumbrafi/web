@@ -1,4 +1,3 @@
-export const dynamic = 'force-dynamic';
 import { notFound } from 'next/navigation';
 import { FC } from 'react';
 import {
@@ -14,7 +13,8 @@ import {
 } from '@/pages/inspect/explorer/containers';
 import { IbcStatusFilter } from '@/pages/inspect/explorer/lib/graphql/generated/types';
 import ibc from '@/pages/inspect/explorer/lib/ibc';
-import { classNames } from '@/pages/inspect/explorer/lib/utils';
+import { classNames, nonEmpty } from '@/pages/inspect/explorer/lib/utils';
+export const dynamic = 'force-dynamic';
 
 interface Props {
   params: Promise<{ client: string }>;
@@ -85,7 +85,7 @@ const ClientPage: FC<Props> = async props => {
               </h2>
               <FilterSelector
                 filters={['all', 'pending', 'completed', 'expired', 'error']}
-                selectedFilter={searchParams.filter || 'all'}
+                selectedFilter={nonEmpty(searchParams.filter) ?? 'all'}
               />
             </div>
           }

@@ -25,7 +25,7 @@ export interface AppProps {
 
 export const App = observer(({ clientEnv, children }: React.PropsWithChildren<AppProps>) => {
   useEffect(() => {
-    connectionStore.setup(clientEnv);
+    connectionStore.setup(clientEnv).catch((e: unknown) => console.warn('[connection] setup failed', e));
     recentPairsStore.setup();
     starStore.setup();
   }, [clientEnv]);
@@ -35,7 +35,7 @@ export const App = observer(({ clientEnv, children }: React.PropsWithChildren<Ap
       <QueryClientProvider client={queryClient}>
         <RegistryProvider chainId={clientEnv.PENUMBRA_CHAIN_ID}>
           <TooltipProvider delayDuration={0}>
-            <div className='min-h-screen flex flex-col'>
+            <div className='flex min-h-screen flex-col'>
               <main className='relative z-0 flex-1'>
                 <SyncBar />
                 <Header />

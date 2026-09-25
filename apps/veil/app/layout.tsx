@@ -57,7 +57,7 @@ const RootLayout = ({ children }: { children: ReactNode }) => {
   return (
     <html lang='en'>
       <head>
-        {/* eslint-disable-next-line react/no-danger -- inline guard, see comment above */}
+        { }
         <script dangerouslySetInnerHTML={{ __html: INLINE_CHUNK_GUARD }} />
       </head>
       <body className='scroll-area-page'>

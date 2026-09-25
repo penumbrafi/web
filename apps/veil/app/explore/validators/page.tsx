@@ -1,4 +1,3 @@
-export const dynamic = 'force-dynamic';
 import { FC, Suspense } from 'react';
 import {
   Breadcrumb,
@@ -27,6 +26,10 @@ import {
   stakeStepFor,
   type StakeRangeKey,
 } from '@/pages/inspect/explorer/ui/stake-range';
+export const dynamic = 'force-dynamic';
+
+/** ?sort= values the validator table understands; anything else is ignored. */
+const SORT_KEYS = ['commission', 'growth30d', 'growth7d', 'name', 'power', 'uptime'] as const;
 
 // Progressive-refinement chart loader. Awaits the cheap coarse-step query
 // (always returns within ~150ms even for 2y) and kicks the denser query as
@@ -39,7 +42,9 @@ async function StakeChartSection({ range }: { range: StakeRangeKey }) {
   const { coarse, dense } = stakeStepFor(days);
   const coarseData = await fetchActiveStakeHistory(days, coarse);
   // NOT awaited — gets passed across the RSC boundary as a pending Promise.
-  const densePromise = fetchActiveStakeHistory(days, dense);
+  // A failed refinement keeps the coarse series rather than throwing
+  // through use() on the client and taking the whole page down.
+  const densePromise = fetchActiveStakeHistory(days, dense).catch(() => coarseData);
   return (
     <ProgressiveActiveStakeChart
       coarseData={coarseData}
@@ -164,10 +169,8 @@ const ValidatorsPage: FC<Props> = async props => {
           }
           inactive={searchParams.filter === 'inactive'}
           limit={validatorLimit}
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          sort={searchParams.sort as any}
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          sortDir={searchParams.dir as any}
+          sort={SORT_KEYS.find(k => k === searchParams.sort)}
+          sortDir={searchParams.dir === 'asc' || searchParams.dir === 'desc' ? searchParams.dir : undefined}
         />
       </div>
     </Container>

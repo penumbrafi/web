@@ -249,6 +249,9 @@ export async function fetchSummary(
   const start = deserialize<AssetId>(startAsset);
   const end = deserialize<AssetId>(endAsset);
   const indexingAssetP = indexingAsset();
+  // Awaited below; observe it now so a throw from an earlier await doesn't
+  // leave this rejection unhandled.
+  indexingAssetP.catch(() => undefined);
   // `executeTakeFirstOrThrow` here 500'd the whole trade page for any pair
   // pindexer hasn't seen swap activity on in the requested window — most
   // thin/new pairs. Fall back to a zeroed Summary so the UI renders and
@@ -294,7 +297,11 @@ export async function fetchSummary(
 export async function fetchDaySummaries(): Promise<Serialized<SummaryWithPrices[]>> {
   // Kick off the fetching of the indexing asset.
   const indexingAssetP = indexingAsset();
+  // Awaited below; observe it now so a throw from an earlier await doesn't
+  // leave this rejection unhandled.
+  indexingAssetP.catch(() => undefined);
   const registryP = getCachedRegistry(getClientSideEnv().PENUMBRA_CHAIN_ID);
+  registryP.catch(() => undefined);
   const data = await basicQuery('1d')
     .orderBy('liquidity', 'desc')
     .orderBy('volume', 'desc')

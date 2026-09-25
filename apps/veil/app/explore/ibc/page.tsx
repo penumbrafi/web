@@ -1,4 +1,3 @@
-export const dynamic = 'force-dynamic';
 import { FC } from 'react';
 import {
   Breadcrumb,
@@ -7,6 +6,8 @@ import {
   TimeRangeSelector,
 } from '@/pages/inspect/explorer/components';
 import { IbcFlowHistoryContainer, IbcTableContainer } from '@/pages/inspect/explorer/containers';
+import { nonEmpty } from '@/pages/inspect/explorer/lib/utils';
+export const dynamic = 'force-dynamic';
 
 interface Props {
   searchParams: Promise<{ range?: string }>;
@@ -40,7 +41,7 @@ const IbcPage: FC<Props> = async props => {
               { label: '90d', value: '90' },
               { label: '1y', value: '365' },
             ]}
-            selectedRange={searchParams.range || '30'}
+            selectedRange={nonEmpty(searchParams.range) ?? '30'}
           />
         }
       />

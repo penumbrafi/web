@@ -12,7 +12,7 @@ export default async function PortfolioStakingRedirect({
   const params = await searchParams;
   const qs = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
-    if (typeof value === 'string') qs.set(key, value);
+    if (typeof value === 'string') {qs.set(key, value);}
   }
   const q = qs.toString();
   redirect(q ? `/explore/validators?${q}` : '/explore/validators');

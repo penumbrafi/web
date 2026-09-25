@@ -1,8 +1,8 @@
-export const dynamic = 'force-dynamic';
 import { notFound } from 'next/navigation';
 import { FC } from 'react';
 import { Breadcrumb, Breadcrumbs, Container } from '@/pages/inspect/explorer/components';
 import { BlockTableContainer } from '@/pages/inspect/explorer/containers';
+export const dynamic = 'force-dynamic';
 
 interface Props {
   searchParams: Promise<{ page?: string }>;

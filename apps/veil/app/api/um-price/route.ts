@@ -16,14 +16,14 @@ export const dynamic = 'force-dynamic';
 // has no historical component, so 24h change is 0 — treated as "no
 // change" by the chip's colour band rather than a fake up/down.
 
-type UmPriceRow = {
+interface UmPriceRow {
   current_price: number;
   price_change_percentage_24h: number;
   // Extra fields the LP form can key off; harmless to the header chip.
   source?: 'onchain-bridge';
   bridge?: string;
   depthUsd?: number;
-};
+}
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const derived = await derivedUsdForSymbol('UM', req.signal);

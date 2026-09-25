@@ -1,4 +1,3 @@
-export const dynamic = 'force-dynamic';
 import { FC } from 'react';
 import { Breadcrumb, Breadcrumbs, Container } from '@/pages/inspect/explorer/components';
 import {
@@ -18,6 +17,7 @@ import { ValidatorSlashingsPanel } from '@/pages/inspect/explorer/ui/validator-s
 import { ValidatorStakeActionsClient as ValidatorStakeActions } from './validator-stake-actions-client';
 import { classNames } from '@/pages/inspect/explorer/lib/utils';
 import { StakingDialogHostClient } from './staking-dialog-host-client';
+export const dynamic = 'force-dynamic';
 
 interface Props {
   params: Promise<{ identityKey: string }>;

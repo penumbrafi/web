@@ -1,6 +1,6 @@
-export const dynamic = 'force-dynamic';
 import { TournamentJoinPage as TournamentJoinPageComponent } from '@/pages/tournament/ui/join/page';
 import { TournamentQueryParams } from '@/features/tournament-earnings-canvas';
+export const dynamic = 'force-dynamic';
 
 const baseUrl = process.env['BASE_URL'] ?? 'http://localhost:3000';
 const imageUrl = `${baseUrl}/api/tournament/social-image.png`;

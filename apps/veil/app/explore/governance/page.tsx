@@ -1,4 +1,3 @@
-export const dynamic = 'force-dynamic';
 import { notFound } from 'next/navigation';
 import { FC } from 'react';
 import { Breadcrumb, Breadcrumbs, Container } from '@/pages/inspect/explorer/components';
@@ -8,6 +7,7 @@ import {
   ProposalTableContainer,
 } from '@/pages/inspect/explorer/containers';
 import { classNames } from '@/pages/inspect/explorer/lib/utils';
+export const dynamic = 'force-dynamic';
 
 interface Props {
   searchParams: Promise<{ page?: string }>;

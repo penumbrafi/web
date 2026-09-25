@@ -1,6 +1,6 @@
-export const dynamic = 'force-dynamic';
 import { redirect } from 'next/navigation';
 import { FC } from 'react';
+export const dynamic = 'force-dynamic';
 
 interface Props {
   params: Promise<{ id: string }>;
