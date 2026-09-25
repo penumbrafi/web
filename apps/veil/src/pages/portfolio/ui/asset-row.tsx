@@ -2,6 +2,7 @@ import { observer } from 'mobx-react-lite';
 import { UnifiedAsset } from '@/pages/portfolio/api/use-unified-assets.ts';
 import { pnum } from '@penumbra-zone/types/pnum';
 import { ShieldButton, UnshieldButton } from '@/pages/portfolio/ui/shield-unshield.tsx';
+import { Sensitive } from '@/shared/ui/sensitive';
 import { ShieldedAssetActions } from '@/pages/portfolio/ui/asset-actions.tsx';
 import { TableCell } from '@penumbra-zone/ui/TableCell';
 import { Text } from '@penumbra-zone/ui/Text';
@@ -93,12 +94,14 @@ export const AssetRow = observer(
           <TableCell variant={variant}>
             <div className='flex items-center'>
               {hasShieldedBalance ? (
-                <ValueViewComponent
-                  valueView={totalShieldedBalanceValueView}
-                  trailingZeros={false}
-                  priority={'tertiary'}
-                  density={'compact'}
-                />
+                <Sensitive>
+                  <ValueViewComponent
+                    valueView={totalShieldedBalanceValueView}
+                    trailingZeros={false}
+                    priority={'tertiary'}
+                    density={'compact'}
+                  />
+                </Sensitive>
               ) : (
                 <Text variant={'smallTechnical'} color='text.secondary'>
                   -
@@ -110,13 +113,15 @@ export const AssetRow = observer(
             {isCosmosConnected ? (
               <div className='flex w-full items-center justify-between gap-3'>
                 {hasPublicBalance ? (
-                  <ValueViewComponent
-                    valueView={totalPublicBalanceValueView}
-                    trailingZeros={false}
-                    priority={'tertiary'}
-                    context={'table'}
-                    density={'compact'}
-                  />
+                  <Sensitive>
+                    <ValueViewComponent
+                      valueView={totalPublicBalanceValueView}
+                      trailingZeros={false}
+                      priority={'tertiary'}
+                      context={'table'}
+                      density={'compact'}
+                    />
+                  </Sensitive>
                 ) : (
                   <Text variant={'smallTechnical'} color='text.secondary'>
                     -
@@ -145,7 +150,9 @@ export const AssetRow = observer(
           <TableCell variant={variant}>
             {shieldedValue > 0 && price ? (
               <Text variant={'smallTechnical'} color='text.secondary'>
-                {shieldedValue.toFixed(2)} {price.quoteSymbol}
+                <Sensitive>
+                  {shieldedValue.toFixed(2)} {price.quoteSymbol}
+                </Sensitive>
               </Text>
             ) : (
               <Text variant={'smallTechnical'} color='text.secondary'>
@@ -156,7 +163,9 @@ export const AssetRow = observer(
           <TableCell variant={variant}>
             {publicValue > 0 && price ? (
               <Text variant={'smallTechnical'} color='text.secondary'>
-                {publicValue.toFixed(2)} {price.quoteSymbol}
+                <Sensitive>
+                  {publicValue.toFixed(2)} {price.quoteSymbol}
+                </Sensitive>
               </Text>
             ) : (
               <Text variant={'smallTechnical'} color='text.secondary'>
@@ -167,7 +176,9 @@ export const AssetRow = observer(
           <TableCell variant={variant}>
             {totalValue > 0 && price ? (
               <Text variant={'smallTechnical'} color='text.secondary'>
-                {totalValue.toFixed(2)} {price.quoteSymbol}
+                <Sensitive>
+                  {totalValue.toFixed(2)} {price.quoteSymbol}
+                </Sensitive>
               </Text>
             ) : (
               <Text variant={'smallTechnical'} color='text.secondary'>
@@ -190,13 +201,15 @@ export const AssetRow = observer(
               <TableCell variant={'lastCell'}>
                 <div className='flex w-full items-center justify-between gap-3'>
                   <div className={'ml-2 py-3'}>
-                    <ValueViewComponent
-                      valueView={bal.valueView}
-                      trailingZeros={false}
-                      priority={'tertiary'}
-                      density={'slim'}
-                      context={'table'}
-                    />
+                    <Sensitive>
+                      <ValueViewComponent
+                        valueView={bal.valueView}
+                        trailingZeros={false}
+                        priority={'tertiary'}
+                        density={'slim'}
+                        context={'table'}
+                      />
+                    </Sensitive>
                     <Text color={'text.secondary'} detail>
                       on Penumbra
                     </Text>
@@ -228,7 +241,9 @@ export const AssetRow = observer(
               <TableCell variant={'lastCell'}>
                 {shieldedValue > 0 && price ? (
                   <Text variant={'smallTechnical'} color='text.secondary'>
-                    {shieldedValue.toFixed(2)} {price.quoteSymbol}
+                    <Sensitive>
+                      {shieldedValue.toFixed(2)} {price.quoteSymbol}
+                    </Sensitive>
                   </Text>
                 ) : (
                   <Text variant={'smallTechnical'} color='text.secondary'>
@@ -258,13 +273,15 @@ export const AssetRow = observer(
               <TableCell variant={'lastCell'}>
                 <div className='flex w-full items-center justify-between gap-3 space-x-5'>
                   <div className={'py-3'}>
-                    <ValueViewComponent
-                      valueView={bal.valueView}
-                      trailingZeros={false}
-                      priority='tertiary'
-                      density='slim'
-                      context='table'
-                    />
+                    <Sensitive>
+                      <ValueViewComponent
+                        valueView={bal.valueView}
+                        trailingZeros={false}
+                        priority='tertiary'
+                        density='slim'
+                        context='table'
+                      />
+                    </Sensitive>
                     <Text color='text.secondary' detail>
                       on {bal.chainId}
                     </Text>
@@ -289,7 +306,9 @@ export const AssetRow = observer(
               <TableCell variant={'lastCell'}>
                 {publicValue > 0 && price ? (
                   <Text variant={'smallTechnical'} color='text.secondary'>
-                    {publicValue.toFixed(2)} {price.quoteSymbol}
+                    <Sensitive>
+                      {publicValue.toFixed(2)} {price.quoteSymbol}
+                    </Sensitive>
                   </Text>
                 ) : (
                   <Text variant={'smallTechnical'} color='text.secondary'>

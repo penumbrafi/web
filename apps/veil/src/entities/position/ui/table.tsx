@@ -25,6 +25,7 @@ import { stateToString } from '../model/state-to-string';
 import { getDisplayPositions } from '../model/get-display-positions';
 import { DisplayPosition, ExecutedPosition } from '../model/types';
 import { PositionsCurrentValue } from './positions-current-value';
+import { Sensitive } from '@/shared/ui/sensitive';
 import { PositionsFeesCell, PositionsAprCell, PositionsPnlCell } from './positions-stats-cells';
 import { NotConnectedNotice } from './not-connected-notice';
 import { ErrorNotice } from './error-notice';
@@ -470,13 +471,15 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
                       {position.isWithdrawn ? (
                         <Dash />
                       ) : (
-                        <ValueViewComponent
-                          priority='tertiary'
-                          trailingZeros={false}
-                          valueView={
-                            position.isClosed && orderIndex === 1 ? order.basePrice : order.amount
-                          }
-                        />
+                        <Sensitive>
+                          <ValueViewComponent
+                            priority='tertiary'
+                            trailingZeros={false}
+                            valueView={
+                              position.isClosed && orderIndex === 1 ? order.basePrice : order.amount
+                            }
+                          />
+                        </Sensitive>
                       )}
                     </TableCell>
 
@@ -572,7 +575,9 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
                       {fullyWithdrawn(position.position) ? (
                         <Dash />
                       ) : (
-                        <PositionsCurrentValue order={order} marketPrice={rowMarketPrice} />
+                        <Sensitive>
+                          <PositionsCurrentValue order={order} marketPrice={rowMarketPrice} />
+                        </Sensitive>
                       )}
                     </TableCell>
 
@@ -580,7 +585,9 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
                       {fullyWithdrawn(position.position) ? (
                         <Dash />
                       ) : (
-                        <PositionsFeesCell stats={position.stats} />
+                        <Sensitive>
+                          <PositionsFeesCell stats={position.stats} />
+                        </Sensitive>
                       )}
                     </TableCell>
 
@@ -596,7 +603,9 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
                       {fullyWithdrawn(position.position) ? (
                         <Dash />
                       ) : (
-                        <PositionsPnlCell stats={position.stats} />
+                        <Sensitive>
+                          <PositionsPnlCell stats={position.stats} />
+                        </Sensitive>
                       )}
                     </TableCell>
 

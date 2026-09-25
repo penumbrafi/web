@@ -5,6 +5,7 @@ import { Density } from '@penumbra-zone/ui/Density';
 import { TableCell } from '@penumbra-zone/ui/TableCell';
 import { Text } from '@penumbra-zone/ui/Text';
 import { ValueViewComponent } from '@penumbra-zone/ui/ValueView';
+import { Sensitive } from '@/shared/ui/sensitive';
 import { ValueView } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { getValidatorInfoFromValueView } from '@penumbra-zone/getters/value-view';
 import {
@@ -120,12 +121,14 @@ const DelegationRow = ({ delegation, umPrice, umQuoteSymbol, isLast }: RowProps)
     <div className={`col-span-7 grid grid-cols-subgrid text-left ${borderClass}`}>
       <TableCell variant='cell'>
         <div className='flex flex-col gap-0.5'>
-          <ValueViewComponent
-            valueView={delegation}
-            trailingZeros={false}
-            priority='tertiary'
-            density='compact'
-          />
+          <Sensitive>
+            <ValueViewComponent
+              valueView={delegation}
+              trailingZeros={false}
+              priority='tertiary'
+              density='compact'
+            />
+          </Sensitive>
           <Text detail color='text.secondary'>
             {validatorName}
           </Text>
@@ -151,11 +154,13 @@ const DelegationRow = ({ delegation, umPrice, umQuoteSymbol, isLast }: RowProps)
         {umEquivalent > 0 ? (
           <div className='flex flex-col gap-0.5'>
             <Text variant='smallTechnical' color='text.primary'>
-              {umEquivalent.toFixed(4)} UM
+              <Sensitive>{umEquivalent.toFixed(4)} UM</Sensitive>
             </Text>
             {valueInQuote > 0 && (
               <Text detail color='text.secondary'>
-                ≈ {valueInQuote.toFixed(2)} {umQuoteSymbol}
+                <Sensitive>
+                  ≈ {valueInQuote.toFixed(2)} {umQuoteSymbol}
+                </Sensitive>
               </Text>
             )}
           </div>
@@ -173,7 +178,9 @@ const DelegationRow = ({ delegation, umPrice, umQuoteSymbol, isLast }: RowProps)
       <TableCell variant='cell'>
         {valueInQuote > 0 ? (
           <Text variant='smallTechnical' color='text.secondary'>
-            {valueInQuote.toFixed(2)} {umQuoteSymbol}
+            <Sensitive>
+              {valueInQuote.toFixed(2)} {umQuoteSymbol}
+            </Sensitive>
           </Text>
         ) : (
           <Text variant='smallTechnical' color='text.secondary'>

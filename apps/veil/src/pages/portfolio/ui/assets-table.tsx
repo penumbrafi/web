@@ -12,6 +12,10 @@ import { DelegationRows } from '@/pages/portfolio/ui/delegation-rows.tsx';
 import { PortfolioCard } from '@/pages/portfolio/ui/portfolio-card.tsx';
 import { ReactNode } from 'react';
 import { ReceiveButton } from '@/pages/portfolio/ui/asset-actions.tsx';
+import Link from 'next/link';
+import { Coins } from 'lucide-react';
+import { Button } from '@penumbra-zone/ui/Button';
+import { CosmosConnectButton } from '@/features/cosmos/cosmos-connect-button.tsx';
 
 export const AssetsTableLayout = ({ children }: { children?: ReactNode }) => {
   return (
@@ -21,7 +25,18 @@ export const AssetsTableLayout = ({ children }: { children?: ReactNode }) => {
           <Text as={'h4'} xxl color='text.primary'>
             Assets
           </Text>
-          <ReceiveButton />
+          <div className='flex items-center gap-2'>
+            {/* Public balances need a Cosmos wallet; this was one of the two
+                big connect cards at the top of the page. */}
+            <CosmosConnectButton variant='minimal' actionType='default' />
+            {/* Choosing a validator lives in explore, next to the validator data. */}
+            <Link href='/explore/validators'>
+              <Button density='compact' priority='secondary' icon={Coins}>
+                Stake
+              </Button>
+            </Link>
+            <ReceiveButton />
+          </div>
         </div>
       }
     >
