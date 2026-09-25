@@ -1,0 +1,59 @@
+# /etc/systemd/system/penumbra-assets.service
+#
+# Penumbra Assets: the internal shielded-balances dashboard at
+# assets.penumbra.fi. Single slot, no blue/green: the deploy workflow rsyncs
+# a release into /opt/penumbra-assets/releases/<sha>/, flips the `current`
+# symlink and restarts this unit. A few seconds of downtime per deploy is
+# fine for an internal tool behind nginx basic auth.
+#
+#   penumbra-assets.service -> /opt/penumbra-assets/current   :3004
+#
+# nginx on the front-proxy container terminates TLS, enforces basic auth
+# and proxies to :3004 on this container. The app itself has no auth.
+
+[Unit]
+Description=Penumbra Assets dashboard
+After=network-online.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=web
+Group=web
+WorkingDirectory=/opt/penumbra-assets/current/apps/assets
+Environment=NODE_ENV=production
+# Bind to all interfaces on this container: the nginx front-proxy lives on
+# a different container and cannot reach a loopback-only listener.
+# Container isolation + the host firewall keep the port off the internet.
+Environment=HOSTNAME=0.0.0.0
+# Default port; .env.production may override. 3003 is taken by the airdrop
+# app on the same container.
+Environment=PORT=3004
+# CT1199's outbound IPv6 is broken: resolve IPv4 first or DNS lookups hang.
+# Same line as the veil unit; it is load-bearing.
+Environment=NODE_OPTIONS=--dns-result-order=ipv4first
+# Runtime env (PENUMBRA_INDEXER_ENDPOINT, PORT) lives one level ABOVE
+# `current`, beside releases/, so the release rsync never touches it and
+# the build job's .env stripping cannot remove it. root-owned 0600: systemd
+# reads EnvironmentFile= as PID 1, `web` never needs it.
+EnvironmentFile=/opt/penumbra-assets/.env.production
+EnvironmentFile=-/opt/penumbra-assets/.env.production.local
+ExecStart=/usr/bin/node /opt/penumbra-assets/current/apps/assets/server.js
+Restart=always
+RestartSec=10
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+# Next writes its cache under .next/cache at runtime. releases/ always exists
+# and covers whichever release current/ points at; a ReadWritePaths= entry
+# that does not exist aborts namespace setup under ProtectSystem=strict.
+ReadWritePaths=/opt/penumbra-assets/releases
+
+[Install]
+WantedBy=multi-user.target

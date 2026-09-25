@@ -1,0 +1,198 @@
+# Build and deploy Penumbra Assets (the internal shielded-balances dashboard,
+# https://assets.penumbra.fi, nginx basic auth in front).
+#
+# Same shape as deploy-veil.yml minus blue/green: `next build` with
+# output: 'standalone' here, never on the host; the tree is tarred as
+# assets-<sha>.tar.zst, uploaded as a workflow artifact, rsynced into
+# /opt/penumbra-assets/releases/<sha>/ and activated by flipping the
+# `current` symlink and restarting the single penumbra-assets.service.
+name: deploy assets
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/assets/**'
+      - '.github/workflows/deploy-assets.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-assets
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build assets
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: setup nix
+        uses: ./.github/actions/setup-nix
+
+      - name: setup turbo
+        uses: ./.github/actions/setup-turbo
+
+      - name: build assets
+        run: nix develop --command pnpm turbo build --filter=penumbra-assets...
+
+      - name: assemble standalone tree
+        run: |
+          set -euo pipefail
+          cd apps/assets
+          test -f .next/standalone/apps/assets/server.js
+          cp -r public .next/standalone/apps/assets/public
+          mkdir -p .next/standalone/apps/assets/.next
+          cp -r .next/static .next/standalone/apps/assets/.next/static
+          # Never ship a build-time .env into the release.
+          find .next/standalone -maxdepth 3 -name '.env*' -print -delete
+          # Drop native addons built against the nix devshell (musl or
+          # /nix/store) that cannot load on the Debian host; every one in
+          # this tree has a pure-JS fallback. Same logic as deploy-veil.yml.
+          dropped=0
+          while IFS= read -r -d '' node; do
+            if ldd "$node" 2>&1 | grep -Eq 'libc\.musl|/nix/store|not found'; then
+              echo "dropping non-portable native addon (JS/wasm fallback covers it): $node"
+              rm -f "$node"
+              dropped=$((dropped + 1))
+            fi
+          done < <(find .next/standalone -name '*.node' -not -path '*musl*' -print0)
+          echo "dropped $dropped non-portable native addon(s)"
+          if find .next/standalone -name '*.node' -not -path '*musl*' -exec ldd {} + 2>&1 | grep -Eq '/nix/store'; then
+            echo 'a required native module still links against /nix/store after pruning:'
+            find .next/standalone -name '*.node' -not -path '*musl*' -exec ldd {} + 2>&1 | grep -E '/nix/store' || true
+            exit 1
+          fi
+          cat > .next/standalone/BUILD_INFO <<INFO
+          app=assets
+          sha=${{ github.sha }}
+          ref=${{ github.ref }}
+          run_id=${{ github.run_id }}
+          built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          INFO
+
+      - name: pack artifact
+        run: |
+          set -euo pipefail
+          tar --zstd -C apps/assets/.next/standalone -cf "assets-${{ github.sha }}.tar.zst" .
+          ls -lh "assets-${{ github.sha }}.tar.zst"
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: assets-${{ github.sha }}
+          path: assets-${{ github.sha }}.tar.zst
+          retention-days: 30
+          if-no-files-found: error
+
+  deploy:
+    name: deploy assets
+    needs: build
+    runs-on: ubuntu-24.04
+    environment: production
+    env:
+      APP_DIR: /opt/penumbra-assets
+      PORT: '3004'
+      SHA: ${{ github.sha }}
+    steps:
+      # Pin the deploy job's checkout to main so the code that runs next to
+      # `production` secrets is always the current main-branch version (the
+      # ssh-deploy action in particular). Same rationale as deploy-veil.yml.
+      - uses: actions/checkout@v5
+        with:
+          ref: refs/heads/main
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: assets-${{ github.sha }}
+
+      - name: unpack
+        run: |
+          set -euo pipefail
+          mkdir -p payload
+          tar --zstd -C payload -xf "assets-${SHA}.tar.zst"
+
+      - name: configure ssh
+        uses: ./.github/actions/ssh-deploy
+        with:
+          ssh-key: ${{ secrets.DEPLOY_SSH_KEY }}
+          known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          jump-host: ${{ secrets.DEPLOY_HOST }}
+          target-host: ${{ secrets.DEPLOY_CT }}
+          proxy-host: ${{ secrets.DEPLOY_PROXY_CT }}
+
+      - name: ship release
+        run: |
+          set -euo pipefail
+          ssh target "mkdir -p '${APP_DIR}/releases/${SHA}'"
+          rsync -a --delete -e ssh payload/ "target:${APP_DIR}/releases/${SHA}/"
+
+      - name: activate
+        run: |
+          set -euo pipefail
+          ssh target "APP_DIR='${APP_DIR}' PORT='${PORT}' SHA='${SHA}' bash -s" <<'REMOTE'
+          set -euo pipefail
+          case "$SHA" in ""|*[!0-9a-f]*) echo "bad sha" >&2; exit 64 ;; esac
+          cd "$APP_DIR"
+          ln -sfn "releases/$SHA" current.tmp
+          mv -Tf current.tmp current
+          # keep the five most recent releases
+          ls -1dt releases/*/ | tail -n +6 | xargs -r rm -rf
+          sudo -n /usr/bin/systemctl restart penumbra-assets.service
+          # Single slot: this IS the live instance, so poll briefly and fail
+          # loudly. `/` is a static shell that answers without the database,
+          # so a 200 here means the process is up, not that the indexer is.
+          for _ in $(seq 1 30); do
+            if curl -fsS -m 2 -o /dev/null "http://127.0.0.1:${PORT}/"; then
+              break
+            fi
+            sleep 2
+          done
+          if ! curl -fsS -m 2 -o /dev/null "http://127.0.0.1:${PORT}/"; then
+            echo "penumbra-assets did not answer on :${PORT} within 60s" >&2
+            systemctl status penumbra-assets.service --no-pager >&2 || true
+            exit 1
+          fi
+          # The unit must be running THIS release, not a stale process that
+          # happens to hold the port (see deploy-veil.yml for the incident).
+          mainpid=$(systemctl show penumbra-assets.service --value -p MainPID)
+          live_cwd=$(readlink "/proc/${mainpid}/cwd" 2>/dev/null || true)
+          case "$live_cwd" in
+            "${APP_DIR}/releases/${SHA}/"*) ;;
+            *)
+              echo "unit is not running this release: MainPID=${mainpid:-<none>} cwd=${live_cwd:-<unreadable>}" >&2
+              systemctl status penumbra-assets.service --no-pager >&2 || true
+              exit 1
+              ;;
+          esac
+          # Every chunk the served HTML references must exist in this release.
+          release_chunks="${APP_DIR}/current/apps/assets/.next/static/chunks"
+          html=$(curl -fsS -m 5 "http://127.0.0.1:${PORT}/")
+          served_chunks=$(printf '%s' "$html" | grep -oE '/_next/static/chunks/[A-Za-z0-9_.-]+\.js' | sort -u || true)
+          if [ -z "$served_chunks" ]; then
+            echo "served HTML has no chunk references; cannot verify build freshness" >&2
+            exit 1
+          fi
+          missing=0
+          for chunk in $served_chunks; do
+            if [ ! -f "$release_chunks/${chunk##*/}" ]; then
+              echo "STALE BUILD: served chunk ${chunk##*/} is not in this release" >&2
+              missing=$((missing + 1))
+            fi
+          done
+          [ "$missing" -eq 0 ] || exit 1
+          echo "penumbra-assets is serving release ${SHA} on :${PORT}"
+          REMOTE
+
+      - name: smoke test through nginx
+        run: |
+          set -euo pipefail
+          # Through the front proxy: expect the basic-auth challenge, which
+          # proves TLS, the vhost and the upstream are wired, without needing
+          # a credential in CI.
+          code=$(ssh proxy 'curl -sS -k -o /dev/null -w "%{http_code}" --resolve assets.penumbra.fi:443:127.0.0.1 https://assets.penumbra.fi/')
+          echo "assets.penumbra.fi answered ${code}"
+          case "$code" in 200|401) ;; *) echo "unexpected status ${code}" >&2; exit 1 ;; esac

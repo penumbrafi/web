@@ -1,6 +1,6 @@
 # Deploying the penumbrafi frontends
 
-Everything in this directory is *documentation and host configuration*. The
+Everything in this directory is _documentation and host configuration_. The
 build always happens in GitHub Actions from `main` or a tag — there are no
 hand-built artifacts on the server and no magic binaries.
 
@@ -10,11 +10,12 @@ applied / what remains" at the end before assuming any of this is live.
 
 ## What ships from this repo
 
-| app | workflow | artifact | host path | served on |
-| --- | --- | --- | --- | --- |
-| veil | `.github/workflows/deploy-veil.yml` | `veil-<sha>.tar.zst` (Next.js standalone) | `/opt/penumbra-veil/{blue,green}` | `penumbra.fi`, alias `dex.rotko.net` |
-| veil (dev slot) | `.github/workflows/deploy-dev.yml` | `veil-dev-<sha>.tar.zst` (Next.js standalone) | `/opt/penumbra-veil/dev` | `dev.penumbra.fi` (Cloudflare Access) — **host side not yet set up** |
-| node-status | `.github/workflows/deploy-node-status.yml` | `node-status-<sha>.tar.zst` (Vite `dist/`) | `/opt/penumbra-node-status` | `status.penumbra.fi` (static, nginx) — **not yet deployed anywhere** |
+| app             | workflow                                   | artifact                                      | host path                                                                | served on                                                                       |
+| --------------- | ------------------------------------------ | --------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| veil            | `.github/workflows/deploy-veil.yml`        | `veil-<sha>.tar.zst` (Next.js standalone)     | `/opt/penumbra-veil/{blue,green}`                                        | `penumbra.fi`, alias `dex.rotko.net`                                            |
+| veil (dev slot) | `.github/workflows/deploy-dev.yml`         | `veil-dev-<sha>.tar.zst` (Next.js standalone) | `/opt/penumbra-veil/dev`                                                 | `dev.penumbra.fi` (Cloudflare Access) — **host side not yet set up**            |
+| node-status     | `.github/workflows/deploy-node-status.yml` | `node-status-<sha>.tar.zst` (Vite `dist/`)    | `/opt/penumbra-node-status`                                              | `status.penumbra.fi` (static, nginx) — **not yet deployed anywhere**            |
+| assets          | `.github/workflows/deploy-assets.yml`      | `assets-<sha>.tar.zst` (Next.js standalone)   | `/opt/penumbra-assets` (single slot, `penumbra-assets.service` on :3004) | `assets.penumbra.fi` (nginx basic auth) — host setup in `apps/assets/README.md` |
 
 `minifront` is **not** deployed from here. It lives on `app.antumbra.net` and
 is out of scope; it is still built and linted by `turbo-ci.yml`.
@@ -34,11 +35,11 @@ live in GitHub secrets (see below) so that cloning this public repo does not
 hand out a map of the internal network. Container **numbers** and role names
 are not secret and are used here as documentation:
 
-* **Front-proxy container (CT1102)** — nginx, TLS termination, anycast entry
+- **Front-proxy container (CT1102)** — nginx, TLS termination, anycast entry
   point for `penumbra.fi` and `dex.rotko.net`. Holds `veil-upstream.conf`
   (blue/green routing, see below), the `veil-swap` helper, and (once set up)
   the per-PR previews wildcard vhost + Cloudflare Access front door.
-* **Node.js workload container (CT1199)** — runs the veil `blue`/`green`
+- **Node.js workload container (CT1199)** — runs the veil `blue`/`green`
   systemd units. This is also where node-status would run once deployed, and
   where the per-PR preview units run (see the previews section).
 
@@ -51,7 +52,7 @@ actually holds the value on the day someone runs the one-time host setup.
 **Two containers, not one.** The workload container (runs the veil units) and
 the front-proxy container (runs nginx and `veil-swap`) are different boxes on
 the internal network. `.github/actions/ssh-deploy` sets up a jump host and
-proxies to *either or both*, as `target` and `proxy` respectively — pass
+proxies to _either or both_, as `target` and `proxy` respectively — pass
 whichever host inputs a given job needs:
 
 ```
@@ -73,14 +74,14 @@ container numbers or IPs of its own — those come entirely from secrets.
 the Proxmox host, shared with `penumbrafi/penumbra-explorer` but keyed
 separately: each repo has its own keypair, and each key carries its own
 `permitopen` list, so the explorer key still reaches only the workload
-container while the veil key reaches the workload *and* front-proxy
+container while the veil key reaches the workload _and_ front-proxy
 containers. A `from=` restriction is not usable — GitHub-hosted runners have
 no stable source addresses — so `permitopen` plus a matching `PermitOpen` in
 the host's `Match User deploy-jump` block is the whole confinement:
 
 ```sh
 # authorized_keys options are comma-separated, one permitopen per host
-restrict,port-forwarding,permitopen="<WORKLOAD_HOST>:22",permitopen="<FRONT_PROXY_HOST>:22" ssh-ed25519 AAAA... 
+restrict,port-forwarding,permitopen="<WORKLOAD_HOST>:22",permitopen="<FRONT_PROXY_HOST>:22" ssh-ed25519 AAAA...
 
 # sshd_config takes a SPACE-separated list, and the Match block must be the
 # LAST thing in the file — `Include /etc/ssh/sshd_config.d/*.conf` sits at the
@@ -126,19 +127,19 @@ keep growing.
 Create two GitHub **Environments** in `penumbrafi/web` (Settings ->
 Environments):
 
-| environment | gates on | used by |
-| --- | --- | --- |
+| environment  | gates on                         | used by                                                                         |
+| ------------ | -------------------------------- | ------------------------------------------------------------------------------- |
 | `production` | required reviewers (maintainers) | `deploy-veil.yml` (the swap step), `promote-veil.yml`, `deploy-node-status.yml` |
-| `preview` | no required reviewers | `preview-veil.yml` |
+| `preview`    | no required reviewers            | `preview-veil.yml`                                                              |
 
 `production` environment secrets:
 
-| secret | value |
-| --- | --- |
-| `DEPLOY_SSH_KEY` | ed25519 **private** key for the deploy account, PEM body |
-| `DEPLOY_HOST` | public address of the jump host |
-| `DEPLOY_CT` | address of the workload container on the internal network |
-| `DEPLOY_PROXY_CT` | address of the front-proxy container on the internal network |
+| secret               | value                                                                                                                                                                                         |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DEPLOY_SSH_KEY`     | ed25519 **private** key for the deploy account, PEM body                                                                                                                                      |
+| `DEPLOY_HOST`        | public address of the jump host                                                                                                                                                               |
+| `DEPLOY_CT`          | address of the workload container on the internal network                                                                                                                                     |
+| `DEPLOY_PROXY_CT`    | address of the front-proxy container on the internal network                                                                                                                                  |
 | `DEPLOY_KNOWN_HOSTS` | pinned host keys for the jump host, the workload container, and the front-proxy container — generate with `ssh-keyscan`, do not paste keys from this README into an issue or elsewhere public |
 
 `DEPLOY_SSH_KEY`, `DEPLOY_HOST`, `DEPLOY_CT` and `DEPLOY_KNOWN_HOSTS` are also
@@ -152,8 +153,8 @@ below.
 
 Repository **secrets** (not environment-scoped):
 
-| secret | value |
-| --- | --- |
+| secret                               | value                                                                                                   |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------- |
 | `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` | `openssl rand -base64 32`, identical to the value in every colour's `.env.production.local` on the host |
 
 This one is deliberately repository-scoped rather than `production`-scoped.
@@ -177,7 +178,7 @@ meaningful when combined with:
 
 1. **Branch protection on `main`** — Settings -> Branches -> Add rule:
    require pull request review before merge, require the `Turbo CI`
-   status check to pass, and *disable* force pushes. Otherwise anyone
+   status check to pass, and _disable_ force pushes. Otherwise anyone
    who can push to main can rewrite `main` to include a poisoned
    ssh-deploy action and immediately ship it.
 2. **Repository ruleset restricting `v*` tag pushes** — Settings ->
@@ -196,10 +197,10 @@ Repository **variables** (Settings -> Secrets and variables -> Actions ->
 Variables). These are inlined into the JS bundle at build time and are not
 secret:
 
-| variable | value |
-| --- | --- |
-| `NEXT_PUBLIC_GRAPHQL_HOST` | hostname only, no scheme — `api.explorer.penumbra.fi` (currently `api.explorer.rotko.net`) |
-| `NEXT_PUBLIC_COMETBFT_WS_URL` | `wss://penumbra.rotko.net/websocket` |
+| variable                      | value                                                                                      |
+| ----------------------------- | ------------------------------------------------------------------------------------------ |
+| `NEXT_PUBLIC_GRAPHQL_HOST`    | hostname only, no scheme — `api.explorer.penumbra.fi` (currently `api.explorer.rotko.net`) |
+| `NEXT_PUBLIC_COMETBFT_WS_URL` | `wss://penumbra.rotko.net/websocket`                                                       |
 
 Changing either one requires a rebuild, not just a host edit. Both have an
 explicit fallback in the workflow, so leaving them unset keeps the current
@@ -308,7 +309,7 @@ by side on the workload container from the templated unit
     (same layout)
 ```
 
-`.env.production*` sit *beside* `current`, not inside it — the deploy
+`.env.production*` sit _beside_ `current`, not inside it — the deploy
 workflow's `rsync --delete` only ever touches `releases/<sha>/`, and the
 build job deliberately strips any `.env*` out of the artifact, so anything
 living inside the release tree would be gone on the very next deploy.
@@ -332,7 +333,7 @@ this topology they are not — it must be set to
 
 1. `deploy-veil.yml` on `push: main` (or `workflow_dispatch` with
    `promote: auto`, the default): build → ask `proxy` which colour is active
-   → rsync the artifact into the *other* colour's `releases/<sha>` on
+   → rsync the artifact into the _other_ colour's `releases/<sha>` on
    `target` → flip that colour's `current` symlink → restart its unit →
    poll its port directly until it answers (up to 120s; it isn't serving
    traffic yet, so there's no rush) → `veil-swap <target>` on `proxy` →
@@ -351,8 +352,8 @@ is still running, untouched, so promoting back is instant.
 
 ### Out-of-band (manual) deploy
 
-Shipping a locally built artifact without CI needs the tarball *inside the
-workload container*: `scp` to the jump host only puts it in the host's `/tmp`,
+Shipping a locally built artifact without CI needs the tarball _inside the
+workload container_: `scp` to the jump host only puts it in the host's `/tmp`,
 which `pct exec` cannot see, so unpacking there fails with
 `tar (child): … Cannot open: No such file or directory`. Use `pct push`:
 
@@ -601,12 +602,12 @@ built and torn down by `.github/workflows/preview-veil.yml`.
 ### Threat model
 
 Anyone with commit access to this repo can open a PR that runs arbitrary
-code inside the *build* job. The preview infrastructure is designed so that
+code inside the _build_ job. The preview infrastructure is designed so that
 arbitrary code:
 
 1. Never sees any secret. The build job runs with no environment secrets and
    `persist-credentials: false` on `actions/checkout`.
-2. Never influences the *deploy* job. The deploy and teardown jobs check out
+2. Never influences the _deploy_ job. The deploy and teardown jobs check out
    the PR's **base ref**, not its head, so `.github/actions/ssh-deploy` and
    every other composite action executes as its maintainer-merged version —
    the PR head has no way to alter what runs alongside `DEPLOY_SSH_KEY`.
@@ -643,7 +644,7 @@ touched.
     current -> releases/<sha> symlink flipped atomically
 ```
 
-`etc/` sits *outside* every `<pr>/` and is not writable by the CI account, so
+`etc/` sits _outside_ every `<pr>/` and is not writable by the CI account, so
 a compromised preview cannot swap `env.preview` for a symlink to
 `/etc/letsencrypt/cloudflare.ini` and have PID 1 read it back as environment
 variables.
@@ -691,17 +692,17 @@ only**. Do not use a global token. `/etc/letsencrypt/cloudflare.ini`, mode
 
 `preview` environment secrets:
 
-| secret | notes |
-| --- | --- |
-| `DEPLOY_SSH_KEY` | **preview-only** ed25519 key. Not the prod key, not scoped to the front-proxy container at all. |
-| `DEPLOY_HOST` | jump host public address (can be the same jump host as `production`; the account and its `permitopen` are what differ) |
-| `DEPLOY_CT` | workload container internal address |
-| `DEPLOY_KNOWN_HOSTS` | same pinned host keys as `production` for the jump host and workload container |
+| secret               | notes                                                                                                                  |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `DEPLOY_SSH_KEY`     | **preview-only** ed25519 key. Not the prod key, not scoped to the front-proxy container at all.                        |
+| `DEPLOY_HOST`        | jump host public address (can be the same jump host as `production`; the account and its `permitopen` are what differ) |
+| `DEPLOY_CT`          | workload container internal address                                                                                    |
+| `DEPLOY_KNOWN_HOSTS` | same pinned host keys as `production` for the jump host and workload container                                         |
 
 Repository variable:
 
-| variable | value |
-| --- | --- |
+| variable       | value             |
+| -------------- | ----------------- |
 | `PREVIEW_ZONE` | `dev.penumbra.fi` |
 
 ### One-time host setup (workload container)
@@ -809,9 +810,9 @@ and run `sudo preview-ctl stop <pr>` per orphan.
 
 ## Known unverified
 
-* GitHub-hosted runners reaching the jump host on `:22` — not yet exercised
+- GitHub-hosted runners reaching the jump host on `:22` — not yet exercised
   from a runner IP.
-* Whether veil's native dependency `canvas` loads on the host if built on
+- Whether veil's native dependency `canvas` loads on the host if built on
   `ubuntu-latest` (glibc 2.39) against a Debian bookworm target (glibc 2.36).
   If `server.js` fails on the first deploy with a `GLIBC_` or `.node` loader
   error, switch the build job to `container: node:22-bookworm`.
@@ -820,30 +821,30 @@ and run `sudo preview-ctl stop <pr>` per orphan.
 
 Applied by hand, already live in production:
 
-* Blue/green systemd units (`penumbra-veil@blue`, `penumbra-veil@green`) on
+- Blue/green systemd units (`penumbra-veil@blue`, `penumbra-veil@green`) on
   the workload container.
-* `veil-swap` and `veil-upstream.conf` on the front-proxy container.
-* The front-proxy vhosts for `penumbra.fi` and `dex.rotko.net`, routed through
+- `veil-swap` and `veil-upstream.conf` on the front-proxy container.
+- The front-proxy vhosts for `penumbra.fi` and `dex.rotko.net`, routed through
   `veil-upstream.conf`.
-* The staging `veil-upstream.conf` include mechanics (i.e. `veil_staging`
+- The staging `veil-upstream.conf` include mechanics (i.e. `veil_staging`
   always points at the standby colour) and the `staging.penumbra.fi` vhost
   behind it (Cloudflare-proxied, origin reuses the `penumbra.fi` cert,
   `noindex`).
-* The forwarding-only `deploy-jump` account, its per-repo keypair and
+- The forwarding-only `deploy-jump` account, its per-repo keypair and
   `permitopen`/`PermitOpen` confinement.
-* The `production` environment secrets (`DEPLOY_SSH_KEY`, `DEPLOY_HOST`,
+- The `production` environment secrets (`DEPLOY_SSH_KEY`, `DEPLOY_HOST`,
   `DEPLOY_CT`, `DEPLOY_PROXY_CT`, `DEPLOY_KNOWN_HOSTS`) and the repository
   secret `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`.
-* The deploy account's `authorized_keys` in the workload container and in the
+- The deploy account's `authorized_keys` in the workload container and in the
   front-proxy container, and the `penumbra-deploy-veil` /
   `penumbra-deploy-veil-swap` sudoers files.
-* Per-colour `releases/` directories and root-owned
+- Per-colour `releases/` directories and root-owned
   `.env.production.local` beside each `current`.
 
 ### Transitional drop-in
 
 Before CI owned this deploy, both colours' `current` pointed at one shared,
-hand-built *full workspace* checkout started with `npx next start`, not at a
+hand-built _full workspace_ checkout started with `npx next start`, not at a
 per-colour standalone tree started with `node server.js`. Installing the unit
 template above would therefore kill any colour that crash-restarts before its
 first CI deploy. Each colour carries a drop-in at
@@ -866,10 +867,10 @@ to go because its `20-free-port.conf` `ExecStartPre` kills whatever holds
 Not yet applied — required before `gh workflow run deploy-veil.yml` will work
 end-to-end:
 
-* node-status host setup (release dir exists nowhere, no vhost).
-* Everything under the dev-slot section: `/opt/penumbra-veil/dev/`,
+- node-status host setup (release dir exists nowhere, no vhost).
+- Everything under the dev-slot section: `/opt/penumbra-veil/dev/`,
   `env.port=3010`, `.env.production.local` copy, `penumbra-veil@dev`
   systemd enable, sudoers extension, `dev.penumbra.fi` DNS + Cloudflare
   Access + vhost + TLS cert.
-* Everything under the per-PR previews section (dedicated user, wildcard
+- Everything under the per-PR previews section (dedicated user, wildcard
   vhost, wildcard cert, Cloudflare Access, sysctl reservation).
