@@ -3,7 +3,7 @@ import { FC } from 'react'
 import { Surface, SwapVolumeChart } from '@/pages/inspect/explorer/components'
 import getSwapVolumeHistory from '@/pages/inspect/explorer/lib/data/getSwapVolumeHistory'
 import { classNames } from '@/pages/inspect/explorer/lib/utils'
-import { Props } from './dexVolumeHistoryContainer'
+import type { Props } from './dexVolumeHistoryContainer'
 
 const DexVolumeHistoryLoader: FC<Props> = async props => {
     const days = props.days || 30

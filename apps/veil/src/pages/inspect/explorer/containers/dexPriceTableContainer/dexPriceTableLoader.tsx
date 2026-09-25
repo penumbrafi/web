@@ -3,7 +3,7 @@ import { FC } from 'react'
 import { Surface } from '@/pages/inspect/explorer/components'
 import getRecentSwapPrices from '@/pages/inspect/explorer/lib/data/getRecentSwapPrices'
 import { classNames } from '@/pages/inspect/explorer/lib/utils'
-import { Props } from './dexPriceTableContainer'
+import type { Props } from './dexPriceTableContainer'
 
 function truncateAssetId(id: string): string {
     if (id.length > 16) {return `${id.slice(0, 8)}...${id.slice(-6)}`}

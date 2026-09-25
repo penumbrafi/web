@@ -6,7 +6,7 @@ import { Surface } from '@/pages/inspect/explorer/components'
 import getTradingPairLiquidity from '@/pages/inspect/explorer/lib/data/getTradingPairLiquidity'
 import getTradingVolume24h from '@/pages/inspect/explorer/lib/data/getTradingVolume24h'
 import { classNames } from '@/pages/inspect/explorer/lib/utils'
-import { Props } from './dexMarketOverviewContainer'
+import type { Props } from './dexMarketOverviewContainer'
 
 function truncateAssetId(id: string): string {
     if (id.length > 16) {return `${id.slice(0, 8)}...${id.slice(-6)}`}

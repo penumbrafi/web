@@ -2,7 +2,7 @@
 import { FC } from 'react'
 import { Pagination, VoteTable } from '@/pages/inspect/explorer/components'
 import { getVotes } from '@/pages/inspect/explorer/lib/data'
-import { Props } from './voteTableContainer'
+import type { Props } from './voteTableContainer'
 
 const VoteTableLoader: FC<Props> = async ({
     limit,

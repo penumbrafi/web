@@ -4,7 +4,7 @@ import { FC } from 'react'
 import { NumberPanel } from '@/pages/inspect/explorer/components'
 import { getVotingStart } from '@/pages/inspect/explorer/lib/data'
 import dayjs from '@/pages/inspect/explorer/lib/dayjs/dayjs'
-import { Props } from './votingStartPanelContainer'
+import type { Props } from './votingStartPanelContainer'
 
 const VotingStartPanelLoader: FC<Props> = async ({ proposalId, ...props }) => {
     const votingStart = await getVotingStart(proposalId)

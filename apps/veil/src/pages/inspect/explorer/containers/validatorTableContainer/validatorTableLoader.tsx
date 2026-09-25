@@ -6,7 +6,7 @@ import { ValidatorTable } from '@/pages/inspect/explorer/components'
 import { getValidators } from '@/pages/inspect/explorer/lib/data'
 import { ValidatorStateFilter } from '@/pages/inspect/explorer/lib/graphql/generated/types'
 import { fetchValidatorStakeDeltas } from '@/pages/inspect/explorer/server/validator-stake-deltas'
-import { Props } from './validatorTableContainer'
+import type { Props } from './validatorTableContainer'
 
 const ValidatorTableLoader: FC<Props> = async props => {
     const [validators, deltas] = await Promise.all([

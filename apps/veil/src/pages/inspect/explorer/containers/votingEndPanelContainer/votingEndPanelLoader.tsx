@@ -5,7 +5,7 @@ import { NumberPanel } from '@/pages/inspect/explorer/components'
 import { getLatestBlockHeight, getVotingEnd } from '@/pages/inspect/explorer/lib/data'
 import dayjs from '@/pages/inspect/explorer/lib/dayjs/dayjs'
 import { blocksDuration } from '@/pages/inspect/explorer/lib/utils'
-import { Props } from './votingEndPanelContainer'
+import type { Props } from './votingEndPanelContainer'
 
 const VotingEndPanelLoader: FC<Props> = async ({ proposalId, ...props }) => {
     const [latestBlockHeight, votingEnd] = await Promise.all([

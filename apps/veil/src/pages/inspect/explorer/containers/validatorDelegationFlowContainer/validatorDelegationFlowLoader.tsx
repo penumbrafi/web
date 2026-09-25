@@ -5,7 +5,7 @@ import getValidatorDelegates from '@/pages/inspect/explorer/lib/data/getValidato
 import getValidatorStakingStats from '@/pages/inspect/explorer/lib/data/getValidatorStakingStats'
 import getValidatorUndelegates from '@/pages/inspect/explorer/lib/data/getValidatorUndelegates'
 import { classNames } from '@/pages/inspect/explorer/lib/utils'
-import { Props } from './validatorDelegationFlowContainer'
+import type { Props } from './validatorDelegationFlowContainer'
 
 // Aggregate events by day from raw delegate/undelegate records
 function aggregateByDay(

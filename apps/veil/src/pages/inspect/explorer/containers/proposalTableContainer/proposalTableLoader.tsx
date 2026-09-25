@@ -2,7 +2,7 @@
 import { FC } from 'react'
 import { Pagination, ProposalTable } from '@/pages/inspect/explorer/components'
 import { getPastProposals } from '@/pages/inspect/explorer/lib/data'
-import { Props } from './proposalTableContainer'
+import type { Props } from './proposalTableContainer'
 
 const ProposalTableLoader: FC<Props> = async ({
     limit,

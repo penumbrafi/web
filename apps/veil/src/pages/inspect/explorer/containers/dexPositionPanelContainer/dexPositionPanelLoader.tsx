@@ -2,7 +2,7 @@
 import { FC } from 'react'
 import { NumberPanel } from '@/pages/inspect/explorer/components'
 import getDexOpenPositions from '../../lib/data/getDexOpenPositions'
-import { Props } from './dexPositionPanelContainer'
+import type { Props } from './dexPositionPanelContainer'
 
 const DexPositionPanelLoader: FC<Props> = async props => {
     const number = await getDexOpenPositions()

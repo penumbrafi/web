@@ -3,7 +3,7 @@ import { FC } from 'react'
 import { Pagination } from '@/pages/inspect/explorer/components'
 import { getDexLiquidityPositions } from '@/pages/inspect/explorer/lib/data'
 import DexPositionTable from '../../components/tables/dexPositionTable/dexPositionTable'
-import { Props } from './dexPositionTableContainer'
+import type { Props } from './dexPositionTableContainer'
 
 const DexPositionTableLoader: FC<Props> = async ({
     limit,

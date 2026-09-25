@@ -1,5 +1,5 @@
 import { OhlcData, UTCTimestamp } from 'lightweight-charts';
-import { DbCandle } from '@/shared/api/server/candles/types.ts';
+import type { DbCandle } from '@/shared/api/server/candles/types.ts';
 import { addDurationWindow, DurationWindow } from '@/shared/utils/duration.ts';
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { getDisplayDenomExponent } from '@penumbra-zone/getters/metadata';

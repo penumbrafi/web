@@ -3,7 +3,7 @@ import { FC } from 'react'
 import { getBlocks, getValidatorBlocks } from '@/pages/inspect/explorer/lib/data'
 import { ValidatorState } from '@/pages/inspect/explorer/lib/graphql/generated/types'
 import GraphqlClientProvider from '@/pages/inspect/explorer/lib/graphql/graphqlClientProvider'
-import { Props } from './validatorStatusContainer'
+import type { Props } from './validatorStatusContainer'
 import ValidatorStatusUpdater from './validatorStatusUpdater'
 
 const ValidatorStatusLoader: FC<Props> = async props => {

@@ -7,7 +7,7 @@ import { useValidatorBlockUpdateSubscription } from '@/pages/inspect/explorer/li
 import { ValidatorBlock } from '@/pages/inspect/explorer/lib/types'
 import { classNames } from '@/pages/inspect/explorer/lib/utils'
 import ValidatorStatusBlocks from './validatorStatusBlocks'
-import { Props as ValidatorStatusContainerProps } from './validatorStatusContainer'
+import type { Props as ValidatorStatusContainerProps } from './validatorStatusContainer'
 import ValidatorStatusLegend from './validatorStatusLegend'
 
 interface Props extends ValidatorStatusContainerProps {

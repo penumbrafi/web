@@ -2,7 +2,7 @@
 import { FC } from 'react'
 import { getStats } from '@/pages/inspect/explorer/lib/data'
 import GraphqlClientProvider from '@/pages/inspect/explorer/lib/graphql/graphqlClientProvider'
-import { Props } from './transactionPanelContainer'
+import type { Props } from './transactionPanelContainer'
 import TransactionPanelUpdater from './transactionPanelUpdater'
 
 const TransactionPanelLoader: FC<Props> = async props => {

@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { FC } from 'react'
 import { BlockView } from '@/pages/inspect/explorer/components'
 import { getBlock, getDexBlockExecutions } from '@/pages/inspect/explorer/lib/data'
-import { Props } from './blockViewContainer'
+import type { Props } from './blockViewContainer'
 
 const BlockViewLoader: FC<Props> = async ({ blockHeight, ...props }) => {
     const [block, blockExecutions] = await Promise.all([

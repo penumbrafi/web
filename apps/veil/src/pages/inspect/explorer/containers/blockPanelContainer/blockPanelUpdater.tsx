@@ -5,7 +5,7 @@ import { FC, useEffect, useRef, useState } from 'react'
 import { BlockPanel } from '@/pages/inspect/explorer/components'
 import { animationFrameMs } from '@/pages/inspect/explorer/lib/constants'
 import { subscribeToNewBlocks } from '@/shared/cometbft/subscribe-new-blocks'
-import { Props as BlockPanelContainerProps } from './blockPanelContainer'
+import type { Props as BlockPanelContainerProps } from './blockPanelContainer'
 
 const COMETBFT_WS_URL =
     process.env['NEXT_PUBLIC_COMETBFT_WS_URL'] ?? 'wss://penumbra.rotko.net/websocket'

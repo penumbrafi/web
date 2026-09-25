@@ -2,7 +2,7 @@
 import { FC } from 'react'
 import { NumberPanel } from '@/pages/inspect/explorer/components'
 import { getValidatorVotingPercentage } from '@/pages/inspect/explorer/lib/data'
-import { Props } from './validatorVotingPercentagePanelContainer'
+import type { Props } from './validatorVotingPercentagePanelContainer'
 
 const ValidatorVotingPercentagePanelLoader: FC<Props> = async props => {
     const number = await getValidatorVotingPercentage(props.validatorId)

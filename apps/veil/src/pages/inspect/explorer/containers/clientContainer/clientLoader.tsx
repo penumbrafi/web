@@ -12,7 +12,7 @@ import {
 import { getIbcStats } from '@/pages/inspect/explorer/lib/data'
 import { placeholderAvatarImage } from '@/pages/inspect/explorer/lib/images'
 import { classNames, formatNumber } from '@/pages/inspect/explorer/lib/utils'
-import { Props } from './clientContainer'
+import type { Props } from './clientContainer'
 
 const ClientLoader: FC<Props> = async props => {
     const stats = await getIbcStats({ clientId: props.id })

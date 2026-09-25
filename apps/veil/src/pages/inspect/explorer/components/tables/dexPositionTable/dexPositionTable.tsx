@@ -1,6 +1,7 @@
 import { ExternalLinkIcon } from 'lucide-react'
 import { FC } from 'react'
-import { DexPositionStatePill, TimeAgo } from '@/pages/inspect/explorer/components'
+import { DexPositionStatePill } from '../../pills'
+import TimeAgo from '../../timeAgo'
 import { TransformedDexPosition } from '@/pages/inspect/explorer/lib/types'
 import { classNames, shortenHash } from '@/pages/inspect/explorer/lib/utils'
 import AssetPair from '../../assetPair'

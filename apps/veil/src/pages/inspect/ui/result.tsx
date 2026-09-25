@@ -1,25 +1,15 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
 import { Text } from '@penumbra-zone/ui/Text';
 import { useLpPosition } from '@/pages/inspect/lp/api/position.ts';
 import { StateDetails } from '@/pages/inspect/ui/state-details.tsx';
 import { VolumeAndFeesTable } from '@/pages/inspect/ui/volume.tsx';
 import { DebugView } from '@/pages/inspect/ui/debug.tsx';
 import { Timeline } from '@/pages/inspect/ui/executions.tsx';
+import { useLpIdInUrl } from '@/pages/inspect/ui/use-lp-id.ts';
 
 const ErrorState = ({ error }: { error: unknown }) => {
   return <Text color='destructive.main'>{String(error)}</Text>;
-};
-
-export const useLpIdInUrl = () => {
-  const params = useParams<{ id: string }>();
-  const router = useRouter();
-  if (!params?.id) {
-    router.push('/explore');
-    return '';
-  }
-  return params.id;
 };
 
 export const LpInspectResult = () => {

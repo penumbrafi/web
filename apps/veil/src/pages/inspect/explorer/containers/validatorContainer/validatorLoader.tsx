@@ -14,7 +14,7 @@ import { getValidator } from '@/pages/inspect/explorer/lib/data'
 import { placeholderAvatarImage } from '@/pages/inspect/explorer/lib/images'
 import { classNames, formatNumber, shortenHash } from '@/pages/inspect/explorer/lib/utils'
 import { validatorImages } from '@/pages/inspect/explorer/lib/validators'
-import { Props } from './validatorContainer'
+import type { Props } from './validatorContainer'
 
 const ValidatorLoader: FC<Props> = async props => {
     const validator = await getValidator(props.validatorId)

@@ -1,4 +1,4 @@
-import { CandleWithVolume } from './utils';
+import type { CandleWithVolume } from './utils';
 
 export type CandleApiResponse = CandleWithVolume[] | { error: string };
 

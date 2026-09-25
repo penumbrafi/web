@@ -5,7 +5,7 @@ import { NumberPanel } from '@/pages/inspect/explorer/components'
 import { getValidatorVotingPower } from '@/pages/inspect/explorer/lib/data'
 import { ValidatorState } from '@/pages/inspect/explorer/lib/graphql/generated/types'
 import { penumbraImage } from '@/pages/inspect/explorer/lib/images'
-import { Props } from './validatorVotingPowerPanelContainer'
+import type { Props } from './validatorVotingPowerPanelContainer'
 
 const ValidatorVotingPowerPanelLoader: FC<Props> = async props => {
     const validator = await getValidatorVotingPower(props.validatorId)

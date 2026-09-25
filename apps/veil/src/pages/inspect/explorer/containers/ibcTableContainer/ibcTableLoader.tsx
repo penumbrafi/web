@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { FC } from 'react'
 import { IbcTable } from '@/pages/inspect/explorer/components'
 import { getIbcStats } from '@/pages/inspect/explorer/lib/data'
-import { Props } from './ibcTableContainer'
+import type { Props } from './ibcTableContainer'
 
 const IbcTableLoader: FC<Props> = async props => {
     const stats = await getIbcStats()

@@ -5,7 +5,7 @@ import { FC, useCallback, useState } from 'react'
 import { Button, DexBlockExecution, EmptyState, Surface } from '@/pages/inspect/explorer/components'
 import { TransformedDexBlockExecution } from '@/pages/inspect/explorer/lib/types'
 import { classNames } from '@/pages/inspect/explorer/lib/utils'
-import { Props as DexExecutionContainerProps } from './dexExecutionContainer'
+import type { Props as DexExecutionContainerProps } from './dexExecutionContainer'
 
 interface Props extends DexExecutionContainerProps {
     blockExecutions: TransformedDexBlockExecution[]

@@ -2,7 +2,7 @@
 import { notFound } from 'next/navigation'
 import { FC } from 'react'
 import { getDexBlockExecutions } from '@/pages/inspect/explorer/lib/data'
-import { Props } from './dexExecutionContainer'
+import type { Props } from './dexExecutionContainer'
 import DexExecutionSection from './dexExecutionSection'
 
 const DexExecutionLoader: FC<Props> = async props => {

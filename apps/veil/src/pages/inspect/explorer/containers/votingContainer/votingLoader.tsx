@@ -3,7 +3,7 @@ import { FC } from 'react'
 import { Surface, VotingStatePill } from '@/pages/inspect/explorer/components'
 import { getVoting } from '@/pages/inspect/explorer/lib/data'
 import { classNames } from '@/pages/inspect/explorer/lib/utils'
-import { Props } from './votingContainer'
+import type { Props } from './votingContainer'
 import VotingNumbers from './votingNumbers'
 
 const VotingLoader: FC<Props> = async ({ proposalId, ...props }) => {

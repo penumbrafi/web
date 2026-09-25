@@ -11,7 +11,7 @@ import {
 } from '@penumbra-zone/protobuf/penumbra/core/transaction/v1/transaction_pb'
 import { TransactionId } from '@penumbra-zone/protobuf/penumbra/core/txhash/v1/txhash_pb'
 import { TransactionInfo } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb'
-import { actionToView } from '@/pages/inspect/explorer/lib/utils'
+import actionToView from '../actionToView'
 
 // https://github.com/penumbra-zone/dex-explorer/blob/main/src/pages/inspect/tx/api/transaction.ts
 const transactionToView = (

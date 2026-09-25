@@ -3,7 +3,7 @@ import { FC } from 'react'
 import { StakingHistoryChart, Surface } from '@/pages/inspect/explorer/components'
 import { getValidatorVotingPowerHistory } from '@/pages/inspect/explorer/lib/data'
 import { classNames } from '@/pages/inspect/explorer/lib/utils'
-import { Props } from './validatorVotingPowerHistoryContainer'
+import type { Props } from './validatorVotingPowerHistoryContainer'
 
 const ValidatorVotingPowerHistoryLoader: FC<Props> = async props => {
     const history = await getValidatorVotingPowerHistory(

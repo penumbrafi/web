@@ -4,7 +4,7 @@ import { ArrowLeftRight } from 'lucide-react';
 import { Icon } from '@penumbra-zone/ui/Icon';
 import { Density } from '@penumbra-zone/ui/Density';
 import { useLpPosition } from '@/pages/inspect/lp/api/position.ts';
-import { useLpIdInUrl } from '@/pages/inspect/ui/result.tsx';
+import { useLpIdInUrl } from '@/pages/inspect/ui/use-lp-id.ts';
 import { Skeleton } from '@/shared/ui/skeleton.tsx';
 import { PositionStateVV } from '@/pages/inspect/lp/api/types.ts';
 

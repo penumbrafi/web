@@ -12,7 +12,7 @@ import {
 import getProposal from '@/pages/inspect/explorer/lib/data/getProposal'
 import { ProposalState } from '@/pages/inspect/explorer/lib/graphql/generated/types'
 import { classNames, formatNumber } from '@/pages/inspect/explorer/lib/utils'
-import { Props } from './proposalContainer'
+import type { Props } from './proposalContainer'
 import { VotePanel } from './vote-panel'
 
 const ProposalLoader: FC<Props> = async ({ proposalId, ...props }) => {

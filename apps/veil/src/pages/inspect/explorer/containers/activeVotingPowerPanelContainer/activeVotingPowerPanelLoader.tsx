@@ -5,7 +5,7 @@ import { NumberPanel } from '@/pages/inspect/explorer/components'
 import { getActiveVotingPower } from '@/pages/inspect/explorer/lib/data'
 import { ValidatorStateFilter } from '@/pages/inspect/explorer/lib/graphql/generated/types'
 import { penumbraImage } from '@/pages/inspect/explorer/lib/images'
-import { Props } from './activeVotingPowerPanelContainer'
+import type { Props } from './activeVotingPowerPanelContainer'
 
 const titleFor = (state?: ValidatorStateFilter): string => {
     if (state === ValidatorStateFilter.Inactive) {return 'Inactive bonded stake'}

@@ -6,7 +6,7 @@ import { Icon } from '@penumbra-zone/ui/Icon';
 import { ArrowRight } from 'lucide-react';
 import { AssetIcon } from '@penumbra-zone/ui/AssetIcon';
 import { TimeDisplay } from '@/pages/inspect/ui/time.tsx';
-import { useLpIdInUrl } from '@/pages/inspect/ui/result.tsx';
+import { useLpIdInUrl } from '@/pages/inspect/ui/use-lp-id.ts';
 import { useLpPosition } from '@/pages/inspect/lp/api/position.ts';
 import { Skeleton } from '@/shared/ui/skeleton.tsx';
 import { PositionClosed, PositionOpen, PositionWithdraw } from '@/pages/inspect/ui/actions.tsx';

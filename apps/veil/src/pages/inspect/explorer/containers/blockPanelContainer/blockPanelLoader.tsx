@@ -2,7 +2,7 @@
 import { FC } from 'react'
 import { getBlocks } from '@/pages/inspect/explorer/lib/data'
 import GraphqlClientProvider from '@/pages/inspect/explorer/lib/graphql/graphqlClientProvider'
-import { Props } from './blockPanelContainer'
+import type { Props } from './blockPanelContainer'
 import BlockPanelUpdater from './blockPanelUpdater'
 
 const BlockPanelLoader: FC<Props> = async props => {

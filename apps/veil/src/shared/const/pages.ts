@@ -1,5 +1,3 @@
-import { usePagePath } from '@/shared/utils/usePagePath.ts';
-
 export enum PagePath {
   Home = '/',
   // Was '/inspect' (chain explorer); promoted to '/explore' as the
@@ -20,7 +18,7 @@ export enum PagePath {
   LearnFaq = '/learn/faq',
 }
 
-const basePath: Partial<Record<PagePath, PagePath>> = {
+export const basePath: Partial<Record<PagePath, PagePath>> = {
   [PagePath.TradePair]: PagePath.Trade,
   [PagePath.PortfolioStaking]: PagePath.Portfolio,
   '/explore/lp/:id': PagePath.Explore,
@@ -31,17 +29,6 @@ const basePath: Partial<Record<PagePath, PagePath>> = {
 export enum QueryParams {
   PortfolioShowShieldingTicker = 'showShieldingTicker',
 }
-
-// Used for dynamic routing when wanting to exclude the dynamic elements
-export const useBasePath = (): PagePath => {
-  const path = usePagePath();
-
-  const base = basePath[path];
-  if (base) {
-    return base;
-  }
-  return path;
-};
 
 export const getTradePairPath = (
   primary: string,

@@ -7,7 +7,7 @@ import dayjs from '@/pages/inspect/explorer/lib/dayjs/dayjs'
 import { useChainParametersUpdateSubscription } from '@/pages/inspect/explorer/lib/graphql/generated/hooks'
 import { ChainParameters } from '@/pages/inspect/explorer/lib/graphql/generated/types'
 import { blocksDuration, classNames, formatNumber } from '@/pages/inspect/explorer/lib/utils'
-import { Props as ChainParametersContainerProps } from './chainParametersContainer'
+import type { Props as ChainParametersContainerProps } from './chainParametersContainer'
 
 interface Props extends ChainParametersContainerProps {
     parameters: Omit<ChainParameters, 'lastUpdated'>

@@ -14,7 +14,7 @@ import {
 import transactionSubscription from '@/pages/inspect/explorer/lib/graphql/subscriptions/transactionSubscription'
 import { TransformedPartialTransactionFragment } from '@/pages/inspect/explorer/lib/types'
 import { decodeTransaction, findPrimaryAction } from '@/pages/inspect/explorer/lib/utils'
-import { Props as TransactionTableContainerProps } from './transactionTableContainer'
+import type { Props as TransactionTableContainerProps } from './transactionTableContainer'
 
 interface Props extends TransactionTableContainerProps {
     total: number

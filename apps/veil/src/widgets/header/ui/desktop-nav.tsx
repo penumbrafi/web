@@ -2,7 +2,7 @@ import { useRouter } from 'next/navigation';
 import { Tabs } from '@penumbra-zone/ui/Tabs';
 import { Density } from '@penumbra-zone/ui/Density';
 import { HEADER_LINKS } from './links';
-import { useBasePath } from '@/shared/const/pages.ts';
+import { useBasePath } from '@/shared/utils/usePagePath.ts';
 
 export const DesktopNav = () => {
   const currentPath = useBasePath();

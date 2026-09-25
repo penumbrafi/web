@@ -5,7 +5,7 @@ import { Icon } from '@penumbra-zone/ui/Icon';
 import { Density } from '@penumbra-zone/ui/Density';
 import { Table } from '@penumbra-zone/ui/Table';
 import { AssetIcon } from '@penumbra-zone/ui/AssetIcon';
-import { useLpIdInUrl } from '@/pages/inspect/ui/result.tsx';
+import { useLpIdInUrl } from '@/pages/inspect/ui/use-lp-id.ts';
 import { useLpPosition } from '@/pages/inspect/lp/api/position.ts';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { Card } from '@penumbra-zone/ui/Card';

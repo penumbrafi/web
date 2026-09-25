@@ -2,7 +2,7 @@
 import { FC } from 'react'
 import { Panel } from '@/pages/inspect/explorer/components'
 import { getValidatorActiveSince } from '@/pages/inspect/explorer/lib/data'
-import { Props } from './validatorActiveSincePanelContainer'
+import type { Props } from './validatorActiveSincePanelContainer'
 
 const ValidatorActiveSincePanelLoader: FC<Props> = async props => {
     const activeSince = await getValidatorActiveSince(props.validatorId)

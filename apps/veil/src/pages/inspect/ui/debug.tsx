@@ -1,6 +1,6 @@
 import { Text } from '@penumbra-zone/ui/Text';
 import { JsonViewer } from '@textea/json-viewer';
-import { useLpIdInUrl } from '@/pages/inspect/ui/result.tsx';
+import { useLpIdInUrl } from '@/pages/inspect/ui/use-lp-id.ts';
 import { useLpPosition } from '@/pages/inspect/lp/api/position.ts';
 import { Skeleton } from '@/shared/ui/skeleton.tsx';
 

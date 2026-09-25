@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { FC } from 'react'
 import { NumberPanel } from '@/pages/inspect/explorer/components'
 import getActiveValidators from '@/pages/inspect/explorer/lib/data/getActiveValidators'
-import { Props } from './activeValidatorsPanelContainer'
+import type { Props } from './activeValidatorsPanelContainer'
 
 const ActiveValidatorsPanelLoader: FC<Props> = async props => {
     const activeValidators = await getActiveValidators()

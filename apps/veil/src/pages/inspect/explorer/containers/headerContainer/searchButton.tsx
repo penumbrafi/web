@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation'
 import { FC, useCallback, useState } from 'react'
 import { Button, Modal } from '@/pages/inspect/explorer/components'
-import { SearchContainer } from '@/pages/inspect/explorer/containers'
+import SearchContainer from '../searchContainer'
 import GraphqlClientProvider from '@/pages/inspect/explorer/lib/graphql/graphqlClientProvider'
 import { classNames } from '@/pages/inspect/explorer/lib/utils'
 

@@ -3,7 +3,7 @@ import { FC } from 'react'
 import { IbcFlowChart, Surface } from '@/pages/inspect/explorer/components'
 import { getIbcFlowHistory } from '@/pages/inspect/explorer/lib/data/getIbcFlowHistory'
 import { classNames } from '@/pages/inspect/explorer/lib/utils'
-import { Props } from './ibcFlowHistoryContainer'
+import type { Props } from './ibcFlowHistoryContainer'
 
 const IbcFlowHistoryLoader: FC<Props> = async props => {
     const days = props.days || 30

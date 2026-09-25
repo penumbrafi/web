@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { FC } from 'react'
 import { getChainParameters } from '@/pages/inspect/explorer/lib/data'
 import GraphqlClientProvider from '@/pages/inspect/explorer/lib/graphql/graphqlClientProvider'
-import { Props } from './chainParametersContainer'
+import type { Props } from './chainParametersContainer'
 import ChainParametersUpdater from './chainParametersUpdater'
 
 const ChainParametersLoader: FC<Props> = async props => {

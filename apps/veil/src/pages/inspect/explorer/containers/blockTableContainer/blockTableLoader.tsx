@@ -2,7 +2,7 @@
 import { FC } from 'react'
 import { getBlocks } from '@/pages/inspect/explorer/lib/data'
 import GraphqlClientProvider from '@/pages/inspect/explorer/lib/graphql/graphqlClientProvider'
-import { Props } from './blockTableContainer'
+import type { Props } from './blockTableContainer'
 import BlockTableUpdater from './blockTableUpdater'
 
 const BlockTableLoader: FC<Props> = async props => {

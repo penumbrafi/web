@@ -13,7 +13,7 @@ import {
 import blocksQuery from '@/pages/inspect/explorer/lib/graphql/queries/blocksQuery'
 import { subscribeToNewBlocks } from '@/shared/cometbft/subscribe-new-blocks'
 import { TransformedPartialBlockFragment } from '@/pages/inspect/explorer/lib/types'
-import { Props as BlockTableContainerProps } from './blockTableContainer'
+import type { Props as BlockTableContainerProps } from './blockTableContainer'
 
 const COMETBFT_WS_URL =
     process.env['NEXT_PUBLIC_COMETBFT_WS_URL'] ?? 'wss://penumbra.rotko.net/websocket'

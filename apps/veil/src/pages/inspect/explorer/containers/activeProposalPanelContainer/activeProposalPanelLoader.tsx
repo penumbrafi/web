@@ -2,7 +2,7 @@
 import { FC } from 'react'
 import { getActiveProposals, getLatestBlockHeight } from '@/pages/inspect/explorer/lib/data'
 import ActiveProposalPanel from './activeProposalPanel'
-import { Props } from './activeProposalPanelContainer'
+import type { Props } from './activeProposalPanelContainer'
 
 const ActiveProposalPanelLoader: FC<Props> = async props => {
     const [latestBlockHeight, proposals] = await Promise.all([

@@ -4,7 +4,7 @@ import { FC } from 'react'
 import { Button, Parameter, Parameters, Surface } from '@/pages/inspect/explorer/components'
 import { getGovParameters } from '@/pages/inspect/explorer/lib/data'
 import { blocksDuration, classNames, formatNumber } from '@/pages/inspect/explorer/lib/utils'
-import { Props } from './govParametersContainer'
+import type { Props } from './govParametersContainer'
 
 const GovParametersLoader: FC<Props> = async props => {
     const parameters = await getGovParameters()

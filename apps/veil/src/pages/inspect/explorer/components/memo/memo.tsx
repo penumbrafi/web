@@ -1,6 +1,6 @@
 // istanbul ignore file
 import { FC } from 'react'
-import { Encrypted } from '@/pages/inspect/explorer/components'
+import { Encrypted } from '../vectors'
 import { classNames } from '@/pages/inspect/explorer/lib/utils'
 import Subsection from '../subsection'
 

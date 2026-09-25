@@ -1,16 +1,15 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { PagePath } from '../const/pages';
+import { basePath, PagePath } from '../const/pages';
 
 const removeTrailingSlash = (url: string): string => {
   return url.endsWith('/') ? url.slice(0, -1) : url;
 };
 
-// Lazy-cached at first call instead of module load — usePagePath.ts
-// participates in a circular import with pages.ts (which itself
-// imports usePagePath), so reading PagePath at module top-level
-// evaluates to undefined under SSR.
+// Lazy-cached at first call instead of module load. pages.ts must not
+// import this file back (hooks live here, not there) or PagePath reads
+// undefined under SSR.
 interface PathCache {
   values: string[];
   valueSet: Set<string>;
@@ -68,4 +67,10 @@ const matchPagePath = (str: string): PagePath => {
 export const usePagePath = () => {
   const pathname = usePathname();
   return matchPagePath(removeTrailingSlash(pathname ?? ''));
+};
+
+// Used for dynamic routing when wanting to exclude the dynamic elements
+export const useBasePath = (): PagePath => {
+  const path = usePagePath();
+  return basePath[path] ?? path;
 };

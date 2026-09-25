@@ -2,7 +2,7 @@
 import { FC } from 'react'
 import { NumberPanel } from '@/pages/inspect/explorer/components'
 import { getDexTotalExecutions } from '@/pages/inspect/explorer/lib/data'
-import { Props } from './dexExecutionPanelContainer'
+import type { Props } from './dexExecutionPanelContainer'
 
 const DexExecutionPanelLoader: FC<Props> = async props => {
     const number = await getDexTotalExecutions()

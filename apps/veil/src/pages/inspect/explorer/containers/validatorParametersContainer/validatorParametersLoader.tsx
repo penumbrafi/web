@@ -4,7 +4,7 @@ import { FC } from 'react'
 import { Parameter, Parameters, Surface } from '@/pages/inspect/explorer/components'
 import { getValidatorParameters } from '@/pages/inspect/explorer/lib/data'
 import { blocksDuration, classNames, formatNumber } from '@/pages/inspect/explorer/lib/utils'
-import { Props } from './validatorParametersContainer'
+import type { Props } from './validatorParametersContainer'
 
 const ValidatorParametersLoader: FC<Props> = async props => {
     const parameters = await getValidatorParameters()

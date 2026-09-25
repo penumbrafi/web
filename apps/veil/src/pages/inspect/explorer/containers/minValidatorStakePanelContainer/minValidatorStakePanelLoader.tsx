@@ -2,7 +2,7 @@
 import { FC } from 'react'
 import { NumberPanel } from '@/pages/inspect/explorer/components'
 import { getMinValidatorStake } from '@/pages/inspect/explorer/lib/data'
-import { Props } from './minValidatorStakePanelContainer'
+import type { Props } from './minValidatorStakePanelContainer'
 
 const MinValidatorStakePanelLoader: FC<Props> = async props => {
     const number = await getMinValidatorStake()

@@ -3,7 +3,7 @@ import { Text } from '@penumbra-zone/ui/Text';
 import { Card } from '@penumbra-zone/ui/Card';
 import { ValueViewComponent } from '@penumbra-zone/ui/ValueView';
 import { TimeDisplay } from '@/pages/inspect/ui/time.tsx';
-import { useLpIdInUrl } from '@/pages/inspect/ui/result.tsx';
+import { useLpIdInUrl } from '@/pages/inspect/ui/use-lp-id.ts';
 import { useLpPosition } from '@/pages/inspect/lp/api/position.ts';
 import { Skeleton } from '@/shared/ui/skeleton.tsx';
 import { PositionStateVV, PositionWithdrawalVV } from '@/pages/inspect/lp/api/types.ts';
