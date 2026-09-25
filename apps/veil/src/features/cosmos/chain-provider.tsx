@@ -7,6 +7,7 @@ import { ChainProvider } from '@cosmos-kit/react';
 // connect through Keplr's interchain compatibility.
 import { wallets as keplrWallets } from '@cosmos-kit/keplr-extension';
 import { wallets as leapWallets } from '@cosmos-kit/leap-extension';
+import { zafuWallet } from './zafu-wallet';
 import { ReactNode, useMemo } from 'react';
 import type { Chain as CosmosChain } from '@chain-registry/types';
 import { Chain, Registry as PenumbraRegistry } from '@penumbrafi/registry';
@@ -74,9 +75,9 @@ export const IbcChainProvider = ({ registry, children }: IbcProviderProps) => {
       throwErrors={false}
       chains={chainsToDisplay}
       assetLists={SUPPORTED_ASSETS}
-      // Keplr + Leap only. Both extensions; no WalletConnect (which
-      // is a centralized hosted service that requires an account).
-      wallets={[...keplrWallets, ...leapWallets]}
+      // Zafu (its transparent wallets), Keplr and Leap. Extensions only; no
+      // WalletConnect (a centralized hosted service that requires an account).
+      wallets={[zafuWallet, ...keplrWallets, ...leapWallets]}
       signerOptions={signerOptions}
       modalTheme={{ defaultTheme: 'light' }}
       logLevel={'NONE'}

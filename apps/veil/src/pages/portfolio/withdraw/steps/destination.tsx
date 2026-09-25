@@ -51,10 +51,10 @@ export function DestinationStep({
   // to a harmless supported chain so the hook stays stable - we gate on
   // `chainName` below before reading anything real from `chain`.
   const chainName = useMemo(() => {
-    if (!destinationChain) {return null;}
-    return (
-      SUPPORTED_CHAINS.find(c => c.chain_id === destinationChain.chainId)?.chain_name ?? null
-    );
+    if (!destinationChain) {
+      return null;
+    }
+    return SUPPORTED_CHAINS.find(c => c.chain_id === destinationChain.chainId)?.chain_name ?? null;
   }, [destinationChain]);
 
   const fallbackSlug = SUPPORTED_CHAINS[0]?.chain_name ?? 'noble';
@@ -135,7 +135,7 @@ export function DestinationStep({
         <Text variant='body' color='text.primary'>
           Destination address
         </Text>
-        {cosmosAddress && (
+        {cosmosAddress ? (
           <button
             type='button'
             onClick={() => {
@@ -144,8 +144,21 @@ export function DestinationStep({
             }}
             className='text-xs text-primary-light hover:underline focus:outline-none'
           >
-            Use my Keplr address
+            Use my {chain.wallet?.prettyName ?? 'wallet'} address
           </button>
+        ) : (
+          chainName && (
+            // Opens the wallet picker (Zafu, Keplr, Leap); the effect above
+            // fills the address in once it connects.
+            <button
+              type='button'
+              disabled={chain.isWalletConnecting}
+              onClick={() => void chain.connect()}
+              className='text-xs text-primary-light hover:underline focus:outline-none disabled:opacity-50'
+            >
+              {chain.isWalletConnecting ? 'Connecting…' : `Connect a ${chainDisplay} wallet`}
+            </button>
+          )
         )}
       </div>
       <TextInput
