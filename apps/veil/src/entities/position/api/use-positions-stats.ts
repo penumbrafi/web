@@ -1,17 +1,40 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { useQueries } from '@tanstack/react-query';
 import { apiFetch } from '@/shared/utils/api-fetch.ts';
 import { PositionsStatsResponse } from '@/shared/api/server/position/stats/types';
 
+// The endpoint caps a request at 200 ids. Chunk by load order, so loading
+// another page adds a chunk instead of changing (and refetching) every one.
+const CHUNK = 100;
+
 export const usePositionsStats = (positionIds: string[]) => {
-  // Order-independent key so the same set of positions hits the same slot.
-  const sorted = [...positionIds].sort();
-  return useQuery({
-    queryKey: ['positionsStats', sorted],
-    enabled: sorted.length > 0,
-    staleTime: 60_000,
-    queryFn: () =>
-      apiFetch<PositionsStatsResponse>('/api/position/stats', {
-        positionIds: sorted.join(','),
-      }),
+  const chunks = useMemo(() => {
+    const out: string[][] = [];
+    for (let i = 0; i < positionIds.length; i += CHUNK) {
+      out.push(positionIds.slice(i, i + CHUNK));
+    }
+    return out;
+  }, [positionIds]);
+
+  return useQueries({
+    queries: chunks.map(ids => ({
+      // Order-independent within a chunk so the same set hits the same slot.
+      queryKey: ['positionsStats', [...ids].sort()],
+      staleTime: 60_000,
+      queryFn: () =>
+        apiFetch<PositionsStatsResponse>('/api/position/stats', {
+          positionIds: ids.join(','),
+        }),
+    })),
+    combine: results => {
+      const done = results.filter(r => r.data);
+      return {
+        data:
+          done.length === 0
+            ? undefined
+            : ({ items: done.flatMap(r => r.data?.items ?? []) } satisfies PositionsStatsResponse),
+        isLoading: results.some(r => r.isLoading),
+      };
+    },
   });
 };

@@ -154,7 +154,11 @@ export const useOnPindexerTick = (
       if (!wanted.has(tick.indexer)) {
         return;
       }
-      void queryClient.invalidateQueries({ queryKey: queryKey as unknown[] });
+      // cancelRefetch: false - a tick must not restart a fetch still running.
+      void queryClient.invalidateQueries(
+        { queryKey: queryKey as unknown[] },
+        { cancelRefetch: false },
+      );
     });
     return unsub;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- arrays are compared by their serialized keys

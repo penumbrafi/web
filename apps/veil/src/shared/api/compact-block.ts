@@ -6,7 +6,7 @@ import { createClient, Transport } from '@connectrpc/connect';
 import { errorIsStreamAbort, useStream } from '@/shared/use-stream.ts';
 import { useCallback, useEffect, useRef } from 'react';
 import { queryClient } from '@/shared/const/queryClient.ts';
-import { useGrpcTransport } from '@/shared/api/transport.ts';
+import { usePublicGrpcTransport } from '@/shared/api/transport.ts';
 
 const fetchLatestBlockHeight = async (transport: Transport) => {
   const tendermintClient = createClient(TendermintProxyService, transport);
@@ -51,11 +51,12 @@ const startBlockHeightStream = async (transport: Transport, signal: AbortSignal)
         }
       }
     } catch (error) {
-      if (errorIsStreamAbort(error)) {return;}
-      const delay = RECONNECT_DELAYS_MS[Math.min(attempt, RECONNECT_DELAYS_MS.length - 1)] ?? 30_000;
-      console.warn(
-        `[compact-block] stream ended (${String(error)}); reconnecting in ${delay}ms`,
-      );
+      if (errorIsStreamAbort(error)) {
+        return;
+      }
+      const delay =
+        RECONNECT_DELAYS_MS[Math.min(attempt, RECONNECT_DELAYS_MS.length - 1)] ?? 30_000;
+      console.warn(`[compact-block] stream ended (${String(error)}); reconnecting in ${delay}ms`);
       attempt++;
       await new Promise<void>(resolve => {
         const t = setTimeout(resolve, delay);
@@ -69,7 +70,9 @@ const startBlockHeightStream = async (transport: Transport, signal: AbortSignal)
     // The for-await exited without an error (server closed the stream
     // cleanly, e.g. LB rebind). Loop back and reconnect immediately.
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- aborted can flip during the await above; TS narrowed it from an earlier check
-    if (signal.aborted) {return;}
+    if (signal.aborted) {
+      return;
+    }
   }
 };
 
@@ -84,7 +87,7 @@ const startBlockHeightStream = async (transport: Transport, signal: AbortSignal)
  * the map when a block lands (the same shape `useOnPindexerTick` uses).
  * Consumers become effect-only: no render on the height tick at all.
  */
-type Refetch = () => unknown;
+type Refetch = (opts?: { cancelRefetch?: boolean }) => unknown;
 
 const refetchers = new Map<string, Set<Refetch>>();
 // Per-key dedup: instances sharing a query key share the underlying query,
@@ -108,7 +111,11 @@ const refetchKeyIfStale = (key: string, height: number) => {
     return;
   }
   lastRefetchedBlockHeights.set(key, height);
-  void refetch();
+  // Join a fetch already in flight instead of restarting it. With the
+  // default (cancel), any query slower than a block - e.g. a wallet with
+  // hundreds of LP positions - was cancelled by every new block and never
+  // finished.
+  void refetch({ cancelRefetch: false });
 };
 
 const notifyNewBlock = (height: number) => {
@@ -149,7 +156,10 @@ const registerRefetch = (key: string, refetch: Refetch): (() => void) => {
  * transport query is `staleTime: Infinity`, so this does not tick per block.
  */
 const useBlockHeightStream = () => {
-  const { data, isLoading, error } = useGrpcTransport();
+  // Public transport on purpose: the chain tip is the same for everyone, and
+  // a wallet whose proxy mishandles server streams used to leave every
+  // per-block refresh dead ("not async iterable") the moment it connected.
+  const { data, isLoading, error } = usePublicGrpcTransport();
 
   // Memoized for use in useStream
   const streamFn = useCallback(
@@ -186,8 +196,7 @@ export const useRefetchOnNewBlock = (
   // JSON.stringify on a string queryKey produces a wasteful '"x"' wrapper
   // allocation per render — short-circuit when it's already a string (the
   // common case) and only stringify for object/array keys.
-  const queryKeyString =
-    typeof queryKey === 'string' ? queryKey : JSON.stringify(queryKey);
+  const queryKeyString = typeof queryKey === 'string' ? queryKey : JSON.stringify(queryKey);
 
   useEffect(() => {
     if (disabled) {
@@ -216,7 +225,9 @@ export const useRefetchOnNewBlockBatch = (
   // array). Register against a serialized signature and read the latest
   // entries through a ref, so the effect only re-runs when the key set moves.
   const signature = entries
-    .map(entry => (typeof entry.queryKey === 'string' ? entry.queryKey : JSON.stringify(entry.queryKey)))
+    .map(entry =>
+      typeof entry.queryKey === 'string' ? entry.queryKey : JSON.stringify(entry.queryKey),
+    )
     .join('\u0000');
   const latest = useRef(entries);
   latest.current = entries;
@@ -242,8 +253,11 @@ export const useRefetchOnNewBlockBatch = (
 export const LATEST_HEIGHT_QUERY_KEY = ['latestBlockHeight'];
 
 export const useLatestBlockHeight = () => {
-  const { transport, isLoading: transportIsLoading, error: transportError } =
-    useBlockHeightStream();
+  const {
+    transport,
+    isLoading: transportIsLoading,
+    error: transportError,
+  } = useBlockHeightStream();
 
   const res = useQuery({
     queryKey: LATEST_HEIGHT_QUERY_KEY,

@@ -11,14 +11,57 @@ import {
 import { AddressIndex } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys_pb';
 import { bech32mPositionId } from '@penumbra-zone/bech32m/plpid';
 import { queryClient } from '@/shared/const/queryClient';
-import { limitAsync } from '@/shared/utils/limit-async';
 import { useRefetchOnNewBlock } from '@/shared/api/compact-block';
 import { useOnPindexerTick } from '@/shared/api/pindexer-stream';
 
 const BASE_LIMIT = 20;
 const BASE_PAGE = 0;
 
-// 1) Query prax to get position ids
+// Owned ids per (subaccount, states), read once per refresh cycle.
+// Page 0 always re-reads; later pages slice the same list. Each page used to
+// re-open the ownedPositionIds stream and skip to its offset, so refreshing
+// N loaded pages streamed ~N^2/2 * 20 ids through the wallet every block.
+const ownedIdsCache = new Map<string, Promise<PositionId[]>>();
+
+const fetchOwnedIds = async (
+  subaccount: number,
+  stateFilter?: PositionState_PositionStateEnum[],
+): Promise<PositionId[]> => {
+  const states = stateFilter?.map(state => new PositionState({ state })) ?? [undefined];
+  const res = await Promise.all(
+    states.map(state =>
+      Array.fromAsync(
+        penumbra.service(ViewService).ownedPositionIds({
+          subaccount: new AddressIndex({ account: subaccount }),
+          positionState: state,
+        }),
+      ),
+    ),
+  );
+  return res
+    .flat()
+    .map(item => item.positionId)
+    .filter(Boolean) as PositionId[];
+};
+
+const ownedIds = (
+  subaccount: number,
+  page: number,
+  stateFilter?: PositionState_PositionStateEnum[],
+): Promise<PositionId[]> => {
+  const key = JSON.stringify([subaccount, stateFilter]);
+  const cached = ownedIdsCache.get(key);
+  if (page > 0 && cached) {
+    return cached;
+  }
+  const fresh = fetchOwnedIds(subaccount, stateFilter);
+  ownedIdsCache.set(key, fresh);
+  // A failed read must not be served to later pages.
+  fresh.catch(() => ownedIdsCache.delete(key));
+  return fresh;
+};
+
+// 1) Query the wallet for owned position ids
 // 2) Take those position ids and get position info from the node
 // Context on two-step fetching process: https://github.com/penumbra-zone/penumbra/pull/4837
 const fetchQuery = async (
@@ -26,27 +69,11 @@ const fetchQuery = async (
   page = BASE_PAGE,
   stateFilter?: PositionState_PositionStateEnum[],
 ): Promise<Map<string, Position>> => {
-  const states = stateFilter?.map(state => new PositionState({ state })) ?? [undefined];
-
-  const res = await Promise.all(
-    states.map(state =>
-      Array.fromAsync(
-        limitAsync(
-          penumbra.service(ViewService).ownedPositionIds({
-            subaccount: new AddressIndex({ account: subaccount }),
-            positionState: state,
-          }),
-          BASE_LIMIT,
-          BASE_LIMIT * page,
-        ),
-      ),
-    ),
-  );
-
-  const positionIds = res
-    .flat()
-    .map(item => item.positionId)
-    .filter(Boolean) as PositionId[];
+  const allIds = await ownedIds(subaccount, page, stateFilter);
+  const positionIds = allIds.slice(page * BASE_LIMIT, (page + 1) * BASE_LIMIT);
+  if (positionIds.length === 0) {
+    return new Map();
+  }
 
   const positionsRes = await Array.fromAsync(
     penumbra.service(DexService).liquidityPositionsById({ positionId: positionIds }),

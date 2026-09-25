@@ -29,11 +29,7 @@ enum TransportType {
   GRPC_WEB,
 }
 
-const grpcTransportQueryFn = async (env: ClientEnv) => {
-  if (connectionStore.connected && penumbra.transport) {
-    return { transport: penumbra.transport, type: TransportType.PRAX };
-  }
-
+const publicTransport = async (env: ClientEnv) => {
   const rpcChoices = await registryRpcChoices(env);
   const randomRpc = sample(rpcChoices);
   if (!randomRpc) {
@@ -46,6 +42,13 @@ const grpcTransportQueryFn = async (env: ClientEnv) => {
     }),
     type: TransportType.GRPC_WEB,
   };
+};
+
+const grpcTransportQueryFn = async (env: ClientEnv) => {
+  if (connectionStore.connected && penumbra.transport) {
+    return { transport: penumbra.transport, type: TransportType.PRAX };
+  }
+  return publicTransport(env);
 };
 
 const getGrpcQueryOptions = (env: ClientEnv) => ({
@@ -61,4 +64,19 @@ export const getGrpcTransport = (env: ClientEnv) => {
 export const useGrpcTransport = () => {
   const env = useClientEnv();
   return useQuery(getGrpcQueryOptions(env));
+};
+
+/**
+ * A direct gRPC-web transport, never the wallet's. For public, account-free
+ * streams such as the chain tip: they reveal nothing about the wallet, and
+ * routing them through the extension ties veil's liveness to how well the
+ * extension proxies server streams.
+ */
+export const usePublicGrpcTransport = () => {
+  const env = useClientEnv();
+  return useQuery({
+    queryKey: ['grpcTransport', 'public'],
+    queryFn: () => publicTransport(env),
+    staleTime: Infinity,
+  });
 };
