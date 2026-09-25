@@ -64,7 +64,7 @@ function sortValidators(
     sort?: SortKey,
     dir?: SortDir
 ): Props['validators'] {
-    if (!sort) return validators
+    if (!sort) {return validators}
     const sorted = [...validators]
     const mul = dir === 'asc' ? 1 : -1
     sorted.sort((a, b) => {
@@ -221,7 +221,7 @@ const ValidatorTable: FC<Props> = ({
                                                 UM
                                             </span>
                                         </span>
-                                        <span className="text-text-secondary ml-7 text-xs">
+                                        <span className="ml-7 text-xs text-text-secondary">
                                             {validator.votingPowerActivePercentage.toFixed(
                                                 2
                                             )}
@@ -237,7 +237,7 @@ const ValidatorTable: FC<Props> = ({
                                                     1
                                                 ) >
                                                 0.01 && (
-                                                <span className="text-text-secondary text-[10px] ml-7">
+                                                <span className="ml-7 text-[10px] text-text-secondary">
                                                     consensus:{' '}
                                                     {formatNumber(
                                                         validator.votingPower

@@ -1,16 +1,16 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import BigNumber from 'bignumber.js';
-import { ValidatorInfo } from '@penumbra-zone/protobuf/penumbra/core/component/stake/v1/stake_pb';
+import {
+  ValidatorInfo,
+  BondingState,
+  BondingState_BondingStateEnum,
+} from '@penumbra-zone/protobuf/penumbra/core/component/stake/v1/stake_pb';
 import { ValueView, Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import {
   TransactionPlannerRequest,
   TransactionPlannerRequest_UndelegateClaim,
 } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
 import { AppService, SctService, StakeService, ViewService } from '@penumbra-zone/protobuf';
-import {
-  BondingState,
-  BondingState_BondingStateEnum,
-} from '@penumbra-zone/protobuf/penumbra/core/component/stake/v1/stake_pb';
 import { getRateData } from '@penumbra-zone/getters/validator-info';
 import { getBondingState } from '@penumbra-zone/getters/validator-status';
 import {

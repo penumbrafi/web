@@ -49,13 +49,13 @@ export const AssetSelectStep = observer(({ onSelect }: AssetSelectStepProps) => 
       asset.shieldedBalances
         .filter(b => {
           const meta = getMetadata.optional(b.valueView);
-          if (!meta) return false;
-          if (!meta.base.startsWith('transfer/')) return false;
+          if (!meta) {return false;}
+          if (!meta.base.startsWith('transfer/')) {return false;}
           // Non-zero amount.
           const view = b.valueView.valueView;
-          if (view.case !== 'knownAssetId') return false;
+          if (view.case !== 'knownAssetId') {return false;}
           const amt = view.value.amount;
-          if (!amt) return false;
+          if (!amt) {return false;}
           return amt.lo !== 0n || amt.hi !== 0n;
         })
         .map(balance => ({ asset, balance })),

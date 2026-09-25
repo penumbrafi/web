@@ -49,7 +49,7 @@ const IbcFlowHistoryLoader: FC<Props> = async props => {
                     <h2 className="text-2xl font-medium">
                         IBC inflows & outflows
                     </h2>
-                    <span className="text-text-secondary text-sm">
+                    <span className="text-sm text-text-secondary">
                         {(totalInflows + totalOutflows).toLocaleString('en-US')}{' '}
                         transfers in {days}d
                     </span>
@@ -59,7 +59,7 @@ const IbcFlowHistoryLoader: FC<Props> = async props => {
 
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                 <div className="bg-surface-secondary rounded-lg p-4">
-                    <div className="text-text-secondary text-xs">
+                    <div className="text-xs text-text-secondary">
                         Total transfers
                     </div>
                     <div className="mt-1 text-lg font-medium">
@@ -67,7 +67,7 @@ const IbcFlowHistoryLoader: FC<Props> = async props => {
                     </div>
                 </div>
                 <div className="bg-surface-secondary rounded-lg p-4">
-                    <div className="text-text-secondary text-xs">
+                    <div className="text-xs text-text-secondary">
                         Inflows (shielded)
                     </div>
                     <div className="mt-1 text-lg font-medium text-green-500">
@@ -75,7 +75,7 @@ const IbcFlowHistoryLoader: FC<Props> = async props => {
                     </div>
                 </div>
                 <div className="bg-surface-secondary rounded-lg p-4">
-                    <div className="text-text-secondary text-xs">
+                    <div className="text-xs text-text-secondary">
                         Outflows (unshielded)
                     </div>
                     <div className="mt-1 text-lg font-medium text-amber-500">

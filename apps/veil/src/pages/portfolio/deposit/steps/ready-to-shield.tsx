@@ -28,7 +28,9 @@ export const ReadyToShield = () => {
   const ready = useReadyAssets(balances);
   const [openAsset, setOpenAsset] = useState<UnifiedAsset | null>(null);
 
-  if (ready.length === 0) return null;
+  if (ready.length === 0) {
+    return null;
+  }
 
   return (
     <div className='flex flex-col gap-3 rounded-xl border border-primary-main/40 bg-primary-main/5 p-4'>
@@ -188,7 +190,9 @@ const ReadyList = ({
   <ul className='flex flex-col gap-1'>
     {ready.map(asset => {
       const bal = asset.publicBalances[0];
-      if (!bal) return null;
+      if (!bal) {
+        return null;
+      }
       const chainId = bal.chainId;
       const amountStr = getFormattedAmtFromValueView(bal.valueView);
       return (

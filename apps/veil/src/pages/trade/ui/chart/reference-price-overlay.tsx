@@ -99,7 +99,7 @@ export const ReferencePriceOverlay = observer(function ReferencePriceOverlay({
   }, []);
   const onPointerMove = useCallback(
     (e: React.PointerEvent<HTMLElement>) => {
-      if (!dragging.current) return;
+      if (!dragging.current) {return;}
       if (
         !dragMoved.current &&
         dragStartY.current !== null &&
@@ -115,11 +115,11 @@ export const ReferencePriceOverlay = observer(function ReferencePriceOverlay({
       // each other and the pill would "jump" back and forth under the
       // pointer instead of tracking it.
       const pane = paneRef.current;
-      if (!pane) return;
+      if (!pane) {return;}
       const rect = pane.getBoundingClientRect();
       const localY = e.clientY - rect.top;
       const price = priceAtY(localY);
-      if (price === undefined || !Number.isFinite(price) || price <= 0) return;
+      if (price === undefined || !Number.isFinite(price) || price <= 0) {return;}
       const exp = lpForm.quoteAsset?.exponent ?? 6;
       const formatted = price.toFixed(Math.min(exp, 8));
       lpForm.setUserReferencePriceInput(formatted);
@@ -127,7 +127,7 @@ export const ReferencePriceOverlay = observer(function ReferencePriceOverlay({
     [priceAtY, lpForm],
   );
   const onPointerUp = useCallback((e: React.PointerEvent<HTMLElement>) => {
-    if (!dragging.current) return;
+    if (!dragging.current) {return;}
     dragging.current = false;
     dragStartY.current = null;
     try {
@@ -140,14 +140,14 @@ export const ReferencePriceOverlay = observer(function ReferencePriceOverlay({
   // Click on the pill: snap to the suggested price if we have one. Only
   // fires when the pointer didn't move past the drag slop.
   const onLabelClick = useCallback(() => {
-    if (dragMoved.current) return; // drag, not a click
-    if (suggested.price === undefined) return;
+    if (dragMoved.current) {return;} // drag, not a click
+    if (suggested.price === undefined) {return;}
     const exp = lpForm.quoteAsset?.exponent ?? 6;
     lpForm.setUserReferencePriceInput(suggested.price.toFixed(Math.min(exp, 8)));
   }, [suggested.price, lpForm]);
 
-  if (!isLpLike) return null;
-  if (y === undefined || refPrice === null) return null;
+  if (!isLpLike) {return null;}
+  if (y === undefined || refPrice === null) {return null;}
 
   // Style the line differently based on whether the user has explicitly
   // set the reference or is running against the fallback (live mid or
@@ -177,7 +177,7 @@ export const ReferencePriceOverlay = observer(function ReferencePriceOverlay({
           div stays inset-0 so drag math measures against a stationary
           coordinate space, not the moving line. */}
       <div
-        className='pointer-events-none absolute left-0 right-0'
+        className='pointer-events-none absolute right-0 left-0'
         style={{ top: y - 1, height: 2 }}
       >
       {/* Dashed / dotted line spanning the pane except the right edge

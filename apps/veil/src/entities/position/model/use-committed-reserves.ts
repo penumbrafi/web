@@ -46,13 +46,13 @@ export const useCommittedReserves = (
         const pair = position.phi?.pair;
         const r1 = position.reserves?.r1;
         const r2 = position.reserves?.r2;
-        if (!pair?.asset1 || !pair.asset2 || !r1 || !r2) continue;
+        if (!pair?.asset1 || !pair.asset2 || !r1 || !r2) {continue;}
 
         const canonical =
           pair.asset1.equals(base.penumbraAssetId) && pair.asset2.equals(quote.penumbraAssetId);
         const flipped =
           pair.asset2.equals(base.penumbraAssetId) && pair.asset1.equals(quote.penumbraAssetId);
-        if (!canonical && !flipped) continue;
+        if (!canonical && !flipped) {continue;}
 
         // Positions in a pair always share canonical ordering on-chain
         // (asset1 < asset2 by id) so each match maps r1/r2 to the

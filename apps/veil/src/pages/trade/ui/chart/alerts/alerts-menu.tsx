@@ -8,12 +8,12 @@ import type { AlertDirection, PriceAlert } from './use-price-alerts';
 type NotificationPermission = 'default' | 'granted' | 'denied';
 
 const getPermission = (): NotificationPermission => {
-  if (typeof window === 'undefined' || !('Notification' in window)) return 'denied';
+  if (typeof window === 'undefined' || !('Notification' in window)) {return 'denied';}
   return Notification.permission as NotificationPermission;
 };
 
 const requestPermission = async (): Promise<NotificationPermission> => {
-  if (typeof window === 'undefined' || !('Notification' in window)) return 'denied';
+  if (typeof window === 'undefined' || !('Notification' in window)) {return 'denied';}
   try {
     const result = await Notification.requestPermission();
     return result as NotificationPermission;
@@ -46,12 +46,12 @@ export const AlertsMenu = ({ pair, marketPrice, alerts, onAdd, onRemove }: Props
   }, [open]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {return;}
     const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) {setOpen(false);}
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') {setOpen(false);}
     };
     document.addEventListener('mousedown', onDoc);
     document.addEventListener('keydown', onKey);
@@ -74,7 +74,7 @@ export const AlertsMenu = ({ pair, marketPrice, alerts, onAdd, onRemove }: Props
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const t = parseFloat(target);
-    if (!Number.isFinite(t) || t <= 0) return;
+    if (!Number.isFinite(t) || t <= 0) {return;}
 
     let perm2 = perm;
     if (browser && perm !== 'granted') {
@@ -108,7 +108,7 @@ export const AlertsMenu = ({ pair, marketPrice, alerts, onAdd, onRemove }: Props
       >
         <Bell className='h-4 w-4' />
         {active.length > 0 && (
-          <span className='absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-primary-main px-1 text-[9px] font-medium text-base-black'>
+          <span className='absolute -top-0.5 -right-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-primary-main px-1 text-[9px] font-medium text-base-black'>
             {active.length}
           </span>
         )}
@@ -123,7 +123,7 @@ export const AlertsMenu = ({ pair, marketPrice, alerts, onAdd, onRemove }: Props
             <span className='block px-1 pb-2'>
               Price alerts · {pair}
               {marketPrice != null && (
-                <span className='ml-1 tabular-nums text-text-primary'>
+                <span className='ml-1 text-text-primary tabular-nums'>
                   · Mid {marketPrice.toPrecision(6)}
                 </span>
               )}
@@ -219,7 +219,7 @@ export const AlertsMenu = ({ pair, marketPrice, alerts, onAdd, onRemove }: Props
                       <Text small color='text.primary'>
                         {a.direction} {a.targetPrice}
                         {deltaPct !== null && (
-                          <span className='ml-1 tabular-nums text-text-secondary'>
+                          <span className='ml-1 text-text-secondary tabular-nums'>
                             ({deltaPct > 0 ? '+' : ''}
                             {deltaPct.toFixed(2)}%)
                           </span>

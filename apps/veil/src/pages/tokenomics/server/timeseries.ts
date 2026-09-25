@@ -34,7 +34,7 @@ function fillDailyGaps<T extends { date: string }>(
   rows: T[],
   synthesize: (prev: T, date: string) => T,
 ): T[] {
-  if (rows.length === 0) return rows;
+  if (rows.length === 0) {return rows;}
   const out: T[] = [];
   let prev = rows[0]!;
   out.push(prev);
@@ -42,8 +42,8 @@ function fillDailyGaps<T extends { date: string }>(
     const next = rows[i]!;
     let gapStarted = false;
     for (const day of eachDay(prev.date, next.date)) {
-      if (day === prev.date) continue; // already pushed
-      if (day === next.date) break;
+      if (day === prev.date) {continue;} // already pushed
+      if (day === next.date) {break;}
       out.push(synthesize(prev, day));
       gapStarted = true;
     }
@@ -186,12 +186,12 @@ export async function fetchTokenomicsTimeseries(
         break;
       }
     }
-    if (pastIdx < 0) continue;
+    if (pastIdx < 0) {continue;}
     const past = supply[pastIdx]!;
-    if (past.total <= 0) continue;
+    if (past.total <= 0) {continue;}
     const dDays =
       (Date.parse(cur.date) - Date.parse(past.date)) / (1000 * 86_400);
-    if (dDays <= 0) continue;
+    if (dDays <= 0) {continue;}
     const windowPct = ((cur.total - past.total) / past.total) * 100;
     inflation.push({
       date: cur.date,

@@ -28,7 +28,7 @@ const getCandlesForTimes = async ({
   chainId: string;
   startTimes: Date[];
 }): Promise<DbCandle[]> => {
-  if (startTimes.length === 0) return [];
+  if (startTimes.length === 0) {return [];}
   return pindexerDb
     .selectFrom('dex_ex_price_charts')
     .select(['start_time', 'open', 'close', 'low', 'high', 'swap_volume', 'direct_volume'])
@@ -229,8 +229,8 @@ async function handleGet(req: NextRequest): Promise<NextResponse<CandleApiRespon
   for (const r of reverseRows) {
     const t = r.start_time.getTime();
     const slot = byTime.get(t);
-    if (slot) slot.rev = r;
-    else byTime.set(t, { rev: r });
+    if (slot) {slot.rev = r;}
+    else {byTime.set(t, { rev: r });}
   }
 
   const response = Array.from(byTime.entries())

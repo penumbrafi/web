@@ -12,7 +12,6 @@ import {
   ValueView_KnownAssetId,
 } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { Amount } from '@penumbra-zone/protobuf/penumbra/core/num/v1/num_pb';
-import { AssetId } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { PositionState_PositionStateEnum } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
 import { connectionStore } from '@/shared/model/connection';
 import { useGetMetadata } from '@/shared/api/assets';
@@ -49,10 +48,10 @@ const AssetTotalsCard: FC<CardProps> = ({ title, hint, states }) => {
   const { data, isLoading } = usePositionsSummary(0, states);
 
   const items = useMemo(() => {
-    if (!data) return [];
+    if (!data) {return [];}
     return data.map(t => ({
       total: t,
-      metadata: getMetadata?.(t.assetId as AssetId),
+      metadata: getMetadata?.(t.assetId),
     }));
   }, [data, getMetadata]);
 
@@ -90,7 +89,7 @@ const AssetTotalsCard: FC<CardProps> = ({ title, hint, states }) => {
 };
 
 export const PositionsSummary = observer(() => {
-  if (!connectionStore.connected) return null;
+  if (!connectionStore.connected) {return null;}
   return (
     <div className='flex flex-col gap-4 md:flex-row'>
       <AssetTotalsCard

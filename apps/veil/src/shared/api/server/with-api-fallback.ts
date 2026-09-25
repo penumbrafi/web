@@ -38,7 +38,7 @@ export interface FallbackConfig<T> {
 const SLOW_MS = 1_000;
 const LOG_ALL_TIMING = process.env['VEIL_API_TIMING'] === '1';
 
-const stamp = <R extends NextResponse<unknown>>(
+const stamp = <R extends NextResponse>(
   res: R,
   tag: string,
   startedAt: number,

@@ -51,7 +51,7 @@ const startBlockHeightStream = async (transport: Transport, signal: AbortSignal)
         }
       }
     } catch (error) {
-      if (errorIsStreamAbort(error)) return;
+      if (errorIsStreamAbort(error)) {return;}
       const delay = RECONNECT_DELAYS_MS[Math.min(attempt, RECONNECT_DELAYS_MS.length - 1)] ?? 30_000;
       console.warn(
         `[compact-block] stream ended (${String(error)}); reconnecting in ${delay}ms`,
@@ -68,7 +68,7 @@ const startBlockHeightStream = async (transport: Transport, signal: AbortSignal)
     }
     // The for-await exited without an error (server closed the stream
     // cleanly, e.g. LB rebind). Loop back and reconnect immediately.
-    if (signal.aborted) return;
+    if (signal.aborted) {return;}
   }
 };
 

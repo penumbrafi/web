@@ -39,8 +39,8 @@ function aggregateByDay(
 
 function formatUm(raw: string): string {
     const num = Number(raw) / 1_000_000
-    if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`
-    if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`
+    if (num >= 1_000_000) {return `${(num / 1_000_000).toFixed(2)}M`}
+    if (num >= 1_000) {return `${(num / 1_000).toFixed(1)}K`}
     return num.toLocaleString('en-US', { maximumFractionDigits: 2 })
 }
 
@@ -92,7 +92,7 @@ const ValidatorDelegationFlowLoader: FC<Props> = async props => {
             {stats && (
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                     <div className="bg-surface-secondary rounded-lg p-4">
-                        <div className="text-text-secondary text-xs">
+                        <div className="text-xs text-text-secondary">
                             Total delegated
                         </div>
                         <div className="mt-1 text-lg font-medium text-green-500">
@@ -100,7 +100,7 @@ const ValidatorDelegationFlowLoader: FC<Props> = async props => {
                         </div>
                     </div>
                     <div className="bg-surface-secondary rounded-lg p-4">
-                        <div className="text-text-secondary text-xs">
+                        <div className="text-xs text-text-secondary">
                             Total undelegated
                         </div>
                         <div className="mt-1 text-lg font-medium text-red-500">
@@ -108,18 +108,18 @@ const ValidatorDelegationFlowLoader: FC<Props> = async props => {
                         </div>
                     </div>
                     <div className="bg-surface-secondary rounded-lg p-4">
-                        <div className="text-text-secondary text-xs">
+                        <div className="text-xs text-text-secondary">
                             Pending undelegations
                         </div>
                         <div className="mt-1 text-lg font-medium">
                             {stats.pendingUndelegateCount}
-                            <span className="text-text-secondary ml-1 text-sm">
+                            <span className="ml-1 text-sm text-text-secondary">
                                 ({formatUm(stats.pendingUndelegations)} UM)
                             </span>
                         </div>
                     </div>
                     <div className="bg-surface-secondary rounded-lg p-4">
-                        <div className="text-text-secondary text-xs">
+                        <div className="text-xs text-text-secondary">
                             Next release height
                         </div>
                         <div className="mt-1 text-lg font-medium">
@@ -134,7 +134,7 @@ const ValidatorDelegationFlowLoader: FC<Props> = async props => {
             <DelegationFlowChart data={chartData} />
 
             <details className="text-sm">
-                <summary className="text-text-secondary hover:text-text-primary cursor-pointer">
+                <summary className="cursor-pointer text-text-secondary hover:text-text-primary">
                     Show recent delegations
                 </summary>
                 <div className="mt-4 overflow-x-auto">
@@ -195,7 +195,7 @@ const ValidatorDelegationFlowLoader: FC<Props> = async props => {
                                         <td className="py-3 pr-4 font-mono">
                                             {entry.blockHeight.toLocaleString('en-US')}
                                         </td>
-                                        <td className="text-text-secondary py-3">
+                                        <td className="py-3 text-text-secondary">
                                             {new Date(
                                                 entry.timestamp
                                             ).toLocaleString('en-US', { timeZone: 'UTC' })}

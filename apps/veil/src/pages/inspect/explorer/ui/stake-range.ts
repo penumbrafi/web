@@ -19,7 +19,9 @@ export type StakeRangeKey = (typeof STAKE_RANGES)[number]['key'];
 export const DEFAULT_STAKE_RANGE: StakeRangeKey = '90d';
 
 export const parseStakeRange = (raw: string | undefined): StakeRangeKey => {
-  if (!raw) return DEFAULT_STAKE_RANGE;
+  if (!raw) {
+    return DEFAULT_STAKE_RANGE;
+  }
   const match = STAKE_RANGES.find(r => r.key === raw);
   return match?.key ?? DEFAULT_STAKE_RANGE;
 };
@@ -44,9 +46,17 @@ export interface StakeStep {
 }
 
 export const stakeStepFor = (days: number): StakeStep => {
-  if (days <= 30) return { coarse: 1, dense: 1 };
-  if (days <= 90) return { coarse: 3, dense: 1 };
-  if (days <= 180) return { coarse: 7, dense: 1 };
-  if (days <= 365) return { coarse: 14, dense: 3 };
+  if (days <= 30) {
+    return { coarse: 1, dense: 1 };
+  }
+  if (days <= 90) {
+    return { coarse: 3, dense: 1 };
+  }
+  if (days <= 180) {
+    return { coarse: 7, dense: 1 };
+  }
+  if (days <= 365) {
+    return { coarse: 14, dense: 3 };
+  }
   return { coarse: 30, dense: 7 }; // 2y
 };

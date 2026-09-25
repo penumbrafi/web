@@ -119,7 +119,7 @@ async function handleGet(): Promise<NextResponse<PairsResponse>> {
     .map(row => {
       let baseAsset = registry.tryGetMetadata(new AssetId({ inner: row.canonicalStart }));
       let quoteAsset = registry.tryGetMetadata(new AssetId({ inner: row.canonicalEnd }));
-      if (!baseAsset || !quoteAsset) return undefined;
+      if (!baseAsset || !quoteAsset) {return undefined;}
 
       // Never present stable-as-base: swap so risk asset is base and
       // the stable is the quote. This is the "correct" quotation

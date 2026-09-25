@@ -27,13 +27,13 @@ const formatDate = (timestamp: string) => {
 }
 
 const formatPower = (value: number) => {
-    if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
-    if (value >= 1_000) return `${(value / 1_000).toFixed(0)}K`
+    if (value >= 1_000_000) {return `${(value / 1_000_000).toFixed(1)}M`}
+    if (value >= 1_000) {return `${(value / 1_000).toFixed(0)}K`}
     return value.toLocaleString('en-US')
 }
 
 const CustomTooltip: FC<any> = ({ active, payload }) => {
-    if (!active || !payload?.length) return null
+    if (!active || !payload?.length) {return null}
     const entry = payload[0].payload as StakingHistoryEntry
     return (
         <div className="rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm shadow-lg">
@@ -43,7 +43,7 @@ const CustomTooltip: FC<any> = ({ active, payload }) => {
             <div className="mt-1 font-medium">
                 {entry.votingPower.toLocaleString('en-US')} UM
             </div>
-            <div className="text-text-secondary text-xs">
+            <div className="text-xs text-text-secondary">
                 Block {entry.blockHeight.toLocaleString('en-US')}
             </div>
         </div>

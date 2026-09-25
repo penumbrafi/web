@@ -24,7 +24,7 @@ interface ResizableSplitProps {
 }
 
 const readStored = (key: string, fallback: number, min: number, max: number): number => {
-  if (typeof window === 'undefined') return fallback;
+  if (typeof window === 'undefined') {return fallback;}
   const raw = window.localStorage.getItem(key);
   const n = raw ? Number(raw) : NaN;
   return Number.isFinite(n) && n >= min && n <= max ? n : fallback;
@@ -50,7 +50,7 @@ export const ResizableSplit = ({
   const onPointerDown = (e: React.PointerEvent) => {
     e.preventDefault();
     const container = containerRef.current;
-    if (!container) return;
+    if (!container) {return;}
     const rect = container.getBoundingClientRect();
 
     // pointermove fires 60-100×/s during a drag. Each setSize triggers a
@@ -62,7 +62,7 @@ export const ResizableSplit = ({
     let rafId = 0;
     const flush = () => {
       rafId = 0;
-      if (pendingNext === null) return;
+      if (pendingNext === null) {return;}
       const next = pendingNext;
       pendingNext = null;
       setSize(Math.min(max, Math.max(min, next)));
@@ -70,7 +70,7 @@ export const ResizableSplit = ({
 
     const onMove = (ev: PointerEvent) => {
       pendingNext = isHorizontal ? rect.right - ev.clientX : rect.bottom - ev.clientY;
-      if (rafId) return;
+      if (rafId) {return;}
       rafId = requestAnimationFrame(flush);
     };
     const onUp = () => {

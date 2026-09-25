@@ -24,11 +24,11 @@ const TransactionView: FC<Props> = props => (
         )}
         title="Transaction view"
     >
-        <Parameters className="bg-other-tonal-fill5 rounded-sm p-3">
+        <Parameters className="rounded-sm bg-other-tonal-fill5 p-3">
             <Parameter name="Transaction hash">
                 {shortenHash(props.transaction.hash, 16)}
                 <CopyToClipboard
-                    className="text-text-primary -mr-[5px]"
+                    className="-mr-[5px] text-text-primary"
                     text={props.transaction.hash}
                     small
                 />
@@ -58,7 +58,7 @@ const TransactionView: FC<Props> = props => (
             rawTransaction={props.transaction.raw}
         />
         <Subsection title="Parameters">
-            <Parameters className="bg-other-tonal-fill5 rounded-sm p-3">
+            <Parameters className="rounded-sm bg-other-tonal-fill5 p-3">
                 <Parameter name="Transaction fee">
                     {props.transaction.fee / 1000000} UM
                 </Parameter>

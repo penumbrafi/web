@@ -95,16 +95,16 @@ const BlockTableUpdater: FC<Props> = ({
                     )
                     .toPromise()
                 const fresh = result.data?.blocks?.items ?? []
-                if (!fresh.length) return
+                if (!fresh.length) {return}
                 const transformed = fresh.map(b => ({
                     height: b.height,
                     timestamp: dayjs(b.createdAt).valueOf(),
                     transactionsCount: b.transactionsCount,
                 }))
                 const byHeight = new Map<number, TransformedPartialBlockFragment>()
-                for (const b of transformed) byHeight.set(b.height, b)
-                for (const b of blocksRef.current) if (!byHeight.has(b.height)) byHeight.set(b.height, b)
-                for (const b of queueRef.current) if (!byHeight.has(b.height)) byHeight.set(b.height, b)
+                for (const b of transformed) {byHeight.set(b.height, b)}
+                for (const b of blocksRef.current) {if (!byHeight.has(b.height)) {byHeight.set(b.height, b)}}
+                for (const b of queueRef.current) {if (!byHeight.has(b.height)) {byHeight.set(b.height, b)}}
                 const merged = [...byHeight.values()]
                     .sort((a, b) => b.height - a.height)
                     .slice(0, 10)
@@ -153,7 +153,7 @@ const BlockTableUpdater: FC<Props> = ({
         // Refill on visibility-change wake — closes the gap from the
         // common "tab was backgrounded for 30 minutes" failure mode.
         const onVisible = () => {
-            if (document.visibilityState === 'visible') void refillVisibleWindow()
+            if (document.visibilityState === 'visible') {void refillVisibleWindow()}
         }
         document.addEventListener('visibilitychange', onVisible)
 
@@ -196,7 +196,7 @@ const BlockTableUpdater: FC<Props> = ({
         // Idempotent kick — the subscription handler calls this after each
         // pushed block to (re)start the loop. No-op if already scheduled.
         kickAnimationLoopRef.current = () => {
-            if (animationFrameRef.current !== undefined) return
+            if (animationFrameRef.current !== undefined) {return}
             animationFrameRef.current = requestAnimationFrame(animationLoop)
         }
 

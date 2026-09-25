@@ -53,7 +53,7 @@ export const useDrawings = (pairKey: string) => {
     pastRef.current = [];
     futureRef.current = [];
     setHistoryTick(t => t + 1);
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined') {return;}
     try {
       const raw = window.localStorage.getItem(storageKey);
       if (raw) {
@@ -90,7 +90,7 @@ export const useDrawings = (pairKey: string) => {
     (compute: (curr: Drawing[]) => Drawing[]) => {
       setDrawings(curr => {
         const next = compute(curr);
-        if (next === curr) return curr;
+        if (next === curr) {return curr;}
         pastRef.current = [...pastRef.current, curr].slice(-HISTORY_LIMIT);
         futureRef.current = [];
         persist(next);
@@ -111,7 +111,7 @@ export const useDrawings = (pairKey: string) => {
         // otherwise push a phantom step onto the undo stack any time two
         // delete triggers fire for the same id (e.g. the inline X button
         // and the Delete-key handler both reacting to one keypress/click).
-        if (!curr.some(d => d.id === id)) return curr;
+        if (!curr.some(d => d.id === id)) {return curr;}
         return curr.filter(d => d.id !== id);
       }),
     [mutate],
@@ -147,7 +147,7 @@ export const useDrawings = (pairKey: string) => {
   const undo = useCallback(() => {
     setDrawings(curr => {
       const prev = pastRef.current.pop();
-      if (prev === undefined) return curr;
+      if (prev === undefined) {return curr;}
       futureRef.current = [curr, ...futureRef.current].slice(0, HISTORY_LIMIT);
       persist(prev);
       return prev;
@@ -158,7 +158,7 @@ export const useDrawings = (pairKey: string) => {
   const redo = useCallback(() => {
     setDrawings(curr => {
       const next = futureRef.current.shift();
-      if (next === undefined) return curr;
+      if (next === undefined) {return curr;}
       pastRef.current = [...pastRef.current, curr].slice(-HISTORY_LIMIT);
       persist(next);
       return next;

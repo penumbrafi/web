@@ -42,7 +42,9 @@ const useFilteredAssets = (options: AssetSelectorValue[], search: string) => {
   // Memoize so typing in the search box doesn't re-walk the whole asset list
   // and the upstream useMemo on `merged` keeps a stable reference.
   return useMemo(() => {
-    if (!search) return options;
+    if (!search) {
+      return options;
+    }
     const searchLc = search.toLowerCase();
     return options.filter(option => {
       const metadata = isBalancesResponse(option)

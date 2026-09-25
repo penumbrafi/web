@@ -141,12 +141,12 @@ const augmentViaPenumbraRegistry = (
   penumbraRegistry: Registry,
 ): Asset | undefined => {
   const conn = penumbraRegistry.ibcConnections.find(c => c.chainId === chainId);
-  if (!conn?.channelId) return undefined;
+  if (!conn?.channelId) {return undefined;}
   const penumbraBase = `transfer/${conn.channelId}/${denom}`;
   const asset = penumbraRegistry
     .getAllAssets()
     .find(a => a.base === penumbraBase);
-  if (!asset) return undefined;
+  if (!asset) {return undefined;}
 
   // Map Penumbra Metadata → chain-registry Asset shape. denomUnits
   // stay as-is (Penumbra keeps the same {denom, exponent} structure).
@@ -175,7 +175,7 @@ export const augmentToAsset = (
 ): Asset => {
   if (penumbraRegistry && chainId) {
     const bridged = augmentViaPenumbraRegistry(denom, chainId, penumbraRegistry);
-    if (bridged) return bridged;
+    if (bridged) {return bridged;}
   }
   const match = cosmosAssetList
     .find(({ chain_name }) => chain_name === chainName)

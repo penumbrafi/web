@@ -13,9 +13,9 @@ const BUY_COLOR = '#55d383';
 const SELL_COLOR = '#f17878';
 
 const formatPrice = (p: number): string => {
-  if (p >= 1) return p.toFixed(4);
-  if (p >= 0.01) return p.toFixed(5);
-  if (p >= 0.0001) return p.toFixed(6);
+  if (p >= 1) {return p.toFixed(4);}
+  if (p >= 0.01) {return p.toFixed(5);}
+  if (p >= 0.0001) {return p.toFixed(6);}
   return p.toPrecision(4);
 };
 
@@ -54,7 +54,7 @@ export const LimitPreviewOverlay = observer(
       return subscribeRedraw(recompute);
     }, [valid, price, yAtPrice, subscribeRedraw]);
 
-    if (!valid || y === undefined) return null;
+    if (!valid || y === undefined) {return null;}
 
     const color = direction === 'buy' ? BUY_COLOR : SELL_COLOR;
     const sideLabel = direction === 'buy' ? 'Buy' : 'Sell';
@@ -83,7 +83,7 @@ export const LimitPreviewOverlay = observer(
     return (
       <div
         aria-label='Limit order preview'
-        className='pointer-events-none absolute left-0 right-0 z-[6]'
+        className='pointer-events-none absolute right-0 left-0 z-[6]'
         style={{ top: y - 1, height: 2 }}
       >
         <div

@@ -25,7 +25,7 @@ const Footer: FC<Props> = props => (
                         'items-center justify-center rounded-full border-1'
                     )}
                     href="http://discord.gg/penumbrazone"
-                    target="_blank"
+                    target="_blank" rel="noreferrer"
                 >
                     <Discord />
                 </a>
@@ -35,7 +35,7 @@ const Footer: FC<Props> = props => (
                         'items-center justify-center rounded-full border-1'
                     )}
                     href="https://github.com/penumbrafi/penumbra-explorer"
-                    target="_blank"
+                    target="_blank" rel="noreferrer"
                 >
                     <GitHub />
                 </a>
@@ -45,15 +45,15 @@ const Footer: FC<Props> = props => (
                         'items-center justify-center rounded-full border-1'
                     )}
                     href="https://twitter.com/penumbrazone"
-                    target="_blank"
+                    target="_blank" rel="noreferrer"
                 >
                     <Twitter />
                 </a>
             </div>
         </div>
         <div className="flex flex-col items-center gap-1 sm:col-3 sm:items-end">
-            <span className="text-text-secondary text-xs">Powered by</span>
-            <a href="https://penumbra.zone/" target="_blank">
+            <span className="text-xs text-text-secondary">Powered by</span>
+            <a href="https://penumbra.zone/" target="_blank" rel="noreferrer">
                 <Penumbra />
             </a>
         </div>
@@ -65,15 +65,15 @@ const Footer: FC<Props> = props => (
         >
             Supported by
             <br />
-            <a href="https://numogrammatics.org/" target="_blank">
+            <a href="https://numogrammatics.org/" target="_blank" rel="noreferrer">
                 IAN
             </a>
             ,{' '}
-            <a href="https://penumbralabs.xyz/" target="_blank">
+            <a href="https://penumbralabs.xyz/" target="_blank" rel="noreferrer">
                 Penumbra Labs
             </a>
             ,{' '}
-            <a href="https://radiantcommons.com/" target="_blank">
+            <a href="https://radiantcommons.com/" target="_blank" rel="noreferrer">
                 Radiant Commons
             </a>
         </div>
@@ -87,7 +87,7 @@ const Footer: FC<Props> = props => (
             <a
                 className="text-text-secondary hover:text-text-special"
                 href="https://discord.gg/penumbrazone"
-                target="_blank"
+                target="_blank" rel="noreferrer"
             >
                 #dev-chat on the Penumbra Discord
             </a>

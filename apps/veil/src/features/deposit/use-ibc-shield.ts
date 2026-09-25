@@ -60,7 +60,9 @@ export const useIbcShield = (asset: UnifiedAsset): UseIbcShieldResult => {
   // our curated SUPPORTED_CHAINS so we don't pull the full chain-registry
   // barrel and don't have to guess the slug from chainId.
   const chainName = useMemo(() => {
-    if (!sourceChainId) return null;
+    if (!sourceChainId) {
+      return null;
+    }
     return SUPPORTED_CHAINS.find(c => c.chain_id === sourceChainId)?.chain_name ?? null;
   }, [sourceChainId]);
 

@@ -22,7 +22,7 @@ export const CexAssetSelect = ({ onPick }: CexAssetSelectProps) => {
   const [activeCexId, setActiveCexId] = useState<string>(CEX_CONFIG[0]?.id ?? '');
   const activeCex = CEX_CONFIG.find(c => c.id === activeCexId) ?? CEX_CONFIG[0];
 
-  if (!activeCex) return null;
+  if (!activeCex) {return null;}
 
   return (
     <div className='flex flex-col gap-3'>

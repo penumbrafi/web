@@ -73,7 +73,9 @@ const Thumb = ({
     let rafId = 0;
     const flush = () => {
       rafId = 0;
-      if (pendingNext === null) return;
+      if (pendingNext === null) {
+        return;
+      }
       const next = pendingNext;
       pendingNext = null;
       onMove(next);
@@ -96,7 +98,9 @@ const Thumb = ({
       const maxX = i === 1 ? scale(scale.domain()[1] ?? 0) : scale(otherValue);
       const nextX = Math.min(Math.max(minX, scale(value) + dx), maxX);
       pendingNext = scale.invert(nextX);
-      if (rafId) return;
+      if (rafId) {
+        return;
+      }
       rafId = requestAnimationFrame(flush);
     };
 

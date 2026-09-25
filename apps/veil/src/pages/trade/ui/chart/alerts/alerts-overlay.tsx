@@ -18,9 +18,9 @@ interface PositionedAlert {
 }
 
 const formatPrice = (p: number): string => {
-  if (p >= 1) return p.toFixed(4);
-  if (p >= 0.01) return p.toFixed(5);
-  if (p >= 0.0001) return p.toFixed(6);
+  if (p >= 1) {return p.toFixed(4);}
+  if (p >= 0.01) {return p.toFixed(5);}
+  if (p >= 0.0001) {return p.toFixed(6);}
   return p.toPrecision(4);
 };
 
@@ -48,9 +48,9 @@ export const AlertsOverlay = ({
     const recompute = () => {
       const next: PositionedAlert[] = [];
       for (const a of alerts) {
-        if (a.triggeredAt) continue; // only show active alerts on chart
+        if (a.triggeredAt) {continue;} // only show active alerts on chart
         const y = yAtPrice(a.targetPrice);
-        if (y === undefined) continue;
+        if (y === undefined) {continue;}
         next.push({ id: a.id, y, price: a.targetPrice, direction: a.direction });
       }
       setPositioned(next);
@@ -58,7 +58,7 @@ export const AlertsOverlay = ({
     return subscribeRedraw(recompute);
   }, [alerts, yAtPrice, subscribeRedraw]);
 
-  if (!positioned.length) return null;
+  if (!positioned.length) {return null;}
 
   return (
     <div
@@ -66,7 +66,7 @@ export const AlertsOverlay = ({
       className='pointer-events-none absolute inset-0 z-[6]'
     >
       {positioned.map(a => (
-        <div key={a.id} className='absolute left-0 right-0' style={{ top: a.y - 1, height: 2 }}>
+        <div key={a.id} className='absolute right-0 left-0' style={{ top: a.y - 1, height: 2 }}>
           {/* Dotted line spanning the chart width — leaves the price-
               axis area clear (right: 56) so it doesn't fight depth bars
               or mid-price label. */}

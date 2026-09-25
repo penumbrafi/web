@@ -27,13 +27,13 @@ const fmtDate = (d: string) =>
   });
 
 const fmtUM = (n: number) => {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
+  if (n >= 1_000_000) {return `${(n / 1_000_000).toFixed(2)}M`;}
+  if (n >= 1_000) {return `${(n / 1_000).toFixed(0)}K`;}
   return n.toFixed(0);
 };
 
 const ChartTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null;
+  if (!active || !payload?.length) {return null;}
   return (
     <div className='rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm shadow-lg'>
       <div className='text-text-secondary'>{fmtDate(label)}</div>

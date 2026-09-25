@@ -313,7 +313,9 @@ async function handleGet(req: NextRequest): Promise<NextResponse<RouteBookApiRes
         // subsequent requests skip refresh entirely, pinning the stale
         // entry indefinitely.
         const c = cache.get(cacheKey);
-        if (c) c.refreshing = false;
+        if (c) {
+          c.refreshing = false;
+        }
         throw err;
       })
       .finally(() => {
@@ -532,7 +534,9 @@ const withHardStop = <T>(p: Promise<T>, ms: number): Promise<T> => {
     handle = setTimeout(() => reject(new Error(`pd simulate hard-stopped after ${ms}ms`)), ms);
   });
   return Promise.race([p, stop]).finally(() => {
-    if (handle) clearTimeout(handle);
+    if (handle) {
+      clearTimeout(handle);
+    }
   });
 };
 

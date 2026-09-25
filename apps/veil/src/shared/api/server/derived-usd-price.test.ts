@@ -33,14 +33,14 @@ const usdtInj: Bridge = { assetId: makeAssetId(3), exponent: 6, symbol: 'USDT.in
 type LookupKey = `${string}->${string}`;
 type BookMap = Partial<Record<LookupKey, { filledInDisp: number; filledOutDisp: number } | null>>;
 
-const symbolOf = (id: AssetId, tables: Array<{ assetId: AssetId; symbol: string }>): string => {
-  for (const t of tables) if (t.assetId.equals(id)) return t.symbol;
+const symbolOf = (id: AssetId, tables: { assetId: AssetId; symbol: string }[]): string => {
+  for (const t of tables) {if (t.assetId.equals(id)) {return t.symbol;}}
   return '?';
 };
 
-const makeSimulate = (books: BookMap, everything: Array<{ assetId: AssetId; symbol: string }>): Simulate =>
+const makeSimulate = (books: BookMap, everything: { assetId: AssetId; symbol: string }[]): Simulate =>
   async (inAssetId, outAssetId) => {
-    const key = `${symbolOf(inAssetId, everything)}->${symbolOf(outAssetId, everything)}` as LookupKey;
+    const key: LookupKey = `${symbolOf(inAssetId, everything)}->${symbolOf(outAssetId, everything)}`;
     return books[key] ?? null;
   };
 
@@ -194,7 +194,7 @@ describe('deriveMultiBridge', () => {
     );
     const out = await deriveMultiBridge(um, [usdcInj], simulate, cached, signal);
     expect(out.kind).toBe('stale');
-    if (out.kind === 'stale') expect(out.reason).toBe('sticky');
+    if (out.kind === 'stale') {expect(out.reason).toBe('sticky');}
   });
 
   it('does NOT stick when a big move comes with deep depth', async () => {
@@ -215,7 +215,7 @@ describe('deriveMultiBridge', () => {
     );
     const out = await deriveMultiBridge(um, [usdcInj], simulate, cached, signal);
     expect(out.kind).toBe('fresh');
-    if (out.kind === 'fresh') expect(out.usd).toBeCloseTo(0.01, 9);
+    if (out.kind === 'fresh') {expect(out.usd).toBeCloseTo(0.01, 9);}
   });
 
   it('single healthy bridge is used even if peers fail their gates', async () => {

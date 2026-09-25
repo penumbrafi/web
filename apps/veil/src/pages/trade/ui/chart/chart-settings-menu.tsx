@@ -75,12 +75,12 @@ export const ChartSettingsMenu = memo(({ prefs, onToggle, walletConnected }: Pro
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {return;}
     const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) {setOpen(false);}
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') {setOpen(false);}
     };
     document.addEventListener('mousedown', onDoc);
     document.addEventListener('keydown', onKey);

@@ -31,8 +31,8 @@ export const simulateMarketBase = (
   buyRows: Trace[],
   sellRows: Trace[],
 ): FillSimulation | undefined => {
-  if (!Number.isFinite(baseAmount) || baseAmount <= 0) return undefined;
-  if (!buyRows.length && !sellRows.length) return undefined;
+  if (!Number.isFinite(baseAmount) || baseAmount <= 0) {return undefined;}
+  if (!buyRows.length && !sellRows.length) {return undefined;}
 
   const walk: Trace[] =
     direction === 'buy' ? [...sellRows].reverse() : buyRows;
@@ -42,7 +42,7 @@ export const simulateMarketBase = (
   let quoteAcc = 0;
 
   for (const row of walk) {
-    if (remaining <= 0) break;
+    if (remaining <= 0) {break;}
     const avail = pnum(row.amount).toNumber();
     const price = pnum(row.price).toNumber();
     if (!Number.isFinite(avail) || !Number.isFinite(price) || avail <= 0 || price <= 0) {
@@ -53,7 +53,7 @@ export const simulateMarketBase = (
     // If a bucketed row appears twice (shouldn't, but be defensive) keep
     // the larger fill fraction.
     const prior = fills.get(row.price);
-    if (prior === undefined || fraction > prior) fills.set(row.price, fraction);
+    if (prior === undefined || fraction > prior) {fills.set(row.price, fraction);}
     quoteAcc += taken * price;
     remaining -= taken;
   }

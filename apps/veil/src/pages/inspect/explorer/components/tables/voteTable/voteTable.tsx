@@ -49,7 +49,7 @@ const VoteTable: FC<Props> = ({ votes, ...props }) => (
                                         <Link href={`/explore/validators/${encodeURIComponent(vote.id)}`}>
                                             {vote.name}
                                         </Link>
-                                        <span className="text-text-secondary text-xs">
+                                        <span className="text-xs text-text-secondary">
                                             {shortenHash(vote.id, 19, 'end')}
                                             <CopyToClipboard
                                                 className="align-middle"
@@ -82,7 +82,7 @@ const VoteTable: FC<Props> = ({ votes, ...props }) => (
                                     />
                                     <span>{formatNumber(vote.power)} UM</span>
                                 </span>
-                                <span className="text-text-secondary ml-7 text-xs">
+                                <span className="ml-7 text-xs text-text-secondary">
                                     {vote.powerPercentage.toFixed(2)}%
                                 </span>
                             </span>

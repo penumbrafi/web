@@ -18,12 +18,24 @@ import { ownPositionDragOverrides } from './drag-overrides';
 // suffix; more decimals as the value shrinks so small dust amounts don't
 // all collapse to the same string.
 const formatShortAmount = (v: number): string => {
-  if (!Number.isFinite(v) || v <= 0) return '0';
-  if (v >= 1000) return `${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}k`;
-  if (v >= 100) return v.toFixed(0);
-  if (v >= 10) return v.toFixed(1);
-  if (v >= 1) return v.toFixed(2);
-  if (v >= 0.01) return v.toFixed(3);
+  if (!Number.isFinite(v) || v <= 0) {
+    return '0';
+  }
+  if (v >= 1000) {
+    return `${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}k`;
+  }
+  if (v >= 100) {
+    return v.toFixed(0);
+  }
+  if (v >= 10) {
+    return v.toFixed(1);
+  }
+  if (v >= 1) {
+    return v.toFixed(2);
+  }
+  if (v >= 0.01) {
+    return v.toFixed(3);
+  }
   return v.toPrecision(2);
 };
 
@@ -86,7 +98,9 @@ export const useOwnPositionLines = (
       }
       const raw: RawLine[] = [];
       for (const dp of display) {
-        if (!dp.isOpened) continue;
+        if (!dp.isOpened) {
+          continue;
+        }
         for (let i = 0; i < dp.orders.length; i++) {
           const o = dp.orders[i]!;
           const key = `${dp.idString}-${i}`;
@@ -95,7 +109,9 @@ export const useOwnPositionLines = (
           // drag overlay.
           const override = ownPositionDragOverrides.get(key);
           const price = override ?? pnum(o.effectivePrice).toNumber();
-          if (!Number.isFinite(price) || price <= 0) continue;
+          if (!Number.isFinite(price) || price <= 0) {
+            continue;
+          }
           const directionRaw = o.direction.toLowerCase();
           const direction = directionRaw === 'buy' ? 'buy' : directionRaw === 'sell' ? 'sell' : '';
 
@@ -109,10 +125,14 @@ export const useOwnPositionLines = (
           try {
             if (direction === 'sell') {
               const v = o.baseAsset.amount.toNumber();
-              if (Number.isFinite(v) && v > 0) baseAmount = v;
+              if (Number.isFinite(v) && v > 0) {
+                baseAmount = v;
+              }
             } else if (direction === 'buy') {
               const v = o.quoteAsset.amount.toNumber();
-              if (Number.isFinite(v) && v > 0) quoteAmount = v;
+              if (Number.isFinite(v) && v > 0) {
+                quoteAmount = v;
+              }
             }
           } catch {
             // leave amounts undefined — falls back to plain label/width 1

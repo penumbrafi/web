@@ -23,22 +23,22 @@ const fmtDate = (d: string) =>
   });
 
 const fmtUM = (n: number) => {
-  if (n === 0) return '0';
+  if (n === 0) {return '0';}
   const abs = Math.abs(n);
   const sign = n < 0 ? '-' : '';
-  if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(2)}M`;
-  if (abs >= 1_000) return `${sign}${(abs / 1_000).toFixed(0)}K`;
+  if (abs >= 1_000_000) {return `${sign}${(abs / 1_000_000).toFixed(2)}M`;}
+  if (abs >= 1_000) {return `${sign}${(abs / 1_000).toFixed(0)}K`;}
   return `${sign}${abs.toFixed(0)}`;
 };
 
 interface RechartsTooltipProps {
   active?: boolean;
-  payload?: Array<{ name: string; value: number; color: string }>;
+  payload?: { name: string; value: number; color: string }[];
   label?: string;
 }
 
 const ChartTooltip = ({ active, payload, label }: RechartsTooltipProps) => {
-  if (!active || !payload?.length || !label) return null;
+  if (!active || !payload?.length || !label) {return null;}
   return (
     <div className='rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm shadow-lg'>
       <div className='text-text-secondary'>{fmtDate(label)}</div>

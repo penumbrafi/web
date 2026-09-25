@@ -16,7 +16,7 @@ import { connectionStore } from '@/shared/model/connection';
 import { ConnectButton } from '@/features/connect/connect-button';
 import { Tooltip } from '@penumbra-zone/ui/Tooltip';
 import { OrderFormStore } from './store/OrderFormStore';
-import { DEFAULT_PRICE_RANGE, DEFAULT_PRICE_SPREAD } from './store/LPFormStore';
+import { DEFAULT_PRICE_RANGE, DEFAULT_PRICE_SPREAD ,type  LPFormStore } from './store/LPFormStore';
 import { PriceSlider, roundToDecimals } from './price-slider';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@penumbra-zone/ui/Icon';
@@ -27,7 +27,12 @@ import { ConfirmInfoRow, ConfirmOrderModal, ConfirmWarning } from './confirm-ord
 import { FormIssueNotice } from './form-issue';
 import { useReferencePrice } from '@/pages/trade/model/useReferencePrice';
 import { useCommittedReserves } from '@/entities/position/model/use-committed-reserves';
-import type { LPFormStore } from './store/LPFormStore';
+import ConcentratedDefault from '@/shared/assets/liquidity-shapes/Type=Concentrated, State=Default.svg';
+import ConcentratedSelected from '@/shared/assets/liquidity-shapes/Type=Concentrated, State=Selected.svg';
+import StablekindDefault from '@/shared/assets/liquidity-shapes/Type=Stablekind, State=Default.svg';
+import StablekindSelected from '@/shared/assets/liquidity-shapes/Type=Stablekind, State=Selected.svg';
+import VolatileDefault from '@/shared/assets/liquidity-shapes/Type=Volatile, State=Default.svg';
+import VolatileSelected from '@/shared/assets/liquidity-shapes/Type=Volatile, State=Selected.svg';
 
 /**
  * Tiny hint-chip under the reference-price input: "Suggested: 1.00 (peg)"
@@ -69,15 +74,15 @@ const SuggestedRefPrice = observer(
     const autoAppliedForPairRef = useRef<string | null>(null);
     const currentPairKey = baseSym && quoteSymForHook ? `${baseSym}|${quoteSymForHook}` : null;
     useEffect(() => {
-      if (!currentPairKey || price === undefined || source !== 'fixed') return;
-      if (autoAppliedForPairRef.current === currentPairKey) return;
-      if (store.userReferencePriceInput.trim().length > 0) return;
+      if (!currentPairKey || price === undefined || source !== 'fixed') {return;}
+      if (autoAppliedForPairRef.current === currentPairKey) {return;}
+      if (store.userReferencePriceInput.trim().length > 0) {return;}
       const formatted = roundToDecimals(price, decimals);
       store.setUserReferencePriceInput(String(formatted));
       autoAppliedForPairRef.current = currentPairKey;
     }, [currentPairKey, price, source, store, decimals]);
 
-    if (price === undefined) return null;
+    if (price === undefined) {return null;}
     // Live-source label describes what BOTH sides collectively resolved
     // from. The breakdown tooltip below shows each side individually,
     // so this stays a short chip.
@@ -134,10 +139,10 @@ const RefPriceBreakdown = ({
   const legText = (
     leg: import('@/pages/trade/model/useReferencePrice').RefPriceLeg | undefined,
   ): string => {
-    if (!leg) return '';
+    if (!leg) {return '';}
     const usd = leg.usd < 0.01 ? leg.usd.toPrecision(4) : leg.usd.toFixed(leg.usd < 1 ? 4 : 2);
-    if (leg.source === 'fixed') return `${leg.symbol} = $${usd} (peg)`;
-    if (leg.source === 'coingecko') return `${leg.symbol} = $${usd} (CoinGecko)`;
+    if (leg.source === 'fixed') {return `${leg.symbol} = $${usd} (peg)`;}
+    if (leg.source === 'coingecko') {return `${leg.symbol} = $${usd} (CoinGecko)`;}
     // derived
     const depthK =
       leg.depthUsd && leg.depthUsd > 0
@@ -149,7 +154,7 @@ const RefPriceBreakdown = ({
     maximumFractionDigits: price < 1 ? 6 : 4,
   });
   return (
-    <div className='max-w-[280px] whitespace-pre-line text-xs leading-snug'>
+    <div className='max-w-[280px] text-xs leading-snug whitespace-pre-line'>
       {`How this reference price was calculated:\n\n${legText(base)}\n${legText(quote)}\n\n${base?.symbol ?? 'base'}/${quote?.symbol ?? 'quote'} = ${priceFmt}`}
     </div>
   );
@@ -186,7 +191,7 @@ const SuggestPositionButton = observer(
     const quoteBal = store.quoteAsset?.balance ?? 0;
     const hasBalance = baseBal > 0 || quoteBal > 0;
     const canSuggest = anchor !== null && anchor > 0 && hasBalance;
-    if (!canSuggest) return null;
+    if (!canSuggest) {return null;}
 
     const oneSided = !(baseBal > 0 && quoteBal > 0);
     const heldSym = baseBal > 0 ? store.baseAsset?.symbol : store.quoteAsset?.symbol;
@@ -295,12 +300,6 @@ const ReferencePriceInput = observer(
     </>
   ),
 );
-import ConcentratedDefault from '@/shared/assets/liquidity-shapes/Type=Concentrated, State=Default.svg';
-import ConcentratedSelected from '@/shared/assets/liquidity-shapes/Type=Concentrated, State=Selected.svg';
-import StablekindDefault from '@/shared/assets/liquidity-shapes/Type=Stablekind, State=Default.svg';
-import StablekindSelected from '@/shared/assets/liquidity-shapes/Type=Stablekind, State=Selected.svg';
-import VolatileDefault from '@/shared/assets/liquidity-shapes/Type=Volatile, State=Default.svg';
-import VolatileSelected from '@/shared/assets/liquidity-shapes/Type=Volatile, State=Selected.svg';
 
 const LP_ADVANCED_KEY = 'veil.lp.advancedOpen';
 
@@ -366,7 +365,7 @@ const sliderPosToFeePercent = (pos: number): number => {
 };
 const feePercentToSliderPos = (pctInput: number | string): number => {
   const pct = typeof pctInput === 'number' ? pctInput : parseFloat(pctInput);
-  if (!Number.isFinite(pct) || pct <= 0) return 0;
+  if (!Number.isFinite(pct) || pct <= 0) {return 0;}
   const clamped = Math.min(FEE_SLIDER_MAX, Math.max(FEE_SLIDER_MIN, pct));
   const t = (Math.log10(clamped) - FEE_LOG_MIN) / (FEE_LOG_MAX - FEE_LOG_MIN);
   return Math.round(t * FEE_SLIDER_STEPS);
@@ -375,9 +374,9 @@ const feePercentToSliderPos = (pctInput: number | string): number => {
 // 0.012% from 0.015%; ≥1% only needs one; middle band gets two.
 const formatFeePercent = (pctInput: number | string): string => {
   const pct = typeof pctInput === 'number' ? pctInput : parseFloat(pctInput);
-  if (!Number.isFinite(pct)) return '0';
-  if (pct < 0.1) return pct.toFixed(3).replace(/\.?0+$/, '');
-  if (pct < 1) return pct.toFixed(2).replace(/\.?0+$/, '');
+  if (!Number.isFinite(pct)) {return '0';}
+  if (pct < 0.1) {return pct.toFixed(3).replace(/\.?0+$/, '');}
+  if (pct < 1) {return pct.toFixed(2).replace(/\.?0+$/, '');}
   return pct.toFixed(1).replace(/\.0$/, '');
 };
 
@@ -452,9 +451,9 @@ export const LPOrderForm = observer(
     useEffect(() => {
       const storeLo = store.lowerPriceInput;
       const storeHi = store.upperPriceInput;
-      if (storeLo == null || storeHi == null) return;
+      if (storeLo == null || storeHi == null) {return;}
       setPriceRanges(prev => {
-        if (prev[0] === storeLo && prev[1] === storeHi) return prev;
+        if (prev[0] === storeLo && prev[1] === storeHi) {return prev;}
         return [storeLo, storeHi];
       });
     }, [store.lowerPriceInput, store.upperPriceInput]);
@@ -559,11 +558,11 @@ export const LPOrderForm = observer(
     ]);
 
     const confirmWarnings = useMemo<ConfirmWarning[]>(() => {
-      if (mid == null || lo === undefined || hi === undefined) return [];
-      if (rangeCoversMid) return [];
+      if (mid == null || lo === undefined || hi === undefined) {return [];}
+      if (rangeCoversMid) {return [];}
       // One-sided plans get their own dedicated notice; skip the range
       // warning so the confirm modal doesn't say the same thing twice.
-      if (store.isOneSided) return [];
+      if (store.isOneSided) {return [];}
       const aboveMid = mid > hi;
       return [
         {
@@ -673,7 +672,7 @@ export const LPOrderForm = observer(
       });
     }, [persistAdvanced]);
     useEffect(() => {
-      if (autoOpenedRef.current) return;
+      if (autoOpenedRef.current) {return;}
       const isOneSided = store.isOneSided;
       const rangeOffMid =
         mid != null && lo !== undefined && hi !== undefined && !rangeCoversMid;
@@ -685,7 +684,7 @@ export const LPOrderForm = observer(
       if (isOneSided || rangeOffMid || shapeNonDefault || feeNonDefault || positionsNonDefault) {
         autoOpenedRef.current = true;
         setAdvancedOpen(prev => {
-          if (prev) return prev;
+          if (prev) {return prev;}
           persistAdvanced(true);
           return true;
         });
@@ -707,14 +706,14 @@ export const LPOrderForm = observer(
     // themselves so a click doesn't leave the popover hanging.
     const [rangeMenuOpen, setRangeMenuOpen] = useState(false);
     useEffect(() => {
-      if (!rangeMenuOpen) return;
+      if (!rangeMenuOpen) {return;}
       const onDoc = (e: MouseEvent) => {
         const t = e.target as HTMLElement | null;
-        if (t && t.closest('[data-range-menu]')) return;
+        if (t && t.closest('[data-range-menu]')) {return;}
         setRangeMenuOpen(false);
       };
       const onKey = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') setRangeMenuOpen(false);
+        if (e.key === 'Escape') {setRangeMenuOpen(false);}
       };
       window.addEventListener('mousedown', onDoc);
       window.addEventListener('keydown', onKey);
@@ -776,8 +775,8 @@ export const LPOrderForm = observer(
             onClick={() => {
               const target = asset?.balance?.toString();
               if (target) {
-                if (side === 'base') store.setBaseInput(target);
-                else store.setQuoteInput(target);
+                if (side === 'base') {store.setBaseInput(target);}
+                else {store.setQuoteInput(target);}
               }
             }}
           >
@@ -844,7 +843,7 @@ export const LPOrderForm = observer(
                 <MoreHorizontal className='h-4 w-4' />
               </button>
               {rangeMenuOpen && (
-                <div className='absolute right-0 top-7 z-20 min-w-[160px] rounded-md border border-other-tonal-stroke bg-base-black p-1 text-xs shadow-lg'>
+                <div className='absolute top-7 right-0 z-20 min-w-[160px] rounded-md border border-other-tonal-stroke bg-base-black p-1 text-xs shadow-lg'>
                   <button
                     type='button'
                     onClick={() => {
@@ -992,7 +991,7 @@ export const LPOrderForm = observer(
                 <div className='flex w-full gap-2'>
                   {SIMPLE_SHAPES.map(shape => {
                     const art = SHAPE_ART[shape];
-                    if (!art) return null;
+                    if (!art) {return null;}
                     // Dragging a bar flips the shape to CUSTOM, which is not
                     // one of the three badges — so the row used to show NO
                     // selection at all and the controls read as broken. Keep
@@ -1082,7 +1081,7 @@ export const LPOrderForm = observer(
                           store.setFeeTierPercentInput(formatFeePercent(clamped));
                         }}
                         aria-label='Fee percent'
-                        className='h-4 w-12 rounded-sm bg-other-tonal-fill5 px-1 text-right text-xs tabular-nums text-text-primary outline-none focus:ring-1 focus:ring-primary-main'
+                        className='h-4 w-12 rounded-sm bg-other-tonal-fill5 px-1 text-right text-xs text-text-primary tabular-nums outline-none focus:ring-1 focus:ring-primary-main'
                       />
                       <span className='text-text-secondary'>%</span>
                     </div>
@@ -1149,7 +1148,7 @@ export const LPOrderForm = observer(
             }
             parts.push(`${store.feeTierPercentInput}% fee`);
             parts.push(`${actualPositions} pos`);
-            if (isLQTEligible) parts.push('LQT eligible');
+            if (isLQTEligible) {parts.push('LQT eligible');}
             parts.push(
               `gas ${parentStore.gasFee.display} ${parentStore.gasFee.symbol}`,
             );
@@ -1172,8 +1171,8 @@ export const LPOrderForm = observer(
           ) {
             return null;
           }
-          if (mid >= lo && mid <= hi) return null;
-          if (store.isOneSided) return null;
+          if (mid >= lo && mid <= hi) {return null;}
+          if (store.isOneSided) {return null;}
           const aboveMid = mid > hi;
           return (
             <div className='mb-2 rounded-sm border border-destructive-light/30 bg-destructive-light/10 px-2 py-1 text-[11px] leading-tight text-destructive-light'>
@@ -1187,7 +1186,7 @@ export const LPOrderForm = observer(
 
         {/* Submit — sticky so it never leaves the fold regardless of
             Advanced state. */}
-        <div className='sticky bottom-0 -mx-3 -mb-3 border-t border-other-tonal-stroke bg-base-black/95 px-3 pb-3 pt-2 backdrop-blur-sm'>
+        <div className='sticky bottom-0 -mx-3 -mb-3 border-t border-other-tonal-stroke bg-base-black/95 px-3 pt-2 pb-3 backdrop-blur-sm'>
           {connected ? (
             <Button actionType='accent' disabled={!parentStore.canSubmit} onClick={openConfirm}>
               Add Liquidity

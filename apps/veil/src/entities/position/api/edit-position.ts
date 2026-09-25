@@ -71,11 +71,17 @@ export const editPosition = async ({
   const sumForAsset = (assetId: AssetId): bigint => {
     let total = 0n;
     for (const { balanceView } of balances) {
-      if (balanceView?.valueView.case !== 'knownAssetId') continue;
+      if (balanceView?.valueView.case !== 'knownAssetId') {
+        continue;
+      }
       const v = balanceView.valueView.value;
       const id = v.metadata?.penumbraAssetId;
-      if (!id || !assetId.equals(id)) continue;
-      if (v.amount) total += joinLoHiAmount(v.amount);
+      if (!id || !assetId.equals(id)) {
+        continue;
+      }
+      if (v.amount) {
+        total += joinLoHiAmount(v.amount);
+      }
     }
     return total;
   };

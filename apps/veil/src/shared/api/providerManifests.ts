@@ -28,7 +28,9 @@ export const useProviderManifests = () => {
       );
 
       const resolvedManifests = settled.flatMap(r => {
-        if (r.status === 'fulfilled') return [r.value];
+        if (r.status === 'fulfilled') {
+          return [r.value];
+        }
         // Don't spam the console at info level — Penumbra-tagged extensions
         // do throw routinely on uninstalled/disabled providers.
         console.debug('[providerManifests] skipping broken provider:', r.reason);

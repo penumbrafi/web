@@ -15,9 +15,9 @@ import type { BurnPoint } from '../server/timeseries';
 import type { TokenomicsMetrics } from '../server/metrics';
 
 const fmtUM = (n: number) => {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  if (n >= 1) return n.toFixed(0);
+  if (n >= 1_000_000) {return `${(n / 1_000_000).toFixed(2)}M`;}
+  if (n >= 1_000) {return `${(n / 1_000).toFixed(1)}K`;}
+  if (n >= 1) {return n.toFixed(0);}
   return n.toFixed(2);
 };
 // Pin locale + tz so SSR and client render the exact same label.
@@ -29,7 +29,7 @@ const fmtDate = (d: string) =>
   });
 
 const BurnTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null;
+  if (!active || !payload?.length) {return null;}
   return (
     <div className='rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm shadow-lg'>
       <div className='text-text-secondary'>{fmtDate(label)}</div>

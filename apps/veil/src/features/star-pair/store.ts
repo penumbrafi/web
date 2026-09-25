@@ -36,13 +36,13 @@ export const canonicalizeDirection = (pair: Pair): Pair => {
   const baseSym = pair.base.symbol;
   const quoteSym = pair.quote.symbol;
 
-  if (isStable(quoteSym)) return pair;
-  if (isStable(baseSym)) return { base: pair.quote, quote: pair.base };
+  if (isStable(quoteSym)) {return pair;}
+  if (isStable(baseSym)) {return { base: pair.quote, quote: pair.base };}
 
   const baseIsBridge = isBridge(baseSym);
   const quoteIsBridge = isBridge(quoteSym);
-  if (baseIsBridge && !quoteIsBridge) return pair;
-  if (quoteIsBridge && !baseIsBridge) return { base: pair.quote, quote: pair.base };
+  if (baseIsBridge && !quoteIsBridge) {return pair;}
+  if (quoteIsBridge && !baseIsBridge) {return { base: pair.quote, quote: pair.base };}
 
   // Deterministic tiebreak: alphabetical symbol order.
   return baseSym.localeCompare(quoteSym) <= 0
@@ -69,8 +69,8 @@ class StarStateStore {
   setup = () => this.hydrate();
 
   hydrate = () => {
-    if (this.hydrated) return;
-    if (typeof window === 'undefined') return;
+    if (this.hydrated) {return;}
+    if (typeof window === 'undefined') {return;}
     const raw = getStarredPairs();
     // Migrate any pre-existing localStorage state that stored both
     // directions of the same market as separate stars — collapse to one.
@@ -85,11 +85,11 @@ class StarStateStore {
       }
       seen.add(key);
       const canon = canonicalizeDirection(p);
-      if (canon.base.symbol !== p.base.symbol) mutated = true;
+      if (canon.base.symbol !== p.base.symbol) {mutated = true;}
       deduped.push(canon);
     }
     this.pairs = deduped;
-    if (mutated) setStarredPairs(deduped);
+    if (mutated) {setStarredPairs(deduped);}
     this.hydrated = true;
   };
 
@@ -97,7 +97,7 @@ class StarStateStore {
     // No dupes: same unordered pair, either direction, stays one entry.
     const canon = canonicalizeDirection(pair);
     const key = pairKey(canon);
-    if (this.pairs.some(p => pairKey(p) === key)) return;
+    if (this.pairs.some(p => pairKey(p) === key)) {return;}
     this.pairs = [...this.pairs, canon];
     setStarredPairs(this.pairs);
   };

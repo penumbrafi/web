@@ -80,7 +80,7 @@ const SearchContainer: FC<Props> = props => {
     }, 300)
 
     const [recentSearchResults, setRecentSearchResults] =
-        useLocalStorage<Array<StoredSearchResult>>('search')
+        useLocalStorage<StoredSearchResult[]>('search')
 
     useEffect(() => {
         if (!searchResult) {
@@ -209,7 +209,7 @@ const SearchContainer: FC<Props> = props => {
         } else {
             searchResults = (
                 <SearchResultOverlay>
-                    <p className="font-default px-2 py-1 text-sm font-normal">
+                    <p className="px-2 py-1 font-default text-sm font-normal">
                         We couldn’t find any results matching your search.
                     </p>
                 </SearchResultOverlay>

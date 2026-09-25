@@ -56,7 +56,7 @@ export const PairSelector = () => {
   // hijack legitimate text entry.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) {return;}
       const t = e.target as HTMLElement | null;
       if (
         t &&
@@ -79,7 +79,7 @@ export const PairSelector = () => {
   // above so we don't hijack Cmd-S saves or 's' typed into a filter.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 's' || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key !== 's' || e.metaKey || e.ctrlKey || e.altKey) {return;}
       const t = e.target as HTMLElement | null;
       if (
         t &&
@@ -90,7 +90,7 @@ export const PairSelector = () => {
       ) {
         return;
       }
-      if (!baseAsset || !quoteAsset) return;
+      if (!baseAsset || !quoteAsset) {return;}
       e.preventDefault();
       router.push(getTradePairPath(quoteAsset.symbol, baseAsset.symbol));
     };

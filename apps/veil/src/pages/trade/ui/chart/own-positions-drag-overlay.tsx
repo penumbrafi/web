@@ -96,11 +96,11 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
       });
       const out: Rung[] = [];
       for (const dp of display) {
-        if (!dp.isOpened) continue;
+        if (!dp.isOpened) {continue;}
         for (let i = 0; i < dp.orders.length; i++) {
           const o = dp.orders[i]!;
           const price = pnum(o.effectivePrice).toNumber();
-          if (!Number.isFinite(price) || price <= 0) continue;
+          if (!Number.isFinite(price) || price <= 0) {continue;}
           const dir = o.direction.toLowerCase();
           const amt = pnum(o.amount).toNumber();
           const sym = dir === 'buy'
@@ -133,7 +133,7 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
         const m = new Map<string, number>();
         for (const r of rungs) {
           const y = yAtPrice(r.price);
-          if (y !== undefined) m.set(r.key, y);
+          if (y !== undefined) {m.set(r.key, y);}
         }
         yByKeyRef.current = m;
         force(x => x + 1);
@@ -142,13 +142,13 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
       return unsub;
     }, [rungs, yAtPrice, subscribeRedraw]);
 
-    if (!enabled || rungs.length === 0) return null;
+    if (!enabled || rungs.length === 0) {return null;}
 
     const onPointerDown =
       (rung: Rung) => (ev: React.PointerEvent<HTMLDivElement>) => {
-        if (ev.button !== undefined && ev.button !== 0) return;
+        if (ev.button !== undefined && ev.button !== 0) {return;}
         const container = containerRef.current;
-        if (!container) return;
+        if (!container) {return;}
         const rect = container.getBoundingClientRect();
         const y = ev.clientY - rect.top;
         try {
@@ -164,9 +164,9 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
 
     const onPointerMove = (ev: React.PointerEvent<HTMLDivElement>) => {
       const state = dragRef.current;
-      if (!state || state.pointerId !== ev.pointerId) return;
+      if (!state || state.pointerId !== ev.pointerId) {return;}
       const container = containerRef.current;
-      if (!container) return;
+      if (!container) {return;}
       const rect = container.getBoundingClientRect();
       const y = Math.max(0, Math.min(rect.height, ev.clientY - rect.top));
       state.y = y;
@@ -189,7 +189,7 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
         } catch {
           // best-effort
         }
-        if (!state || state.pointerId !== ev.pointerId) return;
+        if (!state || state.pointerId !== ev.pointerId) {return;}
         const newPrice = priceAtY(state.y);
         const y = state.y;
         dragRef.current = null;
@@ -224,7 +224,7 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
         baseAsset.denomUnits.find(u => u.denom === baseAsset.display)?.exponent ?? 0;
       const quoteExp =
         quoteAsset.denomUnits.find(u => u.denom === quoteAsset.display)?.exponent ?? 0;
-      if (!baseAsset.penumbraAssetId || !quoteAsset.penumbraAssetId) return;
+      if (!baseAsset.penumbraAssetId || !quoteAsset.penumbraAssetId) {return;}
       const built = planToPosition(
         {
           baseAsset: { id: baseAsset.penumbraAssetId, exponent: baseExp },
@@ -261,7 +261,7 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
             live numeric price is drawn on top of it. */}
         {dragY && dragLivePrice !== undefined && (
           <div
-            className='absolute rounded-sm bg-base-black/85 px-1.5 py-0.5 text-[11px] tabular-nums text-text-primary'
+            className='absolute rounded-sm bg-base-black/85 px-1.5 py-0.5 text-[11px] text-text-primary tabular-nums'
             style={{
               right: 60,
               top: dragY.y - 10,
@@ -340,7 +340,7 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
             }}
           >
             <div className='mb-1 text-text-secondary'>Reprice {pending.rung.direction || 'order'}</div>
-            <div className='mb-2 tabular-nums text-text-primary'>
+            <div className='mb-2 text-text-primary tabular-nums'>
               {pending.rung.price.toPrecision(6)}{' '}
               <span className='text-text-secondary'>→</span>{' '}
               {pending.newPrice.toPrecision(6)}

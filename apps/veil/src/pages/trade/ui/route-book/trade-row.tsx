@@ -156,12 +156,16 @@ export const TradeRow = memo(TradeRowImpl, (prev, next) => {
   if (a.price !== b.price || a.amount !== b.amount || a.total !== b.total) {
     return false;
   }
-  if (a.hops.length !== b.hops.length) return false;
+  if (a.hops.length !== b.hops.length) {
+    return false;
+  }
   // `hops` are plain symbol strings, so `!==` is a real content compare —
   // React Query structurally shares them across polls, and even when the
   // array identity changes, equal strings still hit the memo.
   for (let i = 0; i < a.hops.length; i++) {
-    if (a.hops[i] !== b.hops[i]) return false;
+    if (a.hops[i] !== b.hops[i]) {
+      return false;
+    }
   }
   return true;
 });

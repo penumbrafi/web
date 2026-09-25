@@ -24,7 +24,7 @@ const ValidatorStatusContainer: FC<Props> = props => (
                     <h2 className="inline text-2xl font-medium">
                         Validator status
                     </h2>{' '}
-                    <span className="text-text-secondary text-xs">
+                    <span className="text-xs text-text-secondary">
                         (Last 300 blocks)
                     </span>
                 </header>

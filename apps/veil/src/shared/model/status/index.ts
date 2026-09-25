@@ -65,7 +65,7 @@ class StatusState {
         // would otherwise sit at 0% "loading" forever. `loading=false`
         // hands control to the wallet-locked banner, which is a
         // meaningful signal the user can act on.
-        if (isLocked) this.loading = false;
+        if (isLocked) {this.loading = false;}
       });
       if (isLocked) {
         connectionStore.markWalletLocked();

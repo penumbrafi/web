@@ -29,12 +29,12 @@ const formatDate = (date: string) => {
 }
 
 const formatCount = (value: number) => {
-    if (value >= 1_000) return `${(value / 1_000).toFixed(0)}K`
+    if (value >= 1_000) {return `${(value / 1_000).toFixed(0)}K`}
     return value.toString()
 }
 
 const CustomTooltip: FC<any> = ({ active, label, payload }) => {
-    if (!active || !payload?.length) return null
+    if (!active || !payload?.length) {return null}
     return (
         <div className="rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm shadow-lg">
             <div className="text-text-secondary">

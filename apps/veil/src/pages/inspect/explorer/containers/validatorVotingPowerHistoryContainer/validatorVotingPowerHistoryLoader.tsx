@@ -63,19 +63,19 @@ const ValidatorVotingPowerHistoryLoader: FC<Props> = async props => {
 
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <div className="bg-surface-secondary rounded-lg p-4">
-                    <div className="text-text-secondary text-xs">Current</div>
+                    <div className="text-xs text-text-secondary">Current</div>
                     <div className="mt-1 text-lg font-medium">
                         {lastEntry.votingPower.toLocaleString('en-US')} UM
                     </div>
                 </div>
                 <div className="bg-surface-secondary rounded-lg p-4">
-                    <div className="text-text-secondary text-xs">Initial</div>
+                    <div className="text-xs text-text-secondary">Initial</div>
                     <div className="mt-1 text-lg font-medium">
                         {firstEntry.votingPower.toLocaleString('en-US')} UM
                     </div>
                 </div>
                 <div className="bg-surface-secondary rounded-lg p-4">
-                    <div className="text-text-secondary text-xs">Change</div>
+                    <div className="text-xs text-text-secondary">Change</div>
                     <div
                         className={classNames(
                             'mt-1 text-lg font-medium',
@@ -91,7 +91,7 @@ const ValidatorVotingPowerHistoryLoader: FC<Props> = async props => {
                     </div>
                 </div>
                 <div className="bg-surface-secondary rounded-lg p-4">
-                    <div className="text-text-secondary text-xs">% Change</div>
+                    <div className="text-xs text-text-secondary">% Change</div>
                     <div
                         className={classNames(
                             'mt-1 text-lg font-medium',
@@ -111,7 +111,7 @@ const ValidatorVotingPowerHistoryLoader: FC<Props> = async props => {
             <StakingHistoryChart data={chartData} />
 
             <details className="text-sm">
-                <summary className="text-text-secondary hover:text-text-primary cursor-pointer">
+                <summary className="cursor-pointer text-text-secondary hover:text-text-primary">
                     Show data table
                 </summary>
                 <div className="mt-4 overflow-x-auto">
@@ -166,7 +166,7 @@ const ValidatorVotingPowerHistoryLoader: FC<Props> = async props => {
                                                 ? '-'
                                                 : `${change > 0 ? '+' : ''}${change.toLocaleString('en-US')}`}
                                         </td>
-                                        <td className="text-text-secondary py-3">
+                                        <td className="py-3 text-text-secondary">
                                             {new Date(
                                                 entry.timestamp
                                             ).toLocaleString('en-US', { timeZone: 'UTC' })}

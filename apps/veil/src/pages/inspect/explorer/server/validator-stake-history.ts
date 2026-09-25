@@ -83,7 +83,9 @@ export async function fetchValidatorStakeHistory(
   const byDate = new Map<string, ValidatorStakeFlowPoint>();
   const ensure = (date: string): ValidatorStakeFlowPoint => {
     const existing = byDate.get(date);
-    if (existing) return existing;
+    if (existing) {
+      return existing;
+    }
     const created: ValidatorStakeFlowPoint = {
       date,
       stake: 0,
@@ -95,10 +97,18 @@ export async function fetchValidatorStakeHistory(
     return created;
   };
 
-  for (const r of stakeRows.rows) ensure(r.date).stake = toUM(r.um);
-  for (const r of delegationRows.rows) ensure(r.date).delegated = toUM(r.amount);
-  for (const r of undelegationRows.rows) ensure(r.date).undelegated = toUM(r.amount);
-  for (const e of byDate.values()) e.netFlow = e.delegated - e.undelegated;
+  for (const r of stakeRows.rows) {
+    ensure(r.date).stake = toUM(r.um);
+  }
+  for (const r of delegationRows.rows) {
+    ensure(r.date).delegated = toUM(r.amount);
+  }
+  for (const r of undelegationRows.rows) {
+    ensure(r.date).undelegated = toUM(r.amount);
+  }
+  for (const e of byDate.values()) {
+    e.netFlow = e.delegated - e.undelegated;
+  }
 
   return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
 }

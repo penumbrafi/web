@@ -25,7 +25,7 @@ const fmtDate = (d: string) =>
   });
 
 const InflationTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null;
+  if (!active || !payload?.length) {return null;}
   const p = payload[0];
   return (
     <div className='rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm shadow-lg'>

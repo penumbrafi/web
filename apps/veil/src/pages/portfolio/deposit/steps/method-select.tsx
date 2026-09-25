@@ -1,7 +1,6 @@
 'use client';
 
-import { ArrowRightLeft, Building2, ChevronRight } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { ArrowRightLeft, Building2, ChevronRight, type LucideIcon } from 'lucide-react';
 import { Text } from '@penumbra-zone/ui/Text';
 import { ReadyToShield } from './ready-to-shield';
 

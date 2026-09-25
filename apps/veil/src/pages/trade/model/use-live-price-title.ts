@@ -5,9 +5,15 @@ import { useMarketPrice } from './useMarketPrice';
 import { usePathSymbols } from './use-path';
 
 const formatPrice = (p: number): string => {
-  if (p >= 1) return p.toFixed(4);
-  if (p >= 0.01) return p.toFixed(5);
-  if (p >= 0.0001) return p.toFixed(6);
+  if (p >= 1) {
+    return p.toFixed(4);
+  }
+  if (p >= 0.01) {
+    return p.toFixed(5);
+  }
+  if (p >= 0.0001) {
+    return p.toFixed(6);
+  }
   return p.toPrecision(4);
 };
 

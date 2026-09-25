@@ -43,8 +43,12 @@ const FEE_DENOM: Record<string, string> = {
 };
 
 const explorerUrl = (chainId: string | undefined, hash: string): string | null => {
-  if (chainId === 'injective-1') return `https://explorer.injective.network/transaction/${hash}`;
-  if (chainId === 'noble-1') return `https://mintscan.io/noble/tx/${hash}`;
+  if (chainId === 'injective-1') {
+    return `https://explorer.injective.network/transaction/${hash}`;
+  }
+  if (chainId === 'noble-1') {
+    return `https://mintscan.io/noble/tx/${hash}`;
+  }
   return null;
 };
 
@@ -88,7 +92,9 @@ export const NativeShieldDialog = ({ asset, isOpen, onClose }: NativeShieldDialo
 
   const maxAmount = useMemo(() => {
     const balance = new BigNumber(displayBalance);
-    if (!balance.isFinite() || balance.lte(0)) return '0';
+    if (!balance.isFinite() || balance.lte(0)) {
+      return '0';
+    }
     const feeDenom = sourceChainId ? FEE_DENOM[sourceChainId] : undefined;
     const assetIsFeeToken = feeDenom && firstBalance?.denom === feeDenom;
     const buffer = assetIsFeeToken && sourceChainId ? NATIVE_GAS_BUFFER[sourceChainId] : undefined;
@@ -102,7 +108,9 @@ export const NativeShieldDialog = ({ asset, isOpen, onClose }: NativeShieldDialo
     amountBn.isFinite() && amountBn.gt(0) && amountBn.lte(balanceBn) && exponent > 0;
 
   const handleClose = useCallback(() => {
-    if (isPending) return; // don't let the user close mid-broadcast
+    if (isPending) {
+      return;
+    } // don't let the user close mid-broadcast
     setPhase('idle');
     setTxHash(null);
     reset();
@@ -123,12 +131,18 @@ export const NativeShieldDialog = ({ asset, isOpen, onClose }: NativeShieldDialo
   }, [amount, shield]);
 
   const disabledReason = (() => {
-    if (!chainName) return `No IBC route registered for ${sourceChainId ?? 'this asset'}`;
+    if (!chainName) {
+      return `No IBC route registered for ${sourceChainId ?? 'this asset'}`;
+    }
     if (!isWalletConnected) {
       return `Connect your Cosmos wallet on ${chainDisplayName ?? chainName} to sign the transfer`;
     }
-    if (!penumbraReceiver) return 'Waiting for a Penumbra deposit address…';
-    if (!amountValid) return 'Enter a valid amount';
+    if (!penumbraReceiver) {
+      return 'Waiting for a Penumbra deposit address…';
+    }
+    if (!amountValid) {
+      return 'Enter a valid amount';
+    }
     return null;
   })();
 

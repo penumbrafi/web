@@ -45,7 +45,9 @@ export const DelegationRows = observer(({ umPrice, umQuoteSymbol = '-' }: Props)
   const { data: balances } = useBalances(subaccount);
   const { data: delegations = [] } = useDelegations(balances);
 
-  if (!delegations.length) return null;
+  if (!delegations.length) {
+    return null;
+  }
 
   return (
     <Density compact>

@@ -32,11 +32,11 @@ const BlockView: FC<Props> = props => (
         prevHref={`/block/${props.block.height + 1}`}
         title="Block view"
     >
-        <Parameters className="bg-other-tonal-fill5 rounded-sm p-3">
+        <Parameters className="rounded-sm bg-other-tonal-fill5 p-3">
             <Parameter name="Block height">
                 {formatNumber(props.block.height)}
                 <CopyToClipboard
-                    className="text-text-primary -mr-0.5"
+                    className="-mr-0.5 text-text-primary"
                     text={props.block.height.toString()}
                     small
                 />
@@ -46,7 +46,7 @@ const BlockView: FC<Props> = props => (
                     .tz('UTC')
                     .format('YYYY-MM-DD HH:mm:ss z')}
             </Parameter>
-            {/*<Parameter name="Proposer">-</Parameter>*/}
+            {/* <Parameter name="Proposer">-</Parameter>*/}
             <Parameter name="Txs">{props.block.transactions.length}</Parameter>
         </Parameters>
         <TransactionTable

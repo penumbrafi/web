@@ -70,9 +70,9 @@ interface PositionedText {
 }
 
 const formatPrice = (p: number): string => {
-  if (p >= 1) return p.toFixed(4);
-  if (p >= 0.01) return p.toFixed(5);
-  if (p >= 0.0001) return p.toFixed(6);
+  if (p >= 1) {return p.toFixed(4);}
+  if (p >= 0.01) {return p.toFixed(5);}
+  if (p >= 0.0001) {return p.toFixed(6);}
   return p.toPrecision(4);
 };
 
@@ -183,7 +183,7 @@ export const DrawingsOverlay = ({
 
     const recompute = () => {
       const svg = containerRef.current;
-      if (svg) setSvgWidth(svg.getBoundingClientRect().width);
+      if (svg) {setSvgWidth(svg.getBoundingClientRect().width);}
       const nextH: PositionedHorizontalLine[] = [];
       const nextV: PositionedVerticalLine[] = [];
       const nextT: PositionedTrendLine[] = [];
@@ -192,11 +192,11 @@ export const DrawingsOverlay = ({
       for (const d of drawings) {
         if (d.kind === 'horizontal-line') {
           const y = yAtPrice(d.price);
-          if (y === undefined) continue;
+          if (y === undefined) {continue;}
           nextH.push({ id: d.id, y, price: d.price, color: d.color });
         } else if (d.kind === 'vertical-line') {
           const x = xAtTime(d.time);
-          if (x === undefined) continue;
+          if (x === undefined) {continue;}
           nextV.push({ id: d.id, x, time: d.time, color: d.color });
         } else if (d.kind === 'trend-line') {
           const x1 = xAtTime(d.time1);
@@ -241,7 +241,7 @@ export const DrawingsOverlay = ({
         } else if (d.kind === 'text') {
           const x = xAtTime(d.time);
           const y = yAtPrice(d.price);
-          if (x === undefined || y === undefined) continue;
+          if (x === undefined || y === undefined) {continue;}
           nextTx.push({ id: d.id, x, y, text: d.text, color: d.color });
         }
       }
@@ -256,7 +256,7 @@ export const DrawingsOverlay = ({
   }, [drawings, yAtPrice, xAtTime, subscribeRedraw]);
 
   useEffect(() => {
-    if (!menu) return;
+    if (!menu) {return;}
     // Listen on `click`, not `mousedown`. Native mousedown can fire on
     // document before React's synthetic onMouseDown stopPropagation
     // takes effect (React 17+ delegates at the React root container,
@@ -266,7 +266,7 @@ export const DrawingsOverlay = ({
     // own buttons (Delete, colour-pick) have already run their action.
     const onClick = (e: MouseEvent) => {
       const containerEl = menuRef.current;
-      if (containerEl && containerEl.contains(e.target as Node)) return;
+      if (containerEl && containerEl.contains(e.target as Node)) {return;}
       setMenu(null);
     };
     const onKey = (e: KeyboardEvent) => {
@@ -299,7 +299,7 @@ export const DrawingsOverlay = ({
     };
   }, [menu, onDelete, onSelect]);
 
-  if (drawings.length === 0) return null;
+  if (drawings.length === 0) {return null;}
 
   // Both left-click and right-click open the menu. Left-click is the
   // discoverable affordance; right-click is the legacy one (kept so
@@ -309,7 +309,7 @@ export const DrawingsOverlay = ({
     e.preventDefault();
     e.stopPropagation();
     const svg = containerRef.current;
-    if (!svg) return;
+    if (!svg) {return;}
     const rect = svg.getBoundingClientRect();
     setMenu({ x: e.clientX - rect.left, y: e.clientY - rect.top, id, label });
     onSelect(id);
@@ -334,9 +334,9 @@ export const DrawingsOverlay = ({
   const startEndpointDrag =
     (id: string, xSide: 1 | 2, ySide: 1 | 2 = xSide) =>
     (e: React.PointerEvent) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0) {return;}
       const svg = containerRef.current;
-      if (!svg) return;
+      if (!svg) {return;}
       e.preventDefault();
       e.stopPropagation();
       try {
@@ -348,7 +348,7 @@ export const DrawingsOverlay = ({
       let rafId = 0;
       const flush = () => {
         rafId = 0;
-        if (!pendingPatch) return;
+        if (!pendingPatch) {return;}
         const p = pendingPatch;
         pendingPatch = null;
         onUpdate(id, p);
@@ -369,7 +369,7 @@ export const DrawingsOverlay = ({
           [`time${xSide}`]: newTime,
           [`price${ySide}`]: newPrice,
         } as Partial<Drawing>;
-        if (rafId) return;
+        if (rafId) {return;}
         rafId = requestAnimationFrame(flush);
       };
       const onUp = () => {
@@ -387,12 +387,12 @@ export const DrawingsOverlay = ({
   // Generic drag-or-click handler factory for two-point shapes (trend-
   // line, rectangle). Drag translates the whole shape by the cursor's
   // price/time delta from pointer-down. No movement → open manage menu.
-  type TwoPointPatch = {
+  interface TwoPointPatch {
     time1: number;
     price1: number;
     time2: number;
     price2: number;
-  };
+  }
   const startTwoPointDrag =
     (
       id: string,
@@ -400,9 +400,9 @@ export const DrawingsOverlay = ({
       initial: TwoPointPatch,
     ) =>
     (e: React.PointerEvent) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0) {return;}
       const svg = containerRef.current;
-      if (!svg) return;
+      if (!svg) {return;}
       // Same anti-chart-pan-capture treatment as horizontal lines.
       e.preventDefault();
       e.stopPropagation();
@@ -421,7 +421,7 @@ export const DrawingsOverlay = ({
       let rafId = 0;
       const flush = () => {
         rafId = 0;
-        if (!pendingPatch) return;
+        if (!pendingPatch) {return;}
         const p = pendingPatch;
         pendingPatch = null;
         onUpdate(id, p as Partial<Drawing>);
@@ -482,7 +482,7 @@ export const DrawingsOverlay = ({
           time2: newTime2,
           price2: newPrice2,
         };
-        if (rafId) return;
+        if (rafId) {return;}
         rafId = requestAnimationFrame(flush);
       };
       const onUp = (ev: PointerEvent) => {
@@ -507,9 +507,9 @@ export const DrawingsOverlay = ({
       window.addEventListener('pointerup', onUp);
     };
   const startHLineDrag = (id: string, label: string) => (e: React.PointerEvent) => {
-    if (e.button !== 0) return; // primary click only; right-click → onContextMenu
+    if (e.button !== 0) {return;} // primary click only; right-click → onContextMenu
     const svg = containerRef.current;
-    if (!svg) return;
+    if (!svg) {return;}
     // Stop the chart's native pan handlers from also seeing this gesture,
     // and pin the pointer to the line element so pointermove/pointerup
     // route directly here instead of through the chart canvas below.
@@ -527,21 +527,21 @@ export const DrawingsOverlay = ({
     let rafId = 0;
     const flush = () => {
       rafId = 0;
-      if (pendingPrice === null) return;
+      if (pendingPrice === null) {return;}
       const next = pendingPrice;
       pendingPrice = null;
       onUpdate(id, { price: next });
     };
     const onMove = (ev: PointerEvent) => {
       if (!dragging) {
-        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < DRAG_THRESHOLD) return;
+        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < DRAG_THRESHOLD) {return;}
         dragging = true;
       }
       const rect = svg.getBoundingClientRect();
       const p = priceAtY(ev.clientY - rect.top);
-      if (p === undefined || !Number.isFinite(p) || p <= 0) return;
+      if (p === undefined || !Number.isFinite(p) || p <= 0) {return;}
       pendingPrice = p;
-      if (rafId) return;
+      if (rafId) {return;}
       rafId = requestAnimationFrame(flush);
     };
     const onUp = (ev: PointerEvent) => {
@@ -571,9 +571,9 @@ export const DrawingsOverlay = ({
   // Drag-or-click for vertical "beam" lines — same idiom as
   // startHLineDrag but tracking time (x) instead of price (y).
   const startVLineDrag = (id: string, label: string) => (e: React.PointerEvent) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0) {return;}
     const svg = containerRef.current;
-    if (!svg) return;
+    if (!svg) {return;}
     e.preventDefault();
     e.stopPropagation();
     try {
@@ -588,21 +588,21 @@ export const DrawingsOverlay = ({
     let rafId = 0;
     const flush = () => {
       rafId = 0;
-      if (pendingTime === null) return;
+      if (pendingTime === null) {return;}
       const next = pendingTime;
       pendingTime = null;
       onUpdate(id, { time: next });
     };
     const onMove = (ev: PointerEvent) => {
       if (!dragging) {
-        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < DRAG_THRESHOLD) return;
+        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < DRAG_THRESHOLD) {return;}
         dragging = true;
       }
       const rect = svg.getBoundingClientRect();
       const t = timeAtX(ev.clientX - rect.left);
-      if (t === undefined || !Number.isFinite(t)) return;
+      if (t === undefined || !Number.isFinite(t)) {return;}
       pendingTime = t;
-      if (rafId) return;
+      if (rafId) {return;}
       rafId = requestAnimationFrame(flush);
     };
     const onUp = (ev: PointerEvent) => {
@@ -644,7 +644,7 @@ export const DrawingsOverlay = ({
               : null;
           const showDelta = deltaPct !== null && Math.abs(deltaPct) >= 0.05;
           const deltaText = showDelta
-            ? `${deltaPct! > 0 ? '+' : ''}${deltaPct!.toFixed(2)}%`
+            ? `${deltaPct > 0 ? '+' : ''}${deltaPct.toFixed(2)}%`
             : null;
           return (
             <g key={line.id} className='pointer-events-auto'>
@@ -934,13 +934,13 @@ export const DrawingsOverlay = ({
                 // We don't actually need to know — just update the
                 // matching stored side based on which on-screen corner
                 // was grabbed. The mapping is encoded in xSide/ySide.
-                const handles: Array<{
+                const handles: {
                   cx: number;
                   cy: number;
                   cursor: string;
                   xSide: 1 | 2;
                   ySide: 1 | 2;
-                }> = [];
+                }[] = [];
                 // PositionedRectangle stores x = min(x1,x2) so the
                 // left edge maps to whichever stored time is smaller.
                 // Same for price (top edge = larger price).

@@ -269,7 +269,7 @@ export class OrderFormStore {
       // If a fresher estimate started while we were in flight, drop
       // this response on the floor — writing back would clobber the
       // newer plan's verdict with stale state.
-      if (myToken !== this._gasFeeToken) return;
+      if (myToken !== this._gasFeeToken) {return;}
       const fee = res.transactionParameters?.fee;
       if (!fee) {
         this.resetGasFee();
@@ -293,7 +293,7 @@ export class OrderFormStore {
         // one clobbering it.
         await this.setAlternativeFee(feeAssetId);
       }
-      if (myToken !== this._gasFeeToken) return;
+      if (myToken !== this._gasFeeToken) {return;}
       runInAction(() => {
         if (!feeAssetId && this._umFeeAsset && !this._feeAsset?.id.equals(this._umFeeAsset.id)) {
           // Revert to UM whenever the planner didn't specify an alt.
@@ -324,7 +324,7 @@ export class OrderFormStore {
       // Sequence guard: only the latest in-flight estimate is allowed to
       // pin an error — otherwise a slow first plan's rejection lands
       // after a fresh plan's success and wedges the submit button.
-      if (myToken !== this._gasFeeToken) return;
+      if (myToken !== this._gasFeeToken) {return;}
       const described = describeTxError(e);
       const isWalletState =
         described.cancelled === true ||

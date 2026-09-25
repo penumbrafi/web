@@ -104,8 +104,12 @@ export const RangeLiquidityOrderForm = observer(
     ]);
 
     const confirmWarnings = useMemo<ConfirmWarning[]>(() => {
-      if (mid == null || lo == null || hi == null) return [];
-      if (rangeCoversMid) return [];
+      if (mid == null || lo == null || hi == null) {
+        return [];
+      }
+      if (rangeCoversMid) {
+        return [];
+      }
       const aboveMid = mid > hi;
       return [
         {
@@ -119,7 +123,9 @@ export const RangeLiquidityOrderForm = observer(
 
     const actionLabel = useMemo(() => {
       const count = positionCount ?? 'Several';
-      if (lo == null || hi == null) return `Open ${count} LP positions`;
+      if (lo == null || hi == null) {
+        return `Open ${count} LP positions`;
+      }
       return `Open ${count} LP positions between ${round({
         value: lo,
         decimals,
@@ -297,7 +303,9 @@ export const RangeLiquidityOrderForm = observer(
             if (mid == null || lo == null || hi == null || mid <= 0 || lo <= 0 || hi <= 0) {
               return null;
             }
-            if (mid >= lo && mid <= hi) return null;
+            if (mid >= lo && mid <= hi) {
+              return null;
+            }
             const aboveMid = mid > hi;
             return (
               <InfoRow

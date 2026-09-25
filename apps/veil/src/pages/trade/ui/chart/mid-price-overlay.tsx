@@ -21,9 +21,9 @@ interface MidPriceOverlayProps {
 }
 
 const formatPrice = (p: number): string => {
-  if (p >= 1) return p.toFixed(4);
-  if (p >= 0.01) return p.toFixed(5);
-  if (p >= 0.0001) return p.toFixed(6);
+  if (p >= 1) {return p.toFixed(4);}
+  if (p >= 0.01) {return p.toFixed(5);}
+  if (p >= 0.0001) {return p.toFixed(6);}
   return p.toPrecision(4);
 };
 
@@ -73,7 +73,7 @@ export const MidPriceOverlay = ({
 
   useEffect(() => subscribeRedraw(recompute), [subscribeRedraw, recompute]);
 
-  if (y === undefined || marketPrice === undefined) return null;
+  if (y === undefined || marketPrice === undefined) {return null;}
 
   const color =
     direction === 'up' ? UP_COLOR : direction === 'down' ? DOWN_COLOR : NEUTRAL_COLOR;
@@ -100,7 +100,7 @@ export const MidPriceOverlay = ({
       // The wrapper is pointer-events-none so the dotted line doesn't
       // swallow chart pans/clicks. The clickable label below opts back
       // into pointer events.
-      className='pointer-events-none absolute left-0 right-0 z-[6]'
+      className='pointer-events-none absolute right-0 left-0 z-[6]'
       style={{ top: y - 1, height: 2 }}
     >
       <div

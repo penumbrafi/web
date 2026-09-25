@@ -26,11 +26,11 @@ const fmtDate = (d: string) =>
   });
 
 const fmtUM = (n: number) => {
-  if (n === 0) return '0';
+  if (n === 0) {return '0';}
   const abs = Math.abs(n);
   const sign = n < 0 ? '-' : '';
-  if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(2)}M`;
-  if (abs >= 1_000) return `${sign}${(abs / 1_000).toFixed(0)}K`;
+  if (abs >= 1_000_000) {return `${sign}${(abs / 1_000_000).toFixed(2)}M`;}
+  if (abs >= 1_000) {return `${sign}${(abs / 1_000).toFixed(0)}K`;}
   return `${sign}${abs.toFixed(0)}`;
 };
 
@@ -58,7 +58,7 @@ interface ChartDatum {
 
 interface RechartsTooltipProps {
   active?: boolean;
-  payload?: Array<{ name: string; value: number; color: string; payload?: ChartDatum }>;
+  payload?: { name: string; value: number; color: string; payload?: ChartDatum }[];
   label?: string;
 }
 
@@ -68,7 +68,7 @@ const trimName = (name: string, max = 22): string =>
   name.length > max ? `${name.slice(0, max - 1)}…` : name;
 
 const ChartTooltip = ({ active, payload, label }: RechartsTooltipProps) => {
-  if (!active || !payload?.length || !label) return null;
+  if (!active || !payload?.length || !label) {return null;}
   const datum = payload[0]?.payload;
   const flows = datum?.validatorFlows ?? [];
   return (
@@ -86,7 +86,7 @@ const ChartTooltip = ({ active, payload, label }: RechartsTooltipProps) => {
       )}
       {flows.length > 0 && (
         <div className='mt-2 border-t border-neutral-700 pt-2'>
-          <div className='mb-1 text-xs uppercase tracking-wide text-text-secondary'>
+          <div className='mb-1 text-xs tracking-wide text-text-secondary uppercase'>
             Top movers
           </div>
           {flows.map(f => {

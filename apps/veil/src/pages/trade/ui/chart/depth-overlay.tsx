@@ -42,10 +42,10 @@ const buildLevels = (
 
   const bids = buys.map(toLevel).filter(filt);
   const asks = sells.map(toLevel).filter(filt);
-  if (!bids.length && !asks.length) return undefined;
+  if (!bids.length && !asks.length) {return undefined;}
   let max = 0;
-  for (const l of bids) if (l.total > max) max = l.total;
-  for (const l of asks) if (l.total > max) max = l.total;
+  for (const l of bids) {if (l.total > max) {max = l.total;}}
+  for (const l of asks) {if (l.total > max) {max = l.total;}}
   return { bids, asks, max };
 };
 
@@ -58,9 +58,9 @@ const prefill = (price: number, side: 'bid' | 'ask') => {
 };
 
 const formatPriceCompact = (p: number): string => {
-  if (p >= 1) return p.toFixed(4);
-  if (p >= 0.01) return p.toFixed(5);
-  if (p >= 0.0001) return p.toFixed(6);
+  if (p >= 1) {return p.toFixed(4);}
+  if (p >= 0.01) {return p.toFixed(5);}
+  if (p >= 0.0001) {return p.toFixed(6);}
   return p.toPrecision(4);
 };
 
@@ -126,7 +126,7 @@ export const DepthOverlay = observer(
     const { data } = useBook();
 
     const levels = useMemo(() => {
-      if (!data?.multiHops) return undefined;
+      if (!data?.multiHops) {return undefined;}
       return buildLevels(data.multiHops.buy, data.multiHops.sell);
     }, [data]);
 
@@ -136,10 +136,10 @@ export const DepthOverlay = observer(
     // bars (not via useMarketPrice) so the title strings refresh in lock
     // step with the bar geometry instead of trailing a frame behind.
     const mid = useMemo(() => {
-      if (!levels) return undefined;
+      if (!levels) {return undefined;}
       const bestBid = levels.bids[0]?.price;
       const bestAsk = levels.asks[levels.asks.length - 1]?.price;
-      if (bestBid === undefined || bestAsk === undefined) return undefined;
+      if (bestBid === undefined || bestAsk === undefined) {return undefined;}
       return (bestBid + bestAsk) / 2;
     }, [levels]);
 
@@ -158,7 +158,7 @@ export const DepthOverlay = observer(
         const push = (side: 'bid' | 'ask', rows: Level[], color: string) => {
           for (const lvl of rows) {
             const y = yAtPrice(lvl.price);
-            if (y === undefined) continue;
+            if (y === undefined) {continue;}
             const deltaPct =
               mid !== undefined && mid > 0 ? ((lvl.price - mid) / mid) * 100 : null;
             const deltaText =
@@ -186,7 +186,7 @@ export const DepthOverlay = observer(
       return subscribeRedraw(recompute);
     }, [levels, mid, yAtPrice, subscribeRedraw, width]);
 
-    if (!levels) return null;
+    if (!levels) {return null;}
 
     return (
       <div

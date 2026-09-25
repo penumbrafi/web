@@ -35,10 +35,10 @@ interface CachedRegistry {
 }
 
 const readCacheEntry = (chainId: string): CachedRegistry | undefined => {
-  if (typeof window === 'undefined') return undefined;
+  if (typeof window === 'undefined') {return undefined;}
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return undefined;
+    if (!raw) {return undefined;}
     const cached = JSON.parse(raw) as Partial<CachedRegistry>;
     if (
       !cached ||
@@ -57,13 +57,13 @@ const readCacheEntry = (chainId: string): CachedRegistry | undefined => {
 
 const readCache = (chainId: string): JsonRegistryWithGlobals | undefined => {
   const entry = readCacheEntry(chainId);
-  if (!entry) return undefined;
-  if (Date.now() - entry.fetchedAt > REGISTRY_TTL_MS) return undefined;
+  if (!entry) {return undefined;}
+  if (Date.now() - entry.fetchedAt > REGISTRY_TTL_MS) {return undefined;}
   return entry.data;
 };
 
 const writeCache = (chainId: string, data: JsonRegistryWithGlobals, etag: string) => {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined') {return;}
   try {
     window.localStorage.setItem(
       STORAGE_KEY,
@@ -83,9 +83,9 @@ const writeCache = (chainId: string, data: JsonRegistryWithGlobals, etag: string
 // whole ~250KB body. Called after a 304 confirms our cached copy is
 // still current.
 const touchCache = (chainId: string) => {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined') {return;}
   const entry = readCacheEntry(chainId);
-  if (!entry) return;
+  if (!entry) {return;}
   try {
     window.localStorage.setItem(
       STORAGE_KEY,
@@ -183,7 +183,7 @@ export const RegistryProvider = ({ chainId, children }: RegistryProviderProps) =
   // server returned. Nothing to do here.
 
   const parsed = useMemo<RegistryWithGlobals | undefined>(() => {
-    if (!data) return undefined;
+    if (!data) {return undefined;}
     return {
       stakingAssetId: AssetId.fromJson({ inner: data.stakingAssetIdBase64 }),
       registry: new Registry(data.registry),

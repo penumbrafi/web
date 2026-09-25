@@ -18,7 +18,7 @@ const url =
 const getUmPrice = async (): Promise<UmPriceData | undefined> => {
     try {
         const data: Data = await fetch(url).then(res => res.json())
-        if (data.error || typeof data.current_price !== 'number') return undefined
+        if (data.error || typeof data.current_price !== 'number') {return undefined}
         return {
             change: data.price_change_percentage_24h,
             price: data.current_price,

@@ -21,10 +21,14 @@ export interface PriceAlert {
 const STORAGE_KEY = 'veil_price_alerts';
 
 const read = (): PriceAlert[] => {
-  if (typeof window === 'undefined') return [];
+  if (typeof window === 'undefined') {
+    return [];
+  }
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
+    if (!raw) {
+      return [];
+    }
     const parsed = JSON.parse(raw) as PriceAlert[];
     return Array.isArray(parsed) ? parsed : [];
   } catch {
@@ -53,7 +57,9 @@ export const usePriceAlerts = (pair?: string) => {
   useEffect(() => {
     setAlerts(read());
     const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) setAlerts(read());
+      if (e.key === STORAGE_KEY) {
+        setAlerts(read());
+      }
     };
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);

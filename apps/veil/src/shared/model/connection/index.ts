@@ -74,11 +74,15 @@ class ConnectionStateStore {
   }
 
   markWalletLocked() {
-    if (!this.walletLocked) this.walletLocked = true;
+    if (!this.walletLocked) {
+      this.walletLocked = true;
+    }
   }
 
   markWalletUnlocked() {
-    if (!this.walletLocked) return;
+    if (!this.walletLocked) {
+      return;
+    }
     this.walletLocked = false;
     // Fire outside the current microtask so mobx observers see the
     // false state before consumers fetch — otherwise a listener that
@@ -102,7 +106,9 @@ class ConnectionStateStore {
   };
 
   setPreferredSubaccount = () => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined') {
+      return;
+    }
     const subaccount = window.localStorage.getItem(SUBACCOUNT_LS_KEY);
     if (subaccount) {
       this.setSubaccount(subaccount);

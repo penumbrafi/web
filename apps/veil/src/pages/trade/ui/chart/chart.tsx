@@ -41,15 +41,6 @@ import { useDrawings } from './drawings/use-drawings';
 import { DrawingToolbar } from './drawings/toolbar';
 import { DrawingsOverlay } from './drawings/drawings-overlay';
 import type { Drawing, ToolMode } from './drawings/types';
-
-// theme.ts exports a typing stub, so theme.color.primary.main resolves to ''
-// at runtime. Use the actual hex from theme.css for SVG strokes/fills that
-// need a real color value.
-// Penumbra secondary.light — the teal that shows up everywhere in the
-// brand (Veil header, /tokenomics, About cards). Reads cleanly on the
-// candle backdrop without competing with the orange primary used on
-// active form chips and resting-LP markers.
-const DRAWING_COLOR = '#53aea8';
 import { HoverTooltip } from './hover-tooltip';
 import { useChartPrefs } from './use-chart-prefs';
 import { ChartSettingsMenu } from './chart-settings-menu';
@@ -60,18 +51,27 @@ import { AlertsOverlay } from './alerts/alerts-overlay';
 import { useAlertWatcher } from './alerts/use-alert-watcher';
 import { AlertsMenu } from './alerts/alerts-menu';
 
+// theme.ts exports a typing stub, so theme.color.primary.main resolves to ''
+// at runtime. Use the actual hex from theme.css for SVG strokes/fills that
+// need a real color value.
+// Penumbra secondary.light — the teal that shows up everywhere in the
+// brand (Veil header, /tokenomics, About cards). Reads cleanly on the
+// candle backdrop without competing with the orange primary used on
+// active form chips and resting-LP markers.
+const DRAWING_COLOR = '#53aea8';
+
 const VOLUME_RATIO_KEY = 'veil_chart_volume_ratio';
 const DURATION_KEY = 'veil_chart_duration';
 
 const readStoredVolumeRatio = (): number => {
-  if (typeof window === 'undefined') return 0.2;
+  if (typeof window === 'undefined') {return 0.2;}
   const raw = window.localStorage.getItem(VOLUME_RATIO_KEY);
   const n = raw ? Number(raw) : NaN;
   return Number.isFinite(n) && n >= 0.05 && n <= 0.6 ? n : 0.2;
 };
 
 const readStoredDuration = (): DurationWindow => {
-  if (typeof window === 'undefined') return '1d';
+  if (typeof window === 'undefined') {return '1d';}
   const raw = window.localStorage.getItem(DURATION_KEY);
   return raw && isDurationWindow(raw) ? raw : '1d';
 };
@@ -100,7 +100,7 @@ const offsetPrice = (
   priceAtY: (y: number) => number | undefined,
 ): number => {
   const y = yAtPrice(price);
-  if (y === undefined) return price * 1.001;
+  if (y === undefined) {return price * 1.001;}
   const shifted = priceAtY(y + PASTE_PIXEL_OFFSET);
   return shifted === undefined ? price * 1.001 : shifted;
 };
@@ -114,7 +114,7 @@ const offsetTime = (
   timeAtX: (x: number) => number | undefined,
 ): number => {
   const x = xAtTime(time);
-  if (x === undefined) return time;
+  if (x === undefined) {return time;}
   const shifted = timeAtX(x + PASTE_PIXEL_OFFSET);
   return shifted === undefined ? time : shifted;
 };
@@ -150,9 +150,9 @@ const pasteWithOffset = (
 // Module-scoped formatter — pure, no closure deps, so there's no reason to
 // allocate it inside the Chart render closure.
 const formatPrice = (p: number): string => {
-  if (p >= 1) return p.toFixed(4);
-  if (p >= 0.01) return p.toFixed(5);
-  if (p >= 0.0001) return p.toFixed(6);
+  if (p >= 1) {return p.toFixed(4);}
+  if (p >= 0.01) {return p.toFixed(5);}
+  if (p >= 0.0001) {return p.toFixed(6);}
   return p.toPrecision(4);
 };
 
@@ -222,13 +222,13 @@ const ClickCaptureOverlay = memo(
     const onClick = useCallback(
       (e: ReactMouseEvent) => {
         const container = containerRef.current;
-        if (!container) return;
+        if (!container) {return;}
         const rect = container.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
         const price = priceAtY(y);
         const time = timeAtX(x);
-        if (price === undefined) return;
+        if (price === undefined) {return;}
         onResolve({ x, y }, price, time);
       },
       [priceAtY, timeAtX, containerRef, onResolve],
@@ -237,19 +237,19 @@ const ClickCaptureOverlay = memo(
     const pendingRef = useRef<{ x: number; y: number } | null>(null);
     const onMove = useCallback(
       (e: ReactMouseEvent) => {
-        if (!onCursorMove) return;
+        if (!onCursorMove) {return;}
         const container = containerRef.current;
-        if (!container) return;
+        if (!container) {return;}
         const rect = container.getBoundingClientRect();
         pendingRef.current = {
           x: e.clientX - rect.left,
           y: e.clientY - rect.top,
         };
-        if (rafRef.current) return;
+        if (rafRef.current) {return;}
         rafRef.current = requestAnimationFrame(() => {
           rafRef.current = 0;
           const p = pendingRef.current;
-          if (p) onCursorMove(p);
+          if (p) {onCursorMove(p);}
         });
       },
       [containerRef, onCursorMove],
@@ -284,7 +284,7 @@ export const Chart = observer(() => {
 
   useEffect(() => {
     const stored = readStoredDuration();
-    if (stored !== duration) setDurationState(stored);
+    if (stored !== duration) {setDurationState(stored);}
     // duration intentionally excluded — only read once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -353,7 +353,7 @@ export const Chart = observer(() => {
   } = useChartConfig(fetchNext, isFetching);
 
   useEffect(() => {
-    if (!chartReady) return;
+    if (!chartReady) {return;}
     setCloseLineVisible(prefs.closeLine);
   }, [prefs.closeLine, chartReady, setCloseLineVisible]);
 
@@ -417,7 +417,7 @@ export const Chart = observer(() => {
     // Reset when the pair changes. First render for a pair with a live
     // mid never needs the bootstrap; first render on an empty pair
     // captures whatever lpEffective resolved to right then.
-    if (centeredForPairRef.current !== pairKey) bootstrapAnchorRef.current = null;
+    if (centeredForPairRef.current !== pairKey) {bootstrapAnchorRef.current = null;}
     if (
       bootstrapAnchorRef.current === null &&
       (marketPrice == null || !Number.isFinite(marketPrice) || marketPrice <= 0) &&
@@ -468,8 +468,8 @@ export const Chart = observer(() => {
   // hadn't yet resolved. `centerPriceScaleOn` reinstalls a fresh anchor
   // as soon as one becomes available.
   useEffect(() => {
-    if (!chartReady) return;
-    if (centeredForPairRef.current === pairKey) return;
+    if (!chartReady) {return;}
+    if (centeredForPairRef.current === pairKey) {return;}
     centeredForPairRef.current = pairKey;
     clearPriceAnchor();
   }, [chartReady, pairKey, clearPriceAnchor]);
@@ -478,8 +478,8 @@ export const Chart = observer(() => {
   // only swap the provider and leave the user's zoom alone.
   const anchorInstalledForRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!chartReady) return;
-    if (anchor == null) return;
+    if (!chartReady) {return;}
+    if (anchor == null) {return;}
     // Re-fits whenever the user drags an LP handle (cameraExtras change)
     // or the anchor is first installed on a pair. lightweight-charts
     // recomputes the Y axis on the next frame, so the camera glides toward
@@ -549,27 +549,27 @@ export const Chart = observer(() => {
         selectDrawing(null);
         return;
       }
-      if (!(e.ctrlKey || e.metaKey)) return;
+      if (!(e.ctrlKey || e.metaKey)) {return;}
       const key = e.key.toLowerCase();
       if (key === 'z') {
         e.preventDefault();
-        if (e.shiftKey) redoDrawing();
-        else undoDrawing();
+        if (e.shiftKey) {redoDrawing();}
+        else {undoDrawing();}
         return;
       }
       if (key === 'c') {
         // Only intercept when a drawing is selected — otherwise let the
         // browser's normal copy behaviour through untouched.
-        if (!selectedId) return;
+        if (!selectedId) {return;}
         const d = drawings.find(x => x.id === selectedId);
-        if (!d) return;
+        if (!d) {return;}
         e.preventDefault();
         drawingClipboardRef.current = d;
         return;
       }
       if (key === 'v') {
         const clip = drawingClipboardRef.current;
-        if (!clip) return;
+        if (!clip) {return;}
         e.preventDefault();
         const pasted = pasteWithOffset(clip, yAtPrice, priceAtY, xAtTime, timeAtX);
         addDrawing(pasted);
@@ -725,16 +725,16 @@ export const Chart = observer(() => {
   // AND returned zero real candles — an empty-array page still counts
   // as "no candles" for this purpose.
   useEffect(() => {
-    if (isLoading) return;
-    if (hasRealCandles) return;
-    if (anchor == null) return;
+    if (isLoading) {return;}
+    if (hasRealCandles) {return;}
+    if (anchor == null) {return;}
     // Already seeded — unless the sentinel is still the only thing on
     // screen and the anchor has moved since, in which case re-seed so the
     // placeholder follows the mid instead of pinning a stale price into
     // the autoscale window.
     if (fullySeededRef.current) {
-      if (!sentinelActiveRef.current) return;
-      if (lastSeededAnchorRef.current === anchor) return;
+      if (!sentinelActiveRef.current) {return;}
+      if (lastSeededAnchorRef.current === anchor) {return;}
     }
     const time = Math.floor(Date.now() / 1000) as unknown as number;
     const seed = [
@@ -770,7 +770,7 @@ export const Chart = observer(() => {
     (e: ReactPointerEvent) => {
       e.preventDefault();
       const container = containerRef.current;
-      if (!container) return;
+      if (!container) {return;}
 
       const rect = container.getBoundingClientRect();
       let pendingRatio: number | null = null;
@@ -782,7 +782,7 @@ export const Chart = observer(() => {
       // per animation frame.
       const flush = () => {
         rafId = 0;
-        if (pendingRatio === null) return;
+        if (pendingRatio === null) {return;}
         const ratio = pendingRatio;
         pendingRatio = null;
         setVolumeRatioState(ratio);
@@ -793,7 +793,7 @@ export const Chart = observer(() => {
         const offset = ev.clientY - rect.top;
         // ratio = volume's share = portion below cursor
         pendingRatio = Math.min(0.6, Math.max(0.05, 1 - offset / rect.height));
-        if (rafId) return;
+        if (rafId) {return;}
         rafId = requestAnimationFrame(flush);
       };
       const onUp = () => {
@@ -825,11 +825,11 @@ export const Chart = observer(() => {
   const onContextMenu = useCallback(
     (e: ReactMouseEvent) => {
       const container = containerRef.current;
-      if (!container) return;
+      if (!container) {return;}
       const rect = container.getBoundingClientRect();
       const y = e.clientY - rect.top;
       const price = priceAtY(y);
-      if (price === undefined) return;
+      if (price === undefined) {return;}
       e.preventDefault();
       setMenu({ x: e.clientX - rect.left, y, price });
     },
@@ -885,11 +885,11 @@ export const Chart = observer(() => {
         // current drawing — DrawingsOverlay's own shapes stopPropagation
         // on their pointer handlers, so this only fires for clicks that
         // actually missed every drawing.
-        if (selectedId !== null) selectDrawing(null);
+        if (selectedId !== null) {selectDrawing(null);}
         return;
       }
       if (t === 'text') {
-        if (time === undefined) return;
+        if (time === undefined) {return;}
         setPendingText({ x: point.x, y: point.y, time, price });
         setPendingTextValue('');
         return;
@@ -906,7 +906,7 @@ export const Chart = observer(() => {
         return;
       }
       if (t === 'vertical-line') {
-        if (time === undefined) return;
+        if (time === undefined) {return;}
         addDrawing({
           id: `vl-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
           kind: 'vertical-line',
@@ -918,7 +918,7 @@ export const Chart = observer(() => {
         return;
       }
       if (t === 'trend-line' || t === 'rectangle') {
-        if (time === undefined) return;
+        if (time === undefined) {return;}
         // First click anchors. Preview line/rect now follows the cursor
         // until the second click commits.
         // (The chart re-render on setPendingAnchor is what makes the
@@ -969,7 +969,7 @@ export const Chart = observer(() => {
   }, [tool]);
 
   const commitPendingText = () => {
-    if (!pendingText) return;
+    if (!pendingText) {return;}
     const value = pendingTextValue.trim();
     if (value) {
       addDrawing({
@@ -1336,7 +1336,7 @@ export const Chart = observer(() => {
               role='separator'
               aria-orientation='horizontal'
               onPointerDown={onDragStart}
-              className='absolute left-0 right-0 z-10 h-2 -translate-y-1/2 cursor-row-resize bg-transparent hover:bg-other-solid-stroke/40'
+              className='absolute right-0 left-0 z-10 h-2 -translate-y-1/2 cursor-row-resize bg-transparent hover:bg-other-solid-stroke/40'
               style={{ top: `${(1 - volumeRatio) * 100}%` }}
             />
             {menu && (() => {

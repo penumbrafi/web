@@ -39,7 +39,9 @@ export const calculateCumulativeDepthByPrice = (
   }
   const maxCum = running;
   const out = new Map<string, number>();
-  if (maxCum <= 0) return out;
+  if (maxCum <= 0) {
+    return out;
+  }
   for (let i = 0; i < orders.length; i++) {
     out.set(orders[i]!.price, (cum[i]! / maxCum) * 100);
   }

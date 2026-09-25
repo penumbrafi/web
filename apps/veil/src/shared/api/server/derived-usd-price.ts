@@ -120,7 +120,9 @@ export type DerivedOutcome =
 
 let cachedClient: Client<typeof SimulationService> | undefined;
 const getSimClient = (endpoint: string): Client<typeof SimulationService> => {
-  if (!cachedClient) cachedClient = createClient(endpoint, SimulationService);
+  if (!cachedClient) {
+    cachedClient = createClient(endpoint, SimulationService);
+  }
   return cachedClient;
 };
 
@@ -137,10 +139,14 @@ const aggregateFills = (
   res: SimulateTradeResponse,
 ): { inputAmt: bigint; outputAmt: bigint } | null => {
   const exec: SwapExecution | undefined = res.output;
-  if (!exec?.input?.amount || !exec.output?.amount) return null;
+  if (!exec?.input?.amount || !exec.output?.amount) {
+    return null;
+  }
   const inputAmt = pnum(exec.input.amount).toBigInt();
   const outputAmt = pnum(exec.output.amount).toBigInt();
-  if (inputAmt === 0n || outputAmt === 0n) return null;
+  if (inputAmt === 0n || outputAmt === 0n) {
+    return null;
+  }
   return { inputAmt, outputAmt };
 };
 
@@ -162,11 +168,17 @@ export const makeClientSimulate =
       throw e;
     }
     const agg = aggregateFills(res);
-    if (!agg) return null;
+    if (!agg) {
+      return null;
+    }
     const filledInDisp = Number(agg.inputAmt) / Math.pow(10, inExponent);
     const filledOutDisp = Number(agg.outputAmt) / Math.pow(10, outExponent);
-    if (!Number.isFinite(filledInDisp) || !Number.isFinite(filledOutDisp)) return null;
-    if (filledInDisp <= 0 || filledOutDisp <= 0) return null;
+    if (!Number.isFinite(filledInDisp) || !Number.isFinite(filledOutDisp)) {
+      return null;
+    }
+    if (filledInDisp <= 0 || filledOutDisp <= 0) {
+      return null;
+    }
     return { filledInDisp, filledOutDisp };
   };
 
@@ -193,7 +205,9 @@ export const attemptBridge = async (
     target.exponent,
     signal,
   );
-  if (!buy) return null;
+  if (!buy) {
+    return null;
+  }
   const priceBuyUsd = (buy.filledInDisp / buy.filledOutDisp) * bridge.usd;
   const depthBuyUsd = buy.filledInDisp * bridge.usd;
 
@@ -208,20 +222,30 @@ export const attemptBridge = async (
     bridge.exponent,
     signal,
   );
-  if (!sell) return null;
+  if (!sell) {
+    return null;
+  }
   const priceSellUsd = (sell.filledOutDisp / sell.filledInDisp) * bridge.usd;
   const depthSellUsd = sell.filledOutDisp * bridge.usd;
 
-  if (priceBuyUsd <= 0 || priceSellUsd <= 0) return null;
+  if (priceBuyUsd <= 0 || priceSellUsd <= 0) {
+    return null;
+  }
 
   const ratio = Math.max(priceBuyUsd, priceSellUsd) / Math.min(priceBuyUsd, priceSellUsd);
-  if (ratio > CROSS_MAX_RATIO) return null;
+  if (ratio > CROSS_MAX_RATIO) {
+    return null;
+  }
 
   const depthUsd = depthBuyUsd + depthSellUsd;
-  if (depthUsd < DEPTH_MIN_USD) return null;
+  if (depthUsd < DEPTH_MIN_USD) {
+    return null;
+  }
 
   const usd = Math.sqrt(priceBuyUsd * priceSellUsd);
-  if (!Number.isFinite(usd) || usd <= 0) return null;
+  if (!Number.isFinite(usd) || usd <= 0) {
+    return null;
+  }
 
   return { usd, depthUsd, bridge: bridge.symbol };
 };
@@ -243,15 +267,21 @@ export const deriveMultiBridge = async (
   for (const bridge of bridges) {
     try {
       const attempt = await attemptBridge(target, bridge, simulate, signal);
-      if (attempt) attempts.push(attempt);
+      if (attempt) {
+        attempts.push(attempt);
+      }
     } catch (e) {
       attemptErrors.push(`${bridge.symbol}: ${String(e)}`);
-      if (signal.aborted) break;
+      if (signal.aborted) {
+        break;
+      }
     }
   }
 
   if (attempts.length === 0) {
-    if (cached) return { kind: 'stale', entry: cached, reason: 'no-bridge' };
+    if (cached) {
+      return { kind: 'stale', entry: cached, reason: 'no-bridge' };
+    }
     return { kind: 'none', attemptErrors };
   }
 
@@ -260,10 +290,14 @@ export const deriveMultiBridge = async (
   // in the list collapses back to that bridge's own value.
   const totalDepth = attempts.reduce((s, a) => s + a.depthUsd, 0);
   let weightedLn = 0;
-  for (const a of attempts) weightedLn += (a.depthUsd / totalDepth) * Math.log(a.usd);
+  for (const a of attempts) {
+    weightedLn += (a.depthUsd / totalDepth) * Math.log(a.usd);
+  }
   const usd = Math.exp(weightedLn);
   if (!Number.isFinite(usd) || usd <= 0) {
-    if (cached) return { kind: 'stale', entry: cached, reason: 'no-bridge' };
+    if (cached) {
+      return { kind: 'stale', entry: cached, reason: 'no-bridge' };
+    }
     return { kind: 'none', attemptErrors };
   }
 
@@ -310,9 +344,13 @@ const resolveBridges = (registry: Registry, through: string[]): Bridge[] => {
       );
     }
     const meta = allAssets.find(a => a.symbol.toLowerCase() === sym.toLowerCase());
-    if (!meta) continue;
+    if (!meta) {
+      continue;
+    }
     const displayDenom = meta.denomUnits.find(d => d.denom === meta.display);
-    if (!displayDenom || !meta.penumbraAssetId) continue;
+    if (!displayDenom || !meta.penumbraAssetId) {
+      continue;
+    }
     resolved.push({
       assetId: meta.penumbraAssetId,
       exponent: displayDenom.exponent,
@@ -328,12 +366,18 @@ const resolveTarget = (
   symbol: string,
 ): { target: Target; through: string[] } | null => {
   const src = referencePriceFor(symbol);
-  if (!src || src.kind !== 'onchain-bridge') return null;
+  if (!src || src.kind !== 'onchain-bridge') {
+    return null;
+  }
   const allAssets = registry.getAllAssets();
   const meta = allAssets.find(a => a.symbol.toLowerCase() === symbol.toLowerCase());
-  if (!meta?.penumbraAssetId) return null;
+  if (!meta?.penumbraAssetId) {
+    return null;
+  }
   const displayDenom = meta.denomUnits.find(d => d.denom === meta.display);
-  if (!displayDenom) return null;
+  if (!displayDenom) {
+    return null;
+  }
   return {
     target: {
       assetId: meta.penumbraAssetId,
@@ -465,12 +509,18 @@ export const derivedUsdForSymbol = async (
   const grpcEndpoint =
     process.env['PENUMBRA_GRPC_ENDPOINT_INTERNAL'] ?? process.env['PENUMBRA_GRPC_ENDPOINT'];
   const chainId = process.env['PENUMBRA_CHAIN_ID'];
-  if (!grpcEndpoint || !chainId) return null;
+  if (!grpcEndpoint || !chainId) {
+    return null;
+  }
   const registry = await getCachedRegistry(chainId);
   const resolved = resolveTarget(registry, symbol);
-  if (!resolved) return null;
+  if (!resolved) {
+    return null;
+  }
   const bridges = resolveBridges(registry, resolved.through);
-  if (bridges.length === 0) return hit ? { ...hit, ageMs: now - hit.at } : null;
+  if (bridges.length === 0) {
+    return hit ? { ...hit, ageMs: now - hit.at } : null;
+  }
   const outcome = await deriveMultiBridge(
     resolved.target,
     bridges,
@@ -486,7 +536,9 @@ export const derivedUsdForSymbol = async (
       ageMs: Date.now() - outcome.entry.at,
     };
   }
-  if (outcome.kind === 'none') return hit ? { ...hit, ageMs: now - hit.at } : null;
+  if (outcome.kind === 'none') {
+    return hit ? { ...hit, ageMs: now - hit.at } : null;
+  }
   cache.set(symbol, {
     at: Date.now(),
     usd: outcome.usd,

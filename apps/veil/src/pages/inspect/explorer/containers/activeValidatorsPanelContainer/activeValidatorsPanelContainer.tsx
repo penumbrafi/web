@@ -14,7 +14,7 @@ const ActiveValidatorsPanelContainer: FC<Props> = props => (
                 {...props}
                 number={0}
                 numberSuffix={
-                    <span className="text-text-secondary text-2xl">/0</span>
+                    <span className="text-2xl text-text-secondary">/0</span>
                 }
                 title="Active validators / Validators limit"
             />

@@ -69,9 +69,13 @@ export const REFERENCE_PRICES: Record<string, ReferencePriceSource> = {
  * fall back to the live-derived mid.
  */
 export const referencePriceFor = (symbol: string | undefined): ReferencePriceSource | undefined => {
-  if (!symbol) return undefined;
+  if (!symbol) {
+    return undefined;
+  }
   const direct = REFERENCE_PRICES[symbol];
-  if (direct) return direct;
+  if (direct) {
+    return direct;
+  }
   const ci = Object.keys(REFERENCE_PRICES).find(k => k.toLowerCase() === symbol.toLowerCase());
   return ci ? REFERENCE_PRICES[ci] : undefined;
 };

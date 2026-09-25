@@ -20,7 +20,7 @@ export const sliceByWindow = <T extends { date: string }>(
   rows: T[],
   days: number | null,
 ): T[] => {
-  if (days === null) return rows;
+  if (days === null) {return rows;}
   const cutoff = Date.now() - days * 86_400 * 1000;
   return rows.filter(r => Date.parse(r.date) >= cutoff);
 };
@@ -39,7 +39,7 @@ export const WindowSelect = ({
         type='button'
         onClick={() => onChange(w.value)}
         className={
-          'rounded-sm px-2 py-0.5 transition-colors ' +
+          'rounded-sm px-2 py-0.5 transition-colors' +
           (w.value === value
             ? 'bg-primary-main text-base-black'
             : 'text-text-secondary hover:bg-action-hover-overlay hover:text-text-primary')

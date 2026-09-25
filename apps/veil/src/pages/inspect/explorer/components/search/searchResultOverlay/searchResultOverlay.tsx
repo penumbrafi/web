@@ -7,13 +7,11 @@ import { SearchResultProps } from '../searchResult'
 
 export interface Props {
     children?:
-        | Array<
-              | Array<ReactElement<SearchResultProps>>
+        | (| ReactElement<SearchResultProps>[]
               | false
               | null
               | ReactElement<SearchResultProps>
-              | undefined
-          >
+              | undefined)[]
         | ReactElement<SearchResultProps>
     title?: string
 }
@@ -37,7 +35,7 @@ const SearchResultOverlay: FC<Props> = props => (
         onMouseDown={e => e.preventDefault()}
     >
         {props.title && (
-            <h3 className="text-text-secondary px-2 py-1 text-sm">
+            <h3 className="px-2 py-1 text-sm text-text-secondary">
                 {props.title}
             </h3>
         )}

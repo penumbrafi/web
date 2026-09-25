@@ -34,7 +34,7 @@ const ErrorPage: FC<Props> = props => (
                 )}
             />
         </div>
-        <h1 className="text-text-secondary text-2xl">{props.message}</h1>
+        <h1 className="text-2xl text-text-secondary">{props.message}</h1>
         <Button
             actionType="accent"
             className="mt-16"

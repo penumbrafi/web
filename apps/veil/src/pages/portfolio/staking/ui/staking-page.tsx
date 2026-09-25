@@ -55,13 +55,13 @@ export const StakingPage = observer(() => {
   const action: 'delegate' | 'undelegate' = undelegateTarget ? 'undelegate' : 'delegate';
   const autoOpenedRef = useRef(false);
   useEffect(() => {
-    if (autoOpenedRef.current) return;
-    if (!connected || !target) return;
+    if (autoOpenedRef.current) {return;}
+    if (!connected || !target) {return;}
     const validatorInfos = validatorInfosResult?.validatorInfos;
-    if (!validatorInfos?.length) return;
+    if (!validatorInfos?.length) {return;}
     const match = validatorInfos.find(vi => {
       const ik = getIdentityKeyFromValidatorInfo.optional(vi);
-      if (!ik) return false;
+      if (!ik) {return false;}
       try {
         return bech32mIdentityKey(ik) === target;
       } catch {

@@ -5,13 +5,11 @@ import { BreadcrumbProps } from './breadcrumb'
 
 interface Props {
     children?:
-        | Array<
-              | Array<ReactElement<BreadcrumbProps>>
+        | (| ReactElement<BreadcrumbProps>[]
               | false
               | null
               | ReactElement<BreadcrumbProps>
-              | undefined
-          >
+              | undefined)[]
         | ReactElement<BreadcrumbProps>
     className?: string
 }

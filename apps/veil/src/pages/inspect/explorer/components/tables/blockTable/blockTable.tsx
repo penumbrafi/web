@@ -52,7 +52,7 @@ const BlockTable: FC<Props> = props => {
                         >
                             <TableCell>
                                 <BoxIcon
-                                    className="text-text-secondary inline"
+                                    className="inline text-text-secondary"
                                     size={16}
                                 />
                                 <Link href={`/explore/block/${block.height}`}>

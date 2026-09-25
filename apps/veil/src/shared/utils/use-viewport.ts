@@ -25,7 +25,9 @@ export const useViewport = (): Viewport => {
       setWidth(document.body.clientWidth);
     };
     const onResize = () => {
-      if (rafId) return;
+      if (rafId) {
+        return;
+      }
       rafId = requestAnimationFrame(flush);
     };
     flush();
@@ -33,7 +35,9 @@ export const useViewport = (): Viewport => {
     window.addEventListener('resize', onResize);
     return () => {
       window.removeEventListener('resize', onResize);
-      if (rafId) cancelAnimationFrame(rafId);
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+      }
     };
   }, []);
 

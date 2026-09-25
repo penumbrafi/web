@@ -51,7 +51,7 @@ export function DestinationStep({
   // to a harmless supported chain so the hook stays stable - we gate on
   // `chainName` below before reading anything real from `chain`.
   const chainName = useMemo(() => {
-    if (!destinationChain) return null;
+    if (!destinationChain) {return null;}
     return (
       SUPPORTED_CHAINS.find(c => c.chain_id === destinationChain.chainId)?.chain_name ?? null
     );

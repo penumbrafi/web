@@ -8,8 +8,8 @@ import { penumbraImage } from '@/pages/inspect/explorer/lib/images'
 import { Props } from './activeVotingPowerPanelContainer'
 
 const titleFor = (state?: ValidatorStateFilter): string => {
-    if (state === ValidatorStateFilter.Inactive) return 'Inactive bonded stake'
-    if (state === ValidatorStateFilter.Active) return 'Active bonded stake'
+    if (state === ValidatorStateFilter.Inactive) {return 'Inactive bonded stake'}
+    if (state === ValidatorStateFilter.Active) {return 'Active bonded stake'}
     return 'Bonded stake'
 }
 

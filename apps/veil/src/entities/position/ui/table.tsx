@@ -500,7 +500,7 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
                               rowMarketPrice > 0 &&
                               (() => {
                                 const eff = pnum(order.effectivePrice).toNumber();
-                                if (!Number.isFinite(eff) || eff <= 0) return null;
+                                if (!Number.isFinite(eff) || eff <= 0) {return null;}
                                 const deltaPct = ((eff - rowMarketPrice) / rowMarketPrice) * 100;
                                 const abs = Math.abs(deltaPct);
                                 const sign = deltaPct > 0 ? '+' : '';

@@ -3,7 +3,7 @@ import { create } from 'zustand/react'
 import { useShallow } from 'zustand/react/shallow'
 import dayjs from '@/pages/inspect/explorer/lib/dayjs'
 
-type State = {
+interface State {
     addListener: () => void
     interval?: NodeJS.Timeout
     lastTick: dayjs.Dayjs

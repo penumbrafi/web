@@ -80,7 +80,7 @@ const DexPositionTable: FC<Props> = ({ positions, ...props }) => (
                                     'items-center gap-1'
                                 )}
                                 href={`https://dex.penumbra.zone/inspect/lp/${position.id}`}
-                                rel="nofollow"
+                                rel="nofollow noreferrer"
                                 target="_blank"
                             >
                                 {shortenHash(position.id, 9, 'end')}

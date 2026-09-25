@@ -150,7 +150,9 @@ export function getTextWidth(
 }
 
 export async function registerFonts() {
-  if (typeof window !== 'undefined') return;
+  if (typeof window !== 'undefined') {
+    return;
+  }
   try {
     const { registerFont } = await import('canvas');
 

@@ -37,10 +37,16 @@ export const useGetMetadata = (): GetMetadata => {
   const walletAssets = useWalletAssetsMap().data;
   return useCallback(
     x => {
-      if (!x) return undefined;
+      if (!x) {
+        return undefined;
+      }
       const registryHit = registry.tryGetMetadata(x);
-      if (registryHit) return registryHit;
-      if (!walletAssets) return undefined;
+      if (registryHit) {
+        return registryHit;
+      }
+      if (!walletAssets) {
+        return undefined;
+      }
       // Only AssetId (not Denom) is keyable in the wallet map.
       if ('inner' in x && x.inner instanceof Uint8Array) {
         return walletAssets.get(uint8ArrayToBase64(x.inner));

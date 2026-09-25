@@ -48,7 +48,7 @@ const ActionHistory: FC<Props> = props => {
                                     <span className="truncate">
                                         {action.actionView.case}
                                     </span>
-                                    <span className="text-text-secondary truncate">
+                                    <span className="truncate text-text-secondary">
                                         Unimplemented
                                     </span>
                                 </div>

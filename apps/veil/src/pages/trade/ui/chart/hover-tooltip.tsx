@@ -16,17 +16,31 @@ interface HoverTooltipProps {
 }
 
 const formatPrice = (p: number): string => {
-  if (!Number.isFinite(p)) return '-';
-  if (p >= 1) return p.toFixed(4);
-  if (p >= 0.01) return p.toFixed(5);
-  if (p >= 0.0001) return p.toFixed(6);
+  if (!Number.isFinite(p)) {
+    return '-';
+  }
+  if (p >= 1) {
+    return p.toFixed(4);
+  }
+  if (p >= 0.01) {
+    return p.toFixed(5);
+  }
+  if (p >= 0.0001) {
+    return p.toFixed(6);
+  }
   return p.toPrecision(4);
 };
 
 const formatVolume = (v: number): string => {
-  if (!Number.isFinite(v)) return '-';
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)}M`;
-  if (v >= 1_000) return `${(v / 1_000).toFixed(2)}K`;
+  if (!Number.isFinite(v)) {
+    return '-';
+  }
+  if (v >= 1_000_000) {
+    return `${(v / 1_000_000).toFixed(2)}M`;
+  }
+  if (v >= 1_000) {
+    return `${(v / 1_000).toFixed(2)}K`;
+  }
   return v.toFixed(4);
 };
 
@@ -74,16 +88,22 @@ export const HoverTooltip = ({ subscribeHover, quoteSymbol }: HoverTooltipProps)
         setInfo(null);
         return;
       }
-      if (rafId) return;
+      if (rafId) {
+        return;
+      }
       rafId = requestAnimationFrame(flush);
     });
     return () => {
-      if (rafId) cancelAnimationFrame(rafId);
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+      }
       off();
     };
   }, [subscribeHover]);
 
-  if (!info) return null;
+  if (!info) {
+    return null;
+  }
 
   const isUp = info.candle.close >= info.candle.open;
   const directionColor = isUp ? 'text-success-light' : 'text-destructive-light';
@@ -132,8 +152,8 @@ export const HoverTooltip = ({ subscribeHover, quoteSymbol }: HoverTooltipProps)
           <>
             <span className='text-text-secondary'>vs Mid</span>
             <span className='text-text-secondary'>
-              {closeDeltaPct! > 0 ? '+' : ''}
-              {closeDeltaPct!.toFixed(2)}%
+              {closeDeltaPct > 0 ? '+' : ''}
+              {closeDeltaPct.toFixed(2)}%
             </span>
           </>
         )}

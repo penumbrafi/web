@@ -1,7 +1,6 @@
 import { Text } from '@penumbra-zone/ui/Text';
-import { Coins, Droplets, Trophy, ArrowRight } from 'lucide-react';
+import { Coins, Droplets, Trophy, ArrowRight ,type  LucideIcon } from 'lucide-react';
 import Link from 'next/link';
-import type { LucideIcon } from 'lucide-react';
 import { PagePath } from '@/shared/const/pages';
 
 interface EarnLinkProps {

@@ -8,7 +8,7 @@ interface Props {
 const Parameter: FC<Props> = props => (
     <li className="flex items-center justify-between gap-2">
         <span className="whitespace-nowrap">{props.name}</span>
-        <span className="border-other-tonal-fill10 flex-1 border-b border-dashed" />
+        <span className="flex-1 border-b border-dashed border-other-tonal-fill10" />
         <span className="inline-flex items-center gap-1 whitespace-nowrap">
             {props.children}
         </span>

@@ -6,15 +6,15 @@ import { classNames } from '@/pages/inspect/explorer/lib/utils'
 import { Props } from './dexPriceTableContainer'
 
 function truncateAssetId(id: string): string {
-    if (id.length > 16) return `${id.slice(0, 8)}...${id.slice(-6)}`
+    if (id.length > 16) {return `${id.slice(0, 8)}...${id.slice(-6)}`}
     return id
 }
 
 function formatPrice(price: number): string {
-    if (price === 0) return '0'
-    if (price >= 1_000_000) return price.toExponential(4)
-    if (price >= 1) return price.toFixed(4)
-    if (price >= 0.0001) return price.toFixed(6)
+    if (price === 0) {return '0'}
+    if (price >= 1_000_000) {return price.toExponential(4)}
+    if (price >= 1) {return price.toFixed(4)}
+    if (price >= 0.0001) {return price.toFixed(6)}
     return price.toExponential(4)
 }
 
@@ -48,7 +48,7 @@ const DexPriceTableLoader: FC<Props> = async props => {
         >
             <header className="flex items-baseline justify-between">
                 <h2 className="text-2xl font-medium">Recent prices</h2>
-                <div className="text-text-secondary text-sm">
+                <div className="text-sm text-text-secondary">
                     Derived from last hour of swaps
                 </div>
             </header>
@@ -92,7 +92,7 @@ const DexPriceTableLoader: FC<Props> = async props => {
                                 <td className="py-2 pr-4 text-right">
                                     {p.swapCount.toLocaleString('en-US')}
                                 </td>
-                                <td className="text-text-secondary py-2 text-right">
+                                <td className="py-2 text-right text-text-secondary">
                                     {p.latestSwap
                                         ? new Date(
                                               p.latestSwap

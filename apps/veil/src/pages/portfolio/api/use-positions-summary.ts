@@ -47,11 +47,11 @@ export const usePositionsSummary = (
           subaccount: new AddressIndex({ account: subaccount }),
           positionState: new PositionState({ state }),
         })) {
-          if (item.positionId) positionIds.push(item.positionId);
+          if (item.positionId) {positionIds.push(item.positionId);}
         }
       }
 
-      if (!positionIds.length) return [];
+      if (!positionIds.length) {return [];}
 
       const responses = await Array.fromAsync(
         penumbra.service(DexService).liquidityPositionsById({ positionId: positionIds }),
@@ -60,7 +60,7 @@ export const usePositionsSummary = (
 
       const totalsByAssetKey = new Map<string, AssetTotal>();
       const bump = (assetId: AssetId | undefined, raw: bigint) => {
-        if (!assetId?.inner || raw === 0n) return;
+        if (!assetId?.inner || raw === 0n) {return;}
         const key = uint8ArrayToBase64(assetId.inner);
         const existing = totalsByAssetKey.get(key);
         if (existing) {

@@ -59,7 +59,6 @@ const ConnectButtonInner = observer(
       // Either way, the user gets a console warning and stays on the
       // picker instead of seeing a stack trace and a hung page.
       void connectionStore.connect(provider).catch((err: unknown) => {
-        // eslint-disable-next-line no-console
         console.warn(`[connect] ${provider} unavailable, try another wallet:`, err);
         setIsOpen(true);
       });

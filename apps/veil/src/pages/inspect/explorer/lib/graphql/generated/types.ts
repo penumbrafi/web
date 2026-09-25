@@ -1,14 +1,14 @@
 import gql from 'graphql-tag';
 export type Maybe<T> = T | null;
 export type InputMaybe<T> = Maybe<T>;
-export type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
+export type Exact<T extends Record<string, unknown>> = { [K in keyof T]: T[K] };
 export type MakeOptional<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]?: Maybe<T[SubKey]> };
 export type MakeMaybe<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]: Maybe<T[SubKey]> };
-export type MakeEmpty<T extends { [key: string]: unknown }, K extends keyof T> = { [_ in K]?: never };
+export type MakeEmpty<T extends Record<string, unknown>, K extends keyof T> = Partial<Record<K, never>>;
 export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
 export type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
 /** All built-in and custom scalars, mapped to their actual values */
-export type Scalars = {
+export interface Scalars {
   ID: { input: string; output: string; }
   String: { input: string; output: string; }
   Boolean: { input: boolean; output: boolean; }
@@ -18,71 +18,71 @@ export type Scalars = {
   Decimal: { input: any; output: any; }
   /** A scalar that can represent any JSON value. */
   JSON: { input: any; output: any; }
-};
+}
 
 export type Action = IbcRelay | NotYetSupportedAction | Output | Spend;
 
-export type ActiveProposal = {
+export interface ActiveProposal {
   __typename?: 'ActiveProposal';
   endBlockHeight: Scalars['Int']['output'];
   id: Scalars['Int']['output'];
   kind: ProposalKind;
   state: ProposalState;
   title: Scalars['String']['output'];
-};
+}
 
-export type AssetId = {
+export interface AssetId {
   __typename?: 'AssetId';
   altBaseDenom: Scalars['String']['output'];
   altBech32M: Scalars['String']['output'];
   inner: Scalars['String']['output'];
-};
+}
 
-export type BatchSwap = {
+export interface BatchSwap {
   __typename?: 'BatchSwap';
   executionType: Scalars['String']['output'];
   id: Scalars['Int']['output'];
-  individualSwaps: Array<IndividualSwap>;
+  individualSwaps: IndividualSwap[];
   individualSwapsCount: Scalars['Int']['output'];
   totalInputAmount: Scalars['String']['output'];
   totalInputAssetId: Scalars['String']['output'];
   totalOutputAmount: Scalars['String']['output'];
   totalOutputAssetId: Scalars['String']['output'];
-};
+}
 
-export type Block = {
+export interface Block {
   __typename?: 'Block';
   chainId?: Maybe<Scalars['String']['output']>;
   createdAt: Scalars['DateTime']['output'];
   height: Scalars['Int']['output'];
-  rawEvents: Array<Event>;
+  rawEvents: Event[];
   rawJson: Scalars['JSON']['output'];
-  transactions: Array<Transaction>;
+  transactions: Transaction[];
   transactionsCount: Scalars['Int']['output'];
-};
+}
 
-export type BlockCollection = {
+export interface BlockCollection {
   __typename?: 'BlockCollection';
-  items: Array<Block>;
+  items: Block[];
   total: Scalars['Int']['output'];
-};
+}
 
-export type BlockFilter = {
+export interface BlockFilter {
   height?: InputMaybe<Scalars['Int']['input']>;
-};
+}
 
-export type BlockParticipation = {
+export interface BlockParticipation {
   __typename?: 'BlockParticipation';
   height: Scalars['Int']['output'];
   signed: Scalars['Boolean']['output'];
-};
+}
 
-export type BlockUpdate = {
+export interface BlockUpdate {
   __typename?: 'BlockUpdate';
   createdAt: Scalars['DateTime']['output'];
   height: Scalars['Int']['output'];
   transactionsCount: Scalars['Int']['output'];
-};
+}
 
 export enum BondingState {
   BondingStateEnumBonded = 'BONDING_STATE_ENUM_BONDED',
@@ -91,7 +91,7 @@ export enum BondingState {
   BondingStateEnumUnspecified = 'BONDING_STATE_ENUM_UNSPECIFIED'
 }
 
-export type ChainParameters = {
+export interface ChainParameters {
   __typename?: 'ChainParameters';
   chainId: Scalars['String']['output'];
   currentBlockHeight: Scalars['Int']['output'];
@@ -100,9 +100,9 @@ export type ChainParameters = {
   epochDuration: Scalars['Int']['output'];
   lastUpdated: Scalars['DateTime']['output'];
   nextEpochIn: Scalars['Int']['output'];
-};
+}
 
-export type ChainParametersUpdate = {
+export interface ChainParametersUpdate {
   __typename?: 'ChainParametersUpdate';
   chainId: Scalars['String']['output'];
   currentBlockHeight: Scalars['Int']['output'];
@@ -111,7 +111,7 @@ export type ChainParametersUpdate = {
   epochDuration: Scalars['Int']['output'];
   lastUpdated: Scalars['DateTime']['output'];
   nextEpochIn: Scalars['Int']['output'];
-};
+}
 
 export enum ClientStatus {
   Active = 'active',
@@ -120,19 +120,19 @@ export enum ClientStatus {
   Unknown = 'unknown'
 }
 
-export type CollectionLimit = {
+export interface CollectionLimit {
   length?: InputMaybe<Scalars['Int']['input']>;
   offset?: InputMaybe<Scalars['Int']['input']>;
-};
+}
 
-export type CommissionInfo = {
+export interface CommissionInfo {
   __typename?: 'CommissionInfo';
   rateBps: Scalars['Int']['output'];
   recipientAddress?: Maybe<Scalars['String']['output']>;
   streamType: Scalars['String']['output'];
-};
+}
 
-export type DbBlock = {
+export interface DbBlock {
   __typename?: 'DbBlock';
   blockHashHex?: Maybe<Scalars['String']['output']>;
   chainId?: Maybe<Scalars['String']['output']>;
@@ -143,9 +143,9 @@ export type DbBlock = {
   timestamp: Scalars['DateTime']['output'];
   totalFees?: Maybe<Scalars['String']['output']>;
   validatorIdentityKey?: Maybe<Scalars['String']['output']>;
-};
+}
 
-export type DbRawTransaction = {
+export interface DbRawTransaction {
   __typename?: 'DbRawTransaction';
   blockHeight: Scalars['Int']['output'];
   chainId?: Maybe<Scalars['String']['output']>;
@@ -156,9 +156,9 @@ export type DbRawTransaction = {
   rawJson: Scalars['JSON']['output'];
   timestamp: Scalars['DateTime']['output'];
   txHashHex: Scalars['String']['output'];
-};
+}
 
-export type Delegate = {
+export interface Delegate {
   __typename?: 'Delegate';
   blockHeight: Scalars['Int']['output'];
   delegationAmount: Scalars['String']['output'];
@@ -168,27 +168,27 @@ export type Delegate = {
   txHash: Scalars['String']['output'];
   unbondedAmount: Scalars['String']['output'];
   validatorIdentityKey: Scalars['String']['output'];
-};
+}
 
-export type DexStats = {
+export interface DexStats {
   __typename?: 'DexStats';
   openPositions: Scalars['Int']['output'];
   totalExecutions: Scalars['Int']['output'];
-};
+}
 
-export type Event = {
+export interface Event {
   __typename?: 'Event';
   type: Scalars['String']['output'];
   value: Scalars['String']['output'];
-};
+}
 
-export type Fee = {
+export interface Fee {
   __typename?: 'Fee';
   amount: Scalars['String']['output'];
   assetId?: Maybe<AssetId>;
-};
+}
 
-export type GovernanceParameters = {
+export interface GovernanceParameters {
   __typename?: 'GovernanceParameters';
   /** The deposit amount required to submit a proposal (in UM) */
   depositAmount: Scalars['Decimal']['output'];
@@ -200,23 +200,23 @@ export type GovernanceParameters = {
   slashingThreshold: Scalars['Decimal']['output'];
   /** The quorum percentage required for a proposal to be valid */
   validQuorum: Scalars['Decimal']['output'];
-};
+}
 
-export type IbcFlowHistory = {
+export interface IbcFlowHistory {
   __typename?: 'IbcFlowHistory';
   date: Scalars['String']['output'];
   inflowCount: Scalars['Int']['output'];
   inflowVolume: Scalars['String']['output'];
   outflowCount: Scalars['Int']['output'];
   outflowVolume: Scalars['String']['output'];
-};
+}
 
-export type IbcRelay = {
+export interface IbcRelay {
   __typename?: 'IbcRelay';
   rawAction: Scalars['String']['output'];
-};
+}
 
-export type IbcStats = {
+export interface IbcStats {
   __typename?: 'IbcStats';
   channelId?: Maybe<Scalars['String']['output']>;
   clientId: Scalars['String']['output'];
@@ -230,7 +230,7 @@ export type IbcStats = {
   totalTxCount: Scalars['Int']['output'];
   unshieldedTxCount: Scalars['Int']['output'];
   unshieldedVolume: Scalars['String']['output'];
-};
+}
 
 export enum IbcStatus {
   Completed = 'COMPLETED',
@@ -248,7 +248,7 @@ export enum IbcStatusFilter {
   Unknown = 'UNKNOWN'
 }
 
-export type IbcTransactionUpdate = {
+export interface IbcTransactionUpdate {
   __typename?: 'IbcTransactionUpdate';
   blockHeight: Scalars['Int']['output'];
   clientId: Scalars['String']['output'];
@@ -257,19 +257,19 @@ export type IbcTransactionUpdate = {
   status: Scalars['String']['output'];
   timestamp: Scalars['DateTime']['output'];
   txHash: Scalars['String']['output'];
-};
+}
 
-export type IndividualSwap = {
+export interface IndividualSwap {
   __typename?: 'IndividualSwap';
   inputAmount: Scalars['String']['output'];
   inputAssetId: Scalars['String']['output'];
   outputAmount: Scalars['String']['output'];
   outputAssetId: Scalars['String']['output'];
-  routeSteps: Array<RouteStep>;
+  routeSteps: RouteStep[];
   swapIndex: Scalars['Int']['output'];
-};
+}
 
-export type LiquidityPosition = {
+export interface LiquidityPosition {
   __typename?: 'LiquidityPosition';
   feePercentage: Scalars['Float']['output'];
   positionId: Scalars['String']['output'];
@@ -279,17 +279,17 @@ export type LiquidityPosition = {
   tradingPairAsset1: Scalars['String']['output'];
   tradingPairAsset2: Scalars['String']['output'];
   updatedAt: Scalars['DateTime']['output'];
-};
+}
 
-export type LiquidityPositionCollection = {
+export interface LiquidityPositionCollection {
   __typename?: 'LiquidityPositionCollection';
-  items: Array<LiquidityPosition>;
+  items: LiquidityPosition[];
   total: Scalars['Int']['output'];
-};
+}
 
-export type LiquidityPositionFilter = {
+export interface LiquidityPositionFilter {
   state?: InputMaybe<LiquidityPositionStateFilter>;
-};
+}
 
 export enum LiquidityPositionState {
   Closed = 'CLOSED',
@@ -303,33 +303,33 @@ export enum LiquidityPositionStateFilter {
   Open = 'OPEN'
 }
 
-export type NotYetSupportedAction = {
+export interface NotYetSupportedAction {
   __typename?: 'NotYetSupportedAction';
   debug: Scalars['String']['output'];
-};
+}
 
-export type NotePayload = {
+export interface NotePayload {
   __typename?: 'NotePayload';
   encryptedNote: Scalars['String']['output'];
   ephemeralKey: Scalars['String']['output'];
   noteCommitment: Scalars['String']['output'];
-};
+}
 
-export type Output = {
+export interface Output {
   __typename?: 'Output';
   body: OutputBody;
   proof: Scalars['String']['output'];
-};
+}
 
-export type OutputBody = {
+export interface OutputBody {
   __typename?: 'OutputBody';
   balanceCommitment: Scalars['String']['output'];
   notePayload: NotePayload;
   ovkWrappedKey: Scalars['String']['output'];
   wrappedMemoKey: Scalars['String']['output'];
-};
+}
 
-export type PastProposal = {
+export interface PastProposal {
   __typename?: 'PastProposal';
   endBlockHeight: Scalars['Int']['output'];
   endTimestamp?: Maybe<Scalars['DateTime']['output']>;
@@ -339,15 +339,15 @@ export type PastProposal = {
   state: ProposalState;
   title: Scalars['String']['output'];
   totalVotes: Scalars['Decimal']['output'];
-};
+}
 
-export type PastProposalCollection = {
+export interface PastProposalCollection {
   __typename?: 'PastProposalCollection';
-  items: Array<PastProposal>;
+  items: PastProposal[];
   total: Scalars['Int']['output'];
-};
+}
 
-export type ProposalDetail = {
+export interface ProposalDetail {
   __typename?: 'ProposalDetail';
   abstainVotes: Scalars['Decimal']['output'];
   abstainVotesPercentage: Scalars['Decimal']['output'];
@@ -370,12 +370,12 @@ export type ProposalDetail = {
   votingStartedTimestamp: Scalars['DateTime']['output'];
   yesVotes: Scalars['Decimal']['output'];
   yesVotesPercentage: Scalars['Decimal']['output'];
-};
+}
 
 
-export type ProposalDetailVotesArgs = {
+export interface ProposalDetailVotesArgs {
   limit?: InputMaybe<CollectionLimit>;
-};
+}
 
 export enum ProposalKind {
   CommunityPoolSpend = 'COMMUNITY_POOL_SPEND',
@@ -400,213 +400,213 @@ export enum ProposalState {
   Withdrawn = 'WITHDRAWN'
 }
 
-export type QueryRoot = {
+export interface QueryRoot {
   __typename?: 'QueryRoot';
-  activeProposals: Array<ActiveProposal>;
+  activeProposals: ActiveProposal[];
   block?: Maybe<Block>;
   blocks: BlockCollection;
   dbBlock?: Maybe<DbBlock>;
-  dbBlocks: Array<DbBlock>;
+  dbBlocks: DbBlock[];
   dbLatestBlock?: Maybe<DbBlock>;
   dbRawTransaction?: Maybe<DbRawTransaction>;
-  dbRawTransactions: Array<DbRawTransaction>;
+  dbRawTransactions: DbRawTransaction[];
   dexStats: DexStats;
   getVoteForTransaction?: Maybe<VoteForTransaction>;
   governanceParameters?: Maybe<GovernanceParameters>;
-  ibcFlowHistory: Array<IbcFlowHistory>;
-  ibcStats: Array<IbcStats>;
+  ibcFlowHistory: IbcFlowHistory[];
+  ibcStats: IbcStats[];
   ibcTotalShieldedVolume: TotalShieldedVolume;
-  latestExecutions: Array<SwapExecution>;
+  latestExecutions: SwapExecution[];
   liquidityPositions: LiquidityPositionCollection;
   pastProposals: PastProposalCollection;
-  pendingUndelegations: Array<Undelegate>;
+  pendingUndelegations: Undelegate[];
   proposalDetail?: Maybe<ProposalDetail>;
-  recentSwapPrices: Array<RecentSwapPrice>;
+  recentSwapPrices: RecentSwapPrice[];
   search?: Maybe<SearchResult>;
   stats: Stats;
-  swapVolumeHistory: Array<SwapVolumeHistory>;
-  tradingPairLiquidity: Array<TradingPairLiquidity>;
-  tradingVolume24h: Array<TradingVolume24h>;
+  swapVolumeHistory: SwapVolumeHistory[];
+  tradingPairLiquidity: TradingPairLiquidity[];
+  tradingVolume24h: TradingVolume24h[];
   transaction?: Maybe<Transaction>;
   transactions: TransactionCollection;
-  undelegationsReleasingSoon: Array<Undelegate>;
-  validatorDelegates: Array<Delegate>;
+  undelegationsReleasingSoon: Undelegate[];
+  validatorDelegates: Delegate[];
   validatorDetails?: Maybe<ValidatorDetails>;
   validatorStakingStats?: Maybe<ValidatorStakingStats>;
-  validatorUndelegates: Array<Undelegate>;
-  validatorVotingPowerHistory: Array<VotingPowerHistoryEntry>;
+  validatorUndelegates: Undelegate[];
+  validatorVotingPowerHistory: VotingPowerHistoryEntry[];
   validatorsHomepage: ValidatorHomepageData;
-};
+}
 
 
-export type QueryRootBlockArgs = {
+export interface QueryRootBlockArgs {
   height: Scalars['Int']['input'];
-};
+}
 
 
-export type QueryRootBlocksArgs = {
+export interface QueryRootBlocksArgs {
   filter?: InputMaybe<BlockFilter>;
   limit: CollectionLimit;
-};
+}
 
 
-export type QueryRootDbBlockArgs = {
+export interface QueryRootDbBlockArgs {
   height: Scalars['Int']['input'];
-};
+}
 
 
-export type QueryRootDbBlocksArgs = {
+export interface QueryRootDbBlocksArgs {
   limit?: InputMaybe<Scalars['Int']['input']>;
   offset?: InputMaybe<Scalars['Int']['input']>;
-};
+}
 
 
-export type QueryRootDbRawTransactionArgs = {
+export interface QueryRootDbRawTransactionArgs {
   txHashHex: Scalars['String']['input'];
-};
+}
 
 
-export type QueryRootDbRawTransactionsArgs = {
+export interface QueryRootDbRawTransactionsArgs {
   limit?: InputMaybe<Scalars['Int']['input']>;
   offset?: InputMaybe<Scalars['Int']['input']>;
-};
+}
 
 
-export type QueryRootGetVoteForTransactionArgs = {
+export interface QueryRootGetVoteForTransactionArgs {
   txHash: Scalars['String']['input'];
-};
+}
 
 
-export type QueryRootIbcFlowHistoryArgs = {
+export interface QueryRootIbcFlowHistoryArgs {
   clientId?: InputMaybe<Scalars['String']['input']>;
   days?: InputMaybe<Scalars['Int']['input']>;
-};
+}
 
 
-export type QueryRootIbcStatsArgs = {
+export interface QueryRootIbcStatsArgs {
   clientId?: InputMaybe<Scalars['String']['input']>;
   limit?: InputMaybe<Scalars['Int']['input']>;
   offset?: InputMaybe<Scalars['Int']['input']>;
   timePeriod?: InputMaybe<TimePeriod>;
-};
+}
 
 
-export type QueryRootLatestExecutionsArgs = {
+export interface QueryRootLatestExecutionsArgs {
   filter?: InputMaybe<SwapExecutionFilter>;
-};
+}
 
 
-export type QueryRootLiquidityPositionsArgs = {
+export interface QueryRootLiquidityPositionsArgs {
   filter?: InputMaybe<LiquidityPositionFilter>;
   limit: CollectionLimit;
-};
+}
 
 
-export type QueryRootPastProposalsArgs = {
+export interface QueryRootPastProposalsArgs {
   limit: CollectionLimit;
-};
+}
 
 
-export type QueryRootPendingUndelegationsArgs = {
+export interface QueryRootPendingUndelegationsArgs {
   limit?: InputMaybe<Scalars['Int']['input']>;
   offset?: InputMaybe<Scalars['Int']['input']>;
-};
+}
 
 
-export type QueryRootProposalDetailArgs = {
+export interface QueryRootProposalDetailArgs {
   id: Scalars['Int']['input'];
-};
+}
 
 
-export type QueryRootRecentSwapPricesArgs = {
+export interface QueryRootRecentSwapPricesArgs {
   limit?: InputMaybe<Scalars['Int']['input']>;
-};
+}
 
 
-export type QueryRootSearchArgs = {
+export interface QueryRootSearchArgs {
   slug: Scalars['String']['input'];
-};
+}
 
 
-export type QueryRootSwapVolumeHistoryArgs = {
+export interface QueryRootSwapVolumeHistoryArgs {
   days?: InputMaybe<Scalars['Int']['input']>;
-};
+}
 
 
-export type QueryRootTradingPairLiquidityArgs = {
+export interface QueryRootTradingPairLiquidityArgs {
   limit?: InputMaybe<Scalars['Int']['input']>;
-};
+}
 
 
-export type QueryRootTradingVolume24hArgs = {
+export interface QueryRootTradingVolume24hArgs {
   limit?: InputMaybe<Scalars['Int']['input']>;
-};
+}
 
 
-export type QueryRootTransactionArgs = {
+export interface QueryRootTransactionArgs {
   hash: Scalars['String']['input'];
-};
+}
 
 
-export type QueryRootTransactionsArgs = {
+export interface QueryRootTransactionsArgs {
   filter?: InputMaybe<TransactionFilter>;
   limit: CollectionLimit;
-};
+}
 
 
-export type QueryRootUndelegationsReleasingSoonArgs = {
+export interface QueryRootUndelegationsReleasingSoonArgs {
   blocksAhead?: InputMaybe<Scalars['Int']['input']>;
   currentHeight: Scalars['Int']['input'];
-};
+}
 
 
-export type QueryRootValidatorDelegatesArgs = {
+export interface QueryRootValidatorDelegatesArgs {
   limit?: InputMaybe<Scalars['Int']['input']>;
   offset?: InputMaybe<Scalars['Int']['input']>;
   validatorId: Scalars['String']['input'];
-};
+}
 
 
-export type QueryRootValidatorDetailsArgs = {
+export interface QueryRootValidatorDetailsArgs {
   id: Scalars['String']['input'];
-};
+}
 
 
-export type QueryRootValidatorStakingStatsArgs = {
+export interface QueryRootValidatorStakingStatsArgs {
   validatorId: Scalars['String']['input'];
-};
+}
 
 
-export type QueryRootValidatorUndelegatesArgs = {
+export interface QueryRootValidatorUndelegatesArgs {
   limit?: InputMaybe<Scalars['Int']['input']>;
   offset?: InputMaybe<Scalars['Int']['input']>;
   pendingOnly?: InputMaybe<Scalars['Boolean']['input']>;
   validatorId: Scalars['String']['input'];
-};
+}
 
 
-export type QueryRootValidatorVotingPowerHistoryArgs = {
+export interface QueryRootValidatorVotingPowerHistoryArgs {
   endTime?: InputMaybe<Scalars['DateTime']['input']>;
   limit?: InputMaybe<Scalars['Int']['input']>;
   startTime?: InputMaybe<Scalars['DateTime']['input']>;
   validatorId: Scalars['String']['input'];
-};
+}
 
 
-export type QueryRootValidatorsHomepageArgs = {
+export interface QueryRootValidatorsHomepageArgs {
   filter?: InputMaybe<ValidatorFilter>;
-};
+}
 
-export type RecentSwapPrice = {
+export interface RecentSwapPrice {
   __typename?: 'RecentSwapPrice';
   avgPrice: Scalars['Float']['output'];
   inputAssetId: Scalars['String']['output'];
   latestSwap?: Maybe<Scalars['DateTime']['output']>;
   outputAssetId: Scalars['String']['output'];
   swapCount: Scalars['Int']['output'];
-};
+}
 
-export type Root = {
+export interface Root {
   __typename?: 'Root';
   blocks: BlockUpdate;
   chainParameters: ChainParametersUpdate;
@@ -618,60 +618,60 @@ export type Root = {
   transactionCount: TransactionCountUpdate;
   transactions: TransactionUpdate;
   validatorBlocks: ValidatorBlockUpdate;
-};
+}
 
 
-export type RootIbcTransactionsArgs = {
+export interface RootIbcTransactionsArgs {
   clientId?: InputMaybe<Scalars['String']['input']>;
   limit?: InputMaybe<Scalars['Int']['input']>;
   offset?: InputMaybe<Scalars['Int']['input']>;
-};
+}
 
 
-export type RootLatestBlocksArgs = {
+export interface RootLatestBlocksArgs {
   limit?: InputMaybe<Scalars['Int']['input']>;
-};
+}
 
 
-export type RootLatestIbcTransactionsArgs = {
+export interface RootLatestIbcTransactionsArgs {
   clientId?: InputMaybe<Scalars['String']['input']>;
   limit?: InputMaybe<Scalars['Int']['input']>;
-};
+}
 
 
-export type RootLatestTransactionsArgs = {
+export interface RootLatestTransactionsArgs {
   limit?: InputMaybe<Scalars['Int']['input']>;
-};
+}
 
 
-export type RootValidatorBlocksArgs = {
+export interface RootValidatorBlocksArgs {
   validatorId: Scalars['String']['input'];
-};
+}
 
-export type RouteStep = {
+export interface RouteStep {
   __typename?: 'RouteStep';
   amount: Scalars['String']['output'];
   assetId: Scalars['String']['output'];
   routeStep: Scalars['Int']['output'];
-};
+}
 
 export type SearchResult = Block | Transaction | ValidatorSearchResults;
 
-export type Spend = {
+export interface Spend {
   __typename?: 'Spend';
   authSig: Scalars['String']['output'];
   body: SpendBody;
   proof: Scalars['String']['output'];
-};
+}
 
-export type SpendBody = {
+export interface SpendBody {
   __typename?: 'SpendBody';
   balanceCommitment: Scalars['String']['output'];
   nullifier: Scalars['String']['output'];
   rk: Scalars['String']['output'];
-};
+}
 
-export type StakingParameters = {
+export interface StakingParameters {
   __typename?: 'StakingParameters';
   activeValidatorCount: Scalars['Int']['output'];
   activeValidatorLimit: Scalars['Int']['output'];
@@ -682,32 +682,32 @@ export type StakingParameters = {
   unbondingDelay: Scalars['Int']['output'];
   uptimeBlocksWindow: Scalars['Int']['output'];
   uptimeMinRequired: Scalars['Float']['output'];
-};
+}
 
-export type Stats = {
+export interface Stats {
   __typename?: 'Stats';
   totalTransactionsCount: Scalars['Int']['output'];
-};
+}
 
-export type SwapExecution = {
+export interface SwapExecution {
   __typename?: 'SwapExecution';
-  batchSwaps: Array<BatchSwap>;
+  batchSwaps: BatchSwap[];
   blockHeight: Scalars['Int']['output'];
   timestamp: Scalars['DateTime']['output'];
-};
+}
 
-export type SwapExecutionFilter = {
+export interface SwapExecutionFilter {
   height?: InputMaybe<Scalars['Int']['input']>;
-};
+}
 
-export type SwapVolumeHistory = {
+export interface SwapVolumeHistory {
   __typename?: 'SwapVolumeHistory';
   arbCount: Scalars['Int']['output'];
   date: Scalars['String']['output'];
   organicCount: Scalars['Int']['output'];
   swapCount: Scalars['Int']['output'];
   totalVolume: Scalars['String']['output'];
-};
+}
 
 export enum TimePeriod {
   All = 'ALL',
@@ -715,18 +715,18 @@ export enum TimePeriod {
   Month = 'MONTH'
 }
 
-export type TotalShieldedVolume = {
+export interface TotalShieldedVolume {
   __typename?: 'TotalShieldedVolume';
   /** Total shielded volume across all IBC clients */
   value: Scalars['String']['output'];
-};
+}
 
-export type TotalShieldedVolumeUpdate = {
+export interface TotalShieldedVolumeUpdate {
   __typename?: 'TotalShieldedVolumeUpdate';
   value: Scalars['String']['output'];
-};
+}
 
-export type TradingPairLiquidity = {
+export interface TradingPairLiquidity {
   __typename?: 'TradingPairLiquidity';
   activePositions: Scalars['Int']['output'];
   avgFeePercentage: Scalars['Float']['output'];
@@ -734,18 +734,18 @@ export type TradingPairLiquidity = {
   totalReserves2: Scalars['String']['output'];
   tradingPairAsset1: Scalars['String']['output'];
   tradingPairAsset2: Scalars['String']['output'];
-};
+}
 
-export type TradingVolume24h = {
+export interface TradingVolume24h {
   __typename?: 'TradingVolume24h';
   assetId: Scalars['String']['output'];
   periodEnd?: Maybe<Scalars['DateTime']['output']>;
   periodStart?: Maybe<Scalars['DateTime']['output']>;
   swapCount24h: Scalars['Int']['output'];
   volume24h: Scalars['String']['output'];
-};
+}
 
-export type Transaction = {
+export interface Transaction {
   __typename?: 'Transaction';
   anchor: Scalars['String']['output'];
   bindingSig: Scalars['String']['output'];
@@ -756,53 +756,53 @@ export type Transaction = {
   ibcStatus: IbcStatus;
   index: Scalars['Int']['output'];
   raw: Scalars['String']['output'];
-  rawEvents: Array<Event>;
+  rawEvents: Event[];
   rawJson: Scalars['JSON']['output'];
-};
+}
 
-export type TransactionBody = {
+export interface TransactionBody {
   __typename?: 'TransactionBody';
-  actions: Array<Action>;
+  actions: Action[];
   actionsCount: Scalars['Int']['output'];
-  detectionData: Array<Scalars['String']['output']>;
+  detectionData: Scalars['String']['output'][];
   memo?: Maybe<Scalars['String']['output']>;
   parameters: TransactionParameters;
-  rawActions: Array<Scalars['String']['output']>;
-};
+  rawActions: Scalars['String']['output'][];
+}
 
-export type TransactionCollection = {
+export interface TransactionCollection {
   __typename?: 'TransactionCollection';
-  items: Array<Transaction>;
+  items: Transaction[];
   total: Scalars['Int']['output'];
-};
+}
 
-export type TransactionCountUpdate = {
+export interface TransactionCountUpdate {
   __typename?: 'TransactionCountUpdate';
   count: Scalars['Int']['output'];
-};
+}
 
-export type TransactionFilter = {
+export interface TransactionFilter {
   clientId?: InputMaybe<Scalars['String']['input']>;
   hash?: InputMaybe<Scalars['String']['input']>;
   ibcStatus?: InputMaybe<IbcStatusFilter>;
   validator?: InputMaybe<Scalars['String']['input']>;
-};
+}
 
-export type TransactionParameters = {
+export interface TransactionParameters {
   __typename?: 'TransactionParameters';
   chainId: Scalars['String']['output'];
   expiryHeight: Scalars['Int']['output'];
   fee: Fee;
-};
+}
 
-export type TransactionUpdate = {
+export interface TransactionUpdate {
   __typename?: 'TransactionUpdate';
   hash: Scalars['String']['output'];
   id: Scalars['Int']['output'];
   raw: Scalars['String']['output'];
-};
+}
 
-export type Undelegate = {
+export interface Undelegate {
   __typename?: 'Undelegate';
   blockHeight: Scalars['Int']['output'];
   claimed: Scalars['Boolean']['output'];
@@ -815,9 +815,9 @@ export type Undelegate = {
   unbondedAmount: Scalars['String']['output'];
   unbondingStartHeight: Scalars['Int']['output'];
   validatorIdentityKey: Scalars['String']['output'];
-};
+}
 
-export type Validator = {
+export interface Validator {
   __typename?: 'Validator';
   bondingState: BondingState;
   commission: Scalars['Float']['output'];
@@ -828,24 +828,24 @@ export type Validator = {
   uptime?: Maybe<Scalars['Float']['output']>;
   votingPower: Scalars['Int']['output'];
   votingPowerActivePercentage: Scalars['Float']['output'];
-};
+}
 
-export type ValidatorBlockUpdate = {
+export interface ValidatorBlockUpdate {
   __typename?: 'ValidatorBlockUpdate';
   blockHeight: Scalars['Int']['output'];
   signed: Scalars['Boolean']['output'];
   validatorId: Scalars['String']['output'];
-};
+}
 
-export type ValidatorDetails = {
+export interface ValidatorDetails {
   __typename?: 'ValidatorDetails';
   activeSince?: Maybe<Scalars['DateTime']['output']>;
   bondingState: BondingState;
   commissionPercentage: Scalars['Float']['output'];
-  commissionStreams: Array<CommissionInfo>;
+  commissionStreams: CommissionInfo[];
   description?: Maybe<Scalars['String']['output']>;
   id: Scalars['String']['output'];
-  last300Blocks: Array<BlockParticipation>;
+  last300Blocks: BlockParticipation[];
   missedBlocks: Scalars['Int']['output'];
   name?: Maybe<Scalars['String']['output']>;
   signedBlocks: Scalars['Int']['output'];
@@ -855,32 +855,32 @@ export type ValidatorDetails = {
   votingPower: Scalars['Int']['output'];
   votingPowerActivePercentage: Scalars['Float']['output'];
   website?: Maybe<Scalars['String']['output']>;
-};
+}
 
-export type ValidatorFilter = {
+export interface ValidatorFilter {
   state?: InputMaybe<ValidatorStateFilter>;
-};
+}
 
-export type ValidatorHomepageData = {
+export interface ValidatorHomepageData {
   __typename?: 'ValidatorHomepageData';
   chainParameters?: Maybe<ChainParameters>;
   stakingParameters: StakingParameters;
-  validators: Array<Validator>;
-};
+  validators: Validator[];
+}
 
-export type ValidatorSearchResult = {
+export interface ValidatorSearchResult {
   __typename?: 'ValidatorSearchResult';
   displayName: Scalars['String']['output'];
   id: Scalars['String']['output'];
-};
+}
 
-export type ValidatorSearchResults = {
+export interface ValidatorSearchResults {
   __typename?: 'ValidatorSearchResults';
-  items: Array<ValidatorSearchResult>;
+  items: ValidatorSearchResult[];
   total: Scalars['Int']['output'];
-};
+}
 
-export type ValidatorStakingStats = {
+export interface ValidatorStakingStats {
   __typename?: 'ValidatorStakingStats';
   nextReleaseHeight?: Maybe<Scalars['Int']['output']>;
   pendingUndelegateCount: Scalars['Int']['output'];
@@ -888,7 +888,7 @@ export type ValidatorStakingStats = {
   totalDelegations: Scalars['String']['output'];
   totalUndelegations: Scalars['String']['output'];
   validatorIdentityKey: Scalars['String']['output'];
-};
+}
 
 export enum ValidatorState {
   ValidatorStateEnumActive = 'VALIDATOR_STATE_ENUM_ACTIVE',
@@ -906,7 +906,7 @@ export enum ValidatorStateFilter {
   Inactive = 'INACTIVE'
 }
 
-export type Vote = {
+export interface Vote {
   __typename?: 'Vote';
   effectiveVotingPower: Scalars['Decimal']['output'];
   id?: Maybe<Scalars['String']['output']>;
@@ -915,21 +915,21 @@ export type Vote = {
   vote?: Maybe<VoteValue>;
   votedAt: Scalars['DateTime']['output'];
   votingPowerPercentage: Scalars['Decimal']['output'];
-};
+}
 
-export type VoteCollection = {
+export interface VoteCollection {
   __typename?: 'VoteCollection';
-  items: Array<Vote>;
+  items: Vote[];
   total: Scalars['Int']['output'];
-};
+}
 
-export type VoteForTransaction = {
+export interface VoteForTransaction {
   __typename?: 'VoteForTransaction';
   id?: Maybe<Scalars['String']['output']>;
   proposal: Scalars['Int']['output'];
   vote?: Maybe<VoteValue>;
   votingPower: Scalars['Decimal']['output'];
-};
+}
 
 export enum VoteValue {
   Abstain = 'ABSTAIN',
@@ -937,45 +937,45 @@ export enum VoteValue {
   Yes = 'YES'
 }
 
-export type VotingPowerHistoryEntry = {
+export interface VotingPowerHistoryEntry {
   __typename?: 'VotingPowerHistoryEntry';
   blockHeight: Scalars['Int']['output'];
   timestamp: Scalars['DateTime']['output'];
   validatorIdentityKey: Scalars['String']['output'];
   votingPower: Scalars['Int']['output'];
-};
+}
 
-export type BlockFragment = { __typename?: 'Block', height: number, createdAt: any, rawJson: any, transactions: Array<{ __typename?: 'Transaction', hash: string, ibcStatus: IbcStatus, raw: string, block: { __typename?: 'Block', height: number, createdAt: any } }> };
+export interface BlockFragment { __typename?: 'Block', height: number, createdAt: any, rawJson: any, transactions: { __typename?: 'Transaction', hash: string, ibcStatus: IbcStatus, raw: string, block: { __typename?: 'Block', height: number, createdAt: any } }[] }
 
-export type PartialBlockFragment = { __typename?: 'Block', height: number, createdAt: any, transactionsCount: number };
+export interface PartialBlockFragment { __typename?: 'Block', height: number, createdAt: any, transactionsCount: number }
 
-export type PartialTransactionFragment = { __typename?: 'Transaction', hash: string, ibcStatus: IbcStatus, raw: string, block: { __typename?: 'Block', height: number, createdAt: any } };
+export interface PartialTransactionFragment { __typename?: 'Transaction', hash: string, ibcStatus: IbcStatus, raw: string, block: { __typename?: 'Block', height: number, createdAt: any } }
 
-export type TransactionFragment = { __typename?: 'Transaction', hash: string, raw: string, rawJson: any, block: { __typename?: 'Block', height: number, createdAt: any }, body: { __typename?: 'TransactionBody', parameters: { __typename?: 'TransactionParameters', chainId: string, fee: { __typename?: 'Fee', amount: string } } } };
+export interface TransactionFragment { __typename?: 'Transaction', hash: string, raw: string, rawJson: any, block: { __typename?: 'Block', height: number, createdAt: any }, body: { __typename?: 'TransactionBody', parameters: { __typename?: 'TransactionParameters', chainId: string, fee: { __typename?: 'Fee', amount: string } } } }
 
-export type ActiveProposalsQueryVariables = Exact<{ [key: string]: never; }>;
-
-
-export type ActiveProposalsQuery = { __typename?: 'QueryRoot', activeProposals: Array<{ __typename?: 'ActiveProposal', endBlockHeight: number, id: number, kind: ProposalKind, state: ProposalState, title: string }> };
-
-export type ActiveValidatorsQueryVariables = Exact<{ [key: string]: never; }>;
+export type ActiveProposalsQueryVariables = Exact<Record<string, never>>;
 
 
-export type ActiveValidatorsQuery = { __typename?: 'QueryRoot', validatorsHomepage: { __typename?: 'ValidatorHomepageData', stakingParameters: { __typename?: 'StakingParameters', activeValidatorCount: number, activeValidatorLimit: number } } };
+export interface ActiveProposalsQuery { __typename?: 'QueryRoot', activeProposals: { __typename?: 'ActiveProposal', endBlockHeight: number, id: number, kind: ProposalKind, state: ProposalState, title: string }[] }
+
+export type ActiveValidatorsQueryVariables = Exact<Record<string, never>>;
+
+
+export interface ActiveValidatorsQuery { __typename?: 'QueryRoot', validatorsHomepage: { __typename?: 'ValidatorHomepageData', stakingParameters: { __typename?: 'StakingParameters', activeValidatorCount: number, activeValidatorLimit: number } } }
 
 export type ActiveVotingPowerQueryVariables = Exact<{
   filter?: InputMaybe<ValidatorFilter>;
 }>;
 
 
-export type ActiveVotingPowerQuery = { __typename?: 'QueryRoot', validatorsHomepage: { __typename?: 'ValidatorHomepageData', stakingParameters: { __typename?: 'StakingParameters', totalStaked: number } } };
+export interface ActiveVotingPowerQuery { __typename?: 'QueryRoot', validatorsHomepage: { __typename?: 'ValidatorHomepageData', stakingParameters: { __typename?: 'StakingParameters', totalStaked: number } } }
 
 export type BlockQueryVariables = Exact<{
   height: Scalars['Int']['input'];
 }>;
 
 
-export type BlockQuery = { __typename?: 'QueryRoot', block?: { __typename?: 'Block', height: number, createdAt: any, rawJson: any, transactions: Array<{ __typename?: 'Transaction', hash: string, ibcStatus: IbcStatus, raw: string, block: { __typename?: 'Block', height: number, createdAt: any } }> } | null };
+export interface BlockQuery { __typename?: 'QueryRoot', block?: { __typename?: 'Block', height: number, createdAt: any, rawJson: any, transactions: { __typename?: 'Transaction', hash: string, ibcStatus: IbcStatus, raw: string, block: { __typename?: 'Block', height: number, createdAt: any } }[] } | null }
 
 export type BlocksQueryVariables = Exact<{
   limit: CollectionLimit;
@@ -983,19 +983,19 @@ export type BlocksQueryVariables = Exact<{
 }>;
 
 
-export type BlocksQuery = { __typename?: 'QueryRoot', blocks: { __typename?: 'BlockCollection', total: number, items: Array<{ __typename?: 'Block', height: number, createdAt: any, transactionsCount: number }> } };
+export interface BlocksQuery { __typename?: 'QueryRoot', blocks: { __typename?: 'BlockCollection', total: number, items: { __typename?: 'Block', height: number, createdAt: any, transactionsCount: number }[] } }
 
-export type ChainParametersQueryVariables = Exact<{ [key: string]: never; }>;
+export type ChainParametersQueryVariables = Exact<Record<string, never>>;
 
 
-export type ChainParametersQuery = { __typename?: 'QueryRoot', validatorsHomepage: { __typename?: 'ValidatorHomepageData', chainParameters?: { __typename?: 'ChainParameters', chainId: string, currentBlockTime: any, currentBlockHeight: number, currentEpoch: number, epochDuration: number, nextEpochIn: number } | null } };
+export interface ChainParametersQuery { __typename?: 'QueryRoot', validatorsHomepage: { __typename?: 'ValidatorHomepageData', chainParameters?: { __typename?: 'ChainParameters', chainId: string, currentBlockTime: any, currentBlockHeight: number, currentEpoch: number, epochDuration: number, nextEpochIn: number } | null } }
 
 export type DexBlockExecutionsQueryVariables = Exact<{
   filter?: InputMaybe<SwapExecutionFilter>;
 }>;
 
 
-export type DexBlockExecutionsQuery = { __typename?: 'QueryRoot', latestExecutions: Array<{ __typename?: 'SwapExecution', blockHeight: number, timestamp: any, batchSwaps: Array<{ __typename?: 'BatchSwap', id: number, executionType: string, totalInputAssetId: string, totalInputAmount: string, totalOutputAssetId: string, totalOutputAmount: string, individualSwaps: Array<{ __typename?: 'IndividualSwap', routeSteps: Array<{ __typename?: 'RouteStep', assetId: string, amount: string }> }> }> }> };
+export interface DexBlockExecutionsQuery { __typename?: 'QueryRoot', latestExecutions: { __typename?: 'SwapExecution', blockHeight: number, timestamp: any, batchSwaps: { __typename?: 'BatchSwap', id: number, executionType: string, totalInputAssetId: string, totalInputAmount: string, totalOutputAssetId: string, totalOutputAmount: string, individualSwaps: { __typename?: 'IndividualSwap', routeSteps: { __typename?: 'RouteStep', assetId: string, amount: string }[] }[] }[] }[] }
 
 export type DexLiquidityPositionsQueryVariables = Exact<{
   limit: CollectionLimit;
@@ -1003,22 +1003,22 @@ export type DexLiquidityPositionsQueryVariables = Exact<{
 }>;
 
 
-export type DexLiquidityPositionsQuery = { __typename?: 'QueryRoot', liquidityPositions: { __typename?: 'LiquidityPositionCollection', total: number, items: Array<{ __typename?: 'LiquidityPosition', tradingPairAsset1: string, tradingPairAsset2: string, reserves1Amount: string, reserves2Amount: string, state: LiquidityPositionState, feePercentage: number, updatedAt: any, positionId: string }> } };
+export interface DexLiquidityPositionsQuery { __typename?: 'QueryRoot', liquidityPositions: { __typename?: 'LiquidityPositionCollection', total: number, items: { __typename?: 'LiquidityPosition', tradingPairAsset1: string, tradingPairAsset2: string, reserves1Amount: string, reserves2Amount: string, state: LiquidityPositionState, feePercentage: number, updatedAt: any, positionId: string }[] } }
 
-export type DexOpenPositionsQueryVariables = Exact<{ [key: string]: never; }>;
-
-
-export type DexOpenPositionsQuery = { __typename?: 'QueryRoot', dexStats: { __typename?: 'DexStats', openPositions: number } };
-
-export type DexTotalExecutionsQueryVariables = Exact<{ [key: string]: never; }>;
+export type DexOpenPositionsQueryVariables = Exact<Record<string, never>>;
 
 
-export type DexTotalExecutionsQuery = { __typename?: 'QueryRoot', dexStats: { __typename?: 'DexStats', totalExecutions: number } };
+export interface DexOpenPositionsQuery { __typename?: 'QueryRoot', dexStats: { __typename?: 'DexStats', openPositions: number } }
 
-export type GovParametersQueryVariables = Exact<{ [key: string]: never; }>;
+export type DexTotalExecutionsQueryVariables = Exact<Record<string, never>>;
 
 
-export type GovParametersQuery = { __typename?: 'QueryRoot', governanceParameters?: { __typename?: 'GovernanceParameters', depositAmount: any, passingThreshold: any, proposalDuration: number, slashingThreshold: any, validQuorum: any } | null };
+export interface DexTotalExecutionsQuery { __typename?: 'QueryRoot', dexStats: { __typename?: 'DexStats', totalExecutions: number } }
+
+export type GovParametersQueryVariables = Exact<Record<string, never>>;
+
+
+export interface GovParametersQuery { __typename?: 'QueryRoot', governanceParameters?: { __typename?: 'GovernanceParameters', depositAmount: any, passingThreshold: any, proposalDuration: number, slashingThreshold: any, validQuorum: any } | null }
 
 export type IbcFlowHistoryQueryVariables = Exact<{
   clientId?: InputMaybe<Scalars['String']['input']>;
@@ -1026,85 +1026,85 @@ export type IbcFlowHistoryQueryVariables = Exact<{
 }>;
 
 
-export type IbcFlowHistoryQuery = { __typename?: 'QueryRoot', ibcFlowHistory: Array<{ __typename?: 'IbcFlowHistory', date: string, inflowVolume: string, outflowVolume: string, inflowCount: number, outflowCount: number }> };
+export interface IbcFlowHistoryQuery { __typename?: 'QueryRoot', ibcFlowHistory: { __typename?: 'IbcFlowHistory', date: string, inflowVolume: string, outflowVolume: string, inflowCount: number, outflowCount: number }[] }
 
 export type IbcStatsQueryVariables = Exact<{
   clientId?: InputMaybe<Scalars['String']['input']>;
 }>;
 
 
-export type IbcStatsQuery = { __typename?: 'QueryRoot', ibcStats: Array<{ __typename?: 'IbcStats', status: ClientStatus, channelId?: string | null, counterpartyChannelId?: string | null, lastUpdated?: any | null, shieldedVolume: string, shieldedTxCount: number, unshieldedVolume: string, unshieldedTxCount: number, totalTxCount: number, pendingTxCount: number, expiredTxCount: number, id: string }> };
+export interface IbcStatsQuery { __typename?: 'QueryRoot', ibcStats: { __typename?: 'IbcStats', status: ClientStatus, channelId?: string | null, counterpartyChannelId?: string | null, lastUpdated?: any | null, shieldedVolume: string, shieldedTxCount: number, unshieldedVolume: string, unshieldedTxCount: number, totalTxCount: number, pendingTxCount: number, expiredTxCount: number, id: string }[] }
 
-export type MinValidatorStakeQueryVariables = Exact<{ [key: string]: never; }>;
+export type MinValidatorStakeQueryVariables = Exact<Record<string, never>>;
 
 
-export type MinValidatorStakeQuery = { __typename?: 'QueryRoot', validatorsHomepage: { __typename?: 'ValidatorHomepageData', stakingParameters: { __typename?: 'StakingParameters', minValidatorStake: number } } };
+export interface MinValidatorStakeQuery { __typename?: 'QueryRoot', validatorsHomepage: { __typename?: 'ValidatorHomepageData', stakingParameters: { __typename?: 'StakingParameters', minValidatorStake: number } } }
 
 export type PastProposalsQueryVariables = Exact<{
   limit: CollectionLimit;
 }>;
 
 
-export type PastProposalsQuery = { __typename?: 'QueryRoot', pastProposals: { __typename?: 'PastProposalCollection', total: number, items: Array<{ __typename?: 'PastProposal', endBlockHeight: number, endTimestamp?: any | null, id: number, kind: ProposalKind, outcome?: ProposalOutcome | null, state: ProposalState, title: string, totalVotes: any }> } };
+export interface PastProposalsQuery { __typename?: 'QueryRoot', pastProposals: { __typename?: 'PastProposalCollection', total: number, items: { __typename?: 'PastProposal', endBlockHeight: number, endTimestamp?: any | null, id: number, kind: ProposalKind, outcome?: ProposalOutcome | null, state: ProposalState, title: string, totalVotes: any }[] } }
 
 export type ProposalQueryVariables = Exact<{
   id: Scalars['Int']['input'];
 }>;
 
 
-export type ProposalQuery = { __typename?: 'QueryRoot', proposalDetail?: { __typename?: 'ProposalDetail', depositAmount: any, description: string, id: number, kind: ProposalKind, outcome?: ProposalOutcome | null, payload: any, state: ProposalState, title: string } | null };
+export interface ProposalQuery { __typename?: 'QueryRoot', proposalDetail?: { __typename?: 'ProposalDetail', depositAmount: any, description: string, id: number, kind: ProposalKind, outcome?: ProposalOutcome | null, payload: any, state: ProposalState, title: string } | null }
 
 export type RecentSwapPricesQueryVariables = Exact<{
   limit?: InputMaybe<Scalars['Int']['input']>;
 }>;
 
 
-export type RecentSwapPricesQuery = { __typename?: 'QueryRoot', recentSwapPrices: Array<{ __typename?: 'RecentSwapPrice', inputAssetId: string, outputAssetId: string, avgPrice: number, swapCount: number, latestSwap?: any | null }> };
+export interface RecentSwapPricesQuery { __typename?: 'QueryRoot', recentSwapPrices: { __typename?: 'RecentSwapPrice', inputAssetId: string, outputAssetId: string, avgPrice: number, swapCount: number, latestSwap?: any | null }[] }
 
 export type SearchQueryVariables = Exact<{
   slug: Scalars['String']['input'];
 }>;
 
 
-export type SearchQuery = { __typename?: 'QueryRoot', search?: { __typename: 'Block', height: number } | { __typename: 'Transaction', hash: string } | { __typename: 'ValidatorSearchResults', items: Array<{ __typename?: 'ValidatorSearchResult', id: string, displayName: string }> } | null };
+export interface SearchQuery { __typename?: 'QueryRoot', search?: { __typename: 'Block', height: number } | { __typename: 'Transaction', hash: string } | { __typename: 'ValidatorSearchResults', items: { __typename?: 'ValidatorSearchResult', id: string, displayName: string }[] } | null }
 
-export type StatsQueryVariables = Exact<{ [key: string]: never; }>;
+export type StatsQueryVariables = Exact<Record<string, never>>;
 
 
-export type StatsQuery = { __typename?: 'QueryRoot', stats: { __typename?: 'Stats', totalTransactionsCount: number } };
+export interface StatsQuery { __typename?: 'QueryRoot', stats: { __typename?: 'Stats', totalTransactionsCount: number } }
 
 export type SwapVolumeHistoryQueryVariables = Exact<{
   days?: InputMaybe<Scalars['Int']['input']>;
 }>;
 
 
-export type SwapVolumeHistoryQuery = { __typename?: 'QueryRoot', swapVolumeHistory: Array<{ __typename?: 'SwapVolumeHistory', date: string, totalVolume: string, swapCount: number, arbCount: number, organicCount: number }> };
+export interface SwapVolumeHistoryQuery { __typename?: 'QueryRoot', swapVolumeHistory: { __typename?: 'SwapVolumeHistory', date: string, totalVolume: string, swapCount: number, arbCount: number, organicCount: number }[] }
 
-export type TotalShieldedVolumeQueryVariables = Exact<{ [key: string]: never; }>;
+export type TotalShieldedVolumeQueryVariables = Exact<Record<string, never>>;
 
 
-export type TotalShieldedVolumeQuery = { __typename?: 'QueryRoot', ibcTotalShieldedVolume: { __typename?: 'TotalShieldedVolume', value: string } };
+export interface TotalShieldedVolumeQuery { __typename?: 'QueryRoot', ibcTotalShieldedVolume: { __typename?: 'TotalShieldedVolume', value: string } }
 
 export type TradingPairLiquidityQueryVariables = Exact<{
   limit?: InputMaybe<Scalars['Int']['input']>;
 }>;
 
 
-export type TradingPairLiquidityQuery = { __typename?: 'QueryRoot', tradingPairLiquidity: Array<{ __typename?: 'TradingPairLiquidity', tradingPairAsset1: string, tradingPairAsset2: string, activePositions: number, totalReserves1: string, totalReserves2: string, avgFeePercentage: number }> };
+export interface TradingPairLiquidityQuery { __typename?: 'QueryRoot', tradingPairLiquidity: { __typename?: 'TradingPairLiquidity', tradingPairAsset1: string, tradingPairAsset2: string, activePositions: number, totalReserves1: string, totalReserves2: string, avgFeePercentage: number }[] }
 
 export type TradingVolume24hQueryVariables = Exact<{
   limit?: InputMaybe<Scalars['Int']['input']>;
 }>;
 
 
-export type TradingVolume24hQuery = { __typename?: 'QueryRoot', tradingVolume24h: Array<{ __typename?: 'TradingVolume24h', assetId: string, volume24h: string, swapCount24h: number, periodStart?: any | null, periodEnd?: any | null }> };
+export interface TradingVolume24hQuery { __typename?: 'QueryRoot', tradingVolume24h: { __typename?: 'TradingVolume24h', assetId: string, volume24h: string, swapCount24h: number, periodStart?: any | null, periodEnd?: any | null }[] }
 
 export type TransactionQueryVariables = Exact<{
   hash: Scalars['String']['input'];
 }>;
 
 
-export type TransactionQuery = { __typename?: 'QueryRoot', transaction?: { __typename?: 'Transaction', hash: string, raw: string, rawJson: any, block: { __typename?: 'Block', height: number, createdAt: any }, body: { __typename?: 'TransactionBody', parameters: { __typename?: 'TransactionParameters', chainId: string, fee: { __typename?: 'Fee', amount: string } } } } | null };
+export interface TransactionQuery { __typename?: 'QueryRoot', transaction?: { __typename?: 'Transaction', hash: string, raw: string, rawJson: any, block: { __typename?: 'Block', height: number, createdAt: any }, body: { __typename?: 'TransactionBody', parameters: { __typename?: 'TransactionParameters', chainId: string, fee: { __typename?: 'Fee', amount: string } } } } | null }
 
 export type TransactionsQueryVariables = Exact<{
   limit: CollectionLimit;
@@ -1112,21 +1112,21 @@ export type TransactionsQueryVariables = Exact<{
 }>;
 
 
-export type TransactionsQuery = { __typename?: 'QueryRoot', transactions: { __typename?: 'TransactionCollection', total: number, items: Array<{ __typename?: 'Transaction', hash: string, ibcStatus: IbcStatus, raw: string, block: { __typename?: 'Block', height: number, createdAt: any } }> } };
+export interface TransactionsQuery { __typename?: 'QueryRoot', transactions: { __typename?: 'TransactionCollection', total: number, items: { __typename?: 'Transaction', hash: string, ibcStatus: IbcStatus, raw: string, block: { __typename?: 'Block', height: number, createdAt: any } }[] } }
 
 export type ValidatorActiveSinceQueryVariables = Exact<{
   id: Scalars['String']['input'];
 }>;
 
 
-export type ValidatorActiveSinceQuery = { __typename?: 'QueryRoot', validatorDetails?: { __typename?: 'ValidatorDetails', activeSince?: any | null } | null };
+export interface ValidatorActiveSinceQuery { __typename?: 'QueryRoot', validatorDetails?: { __typename?: 'ValidatorDetails', activeSince?: any | null } | null }
 
 export type ValidatorBlocksQueryVariables = Exact<{
   id: Scalars['String']['input'];
 }>;
 
 
-export type ValidatorBlocksQuery = { __typename?: 'QueryRoot', validatorDetails?: { __typename?: 'ValidatorDetails', state: ValidatorState, last300Blocks: Array<{ __typename?: 'BlockParticipation', height: number, signed: boolean }> } | null };
+export interface ValidatorBlocksQuery { __typename?: 'QueryRoot', validatorDetails?: { __typename?: 'ValidatorDetails', state: ValidatorState, last300Blocks: { __typename?: 'BlockParticipation', height: number, signed: boolean }[] } | null }
 
 export type ValidatorDelegatesQueryVariables = Exact<{
   validatorId: Scalars['String']['input'];
@@ -1135,26 +1135,26 @@ export type ValidatorDelegatesQueryVariables = Exact<{
 }>;
 
 
-export type ValidatorDelegatesQuery = { __typename?: 'QueryRoot', validatorDelegates: Array<{ __typename?: 'Delegate', id: number, txHash: string, validatorIdentityKey: string, delegationAmount: string, unbondedAmount: string, epochIndex: number, blockHeight: number, timestamp: any }> };
+export interface ValidatorDelegatesQuery { __typename?: 'QueryRoot', validatorDelegates: { __typename?: 'Delegate', id: number, txHash: string, validatorIdentityKey: string, delegationAmount: string, unbondedAmount: string, epochIndex: number, blockHeight: number, timestamp: any }[] }
 
-export type ValidatorParametersQueryVariables = Exact<{ [key: string]: never; }>;
+export type ValidatorParametersQueryVariables = Exact<Record<string, never>>;
 
 
-export type ValidatorParametersQuery = { __typename?: 'QueryRoot', validatorsHomepage: { __typename?: 'ValidatorHomepageData', stakingParameters: { __typename?: 'StakingParameters', uptimeBlocksWindow: number, uptimeMinRequired: number, slashingPenaltyDowntime: number, slashingPenaltyMisbehavior: number, unbondingDelay: number } } };
+export interface ValidatorParametersQuery { __typename?: 'QueryRoot', validatorsHomepage: { __typename?: 'ValidatorHomepageData', stakingParameters: { __typename?: 'StakingParameters', uptimeBlocksWindow: number, uptimeMinRequired: number, slashingPenaltyDowntime: number, slashingPenaltyMisbehavior: number, unbondingDelay: number } } }
 
 export type ValidatorQueryVariables = Exact<{
   id: Scalars['String']['input'];
 }>;
 
 
-export type ValidatorQuery = { __typename?: 'QueryRoot', validatorDetails?: { __typename?: 'ValidatorDetails', id: string, name?: string | null, state: ValidatorState, bondingState: BondingState, website?: string | null, description?: string | null, totalUptime?: number | null, uptimeBlockWindow: number, signedBlocks: number, missedBlocks: number, commissionPercentage: number, commissionStreams: Array<{ __typename?: 'CommissionInfo', recipientAddress?: string | null, streamType: string, rateBps: number }> } | null };
+export interface ValidatorQuery { __typename?: 'QueryRoot', validatorDetails?: { __typename?: 'ValidatorDetails', id: string, name?: string | null, state: ValidatorState, bondingState: BondingState, website?: string | null, description?: string | null, totalUptime?: number | null, uptimeBlockWindow: number, signedBlocks: number, missedBlocks: number, commissionPercentage: number, commissionStreams: { __typename?: 'CommissionInfo', recipientAddress?: string | null, streamType: string, rateBps: number }[] } | null }
 
 export type ValidatorStakingStatsQueryVariables = Exact<{
   validatorId: Scalars['String']['input'];
 }>;
 
 
-export type ValidatorStakingStatsQuery = { __typename?: 'QueryRoot', validatorStakingStats?: { __typename?: 'ValidatorStakingStats', validatorIdentityKey: string, totalDelegations: string, totalUndelegations: string, pendingUndelegations: string, pendingUndelegateCount: number, nextReleaseHeight?: number | null } | null };
+export interface ValidatorStakingStatsQuery { __typename?: 'QueryRoot', validatorStakingStats?: { __typename?: 'ValidatorStakingStats', validatorIdentityKey: string, totalDelegations: string, totalUndelegations: string, pendingUndelegations: string, pendingUndelegateCount: number, nextReleaseHeight?: number | null } | null }
 
 export type ValidatorUndelegatesQueryVariables = Exact<{
   validatorId: Scalars['String']['input'];
@@ -1164,14 +1164,14 @@ export type ValidatorUndelegatesQueryVariables = Exact<{
 }>;
 
 
-export type ValidatorUndelegatesQuery = { __typename?: 'QueryRoot', validatorUndelegates: Array<{ __typename?: 'Undelegate', id: number, txHash: string, validatorIdentityKey: string, delegationAmount: string, unbondedAmount: string, epochIndex: number, unbondingStartHeight: number, releaseHeight: number, blockHeight: number, timestamp: any, claimed: boolean }> };
+export interface ValidatorUndelegatesQuery { __typename?: 'QueryRoot', validatorUndelegates: { __typename?: 'Undelegate', id: number, txHash: string, validatorIdentityKey: string, delegationAmount: string, unbondedAmount: string, epochIndex: number, unbondingStartHeight: number, releaseHeight: number, blockHeight: number, timestamp: any, claimed: boolean }[] }
 
 export type ValidatorVotingPercentageQueryVariables = Exact<{
   id: Scalars['String']['input'];
 }>;
 
 
-export type ValidatorVotingPercentageQuery = { __typename?: 'QueryRoot', validatorDetails?: { __typename?: 'ValidatorDetails', votingPowerActivePercentage: number } | null };
+export interface ValidatorVotingPercentageQuery { __typename?: 'QueryRoot', validatorDetails?: { __typename?: 'ValidatorDetails', votingPowerActivePercentage: number } | null }
 
 export type ValidatorVotingPowerHistoryQueryVariables = Exact<{
   validatorId: Scalars['String']['input'];
@@ -1181,21 +1181,21 @@ export type ValidatorVotingPowerHistoryQueryVariables = Exact<{
 }>;
 
 
-export type ValidatorVotingPowerHistoryQuery = { __typename?: 'QueryRoot', validatorVotingPowerHistory: Array<{ __typename?: 'VotingPowerHistoryEntry', validatorIdentityKey: string, votingPower: number, blockHeight: number, timestamp: any }> };
+export interface ValidatorVotingPowerHistoryQuery { __typename?: 'QueryRoot', validatorVotingPowerHistory: { __typename?: 'VotingPowerHistoryEntry', validatorIdentityKey: string, votingPower: number, blockHeight: number, timestamp: any }[] }
 
 export type ValidatorVotingPowerQueryVariables = Exact<{
   id: Scalars['String']['input'];
 }>;
 
 
-export type ValidatorVotingPowerQuery = { __typename?: 'QueryRoot', validatorDetails?: { __typename?: 'ValidatorDetails', state: ValidatorState, votingPower: number } | null };
+export interface ValidatorVotingPowerQuery { __typename?: 'QueryRoot', validatorDetails?: { __typename?: 'ValidatorDetails', state: ValidatorState, votingPower: number } | null }
 
 export type ValidatorsQueryVariables = Exact<{
   filter?: InputMaybe<ValidatorFilter>;
 }>;
 
 
-export type ValidatorsQuery = { __typename?: 'QueryRoot', validatorsHomepage: { __typename?: 'ValidatorHomepageData', validators: Array<{ __typename?: 'Validator', id: string, name?: string | null, state: ValidatorState, bondingState: BondingState, votingPower: number, votingPowerActivePercentage: number, uptime?: number | null, firstSeenTime?: any | null, commission: number }> } };
+export interface ValidatorsQuery { __typename?: 'QueryRoot', validatorsHomepage: { __typename?: 'ValidatorHomepageData', validators: { __typename?: 'Validator', id: string, name?: string | null, state: ValidatorState, bondingState: BondingState, votingPower: number, votingPowerActivePercentage: number, uptime?: number | null, firstSeenTime?: any | null, commission: number }[] } }
 
 export type VotesQueryVariables = Exact<{
   proposalId: Scalars['Int']['input'];
@@ -1203,60 +1203,60 @@ export type VotesQueryVariables = Exact<{
 }>;
 
 
-export type VotesQuery = { __typename?: 'QueryRoot', proposalDetail?: { __typename?: 'ProposalDetail', votes: { __typename?: 'VoteCollection', total: number, items: Array<{ __typename?: 'Vote', effectiveVotingPower: any, id?: string | null, name: string, txHash?: string | null, vote?: VoteValue | null, votedAt: any, votingPowerPercentage: any }> } } | null };
+export interface VotesQuery { __typename?: 'QueryRoot', proposalDetail?: { __typename?: 'ProposalDetail', votes: { __typename?: 'VoteCollection', total: number, items: { __typename?: 'Vote', effectiveVotingPower: any, id?: string | null, name: string, txHash?: string | null, vote?: VoteValue | null, votedAt: any, votingPowerPercentage: any }[] } } | null }
 
 export type VotingEndQueryVariables = Exact<{
   proposalId: Scalars['Int']['input'];
 }>;
 
 
-export type VotingEndQuery = { __typename?: 'QueryRoot', proposalDetail?: { __typename?: 'ProposalDetail', state: ProposalState, votingEndedBlockHeight: number, votingEndedTimestamp?: any | null } | null };
+export interface VotingEndQuery { __typename?: 'QueryRoot', proposalDetail?: { __typename?: 'ProposalDetail', state: ProposalState, votingEndedBlockHeight: number, votingEndedTimestamp?: any | null } | null }
 
 export type VotingQueryVariables = Exact<{
   proposalId: Scalars['Int']['input'];
 }>;
 
 
-export type VotingQuery = { __typename?: 'QueryRoot', proposalDetail?: { __typename?: 'ProposalDetail', abstainVotes: any, abstainVotesPercentage: any, noVotes: any, noVotesPercentage: any, outcome?: ProposalOutcome | null, quorum: any, state: ProposalState, totalVotes: any, yesVotes: any, yesVotesPercentage: any } | null };
+export interface VotingQuery { __typename?: 'QueryRoot', proposalDetail?: { __typename?: 'ProposalDetail', abstainVotes: any, abstainVotesPercentage: any, noVotes: any, noVotesPercentage: any, outcome?: ProposalOutcome | null, quorum: any, state: ProposalState, totalVotes: any, yesVotes: any, yesVotesPercentage: any } | null }
 
 export type VotingStartQueryVariables = Exact<{
   proposalId: Scalars['Int']['input'];
 }>;
 
 
-export type VotingStartQuery = { __typename?: 'QueryRoot', proposalDetail?: { __typename?: 'ProposalDetail', votingStartedBlockHeight: number, votingStartedTimestamp: any } | null };
+export interface VotingStartQuery { __typename?: 'QueryRoot', proposalDetail?: { __typename?: 'ProposalDetail', votingStartedBlockHeight: number, votingStartedTimestamp: any } | null }
 
-export type BlockUpdateSubscriptionVariables = Exact<{ [key: string]: never; }>;
-
-
-export type BlockUpdateSubscription = { __typename?: 'Root', latestBlocks: { __typename?: 'BlockUpdate', height: number, createdAt: any, transactionsCount: number } };
-
-export type ChainParametersUpdateSubscriptionVariables = Exact<{ [key: string]: never; }>;
+export type BlockUpdateSubscriptionVariables = Exact<Record<string, never>>;
 
 
-export type ChainParametersUpdateSubscription = { __typename?: 'Root', chainParameters: { __typename?: 'ChainParametersUpdate', chainId: string, currentBlockTime: any, currentBlockHeight: number, currentEpoch: number, epochDuration: number, nextEpochIn: number } };
+export interface BlockUpdateSubscription { __typename?: 'Root', latestBlocks: { __typename?: 'BlockUpdate', height: number, createdAt: any, transactionsCount: number } }
 
-export type TotalShieldedVolumeUpdateSubscriptionVariables = Exact<{ [key: string]: never; }>;
-
-
-export type TotalShieldedVolumeUpdateSubscription = { __typename?: 'Root', totalShieldedVolume: { __typename?: 'TotalShieldedVolumeUpdate', value: string } };
-
-export type TransactionCountUpdateSubscriptionVariables = Exact<{ [key: string]: never; }>;
+export type ChainParametersUpdateSubscriptionVariables = Exact<Record<string, never>>;
 
 
-export type TransactionCountUpdateSubscription = { __typename?: 'Root', transactionCount: { __typename?: 'TransactionCountUpdate', count: number } };
+export interface ChainParametersUpdateSubscription { __typename?: 'Root', chainParameters: { __typename?: 'ChainParametersUpdate', chainId: string, currentBlockTime: any, currentBlockHeight: number, currentEpoch: number, epochDuration: number, nextEpochIn: number } }
 
-export type TransactionUpdateSubscriptionVariables = Exact<{ [key: string]: never; }>;
+export type TotalShieldedVolumeUpdateSubscriptionVariables = Exact<Record<string, never>>;
 
 
-export type TransactionUpdateSubscription = { __typename?: 'Root', latestTransactions: { __typename?: 'TransactionUpdate', hash: string, id: number, raw: string } };
+export interface TotalShieldedVolumeUpdateSubscription { __typename?: 'Root', totalShieldedVolume: { __typename?: 'TotalShieldedVolumeUpdate', value: string } }
+
+export type TransactionCountUpdateSubscriptionVariables = Exact<Record<string, never>>;
+
+
+export interface TransactionCountUpdateSubscription { __typename?: 'Root', transactionCount: { __typename?: 'TransactionCountUpdate', count: number } }
+
+export type TransactionUpdateSubscriptionVariables = Exact<Record<string, never>>;
+
+
+export interface TransactionUpdateSubscription { __typename?: 'Root', latestTransactions: { __typename?: 'TransactionUpdate', hash: string, id: number, raw: string } }
 
 export type ValidatorBlockUpdateSubscriptionVariables = Exact<{
   id: Scalars['String']['input'];
 }>;
 
 
-export type ValidatorBlockUpdateSubscription = { __typename?: 'Root', validatorBlocks: { __typename?: 'ValidatorBlockUpdate', blockHeight: number, signed: boolean } };
+export interface ValidatorBlockUpdateSubscription { __typename?: 'Root', validatorBlocks: { __typename?: 'ValidatorBlockUpdate', blockHeight: number, signed: boolean } }
 
 export const PartialTransactionFragmentDoc = gql`
     fragment PartialTransaction on Transaction {

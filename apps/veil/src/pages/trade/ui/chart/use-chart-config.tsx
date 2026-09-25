@@ -90,14 +90,14 @@ const median = (xs: number[]): number => {
 // Typical spacing between consecutive bars, sampled from the tail of the
 // known bar times (robust to the odd gap-filled/missing bar).
 const inferBarInterval = (times: number[]): number => {
-  if (times.length < 2) return 60;
+  if (times.length < 2) {return 60;}
   const diffs: number[] = [];
   for (let i = Math.max(1, times.length - 20); i < times.length; i++) {
     const prev = times[i - 1];
     const cur = times[i];
-    if (prev === undefined || cur === undefined) continue;
+    if (prev === undefined || cur === undefined) {continue;}
     const d = cur - prev;
-    if (d > 0) diffs.push(d);
+    if (d > 0) {diffs.push(d);}
   }
   return diffs.length ? median(diffs) : 60;
 };
@@ -137,16 +137,16 @@ export const useChartConfig = (
   // same frame the chart does.
   const redrawHandlersRef = useRef<Set<() => void>>(new Set());
   const redrawTick = useCallback(() => {
-    for (const handler of redrawHandlersRef.current) handler();
+    for (const handler of redrawHandlersRef.current) {handler();}
   }, []);
 
   const setOwnPositionLines = useCallback((lines: OwnPositionLine[]) => {
     const series = seriesRef.current;
-    if (!series) return;
+    if (!series) {return;}
 
     const seen = new Set<string>();
     for (const line of lines) {
-      if (!Number.isFinite(line.price) || line.price <= 0) continue;
+      if (!Number.isFinite(line.price) || line.price <= 0) {continue;}
       seen.add(line.id);
       // theme.color.text.secondary is '' in @penumbra-zone/ui — falling
       // back to the destructive tint so lightweight-charts never receives
@@ -280,7 +280,7 @@ export const useChartConfig = (
    */
   const updateLatestCandles = useCallback((candles: CandleWithVolume[] = []) => {
     const series = seriesRef.current;
-    if (!series || !candles.length) return;
+    if (!series || !candles.length) {return;}
     for (const candle of candles) {
       const t = candle.ohlc.time as number;
       const times = barTimesRef.current;
@@ -321,7 +321,7 @@ export const useChartConfig = (
 
   const updateLatestVolumes = useCallback((candles: CandleWithVolume[] = []) => {
     const vol = volumeSeriesRef.current;
-    if (!vol || !candles.length) return;
+    if (!vol || !candles.length) {return;}
     for (const candle of candles) {
       try {
         vol.update({
@@ -459,7 +459,7 @@ export const useChartConfig = (
   // y is outside the price scale range.
   const priceAtY = useCallback((y: number): number | undefined => {
     const series = seriesRef.current;
-    if (!series) return undefined;
+    if (!series) {return undefined;}
     const price = series.coordinateToPrice(y);
     return typeof price === 'number' && Number.isFinite(price) ? price : undefined;
   }, []);
@@ -468,7 +468,7 @@ export const useChartConfig = (
   // Returns undefined if the chart isn't ready or the price is off-scale.
   const yAtPrice = useCallback((price: number): number | undefined => {
     const series = seriesRef.current;
-    if (!series) return undefined;
+    if (!series) {return undefined;}
     const coord = series.priceToCoordinate(price);
     return typeof coord === 'number' && Number.isFinite(coord) ? coord : undefined;
   }, []);
@@ -481,15 +481,15 @@ export const useChartConfig = (
   // anchored under a different candle duration.
   const xAtTime = useCallback((time: number): number | undefined => {
     const chart = chartRef.current;
-    if (!chart) return undefined;
+    if (!chart) {return undefined;}
     const coord = chart.timeScale().timeToCoordinate(time as never);
-    if (typeof coord === 'number' && Number.isFinite(coord)) return coord;
+    if (typeof coord === 'number' && Number.isFinite(coord)) {return coord;}
 
     const times = barTimesRef.current;
     const lastIdx = times.length - 1;
     const firstTime = times[0];
     const lastTime = times[lastIdx];
-    if (firstTime === undefined || lastTime === undefined) return undefined;
+    if (firstTime === undefined || lastTime === undefined) {return undefined;}
     const interval = inferBarInterval(times);
     let logical: number;
     if (time > lastTime) {
@@ -503,8 +503,8 @@ export const useChartConfig = (
       while (hi - lo > 1) {
         const mid = Math.floor((lo + hi) / 2);
         const midTime = times[mid];
-        if (midTime !== undefined && midTime <= time) lo = mid;
-        else hi = mid;
+        if (midTime !== undefined && midTime <= time) {lo = mid;}
+        else {hi = mid;}
       }
       const loTime = times[lo];
       const hiTime = times[hi];
@@ -523,10 +523,10 @@ export const useChartConfig = (
     const loLogical = Math.floor(logical);
     const frac = logical - loLogical;
     const xLo = ts.logicalToCoordinate(loLogical as Logical);
-    if (typeof xLo !== 'number' || !Number.isFinite(xLo)) return undefined;
-    if (frac === 0) return xLo;
+    if (typeof xLo !== 'number' || !Number.isFinite(xLo)) {return undefined;}
+    if (frac === 0) {return xLo;}
     const xHi = ts.logicalToCoordinate((loLogical + 1) as Logical);
-    if (typeof xHi !== 'number' || !Number.isFinite(xHi)) return undefined;
+    if (typeof xHi !== 'number' || !Number.isFinite(xHi)) {return undefined;}
     return xLo + frac * (xHi - xLo);
   }, []);
 
@@ -540,15 +540,15 @@ export const useChartConfig = (
   // swallowed by chart.tsx's `if (time === undefined) return;` guard.
   const timeAtX = useCallback((x: number): number | undefined => {
     const chart = chartRef.current;
-    if (!chart) return undefined;
+    if (!chart) {return undefined;}
     const t = chart.timeScale().coordinateToTime(x);
-    if (typeof t === 'number' && Number.isFinite(t)) return t;
+    if (typeof t === 'number' && Number.isFinite(t)) {return t;}
 
     const times = barTimesRef.current;
     const lastIdx = times.length - 1;
     const firstTime = times[0];
     const lastTime = times[lastIdx];
-    if (firstTime === undefined || lastTime === undefined) return undefined;
+    if (firstTime === undefined || lastTime === undefined) {return undefined;}
     // coordinateToLogical rounds up to the next integer bar index — not
     // continuous — so recover the true fractional logical position by
     // inverse-interpolating against two neighbouring *integer* logicals'
@@ -556,8 +556,8 @@ export const useChartConfig = (
     // so this affine relationship is exact, not an approximation).
     const ts = chart.timeScale();
     const ceilLogical = ts.coordinateToLogical(x);
-    if (typeof ceilLogical !== 'number' || !Number.isFinite(ceilLogical)) return undefined;
-    const xAtCeil = ts.logicalToCoordinate(ceilLogical as Logical);
+    if (typeof ceilLogical !== 'number' || !Number.isFinite(ceilLogical)) {return undefined;}
+    const xAtCeil = ts.logicalToCoordinate(ceilLogical);
     const xAtCeilMinus1 = ts.logicalToCoordinate((ceilLogical - 1) as Logical);
     let logical: number;
     if (
@@ -571,14 +571,14 @@ export const useChartConfig = (
       logical = ceilLogical;
     }
     const interval = inferBarInterval(times);
-    if (logical > lastIdx) return lastTime + (logical - lastIdx) * interval;
-    if (logical < 0) return firstTime + logical * interval;
+    if (logical > lastIdx) {return lastTime + (logical - lastIdx) * interval;}
+    if (logical < 0) {return firstTime + logical * interval;}
     const lo = Math.floor(logical);
     const hi = Math.ceil(logical);
     const loT = times[lo];
-    if (lo === hi) return loT;
+    if (lo === hi) {return loT;}
     const hiT = times[hi];
-    if (loT === undefined || hiT === undefined) return undefined;
+    if (loT === undefined || hiT === undefined) {return undefined;}
     return loT + (hiT - loT) * (logical - lo);
   }, []);
 
@@ -605,8 +605,8 @@ export const useChartConfig = (
     opts?: { forceAutoScale?: boolean },
   ) => {
     const series = seriesRef.current;
-    if (!series) return;
-    if (!Number.isFinite(mid) || mid <= 0) return;
+    if (!series) {return;}
+    if (!Number.isFinite(mid) || mid <= 0) {return;}
     const forceAutoScale = opts?.forceAutoScale ?? true;
     // Base window: ±15% around mid so an empty (or trade-thin) chart still
     // has a sensible Y range to hydrate against.
@@ -621,9 +621,9 @@ export const useChartConfig = (
     if (extras && extras.length > 0) {
       const EDGE_PAD = 1.02;
       for (const v of extras) {
-        if (!Number.isFinite(v) || v <= 0) continue;
-        if (v < anchorMin) anchorMin = v / EDGE_PAD;
-        if (v > anchorMax) anchorMax = v * EDGE_PAD;
+        if (!Number.isFinite(v) || v <= 0) {continue;}
+        if (v < anchorMin) {anchorMin = v / EDGE_PAD;}
+        if (v > anchorMax) {anchorMax = v * EDGE_PAD;}
       }
     }
     try {
@@ -642,9 +642,9 @@ export const useChartConfig = (
           const dataMin = src?.priceRange?.minValue;
           const dataMax = src?.priceRange?.maxValue;
           const minValue =
-            Number.isFinite(dataMin) ? Math.min(anchorMin, dataMin as number) : anchorMin;
+            Number.isFinite(dataMin) ? Math.min(anchorMin, dataMin!) : anchorMin;
           const maxValue =
-            Number.isFinite(dataMax) ? Math.max(anchorMax, dataMax as number) : anchorMax;
+            Number.isFinite(dataMax) ? Math.max(anchorMax, dataMax!) : anchorMax;
           const margins = src?.margins;
           return margins ? { priceRange: { minValue, maxValue }, margins } : { priceRange: { minValue, maxValue } };
         },
@@ -666,7 +666,7 @@ export const useChartConfig = (
    */
   const clearPriceAnchor = useCallback(() => {
     const series = seriesRef.current;
-    if (!series) return;
+    if (!series) {return;}
     try {
       series.applyOptions({ autoscaleInfoProvider: undefined });
       series.priceScale().applyOptions({ autoScale: true });
@@ -687,7 +687,7 @@ export const useChartConfig = (
   const resetView = useCallback(() => {
     const chart = chartRef.current;
     const series = seriesRef.current;
-    if (!chart || !series) return;
+    if (!chart || !series) {return;}
     try {
       chart.timeScale().fitContent();
       series.applyOptions({ autoscaleInfoProvider: undefined });
@@ -709,12 +709,12 @@ export const useChartConfig = (
     ): (() => void) => {
       const chart = chartRef.current;
       const series = seriesRef.current;
-      if (!chart || !series) return () => undefined;
+      if (!chart || !series) {return () => undefined;}
 
       const handler = (param: { point?: { x: number; y: number }; time?: unknown }) => {
-        if (!param.point) return;
+        if (!param.point) {return;}
         const price = series.coordinateToPrice(param.point.y);
-        if (typeof price !== 'number' || !Number.isFinite(price) || price <= 0) return;
+        if (typeof price !== 'number' || !Number.isFinite(price) || price <= 0) {return;}
         const time = typeof param.time === 'number' ? param.time : undefined;
         cb(param.point, price, time);
       };
@@ -743,7 +743,7 @@ export const useChartConfig = (
       const chart = chartRef.current;
       const series = seriesRef.current;
       const volumeSeries = volumeSeriesRef.current;
-      if (!chart || !series) return () => undefined;
+      if (!chart || !series) {return () => undefined;}
 
       const handler = (param: {
         time?: unknown;
@@ -789,11 +789,11 @@ export const useChartConfig = (
   const subscribeRedraw = useCallback((cb: () => void): (() => void) => {
     const chart = chartRef.current;
     const node = chartElRef.current;
-    if (!chart || !node) return () => undefined;
+    if (!chart || !node) {return () => undefined;}
 
     let raf = 0;
     const handler = () => {
-      if (raf) return;
+      if (raf) {return;}
       raf = requestAnimationFrame(() => {
         raf = 0;
         cb();

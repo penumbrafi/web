@@ -9,12 +9,12 @@ import { classNames } from '@/pages/inspect/explorer/lib/utils'
 import { Props } from './dexMarketOverviewContainer'
 
 function truncateAssetId(id: string): string {
-    if (id.length > 16) return `${id.slice(0, 8)}...${id.slice(-6)}`
+    if (id.length > 16) {return `${id.slice(0, 8)}...${id.slice(-6)}`}
     return id
 }
 
 function displayExponent(metadata: Metadata | undefined): number {
-    if (!metadata) return 0
+    if (!metadata) {return 0}
     const unit = metadata.denomUnits.find(d => d.denom === metadata.display)
     return unit?.exponent ?? 0
 }
@@ -25,12 +25,12 @@ function assetLabel(id: string, metadata: Metadata | undefined): string {
 
 function formatDisplayAmount(raw: string, exponent: number): string {
     const scaled = Number(raw) / Math.pow(10, exponent)
-    if (!Number.isFinite(scaled) || scaled === 0) return '0'
-    if (scaled >= 1e12) return `${(scaled / 1e12).toFixed(2)}T`
-    if (scaled >= 1e9) return `${(scaled / 1e9).toFixed(2)}B`
-    if (scaled >= 1e6) return `${(scaled / 1e6).toFixed(2)}M`
-    if (scaled >= 1e3) return `${(scaled / 1e3).toFixed(1)}K`
-    if (scaled >= 1) return scaled.toLocaleString('en-US', { maximumFractionDigits: 2 })
+    if (!Number.isFinite(scaled) || scaled === 0) {return '0'}
+    if (scaled >= 1e12) {return `${(scaled / 1e12).toFixed(2)}T`}
+    if (scaled >= 1e9) {return `${(scaled / 1e9).toFixed(2)}B`}
+    if (scaled >= 1e6) {return `${(scaled / 1e6).toFixed(2)}M`}
+    if (scaled >= 1e3) {return `${(scaled / 1e3).toFixed(1)}K`}
+    if (scaled >= 1) {return scaled.toLocaleString('en-US', { maximumFractionDigits: 2 })}
     return scaled.toLocaleString('en-US', { maximumFractionDigits: 6 })
 }
 
@@ -49,14 +49,14 @@ const DexMarketOverviewLoader: FC<Props> = async props => {
     // reserves can be scaled to display units (raw base amounts are otherwise
     // orders of magnitude off and read as absurd M/B totals).
     const chainId = process.env['PENUMBRA_CHAIN_ID']
-    let metadataByB64: Map<string, Metadata> = new Map()
+    const metadataByB64 = new Map<string, Metadata>()
     if (chainId) {
         try {
             const client = new ChainRegistryClient()
             const registry = await client.remote.get(chainId)
             for (const asset of registry.getAllAssets()) {
                 const inner = asset.penumbraAssetId?.inner
-                if (!inner) continue
+                if (!inner) {continue}
                 metadataByB64.set(
                     Buffer.from(inner).toString('base64'),
                     asset
@@ -69,7 +69,7 @@ const DexMarketOverviewLoader: FC<Props> = async props => {
 
     const lookup = (b64: string): Metadata | undefined => {
         const hit = metadataByB64.get(b64)
-        if (hit) return hit
+        if (hit) {return hit}
         try {
             return metadataByB64.get(
                 Buffer.from(b64ToBytes(b64)).toString('base64')
@@ -112,7 +112,7 @@ const DexMarketOverviewLoader: FC<Props> = async props => {
 
             {hasVolumes && (
                 <div>
-                    <h3 className="text-text-secondary mb-3 text-sm font-medium">
+                    <h3 className="mb-3 text-sm font-medium text-text-secondary">
                         24h trading volume
                     </h3>
                     <div className="overflow-x-auto">
@@ -169,7 +169,7 @@ const DexMarketOverviewLoader: FC<Props> = async props => {
 
             {hasPairs && (
                 <div>
-                    <h3 className="text-text-secondary mb-3 text-sm font-medium">
+                    <h3 className="mb-3 text-sm font-medium text-text-secondary">
                         Top trading pairs by liquidity
                     </h3>
                     <div className="overflow-x-auto">

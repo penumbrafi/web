@@ -28,22 +28,22 @@ export const useAlertWatcher = ({ marketPrice, alerts, onFire }: Args) => {
   const prevPriceRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined') {return;}
     const prev = prevPriceRef.current;
     const curr = marketPrice;
     prevPriceRef.current = curr;
 
-    if (prev === undefined || curr === undefined) return;
-    if (prev === curr) return;
+    if (prev === undefined || curr === undefined) {return;}
+    if (prev === curr) {return;}
 
     for (const alert of alerts) {
-      if (alert.triggeredAt) continue;
+      if (alert.triggeredAt) {continue;}
       const t = alert.targetPrice;
       const crossed =
         alert.direction === 'above'
           ? prev < t && curr >= t
           : prev > t && curr <= t;
-      if (!crossed) continue;
+      if (!crossed) {continue;}
       void deliver(alert, curr);
       onFire(alert.id);
     }

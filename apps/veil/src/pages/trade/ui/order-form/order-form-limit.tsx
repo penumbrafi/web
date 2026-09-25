@@ -81,7 +81,7 @@ const BalanceSlider = observer(
                 setPctInput(String(Math.round(n)));
               }}
               aria-label='Percent of available balance input'
-              className='h-6 w-11 rounded-sm bg-other-tonal-fill5 px-1 text-right text-xs tabular-nums text-text-primary outline-none focus:ring-1 focus:ring-primary-main disabled:cursor-not-allowed disabled:opacity-40'
+              className='h-6 w-11 rounded-sm bg-other-tonal-fill5 px-1 text-right text-xs text-text-primary tabular-nums outline-none focus:ring-1 focus:ring-primary-main disabled:cursor-not-allowed disabled:opacity-40'
             />
             <span className='text-xs text-text-secondary'>%</span>
           </div>
@@ -128,14 +128,18 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
   // confirm modal rather than inline now that the form uses a compact
   // summary line.
   const balanceAtMid = useMemo(() => {
-    if (!mid || mid <= 0) return undefined;
+    if (!mid || mid <= 0) {
+      return undefined;
+    }
     const balanceNum = isBuy ? store.quoteAsset?.balance : store.baseAsset?.balance;
     if (balanceNum === undefined || !Number.isFinite(balanceNum) || balanceNum <= 0) {
       return undefined;
     }
     const equiv = isBuy ? balanceNum / mid : balanceNum * mid;
     const equivAsset = isBuy ? store.baseAsset : store.quoteAsset;
-    if (!equivAsset || !Number.isFinite(equiv)) return undefined;
+    if (!equivAsset || !Number.isFinite(equiv)) {
+      return undefined;
+    }
     return equivAsset.formatDisplayAmount(equiv);
   }, [isBuy, mid, store.baseAsset, store.quoteAsset]);
 
@@ -193,7 +197,9 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
   ]);
 
   const confirmWarnings = useMemo<ConfirmWarning[]>(() => {
-    if (!wouldCross) return [];
+    if (!wouldCross) {
+      return [];
+    }
     return [
       {
         key: 'cross-spread',
@@ -346,7 +352,9 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
           balance={drivingBalance}
           balanceDisplay={store.balance}
           onSetFraction={fraction => {
-            if (drivingBalance === undefined) return;
+            if (drivingBalance === undefined) {
+              return;
+            }
             setDrivingInput((fraction * drivingBalance).toString());
           }}
         />
@@ -379,7 +387,7 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
 
       {/* Submit — sticky so it never leaves the fold, same treatment as
           the LP form. */}
-      <div className='sticky bottom-0 -mx-3 -mb-3 border-t border-other-tonal-stroke bg-base-black/95 px-3 pb-3 pt-2 backdrop-blur-sm'>
+      <div className='sticky bottom-0 -mx-3 -mb-3 border-t border-other-tonal-stroke bg-base-black/95 px-3 pt-2 pb-3 backdrop-blur-sm'>
         {connected ? (
           <Button actionType='accent' disabled={!parentStore.canSubmit} onClick={openConfirm}>
             {isBuy ? 'Buy' : 'Sell'} {store.baseAsset?.symbol}

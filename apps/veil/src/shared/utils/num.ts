@@ -10,11 +10,15 @@
  * valid too since Number accepts it.
  */
 export const parseNumber = (x: string): number | undefined => {
-  if (x.length <= 0) return undefined;
+  if (x.length <= 0) {
+    return undefined;
+  }
   // Strip common thousand-separators; leave the decimal `.` alone so
   // Number's own parse handles fractional values.
   const cleaned = x.replace(/[,  \s]/g, '');
-  if (cleaned.length <= 0) return undefined;
+  if (cleaned.length <= 0) {
+    return undefined;
+  }
   const out = Number(cleaned);
   return isNaN(out) ? undefined : out;
 };

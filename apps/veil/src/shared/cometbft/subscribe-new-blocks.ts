@@ -41,14 +41,18 @@ export const subscribeToNewBlocks = ({ url, onBlock, onError }: SubscribeOptions
   let stopped = false;
 
   const scheduleReconnect = () => {
-    if (stopped) return;
+    if (stopped) {
+      return;
+    }
     const delay = BACKOFF_MS[Math.min(attempt, BACKOFF_MS.length - 1)]!;
     attempt += 1;
     reconnectTimer = setTimeout(connect, delay);
   };
 
   const connect = () => {
-    if (stopped) return;
+    if (stopped) {
+      return;
+    }
     try {
       ws = new WebSocket(url);
     } catch (err) {
@@ -75,7 +79,9 @@ export const subscribeToNewBlocks = ({ url, onBlock, onError }: SubscribeOptions
         // The first message after subscribe is an empty ack; skip it.
         // Subsequent messages carry the block under result.data.value.
         const header = msg?.result?.data?.value?.block?.header;
-        if (!header) return;
+        if (!header) {
+          return;
+        }
         const txs = msg.result.data.value.block.data?.txs ?? [];
         onBlock({
           height: Number(header.height),
@@ -102,7 +108,9 @@ export const subscribeToNewBlocks = ({ url, onBlock, onError }: SubscribeOptions
 
   return () => {
     stopped = true;
-    if (reconnectTimer) clearTimeout(reconnectTimer);
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+    }
     ws?.close();
   };
 };

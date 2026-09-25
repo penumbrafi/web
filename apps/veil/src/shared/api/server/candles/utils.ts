@@ -106,8 +106,8 @@ export const combineDbCandles = (
       const revHigh = calculateDisplayPrice(reverse.high, quote, base);
       const revLow = calculateDisplayPrice(reverse.low, quote, base);
       // 1/revLow is the highest forward-orientation price reverse-side saw.
-      if (revLow > 0) high = Math.max(high, 1 / revLow);
-      if (revHigh > 0) low = Math.min(low, 1 / revHigh);
+      if (revLow > 0) {high = Math.max(high, 1 / revLow);}
+      if (revHigh > 0) {low = Math.min(low, 1 / revHigh);}
     }
   } else {
     // reverse-only bucket

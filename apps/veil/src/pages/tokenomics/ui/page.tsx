@@ -15,12 +15,12 @@ import { WhatsBurned } from './whats-burned';
 import { Earn } from './earn';
 
 const fmtUMShort = (n: number) => {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M UM`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K UM`;
+  if (n >= 1_000_000) {return `${(n / 1_000_000).toFixed(2)}M UM`;}
+  if (n >= 1_000) {return `${(n / 1_000).toFixed(1)}K UM`;}
   return `${n.toFixed(0)} UM`;
 };
 const fmtCount = (n: number) => {
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  if (n >= 1_000) {return `${(n / 1_000).toFixed(1)}K`;}
   return n.toFixed(0);
 };
 
@@ -54,9 +54,9 @@ export const TokenomicsPage = async () => {
   const heroStats = metrics
     ? {
         dexVolume24h:
-          metrics.dexVolume24h !== null ? `${fmtUMShort(metrics.dexVolume24h)}` : '—',
+          metrics.dexVolume24h !== null ? fmtUMShort(metrics.dexVolume24h) : '—',
         umBurned24h:
-          metrics.burned24h !== null ? `${fmtUMShort(metrics.burned24h)}` : '—',
+          metrics.burned24h !== null ? fmtUMShort(metrics.burned24h) : '—',
         trades24h: metrics.trades24h !== null ? fmtCount(metrics.trades24h) : '—',
       }
     : undefined;

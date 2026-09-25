@@ -5,7 +5,7 @@ import { create } from 'zustand/react'
 
 let initializationAttempted = false
 
-type State = {
+interface State {
     getMetadata?: ActionViewProps['getMetadata']
 }
 

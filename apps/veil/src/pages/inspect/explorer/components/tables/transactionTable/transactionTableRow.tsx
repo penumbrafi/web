@@ -35,7 +35,7 @@ const TransactionTableRow: FC<Props> = props => (
         </TableCell>
         {props.blockHeight && (
             <TableCell>
-                <BoxIcon className="text-text-secondary inline" size={16} />
+                <BoxIcon className="inline text-text-secondary" size={16} />
                 <Link href={`/explore/block/${props.transaction.blockHeight}`}>
                     {formatNumber(props.transaction.blockHeight)}
                 </Link>

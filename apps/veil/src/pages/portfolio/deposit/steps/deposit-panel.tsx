@@ -201,7 +201,7 @@ const SourceAddressPanel = ({
   const [copied, setCopied] = useState(false);
 
   const onCopy = () => {
-    if (!address) return;
+    if (!address) {return;}
     void navigator.clipboard.writeText(address).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
@@ -306,14 +306,14 @@ const OneClickShieldSection = ({ cexAsset }: { cexAsset: CexAsset }) => {
   const { unifiedAssets, isCosmosConnected } = useUnifiedAssets();
 
   const narrowed = useMemo(() => {
-    if (!isCosmosConnected) return null;
+    if (!isCosmosConnected) {return null;}
     for (const a of unifiedAssets) {
       const match = a.publicBalances.find(
         b => b.chainId === cexAsset.chainId && b.denom === cexAsset.sourceDenom,
       );
-      if (!match) continue;
+      if (!match) {continue;}
       const displayAmount = pnum(match.valueView).toNumber();
-      if (!Number.isFinite(displayAmount) || displayAmount <= 0) continue;
+      if (!Number.isFinite(displayAmount) || displayAmount <= 0) {continue;}
       // Narrow the UnifiedAsset to just the matching balance so
       // useIbcShield reads the correct chainId/denom from
       // publicBalances[0].
@@ -322,15 +322,15 @@ const OneClickShieldSection = ({ cexAsset }: { cexAsset: CexAsset }) => {
     return null;
   }, [cexAsset.chainId, cexAsset.sourceDenom, isCosmosConnected, unifiedAssets]);
 
-  if (!narrowed) return null;
+  if (!narrowed) {return null;}
   return <OneClickShieldPanel asset={narrowed} cexAsset={cexAsset} />;
 };
 
 type Phase = 'idle' | 'pending' | 'success' | 'error';
 
 const explorerUrl = (chainId: string | undefined, hash: string): string | null => {
-  if (chainId === 'injective-1') return `https://explorer.injective.network/transaction/${hash}`;
-  if (chainId === 'noble-1') return `https://mintscan.io/noble/tx/${hash}`;
+  if (chainId === 'injective-1') {return `https://explorer.injective.network/transaction/${hash}`;}
+  if (chainId === 'noble-1') {return `https://mintscan.io/noble/tx/${hash}`;}
   return null;
 };
 
@@ -376,7 +376,7 @@ const OneClickShieldPanel = ({
 
   const maxAmount = useMemo(() => {
     const balance = new BigNumber(displayBalance);
-    if (!balance.isFinite() || balance.lte(0)) return '0';
+    if (!balance.isFinite() || balance.lte(0)) {return '0';}
     const feeDenom = sourceChainId ? FEE_DENOM[sourceChainId] : undefined;
     const isFeeToken = feeDenom && firstBalance?.denom === feeDenom;
     const buffer = isFeeToken && sourceChainId ? NATIVE_GAS_BUFFER[sourceChainId] : undefined;
@@ -409,8 +409,8 @@ const OneClickShieldPanel = ({
     if (!isWalletConnected) {
       return `Connect your ${cexAsset.network} wallet to sign the transfer`;
     }
-    if (!penumbraReceiver) return 'Waiting for a Penumbra deposit address…';
-    if (!amountValid) return 'Enter a valid amount';
+    if (!penumbraReceiver) {return 'Waiting for a Penumbra deposit address…';}
+    if (!amountValid) {return 'Enter a valid amount';}
     return null;
   })();
 
@@ -423,7 +423,7 @@ const OneClickShieldPanel = ({
   };
 
   return (
-    <div className='flex flex-col gap-3 rounded-xl border border-other-tonal-stroke bg-accent-radial-background/30 p-4'>
+    <div className='bg-accent-radial-background/30 flex flex-col gap-3 rounded-xl border border-other-tonal-stroke p-4'>
       <div className='flex items-center gap-2'>
         <Shield className='h-4 w-4 text-primary-main' />
         <Text variant='strong' color='text.primary'>

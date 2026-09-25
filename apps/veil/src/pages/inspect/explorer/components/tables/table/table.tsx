@@ -4,7 +4,7 @@ import Surface from '../../surface'
 
 export interface Props {
     children?:
-        | Array<ReactElement<HTMLTableSectionElement>>
+        | ReactElement<HTMLTableSectionElement>[]
         | false
         | null
         | ReactElement<HTMLTableSectionElement>

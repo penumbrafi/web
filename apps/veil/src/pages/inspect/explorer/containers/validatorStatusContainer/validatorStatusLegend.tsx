@@ -17,7 +17,7 @@ const ValidatorStatusLegend: FC<Props> = props => (
         <span className="inline-flex items-center gap-1">
             <ArrowDownIcon className="inline" size={16} />
             <span>Last block</span>
-            <span className="text-text-primary ml-1">
+            <span className="ml-1 text-text-primary">
                 {formatNumber(props.lastBlock)}
             </span>
         </span>

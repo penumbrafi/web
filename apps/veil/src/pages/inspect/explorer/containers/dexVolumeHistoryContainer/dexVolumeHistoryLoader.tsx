@@ -47,7 +47,7 @@ const DexVolumeHistoryLoader: FC<Props> = async props => {
             <header className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-baseline gap-3">
                     <h2 className="text-2xl font-medium">Swap volume</h2>
-                    <span className="text-text-secondary text-sm">
+                    <span className="text-sm text-text-secondary">
                         {totalSwaps.toLocaleString('en-US')} swaps in {days}d
                     </span>
                 </div>
@@ -56,7 +56,7 @@ const DexVolumeHistoryLoader: FC<Props> = async props => {
 
             <div className="grid grid-cols-3 gap-4">
                 <div className="bg-surface-secondary rounded-lg p-4">
-                    <div className="text-text-secondary text-xs">
+                    <div className="text-xs text-text-secondary">
                         Total swaps
                     </div>
                     <div className="mt-1 text-lg font-medium">
@@ -64,13 +64,13 @@ const DexVolumeHistoryLoader: FC<Props> = async props => {
                     </div>
                 </div>
                 <div className="bg-surface-secondary rounded-lg p-4">
-                    <div className="text-text-secondary text-xs">Organic</div>
+                    <div className="text-xs text-text-secondary">Organic</div>
                     <div className="mt-1 text-lg font-medium text-blue-500">
                         {totalOrganic.toLocaleString('en-US')}
                     </div>
                 </div>
                 <div className="bg-surface-secondary rounded-lg p-4">
-                    <div className="text-text-secondary text-xs">Arbitrage</div>
+                    <div className="text-xs text-text-secondary">Arbitrage</div>
                     <div className="mt-1 text-lg font-medium text-amber-500">
                         {totalArbs.toLocaleString('en-US')}
                     </div>

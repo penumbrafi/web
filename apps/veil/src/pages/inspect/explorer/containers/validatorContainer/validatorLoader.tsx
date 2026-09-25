@@ -49,7 +49,7 @@ const ValidatorLoader: FC<Props> = async props => {
                                     'hover:text-text-special text-xs break-all'
                                 )}
                                 href={validator.website}
-                                rel="nofollow"
+                                rel="nofollow noreferrer"
                                 target="_blank"
                             >
                                 {validator.website}
@@ -68,7 +68,7 @@ const ValidatorLoader: FC<Props> = async props => {
                 />
             </header>
             {validator.description && (
-                <p className="text-text-secondary text-sm">
+                <p className="text-sm text-text-secondary">
                     {validator.description}
                 </p>
             )}
@@ -148,11 +148,11 @@ const ValidatorLoader: FC<Props> = async props => {
                     </Parameters>
                 )}
             </div>
-            <footer className="text-text-secondary flex gap-1 text-xs">
+            <footer className="flex gap-1 text-xs text-text-secondary">
                 <InfoIcon className="-mt-1" />
                 <span>
                     To report inaccurate information or update a logo, ping{' '}
-                    <a href="https://discord.gg/penumbrazone" target="_blank">
+                    <a href="https://discord.gg/penumbrazone" target="_blank" rel="noreferrer">
                         #dev-chat on the Penumbra Discord
                     </a>
                     .

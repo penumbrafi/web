@@ -13,9 +13,11 @@ const removeTrailingSlash = (url: string): string => {
 // evaluates to undefined under SSR.
 let _pathValues: string[] | null = null;
 let _pathValuesSet: Set<string> | null = null;
-let _parametricPaths: Array<{ value: PagePath; regex: RegExp }> | null = null;
+let _parametricPaths: { value: PagePath; regex: RegExp }[] | null = null;
 const ensureCache = () => {
-  if (_pathValues) return;
+  if (_pathValues) {
+    return;
+  }
   _pathValues = Object.values(PagePath);
   _pathValuesSet = new Set<string>(_pathValues);
   _parametricPaths = _pathValues
@@ -43,7 +45,9 @@ const matchPagePath = (str: string): PagePath => {
   let bestMatch: PagePath = PagePath.Home;
   let bestLen = 0;
   for (const candidate of _pathValues!) {
-    if (candidate.includes(':') || candidate === '/') continue;
+    if (candidate.includes(':') || candidate === '/') {
+      continue;
+    }
     if (str === candidate || str.startsWith(candidate + '/')) {
       if (candidate.length > bestLen) {
         bestLen = candidate.length;

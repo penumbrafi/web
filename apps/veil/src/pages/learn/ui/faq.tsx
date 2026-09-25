@@ -268,7 +268,7 @@ export const FaqPage = () => (
           deep-linkable question with its own URL anchor. */}
       <script
         type='application/ld+json'
-        // eslint-disable-next-line react/no-danger -- structured data
+         
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
     </section>

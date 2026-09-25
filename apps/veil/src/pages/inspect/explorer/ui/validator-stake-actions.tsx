@@ -42,7 +42,7 @@ export const ValidatorStakeActions: FC<Props> = observer(({ validatorId, classNa
     <Surface as='section' className={classNames('flex flex-col gap-4 p-6', className)}>
       <header className='flex flex-col gap-1'>
         <h2 className='text-2xl font-medium'>Stake</h2>
-        <p className='text-text-secondary text-sm'>
+        <p className='text-sm text-text-secondary'>
           Delegate to back this validator&apos;s voting power, or undelegate to start the
           unbonding period.
         </p>

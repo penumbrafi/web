@@ -70,7 +70,7 @@ const ProposalTable: FC<Props> = ({ proposals, ...props }) => (
                                         />
                                         {formatNumber(proposal.endBlockHeight)}
                                     </span>
-                                    <span className="text-text-secondary text-xs">
+                                    <span className="text-xs text-text-secondary">
                                         {dayjs(proposal.endTimestamp)
                                             .tz('UTC')
                                             .format('YYYY-MM-DD HH:mm:ss z')}

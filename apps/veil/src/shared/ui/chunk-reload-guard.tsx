@@ -26,7 +26,7 @@ const isChunkLoadError = (msg: string): boolean =>
 const reloadOnce = () => {
   try {
     const last = Number(window.sessionStorage.getItem(HARD_RELOAD_KEY) ?? 0);
-    if (Date.now() - last < RELOAD_GRACE_MS) return;
+    if (Date.now() - last < RELOAD_GRACE_MS) {return;}
     window.sessionStorage.setItem(HARD_RELOAD_KEY, String(Date.now()));
   } catch {
     // sessionStorage may be disabled — fall through to reload anyway

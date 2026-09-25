@@ -21,7 +21,7 @@ const VotingStartPanelLoader: FC<Props> = async ({ proposalId, ...props }) => {
             numberPrefix={<BoxIcon className="text-text-secondary" size={16} />}
             title="Voting started"
         >
-            <div className="text-text-secondary font-mono text-base">
+            <div className="font-mono text-base text-text-secondary">
                 {dayjs(votingStart.timestamp)
                     .tz('UTC')
                     .format('YYYY-MM-DD HH:mm:ss z')}

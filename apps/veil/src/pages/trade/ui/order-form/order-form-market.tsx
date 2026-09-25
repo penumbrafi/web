@@ -76,7 +76,7 @@ const Slider = observer(
                 setPctInput(String(Math.round(n)));
               }}
               aria-label='Percent of available balance input'
-              className='h-6 w-11 rounded-sm bg-other-tonal-fill5 px-1 text-right text-xs tabular-nums text-text-primary outline-none focus:ring-1 focus:ring-primary-main disabled:cursor-not-allowed disabled:opacity-40'
+              className='h-6 w-11 rounded-sm bg-other-tonal-fill5 px-1 text-right text-xs text-text-primary tabular-nums outline-none focus:ring-1 focus:ring-primary-main disabled:cursor-not-allowed disabled:opacity-40'
             />
             <span className='text-xs text-text-secondary'>%</span>
           </div>
@@ -300,7 +300,7 @@ export const MarketOrderForm = observer(({ parentStore }: { parentStore: OrderFo
 
       {/* Submit — sticky so it never leaves the fold, same treatment as
           the LP form. */}
-      <div className='sticky bottom-0 -mx-3 -mb-3 border-t border-other-tonal-stroke bg-base-black/95 px-3 pb-3 pt-2 backdrop-blur-sm'>
+      <div className='sticky bottom-0 -mx-3 -mb-3 border-t border-other-tonal-stroke bg-base-black/95 px-3 pt-2 pb-3 backdrop-blur-sm'>
         {connected ? (
           <Button actionType='accent' disabled={!parentStore.canSubmit} onClick={openConfirm}>
             {isBuy ? 'Buy' : 'Sell'} {store.baseAsset?.symbol}

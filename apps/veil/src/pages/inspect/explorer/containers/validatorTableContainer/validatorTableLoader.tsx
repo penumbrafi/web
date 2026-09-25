@@ -41,7 +41,7 @@ const ValidatorTableLoader: FC<Props> = async props => {
         <ValidatorTable
             {...props}
             footer={
-                <span className="text-text-secondary flex items-center gap-2 text-sm">
+                <span className="flex items-center gap-2 text-sm text-text-secondary">
                     <span>
                         {truncated ? (
                             <>

@@ -7,9 +7,8 @@ import {
   MessageSquare,
   MessagesSquare,
   ArrowLeftRight,
-} from 'lucide-react';
+type  LucideIcon } from 'lucide-react';
 import Link from 'next/link';
-import type { LucideIcon } from 'lucide-react';
 import { LearnNav } from './learn-nav';
 
 interface CardProps {

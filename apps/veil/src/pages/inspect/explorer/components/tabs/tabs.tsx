@@ -5,13 +5,11 @@ import { TabProps } from './tab'
 
 interface Props {
     children?:
-        | Array<
-              | Array<ReactElement<TabProps>>
+        | (| ReactElement<TabProps>[]
               | false
               | null
               | ReactElement<TabProps>
-              | undefined
-          >
+              | undefined)[]
         | ReactElement<TabProps>
     className?: string
 }

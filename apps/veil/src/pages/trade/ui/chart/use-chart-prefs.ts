@@ -72,10 +72,14 @@ const DEFAULTS: ChartPrefs = {
 const STORAGE_KEY = 'veil_chart_prefs';
 
 const read = (): ChartPrefs => {
-  if (typeof window === 'undefined') return DEFAULTS;
+  if (typeof window === 'undefined') {
+    return DEFAULTS;
+  }
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULTS;
+    if (!raw) {
+      return DEFAULTS;
+    }
     const parsed = JSON.parse(raw) as Partial<ChartPrefs>;
     return { ...DEFAULTS, ...parsed };
   } catch {

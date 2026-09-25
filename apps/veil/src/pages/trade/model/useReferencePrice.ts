@@ -68,21 +68,29 @@ export const useReferencePrice = (
   useEffect(() => {
     const ids = new Set<string>();
     const collect = (s: ReferencePriceSource | undefined) => {
-      if (s?.kind === 'coingecko') ids.add(s.id);
+      if (s?.kind === 'coingecko') {
+        ids.add(s.id);
+      }
     };
     collect(baseSrc);
     collect(quoteSrc);
-    if (ids.size === 0) return;
+    if (ids.size === 0) {
+      return;
+    }
 
     let cancelled = false;
     const params = new URLSearchParams({ ids: [...ids].join(',') });
     fetch(`/api/coingecko-price?${params.toString()}`)
       .then(r => (r.ok ? (r.json() as Promise<Record<string, { usd?: number }>>) : null))
       .then(data => {
-        if (!data || cancelled) return;
+        if (!data || cancelled) {
+          return;
+        }
         const next: Record<string, number> = {};
         for (const [id, row] of Object.entries(data)) {
-          if (typeof row?.usd === 'number' && row.usd > 0) next[id] = row.usd;
+          if (typeof row?.usd === 'number' && row.usd > 0) {
+            next[id] = row.usd;
+          }
         }
         setCgPrices(prev => ({ ...prev, ...next }));
       })
@@ -96,9 +104,15 @@ export const useReferencePrice = (
 
   useEffect(() => {
     const needed: string[] = [];
-    if (baseSrc?.kind === 'onchain-bridge' && baseSymUpper) needed.push(baseSymUpper);
-    if (quoteSrc?.kind === 'onchain-bridge' && quoteSymUpper) needed.push(quoteSymUpper);
-    if (needed.length === 0) return;
+    if (baseSrc?.kind === 'onchain-bridge' && baseSymUpper) {
+      needed.push(baseSymUpper);
+    }
+    if (quoteSrc?.kind === 'onchain-bridge' && quoteSymUpper) {
+      needed.push(quoteSymUpper);
+    }
+    if (needed.length === 0) {
+      return;
+    }
 
     let cancelled = false;
     Promise.all(
@@ -117,12 +131,18 @@ export const useReferencePrice = (
           .catch(() => null),
       ),
     ).then(pairs => {
-      if (cancelled) return;
+      if (cancelled) {
+        return;
+      }
       const next: Record<string, DerivedRow> = {};
       for (const p of pairs) {
-        if (p) next[p[0]] = p[1];
+        if (p) {
+          next[p[0]] = p[1];
+        }
       }
-      if (Object.keys(next).length > 0) setDerivedRows(prev => ({ ...prev, ...next }));
+      if (Object.keys(next).length > 0) {
+        setDerivedRows(prev => ({ ...prev, ...next }));
+      }
     });
     return () => {
       cancelled = true;
@@ -134,18 +154,24 @@ export const useReferencePrice = (
       src: ReferencePriceSource | undefined,
       sym: string | undefined,
     ): RefPriceLeg | undefined => {
-      if (!src || !sym) return undefined;
+      if (!src || !sym) {
+        return undefined;
+      }
       if (src.kind === 'fixed') {
         return { symbol: sym, usd: src.usd, source: 'fixed' };
       }
       if (src.kind === 'coingecko') {
         const usd = cgPrices[src.id];
-        if (usd === undefined || usd <= 0) return undefined;
+        if (usd === undefined || usd <= 0) {
+          return undefined;
+        }
         return { symbol: sym, usd, source: 'coingecko' };
       }
       if (src.kind === 'onchain-bridge') {
         const row = derivedRows[sym.toUpperCase()];
-        if (!row) return undefined;
+        if (!row) {
+          return undefined;
+        }
         return {
           symbol: sym,
           usd: row.usd,
@@ -159,9 +185,13 @@ export const useReferencePrice = (
 
     const base = buildLeg(baseSrc, baseSymbol);
     const quote = buildLeg(quoteSrc, quoteSymbol);
-    if (!base || !quote || quote.usd <= 0) return {};
+    if (!base || !quote || quote.usd <= 0) {
+      return {};
+    }
     const price = base.usd / quote.usd;
-    if (!Number.isFinite(price) || price <= 0) return {};
+    if (!Number.isFinite(price) || price <= 0) {
+      return {};
+    }
     const kinds = new Set([base.source, quote.source]);
     const source = kinds.size === 1 ? base.source : 'mixed';
     return { price, source, base, quote };

@@ -10,7 +10,7 @@ interface Props {
 
 const fmtPenalty = (raw: string): string => {
   const num = Number(raw);
-  if (!Number.isFinite(num)) return raw;
+  if (!Number.isFinite(num)) {return raw;}
   return `${(num / 1_000_000).toFixed(4)}%`;
 };
 
@@ -26,14 +26,14 @@ export const ValidatorSlashingsPanel: FC<Props> = ({ className, slashings }) => 
   <Surface as='section' className={classNames('flex flex-col gap-4 p-6', className)}>
     <header className='flex items-baseline justify-between'>
       <h2 className='text-2xl font-medium'>Slashings</h2>
-      <span className='text-text-secondary text-sm'>
+      <span className='text-sm text-text-secondary'>
         {slashings.length === 0
           ? 'No slashing events'
           : `${slashings.length} event${slashings.length === 1 ? '' : 's'}`}
       </span>
     </header>
     {slashings.length === 0 ? (
-      <p className='text-text-secondary text-sm'>
+      <p className='text-sm text-text-secondary'>
         This validator has no recorded slashing events. Jail and tombstone status,
         when present, are reflected in the validator state above.
       </p>
@@ -56,10 +56,10 @@ export const ValidatorSlashingsPanel: FC<Props> = ({ className, slashings }) => 
               >
                 <td className='py-3 pr-4 font-mono'>{s.height.toLocaleString('en-US')}</td>
                 <td className='py-3 pr-4 font-mono'>{s.epoch.toLocaleString('en-US')}</td>
-                <td className='text-destructive-light py-3 pr-4 font-mono'>
+                <td className='py-3 pr-4 font-mono text-destructive-light'>
                   {fmtPenalty(s.penalty)}
                 </td>
-                <td className='text-text-secondary py-3'>{fmtTimestamp(s.timestamp)}</td>
+                <td className='py-3 text-text-secondary'>{fmtTimestamp(s.timestamp)}</td>
               </tr>
             ))}
           </tbody>

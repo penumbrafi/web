@@ -30,7 +30,9 @@ export const useWalletAssetsMap = () => {
       for await (const item of penumbra.service(ViewService).assets({})) {
         const meta = item.denomMetadata;
         const inner = meta?.penumbraAssetId?.inner;
-        if (!meta || !inner) continue;
+        if (!meta || !inner) {
+          continue;
+        }
         out.set(uint8ArrayToBase64(inner), meta);
       }
       return out;

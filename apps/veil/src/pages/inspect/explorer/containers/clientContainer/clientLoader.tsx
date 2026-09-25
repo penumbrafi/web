@@ -74,8 +74,8 @@ const ClientLoader: FC<Props> = async props => {
                         </Parameter>
                     </Parameters>
                 </div>
-                {/*<div className="grid gap-4">*/}
-                {/*<div className="flex flex-col gap-4">*/}
+                {/* <div className="grid gap-4">*/}
+                {/* <div className="flex flex-col gap-4">*/}
                 {/*    <Parameters*/}
                 {/*        className="bg-transparent p-0"*/}
                 {/*        title="Shielded"*/}
@@ -92,11 +92,11 @@ const ClientLoader: FC<Props> = async props => {
                 {/*            {formatNumber(client.unshieldedTxCount)}*/}
                 {/*        </Parameter>*/}
                 {/*    </Parameters>*/}
-                {/*</div>*/}
-                {/*<Parameters*/}
+                {/* </div>*/}
+                {/* <Parameters*/}
                 {/*    className="bg-transparent p-0 sm:col-2 lg:col-auto!"*/}
                 {/*    // title="Total"*/}
-                {/*>*/}
+                {/* >*/}
                 {/*    <Parameter name="Txs total">*/}
                 {/*        {formatNumber(client.totalTxCount)}*/}
                 {/*    </Parameter>*/}
@@ -106,8 +106,8 @@ const ClientLoader: FC<Props> = async props => {
                 {/*    <Parameter name="Txs expired">*/}
                 {/*        {formatNumber(client.expiredTxCount)}*/}
                 {/*    </Parameter>*/}
-                {/*</Parameters>*/}
-                {/*</div>*/}
+                {/* </Parameters>*/}
+                {/* </div>*/}
             </Surface>
             {client.channelId && client.counterpartyChannelId && (
                 <IbcChannels

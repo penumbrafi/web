@@ -32,12 +32,12 @@ const MIN_GAP = 1.0001;
 // precision to distinguish rung sizes at a glance without overflowing
 // the narrow strip on the right of the chart.
 const formatRungAmount = (v: number): string => {
-  if (!Number.isFinite(v) || v <= 0) return '0';
-  if (v >= 1000) return `${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}k`;
-  if (v >= 100) return v.toFixed(0);
-  if (v >= 10) return v.toFixed(1);
-  if (v >= 1) return v.toFixed(2);
-  if (v >= 0.01) return v.toFixed(3);
+  if (!Number.isFinite(v) || v <= 0) {return '0';}
+  if (v >= 1000) {return `${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}k`;}
+  if (v >= 100) {return v.toFixed(0);}
+  if (v >= 10) {return v.toFixed(1);}
+  if (v >= 1) {return v.toFixed(2);}
+  if (v >= 0.01) {return v.toFixed(3);}
   return v.toPrecision(2);
 };
 
@@ -220,8 +220,8 @@ export const LpPreviewOverlay = observer(
         setPos(null);
         return;
       }
-      const lo = lower as number;
-      const hi = upper as number;
+      const lo = lower!;
+      const hi = upper!;
       const n = count;
 
       // Mirror simpleLiquidityPositions on the chain side. When only one
@@ -293,7 +293,7 @@ export const LpPreviewOverlay = observer(
           const price = start + i * step;
           const effectivePrice = price < m ? price * (1 - feeFrac) : price * (1 + feeFrac);
           const y = yAtPrice(effectivePrice);
-          if (y === undefined) continue;
+          if (y === undefined) {continue;}
           const w = weights[i] ?? 0;
           if (price < m) {
             // bid: offers quote
@@ -366,13 +366,13 @@ export const LpPreviewOverlay = observer(
       recomputeRef.current?.();
     }, [mid]);
 
-    if (!pos) return null;
+    if (!pos) {return null;}
 
     // Format a numeric price for the form store. LP takes numbers,
     // RangeLP takes strings — both stores clamp/validate on their own, we
     // just supply a reasonable precision so the input field reads nicely.
     const commitPrice = (edge: DragEdge, price: number) => {
-      if (!Number.isFinite(price) || price <= 0) return;
+      if (!Number.isFinite(price) || price <= 0) {return;}
       if (whichForm === 'LP') {
         // LP stores raw numbers.
         const rounded = Number(price.toPrecision(6));
@@ -394,10 +394,10 @@ export const LpPreviewOverlay = observer(
 
     const onPointerDown = (edge: DragEdge) => (ev: React.PointerEvent<HTMLDivElement>) => {
       // Only left mouse / primary touch; ignore right-click, middle-click.
-      if (ev.button !== undefined && ev.button !== 0) return;
+      if (ev.button !== undefined && ev.button !== 0) {return;}
       const target = ev.currentTarget;
       const container = containerRef.current;
-      if (!container) return;
+      if (!container) {return;}
       const rect = container.getBoundingClientRect();
       const y = ev.clientY - rect.top;
       try {
@@ -420,9 +420,9 @@ export const LpPreviewOverlay = observer(
 
     const onPointerMove = (ev: React.PointerEvent<HTMLDivElement>) => {
       const state = dragRef.current;
-      if (!state || state.pointerId !== ev.pointerId) return;
+      if (!state || state.pointerId !== ev.pointerId) {return;}
       const container = containerRef.current;
-      if (!container) return;
+      if (!container) {return;}
       const rect = container.getBoundingClientRect();
       const y = Math.max(0, Math.min(rect.height, ev.clientY - rect.top));
       const rawPrice = priceAtY(y);
@@ -433,11 +433,11 @@ export const LpPreviewOverlay = observer(
       // currently-committed opposite bound as the anchor.
       let price = rawPrice;
       if (state.edge === 'upper') {
-        const lo = lower as number;
-        if (price <= lo * MIN_GAP) price = lo * MIN_GAP;
+        const lo = lower!;
+        if (price <= lo * MIN_GAP) {price = lo * MIN_GAP;}
       } else {
-        const hi = upper as number;
-        if (price >= hi / MIN_GAP) price = hi / MIN_GAP;
+        const hi = upper!;
+        if (price >= hi / MIN_GAP) {price = hi / MIN_GAP;}
       }
       // Re-map clamped price back to a y so the strip visibly stops at
       // the clamp instead of tracking past it.
@@ -454,7 +454,7 @@ export const LpPreviewOverlay = observer(
 
     const onPointerUp = (ev: React.PointerEvent<HTMLDivElement>) => {
       const state = dragRef.current;
-      if (!state || state.pointerId !== ev.pointerId) return;
+      if (!state || state.pointerId !== ev.pointerId) {return;}
       try {
         ev.currentTarget.releasePointerCapture(ev.pointerId);
       } catch {
@@ -476,18 +476,18 @@ export const LpPreviewOverlay = observer(
     // vector. State declared above the early return; handlers below are
     // plain functions that close over those refs.
     const commitRungWeight = (index: number, frac: number) => {
-      if (whichForm !== 'LP') return;
+      if (whichForm !== 'LP') {return;}
       const clamped = Math.max(0, Math.min(1.5, frac));
       lpForm.setCustomWeight(index, clamped);
     };
 
     const onRungPointerDown =
       (index: number) => (ev: React.PointerEvent<HTMLDivElement>) => {
-        if (whichForm !== 'LP') return;
-        if (ev.button !== undefined && ev.button !== 0) return;
+        if (whichForm !== 'LP') {return;}
+        if (ev.button !== undefined && ev.button !== 0) {return;}
         const target = ev.currentTarget;
         const container = containerRef.current;
-        if (!container) return;
+        if (!container) {return;}
         const rect = container.getBoundingClientRect();
         const availWidth = Math.max(1, rect.width - 56);
         const x = Math.max(0, Math.min(availWidth, ev.clientX - rect.left));
@@ -511,9 +511,9 @@ export const LpPreviewOverlay = observer(
 
     const onRungPointerMove = (ev: React.PointerEvent<HTMLDivElement>) => {
       const state = rungDragRef.current;
-      if (!state || state.pointerId !== ev.pointerId) return;
+      if (!state || state.pointerId !== ev.pointerId) {return;}
       const container = containerRef.current;
-      if (!container) return;
+      if (!container) {return;}
       const rect = container.getBoundingClientRect();
       const availWidth = Math.max(1, rect.width - 56);
       const x = Math.max(0, Math.min(availWidth, ev.clientX - rect.left));
@@ -529,7 +529,7 @@ export const LpPreviewOverlay = observer(
 
     const onRungPointerUp = (ev: React.PointerEvent<HTMLDivElement>) => {
       const state = rungDragRef.current;
-      if (!state || state.pointerId !== ev.pointerId) return;
+      if (!state || state.pointerId !== ev.pointerId) {return;}
       try {
         ev.currentTarget.releasePointerCapture(ev.pointerId);
       } catch {
@@ -600,7 +600,7 @@ export const LpPreviewOverlay = observer(
               }}
             />
             <div
-              className='absolute rounded-sm bg-base-black/70 px-1 text-[10px] tabular-nums text-text-secondary'
+              className='absolute rounded-sm bg-base-black/70 px-1 text-[10px] text-text-secondary tabular-nums'
               style={{
                 right: 60,
                 top: pos.yMid - 7,
@@ -683,7 +683,7 @@ export const LpPreviewOverlay = observer(
                   independently of the bar widths. */}
               {showLabel && (
               <div
-                className='absolute pointer-events-none tabular-nums'
+                className='pointer-events-none absolute tabular-nums'
                 style={{
                   right: 60,
                   top: r.y - 7,

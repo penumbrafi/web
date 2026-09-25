@@ -65,7 +65,7 @@ const SUMMARY_WINDOWS: { value: DurationWindow; label: string; cardLabel: string
 const SUMMARY_WINDOW_KEY = 'veil_summary_window';
 
 const readStoredWindow = (): DurationWindow => {
-  if (typeof window === 'undefined') return '1d';
+  if (typeof window === 'undefined') {return '1d';}
   const raw = window.localStorage.getItem(SUMMARY_WINDOW_KEY);
   return raw && isDurationWindow(raw) && SUMMARY_WINDOWS.some(w => w.value === raw) ? raw : '1d';
 };

@@ -25,7 +25,7 @@ const VotingEndPanelLoader: FC<Props> = async ({ proposalId, ...props }) => {
             numberPrefix={<BoxIcon className="text-text-secondary" size={16} />}
             title={`Voting ${votingEnd.votingInProgress ? 'ends' : 'ended'}`}
         >
-            <div className="text-text-secondary font-mono text-base">
+            <div className="font-mono text-base text-text-secondary">
                 {votingEnd.votingInProgress
                     ? blocksDuration(
                           votingEnd.endBlockHeight - latestBlockHeight,

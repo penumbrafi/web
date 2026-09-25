@@ -301,7 +301,7 @@ export class LPFormStore {
    */
   get effectiveMarketPrice(): number | null {
     const override = this.userReferencePrice;
-    if (override !== null) return override;
+    if (override !== null) {return override;}
     if (this.marketPrice !== null && Number.isFinite(this.marketPrice)) {
       return this.marketPrice;
     }
@@ -371,7 +371,7 @@ export class LPFormStore {
     if (this.lowerPriceInput === null || this.upperPriceInput === null) {
       return undefined;
     }
-    if (!this.isOneSided) return undefined;
+    if (!this.isOneSided) {return undefined;}
 
     // Wholly-off cases use the LIVE mid (not effective) — the user-
     // supplied reference price is precisely them saying "for my purposes
@@ -529,7 +529,7 @@ export class LPFormStore {
    */
   setCustomWeight = (index: number, weight: number) => {
     const n = this.positions;
-    if (index < 0 || index >= n) return;
+    if (index < 0 || index >= n) {return;}
     const clamped = Math.max(0, weight);
     // Seed from the current shape so the first drag doesn't wipe every
     // other rung — the user drags one bar, the rest stay where they were.
@@ -582,7 +582,7 @@ export class LPFormStore {
    * zero reserves produces no positions.
    */
   setSuggestBalancePct = (pct: number) => {
-    if (!Number.isFinite(pct)) return;
+    if (!Number.isFinite(pct)) {return;}
     this.suggestBalancePct = Math.max(0.05, Math.min(0.5, pct));
   };
 
@@ -601,10 +601,10 @@ export class LPFormStore {
     mid: number,
     opts: { committedBase?: number; committedQuote?: number } = {},
   ) => {
-    if (!(mid > 0) || !Number.isFinite(mid)) return;
+    if (!(mid > 0) || !Number.isFinite(mid)) {return;}
     const baseBal = this._baseAsset?.balance ?? 0;
     const quoteBal = this._quoteAsset?.balance ?? 0;
-    if (baseBal <= 0 && quoteBal <= 0) return;
+    if (baseBal <= 0 && quoteBal <= 0) {return;}
 
     const baseExp = this._baseAsset?.exponent ?? 6;
     const quoteExp = this._quoteAsset?.exponent ?? 6;
@@ -695,8 +695,8 @@ const deriveWeightsFromShape = (
   n: number,
   shape: LiquidityDistributionShape,
 ): number[] => {
-  if (n <= 0) return [];
-  if (n === 1) return [1];
+  if (n <= 0) {return [];}
+  if (n === 1) {return [1];}
   return Array.from({ length: n }, (_, i) => {
     const t = i / (n - 1);
     switch (shape) {

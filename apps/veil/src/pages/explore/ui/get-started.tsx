@@ -1,7 +1,6 @@
 import { Text } from '@penumbra-zone/ui/Text';
-import { Wallet, ArrowRightLeft, BookOpen } from 'lucide-react';
+import { Wallet, ArrowRightLeft, BookOpen ,type  LucideIcon } from 'lucide-react';
 import Link from 'next/link';
-import type { LucideIcon } from 'lucide-react';
 import { DEFAULT_PAIR } from '@/shared/config/featured-pairs';
 
 interface StepProps {

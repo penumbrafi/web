@@ -1,11 +1,13 @@
-import { ValidatorInfo } from '@penumbra-zone/protobuf/penumbra/core/component/stake/v1/stake_pb';
+import {
+  ValidatorInfo,
+  ValidatorState_ValidatorStateEnum,
+} from '@penumbra-zone/protobuf/penumbra/core/component/stake/v1/stake_pb';
 import { Text } from '@penumbra-zone/ui/Text';
 import {
   getValidator,
   getIdentityKeyFromValidatorInfo,
   getStateEnumFromValidatorInfo,
 } from '@penumbra-zone/getters/validator-info';
-import { ValidatorState_ValidatorStateEnum } from '@penumbra-zone/protobuf/penumbra/core/component/stake/v1/stake_pb';
 import { calculateCommissionAsPercentage } from '@penumbra-zone/types/staking';
 import { bech32mIdentityKey } from '@penumbra-zone/bech32m/penumbravalid';
 import { shorten } from '@penumbra-zone/types/string';

@@ -49,7 +49,9 @@ export const ConfirmOrderModal = memo(
     // Radix Dialog focuses the first focusable child by default; jump
     // focus to Confirm so Enter ⏎ fires the broadcast immediately.
     useEffect(() => {
-      if (!isOpen) return;
+      if (!isOpen) {
+        return;
+      }
       const id = window.setTimeout(() => {
         const btn = wrapRef.current?.querySelector<HTMLButtonElement>(
           'button[data-confirm="true"]',

@@ -35,7 +35,7 @@ const DepthCurveImpl = ({ rows, relativeSizes, side, gridRowStart }: Props) => {
   // across the full row height, vertical jump between rows. Anchored
   // on the right edge so the "shape" is the deep side of the ladder.
   const d = useMemo(() => {
-    if (n === 0) return '';
+    if (n === 0) {return '';}
     const parts: string[] = ['M 100,0'];
     for (let i = 0; i < n; i++) {
       const trace = rows[i]!;
@@ -53,7 +53,7 @@ const DepthCurveImpl = ({ rows, relativeSizes, side, gridRowStart }: Props) => {
     return parts.join(' ');
   }, [rows, relativeSizes, n]);
 
-  if (n === 0) return null;
+  if (n === 0) {return null;}
 
   // Depth fill is a background hint, not the primary content — keep it
   // muted enough that price / amount / total numbers stay legible in
@@ -100,9 +100,9 @@ const DepthCurveImpl = ({ rows, relativeSizes, side, gridRowStart }: Props) => {
 // actually changes. Reference equality on the sizes Map is fine; book.tsx
 // rebuilds it in useMemo tied to the same deps.
 export const DepthCurve = memo(DepthCurveImpl, (a, b) => {
-  if (a.side !== b.side) return false;
-  if (a.gridRowStart !== b.gridRowStart) return false;
-  if (a.rows !== b.rows) return false;
-  if (a.relativeSizes !== b.relativeSizes) return false;
+  if (a.side !== b.side) {return false;}
+  if (a.gridRowStart !== b.gridRowStart) {return false;}
+  if (a.rows !== b.rows) {return false;}
+  if (a.relativeSizes !== b.relativeSizes) {return false;}
   return true;
 });

@@ -77,13 +77,13 @@ export const TradesTable = ({ error, data, isLoading }: TradesTableProps) => {
                 {trade.price}
               </span>
               {(() => {
-                if (!marketPrice || marketPrice <= 0 || !trade.price) return null;
+                if (!marketPrice || marketPrice <= 0 || !trade.price) {return null;}
                 const tradePrice = parseFloat(trade.price);
-                if (!Number.isFinite(tradePrice) || tradePrice <= 0) return null;
+                if (!Number.isFinite(tradePrice) || tradePrice <= 0) {return null;}
                 const deltaPct = ((tradePrice - marketPrice) / marketPrice) * 100;
                 // Don't surface a badge when the fill is essentially at
                 // mid (sub-bp) — visual noise that adds nothing.
-                if (Math.abs(deltaPct) < 0.05) return null;
+                if (Math.abs(deltaPct) < 0.05) {return null;}
                 return (
                   <span
                     className={cn(

@@ -2,7 +2,9 @@ import { observable, runInAction } from 'mobx';
 import { PositionId } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
 import { bech32mPositionId } from '@penumbra-zone/bech32m/plpid';
 
-export type Lease = { release: () => void };
+export interface Lease {
+  release: () => void;
+}
 
 /**
  * Watchdog for stuck wallet promises (user closes the extension popup,
@@ -37,10 +39,14 @@ export const inFlightPositions = {
     // whenever the set membership changes — `.has` alone in a loop would
     // also work, but iterating once is cheaper and matches the tracking
     // guidance for ObservableSet.
-    if (bech32s.length === 0) return false;
+    if (bech32s.length === 0) {
+      return false;
+    }
     const needle = new Set(bech32s);
     for (const held of inFlight.values()) {
-      if (needle.has(held)) return true;
+      if (needle.has(held)) {
+        return true;
+      }
     }
     return false;
   },
@@ -54,7 +60,9 @@ export function conflictingIds(positionIds: PositionId[]): string[] {
   const conflicts: string[] = [];
   for (const id of positionIds) {
     const b = bech32mPositionId(id);
-    if (inFlight.has(b)) conflicts.push(b);
+    if (inFlight.has(b)) {
+      conflicts.push(b);
+    }
   }
   return conflicts;
 }
@@ -71,25 +79,35 @@ export function tryAcquire(positionIds: PositionId[]): Lease | null {
   const bech32s = positionIds.map(bech32mPositionId);
 
   for (const b of bech32s) {
-    if (inFlight.has(b)) return null;
+    if (inFlight.has(b)) {
+      return null;
+    }
   }
 
   runInAction(() => {
-    for (const b of bech32s) inFlight.add(b);
+    for (const b of bech32s) {
+      inFlight.add(b);
+    }
   });
 
   let released = false;
   const release = () => {
-    if (released) return;
+    if (released) {
+      return;
+    }
     released = true;
     clearTimeout(watchdog);
     runInAction(() => {
-      for (const b of bech32s) inFlight.delete(b);
+      for (const b of bech32s) {
+        inFlight.delete(b);
+      }
     });
   };
 
   const watchdog = setTimeout(() => {
-    if (released) return;
+    if (released) {
+      return;
+    }
     console.warn(
       `[position-actions-lock] watchdog fired after ${WATCHDOG_MS}ms; ` +
         `force-releasing lease over ${bech32s.length} position(s): ${bech32s.join(', ')}`,

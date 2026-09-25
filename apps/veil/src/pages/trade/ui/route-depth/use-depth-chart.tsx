@@ -13,10 +13,18 @@ import { theme } from '@penumbra-zone/ui/theme';
 import type { DepthSeriesData } from './depth-data';
 
 const formatPrice = (p: number): string => {
-  if (!Number.isFinite(p)) return '';
-  if (p >= 1) return p.toFixed(4);
-  if (p >= 0.01) return p.toFixed(5);
-  if (p >= 0.0001) return p.toFixed(6);
+  if (!Number.isFinite(p)) {
+    return '';
+  }
+  if (p >= 1) {
+    return p.toFixed(4);
+  }
+  if (p >= 0.01) {
+    return p.toFixed(5);
+  }
+  if (p >= 0.0001) {
+    return p.toFixed(6);
+  }
   return p.toPrecision(4);
 };
 
@@ -54,7 +62,9 @@ export const useDepthChart = (
 
   const setData = useCallback((data: DepthSeriesData | undefined) => {
     dataRef.current = data;
-    if (!chartRef.current || !bidSeriesRef.current || !askSeriesRef.current) return;
+    if (!chartRef.current || !bidSeriesRef.current || !askSeriesRef.current) {
+      return;
+    }
     if (!data) {
       bidSeriesRef.current.setData([]);
       askSeriesRef.current.setData([]);
@@ -74,7 +84,9 @@ export const useDepthChart = (
       containerRef.current = null;
       return;
     }
-    if (containerRef.current === node) return;
+    if (containerRef.current === node) {
+      return;
+    }
     containerRef.current = node;
 
     const chart = createChart(node, {
@@ -117,14 +129,18 @@ export const useDepthChart = (
         // numbers via the localization timeFormatter.
         tickMarkFormatter: (time: UTCTimestamp) => {
           const d = dataRef.current;
-          if (!d) return '';
+          if (!d) {
+            return '';
+          }
           return formatPrice(d.timeToPrice(time as number));
         },
       },
       localization: {
         timeFormatter: (time: UTCTimestamp) => {
           const d = dataRef.current;
-          if (!d) return '';
+          if (!d) {
+            return '';
+          }
           return formatPrice(d.timeToPrice(time as number));
         },
       },
@@ -188,7 +204,9 @@ export const useDepthChart = (
 
     const handleClick = (param: MouseEventParams) => {
       const data = dataRef.current;
-      if (!data || param.time === undefined) return;
+      if (!data || param.time === undefined) {
+        return;
+      }
       const time = param.time as UTCTimestamp;
       const price = data.timeToPrice(time as number);
       const side: 'bid' | 'ask' = (time as number) < (data.midTime as number) ? 'bid' : 'ask';

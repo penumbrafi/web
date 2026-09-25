@@ -27,7 +27,7 @@ export async function fetchCommunityPoolUM(): Promise<number | null> {
   if (cached && now - cached.fetchedAt.getTime() < CACHE_TTL_MS) {
     return cached.um;
   }
-  if (now - inflightAt < 5_000) return cached?.um ?? null;
+  if (now - inflightAt < 5_000) {return cached?.um ?? null;}
   inflightAt = now;
 
   // Fall back to the public rotko pd endpoint if neither env var is set —
@@ -63,9 +63,9 @@ export async function fetchCommunityPoolUM(): Promise<number | null> {
         // UM so there's expected to be at most one iteration, but iterate
         // defensively in case the pd node ignores the filter.
         const inner = res.balance?.assetId?.inner;
-        if (!inner) continue;
+        if (!inner) {continue;}
         // Compare bytes against the UM asset id.
-        if (inner.length !== stakingAssetId.inner.length) continue;
+        if (inner.length !== stakingAssetId.inner.length) {continue;}
         let match = true;
         for (let i = 0; i < inner.length; i++) {
           if (inner[i] !== stakingAssetId.inner[i]) {
@@ -73,9 +73,9 @@ export async function fetchCommunityPoolUM(): Promise<number | null> {
             break;
           }
         }
-        if (!match) continue;
+        if (!match) {continue;}
         const amt = res.balance?.amount;
-        if (!amt) continue;
+        if (!amt) {continue;}
         // Amount is a u128 split into lo (u64) + hi (u64). Community-pool
         // balance is at most ~10^12 upenumbra today, well under 2^63, but
         // compose both halves to future-proof.

@@ -1,6 +1,5 @@
 import { Text } from '@penumbra-zone/ui/Text';
-import { Coins, Vote, Fuel } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { Coins, Vote, Fuel, type LucideIcon } from 'lucide-react';
 
 interface RoleProps {
   icon: LucideIcon;

@@ -4,7 +4,6 @@ import {
     CollectionLimit,
     VotesQuery,
     VotesQueryVariables,
-    VoteValue,
 } from '@/pages/inspect/explorer/lib/graphql/generated/types'
 import { votesQuery } from '@/pages/inspect/explorer/lib/graphql/queries'
 import { TransformedVote } from '@/pages/inspect/explorer/lib/types'
@@ -35,8 +34,8 @@ const getVotes = async (
         power: Number(vote.effectiveVotingPower),
         powerPercentage: Number(vote.votingPowerPercentage),
         timestamp: dayjs(vote.votedAt).valueOf(),
-        transactionHash: vote.txHash as string,
-        value: vote.vote as VoteValue,
+        transactionHash: vote.txHash!,
+        value: vote.vote!,
     }))
 
     return { total: result.data.proposalDetail.votes.total, votes }

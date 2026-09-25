@@ -49,14 +49,18 @@ const parse = (raw: string): PindexerTick | null => {
 };
 
 const ensureConnected = () => {
-  if (source) return;
+  if (source) {
+    return;
+  }
   const es = new EventSource('/api/pindexer-stream');
   es.addEventListener('tick', ev => {
     // A live tick means the upstream is healthy — reset backoff so the
     // next transient close reconnects quickly.
     reconnectDelayMs = 1_000;
-    const tick = parse((ev as MessageEvent).data as string);
-    if (!tick) return;
+    const tick = parse(ev.data as string);
+    if (!tick) {
+      return;
+    }
     for (const fn of listeners) {
       try {
         fn(tick);
@@ -76,10 +80,12 @@ const ensureConnected = () => {
     // retry — so gating on CLOSED never engaged for exactly the case this
     // targets.) Backoff resets on the next successful `tick`.
     es.close();
-    if (source === es) source = null;
+    if (source === es) {
+      source = null;
+    }
     if (refCount > 0 && !reconnectTimer) {
       const delay = reconnectDelayMs;
-      // eslint-disable-next-line no-console
+
       console.warn(`[pindexer-stream] connection closed; retrying in ${delay}ms`);
       reconnectTimer = setTimeout(() => {
         reconnectTimer = null;
@@ -116,7 +122,9 @@ const subscribe = (fn: Listener): (() => void) => {
   return () => {
     listeners.delete(fn);
     refCount -= 1;
-    if (refCount <= 0) teardownIfIdle();
+    if (refCount <= 0) {
+      teardownIfIdle();
+    }
   };
 };
 
@@ -143,7 +151,9 @@ export const useOnPindexerTick = (
   useEffect(() => {
     const wanted = new Set(indexers);
     const unsub = subscribe(tick => {
-      if (!wanted.has(tick.indexer)) return;
+      if (!wanted.has(tick.indexer)) {
+        return;
+      }
       void queryClient.invalidateQueries({ queryKey: queryKey as unknown[] });
     });
     return unsub;

@@ -34,12 +34,16 @@ export async function fetchChainIssuanceParams(): Promise<ChainIssuanceParams | 
     return cached;
   }
   // Avoid stampede: one in-flight refresh per instance.
-  if (now - cachedInflightAt < 5_000) return cached;
+  if (now - cachedInflightAt < 5_000) {
+    return cached;
+  }
   cachedInflightAt = now;
 
   const grpcEndpoint =
     process.env['PENUMBRA_GRPC_ENDPOINT_INTERNAL'] ?? process.env['PENUMBRA_GRPC_ENDPOINT'];
-  if (!grpcEndpoint) return cached;
+  if (!grpcEndpoint) {
+    return cached;
+  }
 
   try {
     const client = createClient(grpcEndpoint, AppQueryService);
@@ -50,7 +54,9 @@ export async function fetchChainIssuanceParams(): Promise<ChainIssuanceParams | 
       new Promise<never>((_, r) => setTimeout(() => r(new Error('timeout')), 4_000)),
     ]);
     const p = res.appParameters;
-    if (!p?.distributionsParams || !p.sctParams) return cached;
+    if (!p?.distributionsParams || !p.sctParams) {
+      return cached;
+    }
 
     cached = {
       stakingIssuancePerBlock: Number(p.distributionsParams.stakingIssuancePerBlock),

@@ -30,7 +30,7 @@ type Phase =
   | { kind: 'error'; message: string; mayBeOnChain: boolean };
 
 function truncateMiddle(s: string, keep = 8): string {
-  if (s.length <= keep * 2 + 3) return s;
+  if (s.length <= keep * 2 + 3) {return s;}
   return `${s.slice(0, keep)}…${s.slice(-keep)}`;
 }
 

@@ -10,7 +10,7 @@ export const routingProxy = async (request: NextRequest) => {
   // `/` is now the market/landing page itself (app/page.tsx); no redirect.
 
   // Remember the last viewed pair so /trade can redirect back to it.
-  const tradePairMatch = pathname.match(/^\/trade\/([^/]+)\/([^/]+)\/?$/);
+  const tradePairMatch = /^\/trade\/([^/]+)\/([^/]+)\/?$/.exec(pathname);
   if (tradePairMatch) {
     const [, base, quote] = tradePairMatch;
     if (base && quote) {

@@ -27,10 +27,10 @@ let listenClient: Client | null = null;
 // (duplicate ticks per pindexer commit). Cache the promise so parallel
 // callers share one connect.
 let connectPromise: Promise<Client> | null = null;
-let subs = new Set<Subscriber>();
+const subs = new Set<Subscriber>();
 
 async function ensureListener(): Promise<void> {
-  if (listenClient) return;
+  if (listenClient) {return;}
   if (connectPromise) {
     await connectPromise;
     return;
@@ -48,7 +48,7 @@ async function ensureListener(): Promise<void> {
     await client.connect();
 
     client.on('notification', msg => {
-      if (msg.channel !== 'pindexer_tick') return;
+      if (msg.channel !== 'pindexer_tick') {return;}
       const payload = msg.payload ?? '';
       for (const sub of subs) {
         try {
@@ -171,7 +171,7 @@ export async function GET(req: NextRequest): Promise<Response> {
       start(controller) {
         let closed = false;
         const write = (line: string) => {
-          if (closed) return;
+          if (closed) {return;}
           try {
             controller.enqueue(encoder.encode(line));
           } catch {
@@ -202,7 +202,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         };
 
         function cleanup() {
-          if (closed) return;
+          if (closed) {return;}
           closed = true;
           clearInterval(heartbeat);
           subs.delete(subscriber);

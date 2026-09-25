@@ -17,7 +17,7 @@ const ActiveValidatorsPanelLoader: FC<Props> = async props => {
             className={props.className}
             number={activeValidators.activeValidatorCount}
             numberSuffix={
-                <span className="text-text-secondary text-2xl">
+                <span className="text-2xl text-text-secondary">
                     /{activeValidators.activeValidatorLimit}
                 </span>
             }

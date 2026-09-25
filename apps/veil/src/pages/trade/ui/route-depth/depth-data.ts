@@ -94,7 +94,7 @@ export const buildDepthData = (
   let minGap = span;
   for (let i = 1; i < allPrices.length; i++) {
     const gap = allPrices[i]! - allPrices[i - 1]!;
-    if (gap > 0 && gap < minGap) minGap = gap;
+    if (gap > 0 && gap < minGap) {minGap = gap;}
   }
   // Pick a scale large enough to keep adjacent levels distinct after
   // rounding, but capped so the resulting timestamps stay well within

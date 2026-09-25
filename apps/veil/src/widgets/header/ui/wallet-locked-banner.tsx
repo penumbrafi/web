@@ -17,7 +17,7 @@ import { connectionStore } from '@/shared/model/connection';
  * as soon as any ViewService call succeeds again.
  */
 export const WalletLockedBanner = observer(() => {
-  if (!connectionStore.walletLocked) return null;
+  if (!connectionStore.walletLocked) {return null;}
   return (
     <div className='w-full border-b border-amber-500/40 bg-amber-500/15 px-4 py-2 text-sm text-amber-100'>
       <div className='mx-auto flex max-w-6xl items-center gap-3'>
