@@ -1,0 +1,55 @@
+@import 'tailwindcss';
+
+/*
+ * Colour tokens copied from packages/ui/src/theme/theme.css so the app reads
+ * as part of the same family as veil without depending on @penumbra-zone/ui
+ * (which would pull the whole ui build into this app's turbo graph).
+ * Dark only: this is an internal utility dashboard.
+ */
+@theme {
+  --spacing: 4px;
+
+  --color-neutral-main: #404040;
+  --color-neutral-light: #a3a3a3;
+  --color-neutral-dark: #171717;
+  --color-neutral-contrast: #fafafa;
+
+  --color-primary-main: #ba4d14;
+  --color-primary-light: #f49c43;
+  --color-secondary-main: #226362;
+  --color-secondary-light: #53aea8;
+  --color-caution-light: #e8c127;
+  --color-success-light: #55d383;
+  --color-destructive-light: #f17878;
+
+  --color-base-black: #000000;
+  --color-base-black-alt: #0d0d0d;
+
+  --color-text-primary: #fafafa;
+  --color-text-secondary: #a3a3a3;
+  --color-text-muted: #404040;
+  --color-text-special: #f49c43;
+
+  --color-action-hover-overlay: #53aea826;
+  --color-other-tonal-stroke: #fafafa26;
+  --color-other-tonal-fill5: #fafafa0d;
+  --color-other-tonal-fill10: #fafafa1a;
+
+  --font-sans: -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, system-ui, sans-serif;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-base-black-alt);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Tabular figures only where columns must align: table cells and axis ticks. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
