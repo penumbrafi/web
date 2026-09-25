@@ -70,29 +70,31 @@ class Pindexer {
   }
 
   async pairs({ stablecoins }: { stablecoins: AssetId[] }) {
-    return this.db
-      .selectFrom('dex_ex_pairs_summary')
-      .selectAll()
-      .where(exp =>
-        exp.and([
-          exp.eb('the_window', '=', '1d'),
-          exp.eb('price', '!=', 0),
-          // Filters out pairs where stablecoins are base assets (e.g. no USDC/UM, only UM/USDC)
-          exp.eb(
-            exp.ref('asset_start'),
-            'not in',
-            stablecoins.map(asset => Buffer.from(asset.inner)),
-          ),
-        ]),
-      )
-      .orderBy('direct_volume_indexing_denom_over_window', 'desc')
-      // Fetch extra so the /api/pairs client-side dedup (which
-      // collapses A/B and B/A of the same market into one row) can
-      // still return ~15 unique markets. Non-stable/non-stable pairs
-      // like UM/OSMO can appear in both directions here; stable-quoted
-      // pairs are already unique via the asset_start filter above.
-      .limit(30)
-      .execute();
+    return (
+      this.db
+        .selectFrom('dex_ex_pairs_summary')
+        .selectAll()
+        .where(exp =>
+          exp.and([
+            exp.eb('the_window', '=', '1d'),
+            exp.eb('price', '!=', 0),
+            // Filters out pairs where stablecoins are base assets (e.g. no USDC/UM, only UM/USDC)
+            exp.eb(
+              exp.ref('asset_start'),
+              'not in',
+              stablecoins.map(asset => Buffer.from(asset.inner)),
+            ),
+          ]),
+        )
+        .orderBy('direct_volume_indexing_denom_over_window', 'desc')
+        // Fetch extra so the /api/pairs client-side dedup (which
+        // collapses A/B and B/A of the same market into one row) can
+        // still return ~15 unique markets. Non-stable/non-stable pairs
+        // like UM/OSMO can appear in both directions here; stable-quoted
+        // pairs are already unique via the asset_start filter above.
+        .limit(30)
+        .execute()
+    );
   }
 
   // Paginated pair summaries
@@ -367,7 +369,9 @@ class Pindexer {
             height: number;
             amount: number;
           }>`jsonb_to_recordset(${sql.lit(swapsJson)}::jsonb)`.as<'latest_swaps'>(
-            sql`latest_swaps(base TEXT, quote TEXT, height INT, amount INT, type TEXT)`,
+            // amount is NUMERIC like batch_input: base units overflow INT past
+            // ~2,147 UM (2^31), which failed every lookup with a bigger swap.
+            sql`latest_swaps(base TEXT, quote TEXT, height INT, amount NUMERIC, type TEXT)`,
           ),
         )
         .select(exp => [
