@@ -25,7 +25,9 @@ workflow, moved off BuildJet runners onto `ubuntu-latest`.
 
 veil's deploy model is blue/green — see that section below for the release
 layout, the swap mechanism and the workflow behavior. There is no
-single-instance fallback path in this repo; blue/green is the only model.
+single-instance fallback path for veil. The assets dashboard is the one
+single-slot app: one release tree, one unit, restart on deploy (see
+`apps/assets/README.md`).
 
 ## Topology
 

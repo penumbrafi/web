@@ -80,7 +80,13 @@ Layout on the workload container (see `deploy/systemd/penumbra-assets.service`):
   releases/<sha>/apps/assets/server.js
 ```
 
-One-time host setup, not yet applied when this app was added:
+Confirmed by infra when this app was added: the workload container's
+`.env.production` for this app already carries `PORT=3004`, and nginx on the
+front proxy already proxies `assets.penumbra.fi` to :3004.
+
+Not verified, and required before the first deploy succeeds (the unit reads
+`/opt/penumbra-assets/.env.production` without a `-` prefix, so it must exist
+at exactly that path or the unit refuses to start):
 
 ```sh
 install -d -o web -g web /opt/penumbra-assets/releases
