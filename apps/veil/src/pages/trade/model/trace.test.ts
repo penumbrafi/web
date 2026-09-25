@@ -32,6 +32,8 @@ describe('calculateSpread', () => {
       amount: '0.2',
       percentage: '22.22',
       midPrice: '0.9',
+      bestBid: '0.8',
+      bestAsk: '1',
     });
   });
   it('handles decimal precision correctly', () => {
@@ -44,6 +46,8 @@ describe('calculateSpread', () => {
       amount: '0.11111111',
       percentage: '9.42',
       midPrice: '1.17901234',
+      bestBid: '1.12345678',
+      bestAsk: '1.23456789',
     });
   });
 
@@ -58,6 +62,8 @@ describe('calculateSpread', () => {
       amount: '5.00000000e-5',
       percentage: '66.67',
       midPrice: '7.50000000e-5',
+      bestBid: '5.00000000e-5',
+      bestAsk: '0.0001',
     });
   });
 });

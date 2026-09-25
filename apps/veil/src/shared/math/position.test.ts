@@ -360,7 +360,10 @@ describe('simpleLiquidityPositions', () => {
       );
     });
 
-    it('base-only PYRAMID is a monotonically decreasing stair from mid to upper', () => {
+    // One-sided ladders always use the rising (volatile) growth whatever shape
+    // is picked - light near mid, heavier toward the far edge - so near-mid
+    // rungs aren't emptied on the first tick (see oneSidedRungs).
+    it('base-only ladder rises from mid to upper even when PYRAMID is picked', () => {
       const positions = simpleLiquidityPositions({
         ...baseOnly,
         distributionShape: LiquidityDistributionShape.PYRAMID,
@@ -368,9 +371,9 @@ describe('simpleLiquidityPositions', () => {
       const bases = positions.map(p =>
         pnum(p.position.reserves?.r1 ?? 0, baseOnly.baseAsset.exponent).toNumber(),
       );
-      // strictly decreasing (nearest mid rung has the most base)
+      // strictly increasing (nearest mid rung has the least base)
       for (let i = 1; i < bases.length; i++) {
-        expect(bases[i]!).toBeLessThan(bases[i - 1]!);
+        expect(bases[i]!).toBeGreaterThan(bases[i - 1]!);
       }
     });
 

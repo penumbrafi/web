@@ -86,11 +86,19 @@ describe('validateOrder', () => {
     // The realistic shape: every rung rounded to zero, so the plan is an
     // empty array and there are therefore no requirements to report. This
     // must not be reported as "Enter an amount" — the user entered one.
-    const issue = blockingIssue(
+    // with a live mid the likely causes are the bounds or too many positions
+    const withMid = blockingIssue(
+      validateOrder({ requirements: [], hasPlan: true, positionCount: 0, marketPrice: 1 }),
+    );
+    expect(withMid?.message).toMatch(/Could not build any positions/);
+    expect(withMid?.message).toMatch(/reducing positions/);
+    expect(withMid?.message).not.toMatch(/Enter an amount/);
+
+    // without one, the missing anchor is named instead
+    const noMid = blockingIssue(
       validateOrder({ requirements: [], hasPlan: true, positionCount: 0 }),
     );
-    expect(issue?.message).toMatch(/too small/);
-    expect(issue?.message).not.toMatch(/Enter an amount/);
+    expect(noMid?.message).toMatch(/no live market price/);
   });
 
   it('names the funded-but-unquotable side instead of blaming the amount', () => {

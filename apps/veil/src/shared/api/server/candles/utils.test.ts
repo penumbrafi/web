@@ -111,6 +111,9 @@ describe('insertEmptyCandles', () => {
           close: 102,
         },
         volume: 0,
+        buyVolume: 0,
+        sellVolume: 0,
+        directVolume: 0,
       },
       {
         ohlc: {
@@ -171,6 +174,9 @@ describe('insertEmptyCandles', () => {
           close: 102,
         },
         volume: 0,
+        buyVolume: 0,
+        sellVolume: 0,
+        directVolume: 0,
       },
       {
         ohlc: {
@@ -181,6 +187,9 @@ describe('insertEmptyCandles', () => {
           close: 102,
         },
         volume: 0,
+        buyVolume: 0,
+        sellVolume: 0,
+        directVolume: 0,
       },
       {
         ohlc: {
@@ -289,6 +298,9 @@ describe('insertEmptyCandles', () => {
           close: 102,
         },
         volume: 0,
+        buyVolume: 0,
+        sellVolume: 0,
+        directVolume: 0,
       }, // 00:01
       {
         ohlc: {
@@ -309,6 +321,9 @@ describe('insertEmptyCandles', () => {
           close: 105,
         },
         volume: 0,
+        buyVolume: 0,
+        sellVolume: 0,
+        directVolume: 0,
       }, // 00:03
       {
         ohlc: {
@@ -392,6 +407,9 @@ describe('insertEmptyCandles', () => {
           close: 102,
         },
         volume: 0,
+        buyVolume: 0,
+        sellVolume: 0,
+        directVolume: 0,
       }, // 00:01
       {
         ohlc: {
@@ -402,6 +420,9 @@ describe('insertEmptyCandles', () => {
           close: 102,
         },
         volume: 0,
+        buyVolume: 0,
+        sellVolume: 0,
+        directVolume: 0,
       }, // 00:02
 
       // Original Candle 2
@@ -426,6 +447,9 @@ describe('insertEmptyCandles', () => {
           close: 108,
         },
         volume: 0,
+        buyVolume: 0,
+        sellVolume: 0,
+        directVolume: 0,
       }, // 00:04
       {
         ohlc: {
@@ -436,6 +460,9 @@ describe('insertEmptyCandles', () => {
           close: 108,
         },
         volume: 0,
+        buyVolume: 0,
+        sellVolume: 0,
+        directVolume: 0,
       }, // 00:05
       {
         ohlc: {
@@ -458,6 +485,9 @@ describe('insertEmptyCandles', () => {
           close: 110,
         },
         volume: 0,
+        buyVolume: 0,
+        sellVolume: 0,
+        directVolume: 0,
       }, // 00:07
       {
         ohlc: {
@@ -468,6 +498,9 @@ describe('insertEmptyCandles', () => {
           close: 110,
         },
         volume: 0,
+        buyVolume: 0,
+        sellVolume: 0,
+        directVolume: 0,
       }, // 00:08
 
       // Original Candle 4
