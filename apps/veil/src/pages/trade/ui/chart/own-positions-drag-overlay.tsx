@@ -60,9 +60,7 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
     const { baseAsset, quoteAsset } = usePathToMetadata();
     const getMetadata = useGetMetadata();
 
-    const { data: pages } = usePositions(subaccount, [
-      PositionState_PositionStateEnum.OPENED,
-    ]);
+    const { data: positions } = usePositions(subaccount, [PositionState_PositionStateEnum.OPENED]);
 
     const containerRef = useRef<HTMLDivElement | null>(null);
     const [, force] = useState(0);
@@ -87,29 +85,32 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
     // positions on the current pair. Each rung carries enough context
     // to rebuild a Position at a new price on drop.
     const rungs: Rung[] = useMemo(() => {
-      if (!connected || !enabled || !baseAsset || !quoteAsset || !pages?.pages.length) {
+      if (!connected || !enabled || !baseAsset || !quoteAsset || !positions?.size) {
         return [];
       }
       const display = getDisplayPositions({
-        positions: pages.pages,
+        positions,
         getMetadata,
         asset1Filter: baseAsset,
         asset2Filter: quoteAsset,
       });
       const out: Rung[] = [];
       for (const dp of display) {
-        if (!dp.isOpened) {continue;}
+        if (!dp.isOpened) {
+          continue;
+        }
         for (const [i, o] of dp.orders.entries()) {
           const price = pnum(o.effectivePrice).toNumber();
-          if (!Number.isFinite(price) || price <= 0) {continue;}
+          if (!Number.isFinite(price) || price <= 0) {
+            continue;
+          }
           const dir = o.direction.toLowerCase();
           const amt = pnum(o.amount).toNumber();
-          const sym = dir === 'buy'
-            ? o.quoteAsset.asset.symbol
-            : o.baseAsset.asset.symbol;
-          const amountLabel = Number.isFinite(amt) && amt > 0
-            ? `${amt >= 100 ? amt.toFixed(0) : amt.toFixed(4)} ${sym}`
-            : '';
+          const sym = dir === 'buy' ? o.quoteAsset.asset.symbol : o.baseAsset.asset.symbol;
+          const amountLabel =
+            Number.isFinite(amt) && amt > 0
+              ? `${amt >= 100 ? amt.toFixed(0) : amt.toFixed(4)} ${sym}`
+              : '';
           out.push({
             key: `${dp.idString}-${i}`,
             y: 0,
@@ -124,7 +125,7 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
         }
       }
       return out;
-    }, [connected, enabled, baseAsset, quoteAsset, pages, getMetadata]);
+    }, [connected, enabled, baseAsset, quoteAsset, positions, getMetadata]);
 
     // Recompute y-coordinates on any chart repaint (pan/zoom/resize).
     // useRef so subscribeRedraw's callback can read the latest rungs.
@@ -134,7 +135,9 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
         const m = new Map<string, number>();
         for (const r of rungs) {
           const y = yAtPrice(r.price);
-          if (y !== undefined) {m.set(r.key, y);}
+          if (y !== undefined) {
+            m.set(r.key, y);
+          }
         }
         yByKeyRef.current = m;
         force(x => x + 1);
@@ -143,31 +146,40 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
       return unsub;
     }, [rungs, yAtPrice, subscribeRedraw]);
 
-    if (!enabled || rungs.length === 0) {return null;}
+    if (!enabled || rungs.length === 0) {
+      return null;
+    }
 
-    const onPointerDown =
-      (rung: Rung) => (ev: React.PointerEvent<HTMLDivElement>) => {
-        if (ev.button !== 0) {return;}
-        const container = containerRef.current;
-        if (!container) {return;}
-        const rect = container.getBoundingClientRect();
-        const y = ev.clientY - rect.top;
-        try {
-          ev.currentTarget.setPointerCapture(ev.pointerId);
-        } catch {
-          // best-effort
-        }
-        dragRef.current = { key: rung.key, pointerId: ev.pointerId, y };
-        setDragY({ key: rung.key, y });
-        ev.preventDefault();
-        ev.stopPropagation();
-      };
+    const onPointerDown = (rung: Rung) => (ev: React.PointerEvent<HTMLDivElement>) => {
+      if (ev.button !== 0) {
+        return;
+      }
+      const container = containerRef.current;
+      if (!container) {
+        return;
+      }
+      const rect = container.getBoundingClientRect();
+      const y = ev.clientY - rect.top;
+      try {
+        ev.currentTarget.setPointerCapture(ev.pointerId);
+      } catch {
+        // best-effort
+      }
+      dragRef.current = { key: rung.key, pointerId: ev.pointerId, y };
+      setDragY({ key: rung.key, y });
+      ev.preventDefault();
+      ev.stopPropagation();
+    };
 
     const onPointerMove = (ev: React.PointerEvent<HTMLDivElement>) => {
       const state = dragRef.current;
-      if (!state || state.pointerId !== ev.pointerId) {return;}
+      if (!state || state.pointerId !== ev.pointerId) {
+        return;
+      }
       const container = containerRef.current;
-      if (!container) {return;}
+      if (!container) {
+        return;
+      }
       const rect = container.getBoundingClientRect();
       const y = Math.max(0, Math.min(rect.height, ev.clientY - rect.top));
       state.y = y;
@@ -182,34 +194,35 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
       }
     };
 
-    const onPointerUp =
-      (rung: Rung) => (ev: React.PointerEvent<HTMLDivElement>) => {
-        const state = dragRef.current;
-        try {
-          ev.currentTarget.releasePointerCapture(ev.pointerId);
-        } catch {
-          // best-effort
-        }
-        if (!state || state.pointerId !== ev.pointerId) {return;}
-        const newPrice = priceAtY(state.y);
-        const y = state.y;
-        dragRef.current = null;
-        setDragY(null);
-        // Drop the live-line override on release. If the user confirms the
-        // pending reprice, the on-chain edit + position refetch will paint
-        // the OG line at the new price naturally; if they cancel, the OG
-        // line snaps back to its pre-drag price.
-        clearDragOverride(rung.key);
-        if (newPrice === undefined || !Number.isFinite(newPrice) || newPrice <= 0) {
-          return;
-        }
-        // Skip if the drop is essentially at the same price (sub-bp) so an
-        // accidental click doesn't open a confirmation.
-        if (Math.abs(newPrice - rung.price) / rung.price < 0.001) {
-          return;
-        }
-        setPending({ rung, newPrice, y });
-      };
+    const onPointerUp = (rung: Rung) => (ev: React.PointerEvent<HTMLDivElement>) => {
+      const state = dragRef.current;
+      try {
+        ev.currentTarget.releasePointerCapture(ev.pointerId);
+      } catch {
+        // best-effort
+      }
+      if (!state || state.pointerId !== ev.pointerId) {
+        return;
+      }
+      const newPrice = priceAtY(state.y);
+      const y = state.y;
+      dragRef.current = null;
+      setDragY(null);
+      // Drop the live-line override on release. If the user confirms the
+      // pending reprice, the on-chain edit + position refetch will paint
+      // the OG line at the new price naturally; if they cancel, the OG
+      // line snaps back to its pre-drag price.
+      clearDragOverride(rung.key);
+      if (newPrice === undefined || !Number.isFinite(newPrice) || newPrice <= 0) {
+        return;
+      }
+      // Skip if the drop is essentially at the same price (sub-bp) so an
+      // accidental click doesn't open a confirmation.
+      if (Math.abs(newPrice - rung.price) / rung.price < 0.001) {
+        return;
+      }
+      setPending({ rung, newPrice, y });
+    };
 
     const confirmReprice = async () => {
       if (!pending || !baseAsset || !quoteAsset) {
@@ -221,11 +234,12 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
       const existingFee = rung.position.phi?.component?.fee ?? 0;
       const r1 = pnum(rung.position.reserves?.r1, rung.baseExponent).toNumber();
       const r2 = pnum(rung.position.reserves?.r2, rung.quoteExponent).toNumber();
-      const baseExp =
-        baseAsset.denomUnits.find(u => u.denom === baseAsset.display)?.exponent ?? 0;
+      const baseExp = baseAsset.denomUnits.find(u => u.denom === baseAsset.display)?.exponent ?? 0;
       const quoteExp =
         quoteAsset.denomUnits.find(u => u.denom === quoteAsset.display)?.exponent ?? 0;
-      if (!baseAsset.penumbraAssetId || !quoteAsset.penumbraAssetId) {return;}
+      if (!baseAsset.penumbraAssetId || !quoteAsset.penumbraAssetId) {
+        return;
+      }
       const built = planToPosition(
         {
           baseAsset: { id: baseAsset.penumbraAssetId, exponent: baseExp },
@@ -274,8 +288,7 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
           </div>
         )}
         {rungs.map(r => {
-          const yLive =
-            dragY?.key === r.key ? dragY.y : (yByKeyRef.current.get(r.key) ?? -9999);
+          const yLive = dragY?.key === r.key ? dragY.y : (yByKeyRef.current.get(r.key) ?? -9999);
           const color = SIDE_COLOR[r.direction];
           const dirLabel = SIDE_LABEL[r.direction];
           const tooltip = r.amountLabel
@@ -334,15 +347,16 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
               lineHeight: '16px',
             }}
           >
-            <div className='mb-1 text-text-secondary'>Reprice {pending.rung.direction || 'order'}</div>
+            <div className='mb-1 text-text-secondary'>
+              Reprice {pending.rung.direction || 'order'}
+            </div>
             <div className='mb-2 text-text-primary tabular-nums'>
-              {pending.rung.price.toPrecision(6)}{' '}
-              <span className='text-text-secondary'>→</span>{' '}
+              {pending.rung.price.toPrecision(6)} <span className='text-text-secondary'>→</span>{' '}
               {pending.newPrice.toPrecision(6)}
             </div>
             <div className='mb-2 text-[11px] text-text-secondary'>
-              One tx: close the existing position, withdraw its reserves,
-              open a new one at the new price. Same reserves, same fee tier.
+              One tx: close the existing position, withdraw its reserves, open a new one at the new
+              price. Same reserves, same fee tier.
             </div>
             <div className='flex justify-end gap-2'>
               <button

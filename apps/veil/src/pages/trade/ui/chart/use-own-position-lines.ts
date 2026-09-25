@@ -62,23 +62,21 @@ export const useOwnPositionLines = (
   const { baseAsset, quoteAsset } = usePathToMetadata();
   const getMetadata = useGetMetadata();
 
-  const { data: positionsPages } = usePositions(subaccount, [
-    PositionState_PositionStateEnum.OPENED,
-  ]);
+  const { data: positions } = usePositions(subaccount, [PositionState_PositionStateEnum.OPENED]);
 
   useEffect(() => {
     // Wrap the line rebuild in a mobx `autorun` so it re-fires whenever
     // `ownPositionDragOverrides` changes (drag start / move / drop).
-    // React-query's `positionsPages` isn't observable, so it lives in the
+    // React-query's `positions` isn't observable, so it lives in the
     // outer effect deps — a fresh page of positions destroys the old
     // autorun and creates a new one with the new closure.
     const dispose = autorun(() => {
-      if (!connected || !baseAsset || !quoteAsset || !positionsPages?.pages.length) {
+      if (!connected || !baseAsset || !quoteAsset || !positions?.size) {
         setLines([]);
         return;
       }
       const display = getDisplayPositions({
-        positions: positionsPages.pages,
+        positions,
         getMetadata,
         asset1Filter: baseAsset,
         asset2Filter: quoteAsset,
@@ -184,7 +182,7 @@ export const useOwnPositionLines = (
     return dispose;
   }, [
     connected,
-    positionsPages,
+    positions,
     baseAsset,
     quoteAsset,
     getMetadata,

@@ -192,7 +192,7 @@ export const getOrderValueViews = ({
 };
 
 export interface GetDisplayPositionsArgs {
-  positions: Map<string, Position>[] | undefined;
+  positions: Map<string, Position> | undefined;
   getMetadata: GetMetadata;
   asset1Filter?: Metadata;
   asset2Filter?: Metadata;
@@ -220,11 +220,7 @@ export const getDisplayPositions = ({
   marketPrice,
   marketPriceByPair,
 }: GetDisplayPositionsArgs): DisplayPosition[] => {
-  // take the array of Map and reduce it to an array of entries
-  const entries =
-    positions?.reduce<[string, Position][]>((accum, current) => {
-      return accum.concat([...current.entries()]);
-    }, []) ?? [];
+  const entries = positions ? [...positions.entries()] : [];
 
   // adapt each position to a DisplayPosition
   const mapped = entries.map<DisplayPosition | undefined>(([id, position]) => {

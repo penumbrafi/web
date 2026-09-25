@@ -3,8 +3,8 @@ import { useQueries } from '@tanstack/react-query';
 import { apiFetch } from '@/shared/utils/api-fetch.ts';
 import { PositionsStatsResponse } from '@/shared/api/server/position/stats/types';
 
-// The endpoint caps a request at 200 ids. Chunk by load order, so loading
-// another page adds a chunk instead of changing (and refetching) every one.
+// The endpoint caps a request at 200 ids. Chunks follow the owned-id order,
+// so a new position only changes the last chunk.
 const CHUNK = 100;
 
 export const usePositionsStats = (positionIds: string[]) => {
@@ -21,6 +21,8 @@ export const usePositionsStats = (positionIds: string[]) => {
       // Order-independent within a chunk so the same set hits the same slot.
       queryKey: ['positionsStats', [...ids].sort()],
       staleTime: 60_000,
+      // Fees accrue on fills; without this they froze while the table stayed open.
+      refetchInterval: 60_000,
       queryFn: () =>
         apiFetch<PositionsStatsResponse>('/api/position/stats', {
           positionIds: ids.join(','),

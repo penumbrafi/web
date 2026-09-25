@@ -35,40 +35,38 @@ export const useCommittedReserves = (
 
   return useMemo(() => {
     const empty = { base: 0, quote: 0 };
-    if (!connected || !base?.penumbraAssetId || !quote?.penumbraAssetId || !data?.pages) {
+    if (!connected || !base?.penumbraAssetId || !quote?.penumbraAssetId || !data) {
       return empty;
     }
     let baseSum = 0n;
     let quoteSum = 0n;
 
-    for (const page of data.pages) {
-      for (const position of page.values()) {
-        const pair = position.phi?.pair;
-        const r1 = position.reserves?.r1;
-        const r2 = position.reserves?.r2;
-        if (!pair?.asset1 || !pair.asset2 || !r1 || !r2) {
-          continue;
-        }
+    for (const position of data.values()) {
+      const pair = position.phi?.pair;
+      const r1 = position.reserves?.r1;
+      const r2 = position.reserves?.r2;
+      if (!pair?.asset1 || !pair.asset2 || !r1 || !r2) {
+        continue;
+      }
 
-        const canonical =
-          pair.asset1.equals(base.penumbraAssetId) && pair.asset2.equals(quote.penumbraAssetId);
-        const flipped =
-          pair.asset2.equals(base.penumbraAssetId) && pair.asset1.equals(quote.penumbraAssetId);
-        if (!canonical && !flipped) {
-          continue;
-        }
+      const canonical =
+        pair.asset1.equals(base.penumbraAssetId) && pair.asset2.equals(quote.penumbraAssetId);
+      const flipped =
+        pair.asset2.equals(base.penumbraAssetId) && pair.asset1.equals(quote.penumbraAssetId);
+      if (!canonical && !flipped) {
+        continue;
+      }
 
-        // Positions in a pair always share canonical ordering on-chain
-        // (asset1 < asset2 by id) so each match maps r1/r2 to the
-        // caller's (base, quote) orientation via a per-position flip
-        // rather than sniffing orientation from the first hit.
-        if (canonical) {
-          baseSum += joinLoHiAmount(r1);
-          quoteSum += joinLoHiAmount(r2);
-        } else {
-          baseSum += joinLoHiAmount(r2);
-          quoteSum += joinLoHiAmount(r1);
-        }
+      // Positions in a pair always share canonical ordering on-chain
+      // (asset1 < asset2 by id) so each match maps r1/r2 to the
+      // caller's (base, quote) orientation via a per-position flip
+      // rather than sniffing orientation from the first hit.
+      if (canonical) {
+        baseSum += joinLoHiAmount(r1);
+        quoteSum += joinLoHiAmount(r2);
+      } else {
+        baseSum += joinLoHiAmount(r2);
+        quoteSum += joinLoHiAmount(r1);
       }
     }
 

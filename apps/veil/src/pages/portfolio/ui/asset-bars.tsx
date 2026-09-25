@@ -33,8 +33,12 @@ interface AssetAllocation {
 const isKnown = (balancesResponse: BalancesResponse) =>
   getValueViewCaseFromBalancesResponse.optional(balancesResponse) === 'knownAssetId';
 
-export const AssetBars: React.FC = () => {
-  const { data: shieldedBalances, isLoading: isShieldedLoading } = useBalances();
+export const AssetBars = observer(() => {
+  // Scoped to the selected sub-account, like the Assets table beside it.
+  // Unfiltered, the bars summed every sub-account.
+  const { data: shieldedBalances, isLoading: isShieldedLoading } = useBalances(
+    connectionStore.subaccount,
+  );
   const { balances: publicBalances, isLoading: isPublicLoading } = useCosmosBalances();
 
   const { prices } = useAssetPrices(
@@ -240,7 +244,7 @@ export const AssetBars: React.FC = () => {
       </div>
     </div>
   );
-};
+});
 
 /** HSL color saturation for asset bars. Unit: % */
 const COLOR_SATURATION = 95;

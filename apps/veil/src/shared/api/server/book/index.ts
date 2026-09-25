@@ -20,12 +20,14 @@ export const TRACE_LIMIT_DEFAULT = 30;
 
 export type RouteBookApiResponse = RouteBookResponseJson | { error: string };
 
-// The client only ever sends 30 (route-book/depth default, order-form
-// prime) or 100 (route-book/depth panels). Anything else is either a typo
+// The client only ever sends 1 (portfolio mids), 30 (route-book/depth default,
+// order-form prime) or 100 (route-book/depth panels). Anything else is either a typo
 // or abuse: `traceLimit=abc` gave a NaN cache key and an asymmetric book
 // (`slice(0, NaN)` empties one side, `slice(-NaN)` keeps the other), and
 // every distinct integer minted a fresh cache key + two pd simulates.
-const TRACE_LIMIT_ALLOWED = new Set<number>([TRACE_LIMIT_DEFAULT, 100]);
+// 1 = touch only (best bid + best ask), for screens that just need a mid.
+export const TRACE_LIMIT_TOUCH = 1;
+const TRACE_LIMIT_ALLOWED = new Set<number>([TRACE_LIMIT_TOUCH, TRACE_LIMIT_DEFAULT, 100]);
 const parseTraceLimit = (raw: string | null): number => {
   if (raw === null || raw === '') {
     return TRACE_LIMIT_DEFAULT;
@@ -175,11 +177,15 @@ export const sliceBook = (data: RouteBookResponseJson, limit: number): RouteBook
   if (limit >= COMPUTE_TRACE_LIMIT) {
     return data;
   }
-  // Both sides are stored best-price-first (see processSimulation), so the
-  // first `limit` entries are exactly what a `limit` compute returned, and
-  // single hops are, as before, the 2-hop subset of the trimmed multi-hop list.
+  // processSimulation stores bids best-first (descending) and asks best-LAST
+  // (the lowest `limit` asks, reversed for display: highest at the top, best
+  // ask at the bottom). So a `limit` compute's asks are the TAIL of the
+  // stored side. Taking the head kept the 30 worst asks: on UM/USDC.inj the
+  // default book's best ask read 0.00609 against a real 0.003965, and every
+  // mid built on it was off. Singles stay the 2-hop subset of the trimmed
+  // multi-hop lists.
   const buy = data.multiHops.buy.slice(0, limit);
-  const sell = data.multiHops.sell.slice(0, limit);
+  const sell = data.multiHops.sell.slice(-limit);
   return {
     singleHops: {
       buy: buy.filter(t => t.hops.length === 2),

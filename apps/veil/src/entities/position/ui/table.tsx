@@ -4,7 +4,7 @@ import cn from 'clsx';
 import Link from 'next/link';
 import orderBy from 'lodash/orderBy';
 import { ChevronDown, ChevronUp, SquareArrowOutUpRight } from 'lucide-react';
-import { Fragment, ReactNode, memo, useMemo, useState } from 'react';
+import { ReactNode, memo, useMemo, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { Text } from '@penumbra-zone/ui/Text';
@@ -34,7 +34,6 @@ import { HeaderActionButton } from './header-action-button';
 import { ActionButton } from './action-button';
 import { Dash } from './dash';
 import { useObserver } from '@/shared/utils/use-observer';
-import SpinnerIcon from '@/shared/assets/spinner-icon.svg';
 import { PositionState_PositionStateEnum } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
 import { fullyWithdrawn } from '@/shared/utils/position';
 
@@ -181,6 +180,230 @@ const SortableTableHeader = memo(
 
 SortableTableHeader.displayName = 'SortableTableHeader';
 
+const PAGE = 50;
+
+// What a row renders from; equal signatures mean the row can be reused.
+const rowSignature = (row: DisplayPosition): string => {
+  const r = row.position.reserves;
+  const st = row.stats;
+  return [
+    row.state,
+    r?.r1?.lo,
+    r?.r1?.hi,
+    r?.r2?.lo,
+    r?.r2?.hi,
+    row.marketPrice,
+    st?.feesQuoteNumber,
+    st?.aprPct?.toFixed(1),
+    st?.pnlNumber,
+    row.orders.map(o => o.direction).join('/'),
+  ].join('|');
+};
+
+const PositionRow = memo(
+  observer(
+    ({
+      position,
+      isLoading,
+      isLast,
+    }: {
+      position: DisplayPosition;
+      isLoading: boolean;
+      isLast: boolean;
+    }) => (
+      <>
+        {position.orders.slice(0, position.isWithdrawn ? 1 : Infinity).map((order, orderIndex) => {
+          const isLastCell =
+            isLast || (position.orders.length > 1 && orderIndex === position.orders.length - 1);
+          const variant = isLastCell ? 'lastCell' : 'cell';
+          // Quote-per-order-base mid for this row (route mid on /trade,
+          // this row's own pair book on /portfolio). Undefined when the
+          // pair has no book — cells then render a Dash.
+          const rowMarketPrice = position.marketPrice;
+
+          return (
+            <div key={orderIndex} className='col-span-11 grid grid-cols-subgrid [&>div]:h-10'>
+              <TableCell loading={isLoading} variant={variant}>
+                {position.isOpened ? (
+                  <Text
+                    as='div'
+                    detail
+                    color={order.direction === 'Buy' ? 'success.light' : 'destructive.light'}
+                  >
+                    {order.direction}
+                  </Text>
+                ) : (
+                  <Text as='div' detail color='neutral.light'>
+                    {stateToString(position.state)}
+                  </Text>
+                )}
+              </TableCell>
+
+              <TableCell loading={isLoading} variant={variant}>
+                {position.isWithdrawn ? (
+                  <Dash />
+                ) : (
+                  <Sensitive>
+                    <ValueViewComponent
+                      priority='tertiary'
+                      trailingZeros={false}
+                      valueView={
+                        position.isClosed && orderIndex === 1 ? order.basePrice : order.amount
+                      }
+                    />
+                  </Sensitive>
+                )}
+              </TableCell>
+
+              <TableCell loading={isLoading} variant={variant}>
+                {position.isClosed || position.isWithdrawn ? (
+                  <Dash />
+                ) : (
+                  <Tooltip
+                    message={
+                      <>
+                        <Text as='div' detail color='text.primary'>
+                          Base price: {pnum(order.basePrice).toFormattedString()}
+                        </Text>
+                        <Text as='div' detail color='text.primary'>
+                          Fee:{' '}
+                          {pnum(order.basePrice)
+                            .toBigNumber()
+                            .minus(pnum(order.effectivePrice).toBigNumber())
+                            .toString()}{' '}
+                          ({position.fee})
+                        </Text>
+                        <Text as='div' detail color='text.primary'>
+                          Effective price: {pnum(order.effectivePrice).toFormattedString()}
+                        </Text>
+                      </>
+                    }
+                  >
+                    <div className='flex flex-col items-start'>
+                      <ValueViewComponent
+                        priority='tertiary'
+                        valueView={order.effectivePrice}
+                        trailingZeros={false}
+                      />
+                      {/* Distance from mid — surfaces which rungs are
+                                at-the-money vs. deep in the book at a glance.
+                                Penumbra positions are limit-like, so 'far
+                                from mid' just means dormant, not broken — the
+                                colour is informational, not alarming. */}
+                      {position.isOpened &&
+                        rowMarketPrice != null &&
+                        rowMarketPrice > 0 &&
+                        (() => {
+                          const eff = pnum(order.effectivePrice).toNumber();
+                          if (!Number.isFinite(eff) || eff <= 0) {
+                            return null;
+                          }
+                          const deltaPct = ((eff - rowMarketPrice) / rowMarketPrice) * 100;
+                          const abs = Math.abs(deltaPct);
+                          const sign = deltaPct > 0 ? '+' : '';
+                          // Past 2x a percentage stops reading
+                          // ("+37719.94%"); a multiple doesn't.
+                          const label =
+                            deltaPct >= 100
+                              ? `${(eff / rowMarketPrice).toFixed(1)}× mid`
+                              : `${sign}${deltaPct.toFixed(2)}% from mid`;
+                          let tone = 'text-neutral-light';
+                          if (abs < 1) {
+                            tone = 'text-success-light';
+                          } else if (abs < 5) {
+                            tone = 'text-text-secondary';
+                          }
+                          return (
+                            <span
+                              className={cn('text-[10px] tabular-nums', tone)}
+                              style={{ lineHeight: 1 }}
+                            >
+                              {label}
+                            </span>
+                          );
+                        })()}
+                    </div>
+                  </Tooltip>
+                )}
+              </TableCell>
+
+              <TableCell loading={isLoading} variant={variant}>
+                {position.isClosed || position.isWithdrawn ? <Dash /> : position.fee}
+              </TableCell>
+
+              <TableCell loading={isLoading} variant={variant}>
+                {position.isClosed || position.isWithdrawn ? (
+                  <Dash />
+                ) : (
+                  <ValueViewComponent
+                    priority='tertiary'
+                    valueView={order.basePrice}
+                    trailingZeros={false}
+                  />
+                )}
+              </TableCell>
+
+              <TableCell loading={isLoading} variant={variant}>
+                {fullyWithdrawn(position.position) ? (
+                  <Dash />
+                ) : (
+                  <Sensitive>
+                    <PositionsCurrentValue order={order} marketPrice={rowMarketPrice} />
+                  </Sensitive>
+                )}
+              </TableCell>
+
+              <TableCell loading={isLoading} variant={variant}>
+                {fullyWithdrawn(position.position) ? (
+                  <Dash />
+                ) : (
+                  <Sensitive>
+                    <PositionsFeesCell stats={position.stats} />
+                  </Sensitive>
+                )}
+              </TableCell>
+
+              <TableCell loading={isLoading} variant={variant}>
+                {fullyWithdrawn(position.position) ? (
+                  <Dash />
+                ) : (
+                  <PositionsAprCell stats={position.stats} />
+                )}
+              </TableCell>
+
+              <TableCell loading={isLoading} variant={variant}>
+                {fullyWithdrawn(position.position) ? (
+                  <Dash />
+                ) : (
+                  <Sensitive>
+                    <PositionsPnlCell stats={position.stats} />
+                  </Sensitive>
+                )}
+              </TableCell>
+
+              <TableCell loading={isLoading} variant={variant}>
+                <div className='flex max-w-[104px]'>
+                  <Text as='div' detailTechnical color='text.primary' truncate>
+                    {position.idString}
+                  </Text>
+                  <Link href={`/explore/lp/${position.idString}`}>
+                    <SquareArrowOutUpRight className='h-4 w-4 text-text-secondary' />
+                  </Link>
+                </div>
+              </TableCell>
+
+              <TableCell loading={isLoading} variant={variant}>
+                <ActionButton id={position.id} position={position.position} />
+              </TableCell>
+            </div>
+          );
+        })}
+      </>
+    ),
+  ),
+);
+PositionRow.displayName = 'PositionRow';
+
 export const PositionsTable = observer((props: PositionsTableProps) => {
   const { base, quote, stateFilter, pairKey, onPairKeyChange } = props;
   const { connected, subaccount } = connectionStore;
@@ -193,25 +416,14 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
   const isRoutePair = Boolean(routeBaseSymbol) && Boolean(routeQuoteSymbol);
   const { marketPrice: routeBookMarketPrice } = useMarketPrice();
 
-  const { data, isLoading, isRefetching, isFetchingNextPage, fetchNextPage, error } = usePositions(
-    subaccount,
-    stateFilter,
-  );
+  const { data, isLoading, error } = usePositions(subaccount, stateFilter);
 
   // Wallet's owned position id list, deduped, used to fetch fees/APR/PNL
   // stats from pindexer in one round trip rather than per row.
-  const positionIds = useMemo(() => {
-    if (!data?.pages) {
-      return [];
-    }
-    const seen = new Set<string>();
-    for (const page of data.pages) {
-      for (const id of page.keys()) {
-        seen.add(id);
-      }
-    }
-    return [...seen];
-  }, [data?.pages]);
+  // Keyed on the id list itself, not the Map: each block hands back a new
+  // Map with the same ids, and that must not refetch the stats.
+  const idsSignature = data ? [...data.keys()].join(',') : '';
+  const positionIds = useMemo(() => (idsSignature ? idsSignature.split(',') : []), [idsSignature]);
   const { data: statsResponse } = usePositionsStats(positionIds);
   const statsById = useMemo(() => {
     if (!statsResponse) {
@@ -232,18 +444,16 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
       return [];
     }
     const seen = new Map<string, { base: string; quote: string }>();
-    for (const page of data?.pages ?? []) {
-      for (const position of page.values()) {
-        const { phi } = position as ExecutedPosition;
-        const base = getMetadata(phi.pair.asset1)?.symbol;
-        const quote = getMetadata(phi.pair.asset2)?.symbol;
-        if (base && quote) {
-          seen.set(`${base}|${quote}`, { base, quote });
-        }
+    for (const position of data?.values() ?? []) {
+      const { phi } = position as ExecutedPosition;
+      const base = getMetadata(phi.pair.asset1)?.symbol;
+      const quote = getMetadata(phi.pair.asset2)?.symbol;
+      if (base && quote) {
+        seen.set(`${base}|${quote}`, { base, quote });
       }
     }
     return [...seen.values()];
-  }, [data?.pages, getMetadata, isRoutePair]);
+  }, [data, getMetadata, isRoutePair]);
   const bookMidByPair = usePortfolioMarketPrices(marketPairs);
 
   // Fair price from USD reference intel wins over the book mid wherever both
@@ -278,23 +488,36 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
   // asset on each entry — non-trivial on a wallet with many LP positions.
   // Memoize so it only re-runs when the underlying inputs actually change.
   // useGetMetadata's return is now useCallback-stable so this dep is honest.
-  const displayPositions = useMemo(
-    () =>
-      getDisplayPositions({
-        positions: data?.pages,
-        asset1Filter: base,
-        asset2Filter: quote,
-        getMetadata,
-        statsById,
-        marketPrice: routeMarketPrice,
-        marketPriceByPair: pairMarketPrice,
-      }),
-    [data?.pages, base, quote, getMetadata, statsById, routeMarketPrice, pairMarketPrice],
-  );
+  // Rows whose content did not change keep their previous object, so the
+  // memoized PositionRow skips them. Every block returns fresh Position
+  // protos, which used to rebuild and re-render every row on every block.
+  const stableRows = useRef(new Map<string, { sig: string; row: DisplayPosition }>());
+  const displayPositions = useMemo(() => {
+    const fresh = getDisplayPositions({
+      positions: data,
+      asset1Filter: base,
+      asset2Filter: quote,
+      getMetadata,
+      statsById,
+      marketPrice: routeMarketPrice,
+      marketPriceByPair: pairMarketPrice,
+    });
+    const next = new Map<string, { sig: string; row: DisplayPosition }>();
+    const rows = fresh.map(row => {
+      const sig = rowSignature(row);
+      const prev = stableRows.current.get(row.idString);
+      const kept = prev?.sig === sig ? prev.row : row;
+      next.set(row.idString, { sig, row: kept });
+      return kept;
+    });
+    stableRows.current = next;
+    return rows;
+  }, [data, base, quote, getMetadata, statsById, routeMarketPrice, pairMarketPrice]);
 
-  const { observerEl } = useObserver(isLoading || isRefetching || isFetchingNextPage, () => {
-    void fetchNextPage();
-  });
+  // Client-side paging over the full list: render PAGE rows, add PAGE more
+  // when the sentinel scrolls into view.
+  const [visible, setVisible] = useState(PAGE);
+  const { observerEl } = useObserver(isLoading, () => setVisible(v => v + PAGE));
 
   const [sortBy, setSortBy] = useState<SortBy>({
     key: 'effectivePrice',
@@ -344,6 +567,8 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
   if (error) {
     return <ErrorNotice />;
   }
+
+  const shownPositions = sortedPositions.slice(0, visible);
 
   if (!isLoading && !sortedPositions.length) {
     return <NoPositions />;
@@ -435,209 +660,24 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
           </TableCell>
         </div>
 
-        {(isLoading ? LOADING_PLACEHOLDER : sortedPositions).map((position, index) => (
-          <Fragment key={`${position.idString}${index}`}>
-            {position.orders
-              .slice(0, position.isWithdrawn ? 1 : Infinity)
-              .map((order, orderIndex) => {
-                const isLastCell =
-                  index === sortedPositions.length - 1 ||
-                  (position.orders.length > 1 && orderIndex === position.orders.length - 1);
-                const variant = isLastCell ? 'lastCell' : 'cell';
-                // Quote-per-order-base mid for this row (route mid on /trade,
-                // this row's own pair book on /portfolio). Undefined when the
-                // pair has no book — cells then render a Dash.
-                const rowMarketPrice = position.marketPrice;
-
-                return (
-                  <div key={orderIndex} className='col-span-11 grid grid-cols-subgrid [&>div]:h-10'>
-                    <TableCell loading={isLoading} variant={variant}>
-                      {position.isOpened ? (
-                        <Text
-                          as='div'
-                          detail
-                          color={order.direction === 'Buy' ? 'success.light' : 'destructive.light'}
-                        >
-                          {order.direction}
-                        </Text>
-                      ) : (
-                        <Text as='div' detail color='neutral.light'>
-                          {stateToString(position.state)}
-                        </Text>
-                      )}
-                    </TableCell>
-
-                    <TableCell loading={isLoading} variant={variant}>
-                      {position.isWithdrawn ? (
-                        <Dash />
-                      ) : (
-                        <Sensitive>
-                          <ValueViewComponent
-                            priority='tertiary'
-                            trailingZeros={false}
-                            valueView={
-                              position.isClosed && orderIndex === 1 ? order.basePrice : order.amount
-                            }
-                          />
-                        </Sensitive>
-                      )}
-                    </TableCell>
-
-                    <TableCell loading={isLoading} variant={variant}>
-                      {position.isClosed || position.isWithdrawn ? (
-                        <Dash />
-                      ) : (
-                        <Tooltip
-                          message={
-                            <>
-                              <Text as='div' detail color='text.primary'>
-                                Base price: {pnum(order.basePrice).toFormattedString()}
-                              </Text>
-                              <Text as='div' detail color='text.primary'>
-                                Fee:{' '}
-                                {pnum(order.basePrice)
-                                  .toBigNumber()
-                                  .minus(pnum(order.effectivePrice).toBigNumber())
-                                  .toString()}{' '}
-                                ({position.fee})
-                              </Text>
-                              <Text as='div' detail color='text.primary'>
-                                Effective price: {pnum(order.effectivePrice).toFormattedString()}
-                              </Text>
-                            </>
-                          }
-                        >
-                          <div className='flex flex-col items-start'>
-                            <ValueViewComponent
-                              priority='tertiary'
-                              valueView={order.effectivePrice}
-                              trailingZeros={false}
-                            />
-                            {/* Distance from mid — surfaces which rungs are
-                                at-the-money vs. deep in the book at a glance.
-                                Penumbra positions are limit-like, so 'far
-                                from mid' just means dormant, not broken — the
-                                colour is informational, not alarming. */}
-                            {position.isOpened &&
-                              rowMarketPrice != null &&
-                              rowMarketPrice > 0 &&
-                              (() => {
-                                const eff = pnum(order.effectivePrice).toNumber();
-                                if (!Number.isFinite(eff) || eff <= 0) {
-                                  return null;
-                                }
-                                const deltaPct = ((eff - rowMarketPrice) / rowMarketPrice) * 100;
-                                const abs = Math.abs(deltaPct);
-                                const sign = deltaPct > 0 ? '+' : '';
-                                // Past 2x a percentage stops reading
-                                // ("+37719.94%"); a multiple doesn't.
-                                const label =
-                                  deltaPct >= 100
-                                    ? `${(eff / rowMarketPrice).toFixed(1)}× mid`
-                                    : `${sign}${deltaPct.toFixed(2)}% from mid`;
-                                let tone = 'text-neutral-light';
-                                if (abs < 1) {
-                                  tone = 'text-success-light';
-                                } else if (abs < 5) {
-                                  tone = 'text-text-secondary';
-                                }
-                                return (
-                                  <span
-                                    className={cn('text-[10px] tabular-nums', tone)}
-                                    style={{ lineHeight: 1 }}
-                                  >
-                                    {label}
-                                  </span>
-                                );
-                              })()}
-                          </div>
-                        </Tooltip>
-                      )}
-                    </TableCell>
-
-                    <TableCell loading={isLoading} variant={variant}>
-                      {position.isClosed || position.isWithdrawn ? <Dash /> : position.fee}
-                    </TableCell>
-
-                    <TableCell loading={isLoading} variant={variant}>
-                      {position.isClosed || position.isWithdrawn ? (
-                        <Dash />
-                      ) : (
-                        <ValueViewComponent
-                          priority='tertiary'
-                          valueView={order.basePrice}
-                          trailingZeros={false}
-                        />
-                      )}
-                    </TableCell>
-
-                    <TableCell loading={isLoading} variant={variant}>
-                      {fullyWithdrawn(position.position) ? (
-                        <Dash />
-                      ) : (
-                        <Sensitive>
-                          <PositionsCurrentValue order={order} marketPrice={rowMarketPrice} />
-                        </Sensitive>
-                      )}
-                    </TableCell>
-
-                    <TableCell loading={isLoading} variant={variant}>
-                      {fullyWithdrawn(position.position) ? (
-                        <Dash />
-                      ) : (
-                        <Sensitive>
-                          <PositionsFeesCell stats={position.stats} />
-                        </Sensitive>
-                      )}
-                    </TableCell>
-
-                    <TableCell loading={isLoading} variant={variant}>
-                      {fullyWithdrawn(position.position) ? (
-                        <Dash />
-                      ) : (
-                        <PositionsAprCell stats={position.stats} />
-                      )}
-                    </TableCell>
-
-                    <TableCell loading={isLoading} variant={variant}>
-                      {fullyWithdrawn(position.position) ? (
-                        <Dash />
-                      ) : (
-                        <Sensitive>
-                          <PositionsPnlCell stats={position.stats} />
-                        </Sensitive>
-                      )}
-                    </TableCell>
-
-                    <TableCell loading={isLoading} variant={variant}>
-                      <div className='flex max-w-[104px]'>
-                        <Text as='div' detailTechnical color='text.primary' truncate>
-                          {position.idString}
-                        </Text>
-                        <Link href={`/explore/lp/${position.idString}`}>
-                          <SquareArrowOutUpRight className='h-4 w-4 text-text-secondary' />
-                        </Link>
-                      </div>
-                    </TableCell>
-
-                    <TableCell loading={isLoading} variant={variant}>
-                      <ActionButton id={position.id} position={position.position} />
-                    </TableCell>
-                  </div>
-                );
-              })}
-          </Fragment>
-        ))}
+        {isLoading
+          ? LOADING_PLACEHOLDER.map((position, index) => (
+              <PositionRow key={index} position={position} isLoading isLast={false} />
+            ))
+          : shownPositions.map((position, index) => (
+              <PositionRow
+                key={position.idString}
+                position={position}
+                isLoading={false}
+                isLast={index === shownPositions.length - 1}
+              />
+            ))}
       </Density>
 
-      {isFetchingNextPage && (
-        <div className='col-span-11 my-1 flex h-6 grid-cols-subgrid items-center justify-center'>
-          <SpinnerIcon className='animate-spin' />
-        </div>
+      {/* Sentinel that reveals the next PAGE rows when scrolled into view */}
+      {shownPositions.length < sortedPositions.length && (
+        <div className='h-1 w-full' ref={observerEl} />
       )}
-
-      {/* An element that triggers the infinite scroll when visible */}
-      <div className='h-1 w-full' ref={observerEl} />
     </div>
   );
 });

@@ -117,14 +117,16 @@ export interface MarketPair {
  */
 export const usePortfolioMarketPrices = (pairs: MarketPair[]): Map<string, number> => {
   const queries = useQueries({
-    queries: pairs.map(({ base, quote }) => bookQueryOptions(base, quote)),
+    // Depth 1 is the touch (best bid + best ask): all a mid needs. The full
+    // 30-level book per LP pair per block was pure payload.
+    queries: pairs.map(({ base, quote }) => bookQueryOptions(base, quote, 1)),
   });
 
   // Same per-key block-tick refetch as `useBook`, so the portfolio mids stay
   // as live as the trade page's. Keyed on the routeBook id shape for parity.
   useRefetchOnNewBlockBatch(
     queries.map((query, index) => ({
-      queryKey: ['routeBook', pairs[index]?.base, pairs[index]?.quote, undefined],
+      queryKey: ['book', pairs[index]?.base, pairs[index]?.quote, 1],
       refetch: query.refetch,
     })),
     pairs.length === 0,
