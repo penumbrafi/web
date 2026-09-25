@@ -26,16 +26,21 @@ const fmtDate = (d: string) =>
   });
 
 const fmtUM = (n: number) => {
-  if (n === 0) {return '0';}
+  if (n === 0) {
+    return '0';
+  }
   const abs = Math.abs(n);
   const sign = n < 0 ? '-' : '';
-  if (abs >= 1_000_000) {return `${sign}${(abs / 1_000_000).toFixed(2)}M`;}
-  if (abs >= 1_000) {return `${sign}${(abs / 1_000).toFixed(0)}K`;}
+  if (abs >= 1_000_000) {
+    return `${sign}${(abs / 1_000_000).toFixed(2)}M`;
+  }
+  if (abs >= 1_000) {
+    return `${sign}${(abs / 1_000).toFixed(0)}K`;
+  }
   return `${sign}${abs.toFixed(0)}`;
 };
 
-const fmtPct = (frac: number, digits = 2) =>
-  `${(frac * 100).toFixed(digits)}%`;
+const fmtPct = (frac: number, digits = 2) => `${(frac * 100).toFixed(digits)}%`;
 
 interface ChartDatum {
   date: string;
@@ -68,7 +73,9 @@ const trimName = (name: string, max = 22): string =>
   name.length > max ? `${name.slice(0, max - 1)}…` : name;
 
 const ChartTooltip = ({ active, payload, label }: RechartsTooltipProps) => {
-  if (!active || !payload?.length || !label) {return null;}
+  if (!active || !payload?.length || !label) {
+    return null;
+  }
   const datum = payload[0]?.payload;
   const flows = datum?.validatorFlows ?? [];
   return (
@@ -86,9 +93,7 @@ const ChartTooltip = ({ active, payload, label }: RechartsTooltipProps) => {
       )}
       {flows.length > 0 && (
         <div className='mt-2 border-t border-neutral-700 pt-2'>
-          <div className='mb-1 text-xs tracking-wide text-text-secondary uppercase'>
-            Top movers
-          </div>
+          <div className='mb-1 text-xs tracking-wide text-text-secondary uppercase'>Top movers</div>
           {flows.map(f => {
             const net = f.delegated - f.undelegated;
             return (
@@ -97,11 +102,7 @@ const ChartTooltip = ({ active, payload, label }: RechartsTooltipProps) => {
                 className='mt-0.5 flex items-center justify-between gap-3 font-mono text-xs'
               >
                 <span className='text-text-primary'>{trimName(f.name)}</span>
-                <span
-                  className={
-                    net >= 0 ? 'text-success-light' : 'text-destructive-light'
-                  }
-                >
+                <span className={net >= 0 ? 'text-success-light' : 'text-destructive-light'}>
                   {net >= 0 ? '+' : ''}
                   {fmtUM(net)} UM
                 </span>
@@ -164,6 +165,10 @@ export const ActiveStakeChart = ({ data, currentRange }: Props) => {
   const latestActive = latest?.activeStake ?? 0;
   const latestInactive = latest?.inactiveStake ?? 0;
   const latestBonded = latestActive + latestInactive;
+  // No rows (indexer unreachable or empty window): show a dash, not a
+  // confident-looking 0 UM.
+  const noData = data.length === 0;
+  const umOrDash = (n: number) => (noData ? '-' : `${fmtUM(n)} UM`);
   const latestSupply = latest?.totalSupply ?? 0;
   const stakingRatio = latestSupply > 0 ? latestBonded / latestSupply : 0;
 
@@ -193,14 +198,12 @@ export const ActiveStakeChart = ({ data, currentRange }: Props) => {
           <StakeRangeSelector current={currentRange} />
         </div>
         <Text body color='text.secondary'>
-          The teal area is total UM bonded to all validators at end-of-day
-          (active + jailed / disabled / not-yet-promoted). The lighter band
-          above is the rest of the UM supply, so the chart top reads as
-          total supply and the teal share reads as the staking ratio.
-          Bars are daily delegation (positive) and undelegation (negative)
-          tx flows. Active vs inactive is shown for the latest point only —
-          the indexer doesn&apos;t track per-height validator state, so
-          historically the chart can&apos;t honestly split the teal band.
+          The teal area is total UM bonded to all validators at end-of-day (active + jailed /
+          disabled / not-yet-promoted). The lighter band above is the rest of the UM supply, so the
+          chart top reads as total supply and the teal share reads as the staking ratio. Bars are
+          daily delegation (positive) and undelegation (negative) tx flows. Active vs inactive is
+          shown for the latest point only — the indexer doesn&apos;t track per-height validator
+          state, so historically the chart can&apos;t honestly split the teal band.
         </Text>
       </div>
 
@@ -210,9 +213,7 @@ export const ActiveStakeChart = ({ data, currentRange }: Props) => {
             Bonded stake (latest)
           </Text>
           <Text large color='text.primary'>
-            <span className='font-mono text-teal-300'>
-              {fmtUM(latestBonded)} UM
-            </span>
+            <span className='font-mono text-teal-300'>{umOrDash(latestBonded)}</span>
           </Text>
           {(latestActive > 0 || latestInactive > 0) && (
             <Text detail color='text.secondary'>
@@ -228,7 +229,7 @@ export const ActiveStakeChart = ({ data, currentRange }: Props) => {
             Total UM supply
           </Text>
           <Text large color='text.primary'>
-            <span className='font-mono text-text-primary'>{fmtUM(latestSupply)} UM</span>
+            <span className='font-mono text-text-primary'>{umOrDash(latestSupply)}</span>
           </Text>
           {latestSupply > 0 && (
             <Text detail color='text.secondary'>
@@ -243,7 +244,7 @@ export const ActiveStakeChart = ({ data, currentRange }: Props) => {
           </Text>
           <Text large color='text.primary'>
             <span className='font-mono text-amber-300'>
-              {annualizedInflation > 0 ? fmtPct(annualizedInflation) : '—'}
+              {annualizedInflation > 0 ? fmtPct(annualizedInflation) : '-'}
             </span>
           </Text>
           {impliedApr > 0 && (
@@ -261,15 +262,17 @@ export const ActiveStakeChart = ({ data, currentRange }: Props) => {
             <span
               className={`font-mono ${netFlow >= 0 ? 'text-success-light' : 'text-destructive-light'}`}
             >
-              {netFlow >= 0 ? '+' : ''}
-              {fmtUM(netFlow)} UM
+              {!noData && netFlow >= 0 ? '+' : ''}
+              {umOrDash(netFlow)}
             </span>
           </Text>
-          <Text detail color='text.secondary'>
-            <span className='font-mono text-success-light'>+{fmtUM(totals.delegated)}</span>
-            {' / '}
-            <span className='font-mono text-destructive-light'>-{fmtUM(totals.undelegated)}</span>
-          </Text>
+          {!noData && (
+            <Text detail color='text.secondary'>
+              <span className='font-mono text-success-light'>+{fmtUM(totals.delegated)}</span>
+              {' / '}
+              <span className='font-mono text-destructive-light'>-{fmtUM(totals.undelegated)}</span>
+            </Text>
+          )}
         </div>
       </div>
 
@@ -391,9 +394,7 @@ export const ProgressiveActiveStakeChart = ({
   densePromise,
   currentRange,
 }: ProgressiveProps) => (
-  <Suspense
-    fallback={<ActiveStakeChart data={coarseData} currentRange={currentRange} />}
-  >
+  <Suspense fallback={<ActiveStakeChart data={coarseData} currentRange={currentRange} />}>
     <ResolvedDenseChart promise={densePromise} currentRange={currentRange} />
   </Suspense>
 );
