@@ -5,6 +5,7 @@ import { Tooltip } from '@penumbra-zone/ui/Tooltip';
 import { ValueViewComponent } from '@penumbra-zone/ui/ValueView';
 import { PositionDerivedStats } from '../model/types';
 import { Dash } from './dash';
+import { MIN_AGE_DAYS_FOR_APR } from '../model/get-position-stats';
 
 const formatPct = (n: number): string => {
   // Compact APR display — three figures of significance is enough; large
@@ -41,6 +42,13 @@ export const PositionsAprCell = memo(({ stats }: { stats: PositionDerivedStats |
     return <Loading />;
   }
   if (stats.aprPct === undefined) {
+    if (stats.feesQuoteNumber > 0 && stats.ageDays < MIN_AGE_DAYS_FOR_APR) {
+      return (
+        <Tooltip message={`APR shows once the position is ${MIN_AGE_DAYS_FOR_APR} days old`}>
+          <Dash />
+        </Tooltip>
+      );
+    }
     return <Dash />;
   }
   // Green is reserved for positive yield; tiny/zero APR stays neutral so
@@ -71,9 +79,8 @@ export const PositionsPnlCell = memo(({ stats }: { stats: PositionDerivedStats |
     <Tooltip
       message={
         <Text as='div' detail color='text.primary'>
-          P/L vs holding the opening reserves at current mid. Positive = the
-          LP earned more in fees than impermanent loss; negative = price drift
-          cost more than the fees you collected.
+          P/L vs holding the opening reserves at current mid. Positive = the LP earned more in fees
+          than impermanent loss; negative = price drift cost more than the fees you collected.
         </Text>
       }
     >

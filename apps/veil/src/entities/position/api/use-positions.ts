@@ -90,11 +90,7 @@ export const usePositions = (subaccount = 0, stateFilter?: PositionState_Positio
   // that existed when the user last acted. Refresh on each new block AND
   // on pindexer dex_ex commit so the view catches both the on-chain state
   // (via view service) and dex_ex-observable close/fill events.
-  useRefetchOnNewBlock(
-    ['positions', subaccount, stateFilter],
-    query,
-    !connectionStore.connected,
-  );
+  useRefetchOnNewBlock(['positions', subaccount, stateFilter], query, !connectionStore.connected);
   useOnPindexerTick(['dex_ex'], ['positions', subaccount, stateFilter]);
 
   return query;

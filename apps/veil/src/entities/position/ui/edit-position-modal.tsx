@@ -96,118 +96,118 @@ export const EditPositionModal = observer(
     const prefill = useMemo(() => buildPrefill(position, getMetadata), [position, getMetadata]);
     const busy = inFlightPositions.has(bech32mPositionId(id));
 
-  const [price, setPrice] = useState(prefill?.price ?? '');
-  const [feePercent, setFeePercent] = useState(prefill?.feePercent ?? '');
-  const [baseAmount, setBaseAmount] = useState(prefill?.baseAmount ?? '');
-  const [quoteAmount, setQuoteAmount] = useState(prefill?.quoteAmount ?? '');
-  const [submitting, setSubmitting] = useState(false);
+    const [price, setPrice] = useState(prefill?.price ?? '');
+    const [feePercent, setFeePercent] = useState(prefill?.feePercent ?? '');
+    const [baseAmount, setBaseAmount] = useState(prefill?.baseAmount ?? '');
+    const [quoteAmount, setQuoteAmount] = useState(prefill?.quoteAmount ?? '');
+    const [submitting, setSubmitting] = useState(false);
 
-  if (!prefill) {
-    return null;
-  }
-
-  const priceNum = parseNumber(price);
-  const feeNum = parseNumber(feePercent);
-  const baseNum = parseNumber(baseAmount) ?? 0;
-  const quoteNum = parseNumber(quoteAmount) ?? 0;
-
-  const feeValid = feeNum !== undefined && feeNum >= 0 && feeNum < 100;
-  const reservesValid = baseNum + quoteNum > 0;
-  const canApply =
-    !submitting && !busy && priceNum !== undefined && priceNum > 0 && feeValid && reservesValid;
-
-  const onApply = async () => {
-    if (priceNum === undefined || feeNum === undefined) {
-      return;
+    if (!prefill) {
+      return null;
     }
-    setSubmitting(true);
-    try {
-      const { position: newPosition } = planToPosition(
-        {
-          baseAsset: { id: prefill.baseAssetId, exponent: prefill.baseExponent },
-          quoteAsset: { id: prefill.quoteAssetId, exponent: prefill.quoteExponent },
-          price: priceNum,
-          feeBps: Math.round(feeNum * 100),
-          baseReserves: baseNum,
-          quoteReserves: quoteNum,
-        },
-        LiquidityDistributionShape.FLAT,
-      );
-      const result = await editPosition({
-        oldPositionId: id,
-        newPosition,
-        shape: LiquidityDistributionShape.FLAT,
-      });
-      // Close the modal only on success — leave it open on cancelled/busy/error
-      // so the user can adjust and retry without re-opening.
-      if (result.status === 'ok') {
-        onClose();
+
+    const priceNum = parseNumber(price);
+    const feeNum = parseNumber(feePercent);
+    const baseNum = parseNumber(baseAmount) ?? 0;
+    const quoteNum = parseNumber(quoteAmount) ?? 0;
+
+    const feeValid = feeNum !== undefined && feeNum >= 0 && feeNum < 100;
+    const reservesValid = baseNum + quoteNum > 0;
+    const canApply =
+      !submitting && !busy && priceNum !== undefined && priceNum > 0 && feeValid && reservesValid;
+
+    const onApply = async () => {
+      if (priceNum === undefined || feeNum === undefined) {
+        return;
       }
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <Dialog isOpen={isOpen} onClose={onClose}>
-      <Dialog.Content
-        title='Edit position'
-        buttons={
-          <div className='flex w-full flex-col gap-2 px-6 pb-6'>
-            <Button actionType='accent' disabled={!canApply} onClick={() => void onApply()}>
-              Apply
-            </Button>
-            <Button priority='secondary' onClick={onClose} disabled={submitting}>
-              Cancel
-            </Button>
-          </div>
+      setSubmitting(true);
+      try {
+        const { position: newPosition } = planToPosition(
+          {
+            baseAsset: { id: prefill.baseAssetId, exponent: prefill.baseExponent },
+            quoteAsset: { id: prefill.quoteAssetId, exponent: prefill.quoteExponent },
+            price: priceNum,
+            feeBps: Math.round(feeNum * 100),
+            baseReserves: baseNum,
+            quoteReserves: quoteNum,
+          },
+          LiquidityDistributionShape.FLAT,
+        );
+        const result = await editPosition({
+          oldPositionId: id,
+          newPosition,
+          shape: LiquidityDistributionShape.FLAT,
+        });
+        // Close the modal only on success — leave it open on cancelled/busy/error
+        // so the user can adjust and retry without re-opening.
+        if (result.status === 'ok') {
+          onClose();
         }
-      >
-        <div className='flex flex-col gap-3'>
-          <Text small color='text.secondary'>
-            Closes the current position and opens a new one with these parameters in a single
-            transaction.
-          </Text>
-          <OrderInput
-            round
-            label='Price'
-            value={price}
-            onChange={setPrice}
-            decimals={prefill.quoteExponent}
-            denominator={`${prefill.quoteSymbol} / ${prefill.baseSymbol}`}
-          />
-          <OrderInput
-            label='Fee tier'
-            value={feePercent}
-            onChange={setFeePercent}
-            denominator='%'
-          />
-          <OrderInput
-            round
-            label={`${prefill.baseSymbol} amount`}
-            value={baseAmount}
-            onChange={setBaseAmount}
-            decimals={prefill.baseExponent}
-            denominator={prefill.baseSymbol}
-          />
-          <OrderInput
-            round
-            label={`${prefill.quoteSymbol} amount`}
-            value={quoteAmount}
-            onChange={setQuoteAmount}
-            decimals={prefill.quoteExponent}
-            denominator={prefill.quoteSymbol}
-          />
-          <div className='mt-2'>
-            <InfoRow
-              label='Action'
-              value='Close + reopen (atomic)'
-              toolTip='The transaction closes the existing position and opens the new one in one signing step. If you cancel, neither change applies.'
+      } finally {
+        setSubmitting(false);
+      }
+    };
+
+    return (
+      <Dialog isOpen={isOpen} onClose={onClose}>
+        <Dialog.Content
+          title='Edit position'
+          buttons={
+            <div className='flex w-full flex-col gap-2 px-6 pb-6'>
+              <Button actionType='accent' disabled={!canApply} onClick={() => void onApply()}>
+                Apply
+              </Button>
+              <Button priority='secondary' onClick={onClose} disabled={submitting}>
+                Cancel
+              </Button>
+            </div>
+          }
+        >
+          <div className='flex flex-col gap-3'>
+            <Text small color='text.secondary'>
+              Closes the current position and opens a new one with these parameters in a single
+              transaction.
+            </Text>
+            <OrderInput
+              round
+              label='Price'
+              value={price}
+              onChange={setPrice}
+              decimals={prefill.quoteExponent}
+              denominator={`${prefill.quoteSymbol} / ${prefill.baseSymbol}`}
             />
+            <OrderInput
+              label='Fee tier'
+              value={feePercent}
+              onChange={setFeePercent}
+              denominator='%'
+            />
+            <OrderInput
+              round
+              label={`${prefill.baseSymbol} amount`}
+              value={baseAmount}
+              onChange={setBaseAmount}
+              decimals={prefill.baseExponent}
+              denominator={prefill.baseSymbol}
+            />
+            <OrderInput
+              round
+              label={`${prefill.quoteSymbol} amount`}
+              value={quoteAmount}
+              onChange={setQuoteAmount}
+              decimals={prefill.quoteExponent}
+              denominator={prefill.quoteSymbol}
+            />
+            <div className='mt-2'>
+              <InfoRow
+                label='Action'
+                value='Close + reopen (atomic)'
+                toolTip='The transaction closes the existing position and opens the new one in one signing step. If you cancel, neither change applies.'
+              />
+            </div>
           </div>
-        </div>
-      </Dialog.Content>
-    </Dialog>
-  );
+        </Dialog.Content>
+      </Dialog>
+    );
   },
 );

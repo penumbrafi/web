@@ -5,10 +5,10 @@ import { PositionStats } from '@/shared/api/server/position/stats/types';
 import { CalculatedAsset, PositionDerivedStats } from './types';
 
 const MS_PER_DAY = 86_400_000;
-// APR is unstable when the position is fresh — under half a day the
-// 365/N factor blows up tiny per-block fee accruals into triple-digit
-// numbers that collapse the moment another execution lands.
-const MIN_AGE_DAYS_FOR_APR = 0.5;
+// APR is unstable when the position is fresh: on a few days of history the
+// 365/N factor turns one lucky arb into "867%". Under a week, show fees
+// earned and no annualised figure.
+export const MIN_AGE_DAYS_FOR_APR = 7;
 
 // Project a (reserves1, reserves2) bundle onto the quote asset at the
 // current mid. mid is asset1->asset2 price in display units (i.e. quote per
@@ -85,7 +85,7 @@ export const computePositionStats = ({
   }
 
   let aprPct: number | undefined;
-  if (ageDays >= MIN_AGE_DAYS_FOR_APR && mid > 0) {
+  if (ageDays >= MIN_AGE_DAYS_FOR_APR && mid > 0 && feesQuoteNum > 0) {
     const capital = valueInQuote(openR1Display, openR2Display, !!quoteIsAsset2, mid);
     const capitalNum = capital.toNumber();
     if (capitalNum > 0 && Number.isFinite(capitalNum)) {

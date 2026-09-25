@@ -42,7 +42,7 @@ describe('computePositionStats', () => {
     asset1: { inner: new Uint8Array([1]) },
     asset2: { inner: new Uint8Array([2]) },
     openingHeight: 12837412,
-    openingTime: new Date(Date.now() - 5 * 86_400_000).toISOString(),
+    openingTime: new Date(Date.now() - 10 * 86_400_000).toISOString(),
     openingReserves1: new Value({ amount: pnum(543957).toAmount() }),
     openingReserves2: new Value({ amount: pnum(0).toAmount() }),
     fees1: new Value({ amount: pnum(0).toAmount() }),
@@ -66,10 +66,20 @@ describe('computePositionStats', () => {
 
   it('keeps APR within a sane range for a real position', () => {
     const stats = computePositionStats({ ...args, marketPrice: CANONICAL_MID });
-    // Half a cent of fees on ~0.54 USDC over 5 days — tens of percent, not
+    // Half a cent of fees on ~0.54 USDC over 10 days — tens of percent, not
     // the 22_586_100% the reciprocal mid produced.
     expect(stats?.aprPct).toBeDefined();
     expect(stats?.aprPct).toBeLessThan(200);
+  });
+
+  it('withholds APR on a position younger than a week', () => {
+    const young = {
+      ...raw,
+      openingTime: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+    } as PositionStats;
+    const stats = computePositionStats({ ...args, raw: young, marketPrice: CANONICAL_MID });
+    expect(stats?.aprPct).toBeUndefined();
+    expect(stats?.feesQuoteNumber).toBeGreaterThan(0);
   });
 
   it('regression: the display mid inflates fees by ~mid squared', () => {

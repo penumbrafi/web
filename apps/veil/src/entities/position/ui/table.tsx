@@ -18,6 +18,7 @@ import { useGetMetadata } from '@/shared/api/assets';
 import { bech32mPositionId } from '@penumbra-zone/bech32m/plpid';
 import { useMarketPrice, usePortfolioMarketPrices } from '@/pages/trade/model/useMarketPrice';
 import { usePathSymbols } from '@/pages/trade/model/use-path';
+import { referenceMid, useUsdReferencePrices } from '@/shared/api/use-usd-reference-prices';
 import { usePositions } from '../api/use-positions';
 import { usePositionsStats } from '../api/use-positions-stats';
 import { stateToString } from '../model/state-to-string';
@@ -189,7 +190,7 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
   // own pair book below.
   const { baseSymbol: routeBaseSymbol, quoteSymbol: routeQuoteSymbol } = usePathSymbols();
   const isRoutePair = Boolean(routeBaseSymbol) && Boolean(routeQuoteSymbol);
-  const { marketPrice: routeMarketPrice } = useMarketPrice();
+  const { marketPrice: routeBookMarketPrice } = useMarketPrice();
 
   const { data, isLoading, isRefetching, isFetchingNextPage, fetchNextPage, error } = usePositions(
     subaccount,
@@ -242,8 +243,35 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
     }
     return [...seen.values()];
   }, [data?.pages, getMetadata, isRoutePair]);
-  const midByPair = usePortfolioMarketPrices(marketPairs);
-  const pairMarketPrice = isRoutePair ? undefined : midByPair;
+  const bookMidByPair = usePortfolioMarketPrices(marketPairs);
+
+  // Fair price from USD reference intel wins over the book mid wherever both
+  // sides have it. Penumbra's books are thin and wide (UM/USDC.inj runs a
+  // ~50% spread), so their midpoint put at-the-money rungs tens of percent
+  // "from mid" and skewed the fee/PNL valuation that shares it.
+  const referenceSymbols = useMemo(() => {
+    if (isRoutePair) {
+      return [routeBaseSymbol, routeQuoteSymbol].filter((s): s is string => Boolean(s));
+    }
+    return marketPairs.flatMap(({ base, quote }) => [base, quote]);
+  }, [isRoutePair, routeBaseSymbol, routeQuoteSymbol, marketPairs]);
+  const usdReference = useUsdReferencePrices(referenceSymbols);
+
+  const routeMarketPrice =
+    referenceMid(usdReference, routeBaseSymbol, routeQuoteSymbol) ?? routeBookMarketPrice;
+  const pairMarketPrice = useMemo(() => {
+    if (isRoutePair) {
+      return undefined;
+    }
+    const merged = new Map(bookMidByPair);
+    for (const { base, quote } of marketPairs) {
+      const mid = referenceMid(usdReference, base, quote);
+      if (mid !== undefined) {
+        merged.set(`${base}|${quote}`, mid);
+      }
+    }
+    return merged;
+  }, [isRoutePair, bookMidByPair, marketPairs, usdReference]);
 
   // getDisplayPositions walks every fetched page and resolves metadata per
   // asset on each entry — non-trivial on a wallet with many LP positions.
@@ -260,15 +288,7 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
         marketPrice: routeMarketPrice,
         marketPriceByPair: pairMarketPrice,
       }),
-    [
-      data?.pages,
-      base,
-      quote,
-      getMetadata,
-      statsById,
-      routeMarketPrice,
-      pairMarketPrice,
-    ],
+    [data?.pages, base, quote, getMetadata, statsById, routeMarketPrice, pairMarketPrice],
   );
 
   const { observerEl } = useObserver(isLoading || isRefetching || isFetchingNextPage, () => {
@@ -500,10 +520,18 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
                               rowMarketPrice > 0 &&
                               (() => {
                                 const eff = pnum(order.effectivePrice).toNumber();
-                                if (!Number.isFinite(eff) || eff <= 0) {return null;}
+                                if (!Number.isFinite(eff) || eff <= 0) {
+                                  return null;
+                                }
                                 const deltaPct = ((eff - rowMarketPrice) / rowMarketPrice) * 100;
                                 const abs = Math.abs(deltaPct);
                                 const sign = deltaPct > 0 ? '+' : '';
+                                // Past 2x a percentage stops reading
+                                // ("+37719.94%"); a multiple doesn't.
+                                const label =
+                                  deltaPct >= 100
+                                    ? `${(eff / rowMarketPrice).toFixed(1)}× mid`
+                                    : `${sign}${deltaPct.toFixed(2)}% from mid`;
                                 let tone = 'text-neutral-light';
                                 if (abs < 1) {
                                   tone = 'text-success-light';
@@ -515,8 +543,7 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
                                     className={cn('text-[10px] tabular-nums', tone)}
                                     style={{ lineHeight: 1 }}
                                   >
-                                    {sign}
-                                    {deltaPct.toFixed(2)}% from mid
+                                    {label}
                                   </span>
                                 );
                               })()}
