@@ -11,15 +11,17 @@ import { AssetRow } from '@/pages/portfolio/ui/asset-row.tsx';
 import { DelegationRows } from '@/pages/portfolio/ui/delegation-rows.tsx';
 import { PortfolioCard } from '@/pages/portfolio/ui/portfolio-card.tsx';
 import { ReactNode } from 'react';
+import { ReceiveButton } from '@/pages/portfolio/ui/asset-actions.tsx';
 
 export const AssetsTableLayout = ({ children }: { children?: ReactNode }) => {
   return (
     <PortfolioCard
       title={
-        <div className={'flex justify-between'}>
+        <div className='flex items-center justify-between'>
           <Text as={'h4'} xxl color='text.primary'>
             Assets
           </Text>
+          <ReceiveButton />
         </div>
       }
     >
@@ -154,10 +156,7 @@ export const AssetsTable = observer(() => {
 
         {/* Per-validator stake rows. The grid spans col-span-7 so the
             sub-rows line up with the asset header columns. */}
-        <DelegationRows
-          umPrice={umPriceRow?.price}
-          umQuoteSymbol={umPriceRow?.quoteSymbol}
-        />
+        <DelegationRows umPrice={umPriceRow?.price} umQuoteSymbol={umPriceRow?.quoteSymbol} />
       </div>
     </Density>
   );

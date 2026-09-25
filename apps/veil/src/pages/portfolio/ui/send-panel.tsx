@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Send } from 'lucide-react';
 import { Text } from '@penumbra-zone/ui/Text';
@@ -19,11 +19,7 @@ import { assetPatterns } from '@penumbra-zone/types/assets';
 import { pnum } from '@penumbra-zone/types/pnum';
 import { useBalances } from '@/shared/api/balances';
 import { connectionStore } from '@/shared/model/connection';
-import {
-  balanceMatchesSubaccount,
-  sendShielded,
-  sendValidationErrors,
-} from '../api/send-shielded';
+import { balanceMatchesSubaccount, sendShielded, sendValidationErrors } from '../api/send-shielded';
 
 const NON_TRANSFERABLE = [
   assetPatterns.lpNft,
@@ -42,7 +38,14 @@ const isTransferable = (balance: BalancesResponse): boolean => {
   return NON_TRANSFERABLE.every(pattern => !pattern.matches(metadata.display));
 };
 
-export const SendPanel = observer(() => {
+interface SendPanelProps {
+  /** Asset to start on, e.g. the token row the modal was opened from. */
+  initialBalance?: BalancesResponse;
+  /** Called after a send is submitted, so a modal host can close. */
+  onSent?: () => void;
+}
+
+export const SendPanel = observer(({ initialBalance, onSent }: SendPanelProps) => {
   const { subaccount } = connectionStore;
   const { data: balances, isLoading } = useBalances(subaccount);
 
@@ -51,15 +54,20 @@ export const SendPanel = observer(() => {
     [balances, subaccount],
   );
 
-  const [selection, setSelection] = useState<BalancesResponse | undefined>();
+  const [selection, setSelection] = useState<BalancesResponse | undefined>(initialBalance);
   const [recipient, setRecipient] = useState('');
   const [amount, setAmount] = useState('');
   const [memo, setMemo] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   // Subaccount changes invalidate the existing selection because balances are scoped per account.
+  // Skip the mount run so an `initialBalance` survives.
+  const lastSubaccount = useRef(subaccount);
   useEffect(() => {
-    setSelection(undefined);
+    if (lastSubaccount.current !== subaccount) {
+      lastSubaccount.current = subaccount;
+      setSelection(undefined);
+    }
   }, [subaccount]);
 
   useEffect(() => {
@@ -89,7 +97,7 @@ export const SendPanel = observer(() => {
     }
     setSubmitting(true);
     try {
-      await sendShielded({
+      const result = await sendShielded({
         selection,
         amount,
         recipient: new Address(addressFromBech32m(recipient)),
@@ -98,6 +106,10 @@ export const SendPanel = observer(() => {
       });
       setAmount('');
       setMemo('');
+      // planBuildBroadcast resolves undefined on failure; keep the form open then.
+      if (result) {
+        onSent?.();
+      }
     } finally {
       setSubmitting(false);
     }

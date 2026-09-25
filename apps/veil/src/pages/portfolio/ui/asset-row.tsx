@@ -2,6 +2,7 @@ import { observer } from 'mobx-react-lite';
 import { UnifiedAsset } from '@/pages/portfolio/api/use-unified-assets.ts';
 import { pnum } from '@penumbra-zone/types/pnum';
 import { ShieldButton, UnshieldButton } from '@/pages/portfolio/ui/shield-unshield.tsx';
+import { ShieldedAssetActions } from '@/pages/portfolio/ui/asset-actions.tsx';
 import { TableCell } from '@penumbra-zone/ui/TableCell';
 import { Text } from '@penumbra-zone/ui/Text';
 import { ValueViewComponent } from '@penumbra-zone/ui/ValueView';
@@ -200,9 +201,12 @@ export const AssetRow = observer(
                       on Penumbra
                     </Text>
                   </div>
-                  {getMetadata(bal.valueView).symbol.toLowerCase() !== 'um' && (
-                    <UnshieldButton asset={bal} />
-                  )}
+                  <div className='flex gap-2'>
+                    <ShieldedAssetActions balance={bal.balance} />
+                    {getMetadata(bal.valueView).symbol.toLowerCase() !== 'um' && (
+                      <UnshieldButton asset={bal} />
+                    )}
+                  </div>
                 </div>
               </TableCell>
               <TableCell variant={'lastCell'}>

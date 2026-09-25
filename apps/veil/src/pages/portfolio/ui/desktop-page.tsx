@@ -14,7 +14,6 @@ import { StakingDialogHost } from '@/pages/portfolio/staking/ui/staking-dialog-h
 import { AssetsTable, AssetsTableLayout } from './assets-table';
 import { WalletConnect } from './wallet-connect';
 import { PortfolioPositionTabs } from './position-tabs';
-import { TransferTabs } from './transfer-tabs';
 import { AssetBars } from './asset-bars';
 import { PortfolioCard } from './portfolio-card';
 import { useUnifiedAssets } from '../api/use-unified-assets';
@@ -96,8 +95,6 @@ const PortfolioBody = observer(() => {
           <AssetsTableLayout>
             <AssetsTable />
           </AssetsTableLayout>
-
-          {isPenumbraConnected && <TransferTabs />}
 
           <PortfolioPositionTabs />
         </div>

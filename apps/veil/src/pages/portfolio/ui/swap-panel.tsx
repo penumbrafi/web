@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { ArrowDown, ArrowLeftRight } from 'lucide-react';
 import { Text } from '@penumbra-zone/ui/Text';
@@ -41,7 +41,14 @@ const isSwappable = (balance: BalancesResponse): boolean => {
   return NON_SWAPPABLE.every(pattern => !pattern.matches(metadata.display));
 };
 
-export const SwapPanel = observer(() => {
+interface SwapPanelProps {
+  /** Asset to swap from, e.g. the token row the modal was opened from. */
+  initialBalance?: BalancesResponse;
+  /** Called after a swap is submitted, so a modal host can close. */
+  onSwapped?: () => void;
+}
+
+export const SwapPanel = observer(({ initialBalance, onSwapped }: SwapPanelProps) => {
   const { subaccount } = connectionStore;
   const { data: balances, isLoading } = useBalances(subaccount);
   const { data: registryAssets } = useRegistryAssets();
@@ -51,16 +58,21 @@ export const SwapPanel = observer(() => {
     [balances, subaccount],
   );
 
-  const [fromSelection, setFromSelection] = useState<BalancesResponse | undefined>();
+  const [fromSelection, setFromSelection] = useState<BalancesResponse | undefined>(initialBalance);
   const [toAsset, setToAsset] = useState<Metadata | undefined>();
   const [amount, setAmount] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
+  // Skip the mount run so an `initialBalance` survives.
+  const lastSubaccount = useRef(subaccount);
   useEffect(() => {
-    setFromSelection(undefined);
-    setToAsset(undefined);
-    setAmount('');
+    if (lastSubaccount.current !== subaccount) {
+      lastSubaccount.current = subaccount;
+      setFromSelection(undefined);
+      setToAsset(undefined);
+      setAmount('');
+    }
   }, [subaccount]);
 
   useEffect(() => {
@@ -121,13 +133,17 @@ export const SwapPanel = observer(() => {
     setConfirmOpen(false);
     setSubmitting(true);
     try {
-      await swapShielded({
+      const result = await swapShielded({
         selection: fromSelection,
         amount,
         toAsset,
         source: new AddressIndex({ account: subaccount }),
       });
       setAmount('');
+      // planBuildBroadcast resolves undefined on failure; keep the form open then.
+      if (result) {
+        onSwapped?.();
+      }
     } finally {
       setSubmitting(false);
     }
