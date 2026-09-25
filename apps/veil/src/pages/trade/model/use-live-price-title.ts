@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useMarketPrice } from './useMarketPrice';
 import { usePathSymbols } from './use-path';
+import { TICK_ARROW, type TickDirection } from './use-tick-direction';
 
 const formatPrice = (p: number): string => {
   if (p >= 1) {
@@ -47,7 +48,7 @@ export const useLivePriceTitle = () => {
   // Track the direction of the latest tick via refs — we never want this
   // to cause its own render, just feed the title-update effect.
   const prevPriceRef = useRef<number | undefined>(undefined);
-  const directionRef = useRef<'up' | 'down' | 'flat'>('flat');
+  const directionRef = useRef<TickDirection>('flat');
 
   useEffect(() => {
     const pair = `${baseSymbol}/${quoteSymbol}`;
@@ -62,8 +63,7 @@ export const useLivePriceTitle = () => {
     }
     prevPriceRef.current = marketPrice;
 
-    const arrow =
-      directionRef.current === 'up' ? '▲ ' : directionRef.current === 'down' ? '▼ ' : '';
+    const arrow = TICK_ARROW[directionRef.current];
     document.title = `${arrow}${formatPrice(marketPrice)} ${pair} · Veil`;
   }, [baseSymbol, quoteSymbol, marketPrice]);
 

@@ -86,14 +86,14 @@ const SuggestedRefPrice = observer(
     // Live-source label describes what BOTH sides collectively resolved
     // from. The breakdown tooltip below shows each side individually,
     // so this stays a short chip.
-    const label =
-      source === 'fixed'
-        ? 'stablecoin peg'
-        : source === 'coingecko'
-          ? 'CoinGecko'
-          : source === 'derived'
-            ? 'on-chain'
-            : 'CoinGecko / on-chain';
+    let label = 'CoinGecko / on-chain';
+    if (source === 'fixed') {
+      label = 'stablecoin peg';
+    } else if (source === 'coingecko') {
+      label = 'CoinGecko';
+    } else if (source === 'derived') {
+      label = 'on-chain';
+    }
     const current = store.userReferencePrice;
     const already = current !== null && Math.abs(current - price) / price < 0.001;
     const formatted = roundToDecimals(price, decimals);

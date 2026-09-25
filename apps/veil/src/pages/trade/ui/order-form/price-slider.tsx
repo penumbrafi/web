@@ -6,7 +6,7 @@ import { Density } from '@penumbra-zone/ui/Density';
 import { round } from '@penumbra-zone/types/round';
 import { useWidth } from '@/shared/utils/use-width';
 import { AssetInfo } from '../../model/AssetInfo';
-import { useTickDirection } from '../../model/use-tick-direction';
+import { TICK_ARROW, TICK_TEXT_COLOR, useTickDirection } from '../../model/use-tick-direction';
 import DepthChart from './price-slider-depth-chart';
 
 // Usually, `round` from `@penumbra-zone/types/round` is sufficient, but here we need number to be returned, not formatted string.
@@ -357,15 +357,9 @@ export const PriceSlider = ({
         </Text>
         <Text
           detail
-          color={
-            midDirection === 'up'
-              ? 'success.light'
-              : midDirection === 'down'
-                ? 'destructive.light'
-                : 'text.primary'
-          }
+          color={TICK_TEXT_COLOR[midDirection]}
         >
-          {midDirection === 'up' ? '▲ ' : midDirection === 'down' ? '▼ ' : ''}
+          {TICK_ARROW[midDirection]}
           {midPriceText ?? marketPrice} {quoteAsset?.symbol}
         </Text>
       </div>

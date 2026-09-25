@@ -647,11 +647,12 @@ export class LPFormStore {
     // starting point, not a warning.
     const baseOnly = baseReserves > 0 && quoteReserves <= 0;
     const quoteOnly = quoteReserves > 0 && baseReserves <= 0;
-    const [loMul, hiMul] = baseOnly
-      ? [1, 1.05]
-      : quoteOnly
-        ? [0.95, 1]
-        : [0.95, 1.05];
+    let [loMul, hiMul] = [0.95, 1.05];
+    if (baseOnly) {
+      [loMul, hiMul] = [1, 1.05];
+    } else if (quoteOnly) {
+      [loMul, hiMul] = [0.95, 1];
+    }
     this.lowerPriceInput = Number(
       round({ value: String(mid * loMul), decimals: quoteExp, exponentialNotation: false }),
     );

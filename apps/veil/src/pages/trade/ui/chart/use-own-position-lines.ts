@@ -112,7 +112,7 @@ export const useOwnPositionLines = (
             continue;
           }
           const directionRaw = o.direction.toLowerCase();
-          const direction = directionRaw === 'buy' ? 'buy' : directionRaw === 'sell' ? 'sell' : '';
+          const direction = directionRaw === 'buy' || directionRaw === 'sell' ? directionRaw : '';
 
           // CalculatedAsset.amount is already a display-unit BigNumber
           // (see get-calculated-assets.ts) — no exponent shifting needed.
@@ -155,7 +155,12 @@ export const useOwnPositionLines = (
         let lineWidth: number | undefined;
         if (linesSizeByAmount && size !== undefined && maxAmount > 0) {
           const ratio = size / maxAmount;
-          lineWidth = ratio >= BIG_RATIO ? 4 : ratio >= MEDIUM_RATIO ? 2 : 1;
+          lineWidth = 1;
+          if (ratio >= BIG_RATIO) {
+            lineWidth = 4;
+          } else if (ratio >= MEDIUM_RATIO) {
+            lineWidth = 2;
+          }
         }
 
         let label = l.direction ? l.direction.toUpperCase() : 'LP';

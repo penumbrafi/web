@@ -157,14 +157,18 @@ export const ReferencePriceOverlay = observer(function ReferencePriceOverlay({
     ? { borderTop: `1px dashed ${LINE_COLOR}`, opacity: 0.95 }
     : { borderTop: `1px dotted ${LINE_COLOR}`, opacity: 0.55 };
 
-  const suggestedLabel =
-    suggested.price !== undefined && suggested.source === 'fixed'
-      ? `snap to peg`
-      : suggested.price !== undefined
-        ? `snap to CoinGecko`
-        : null;
+  let suggestedLabel: string | null = null;
+  if (suggested.price !== undefined) {
+    suggestedLabel = suggested.source === 'fixed' ? `snap to peg` : `snap to CoinGecko`;
+  }
 
-  const priceStr = refPrice.toFixed(refPrice >= 1 ? 4 : refPrice >= 0.01 ? 5 : 6);
+  let refDecimals = 6;
+  if (refPrice >= 1) {
+    refDecimals = 4;
+  } else if (refPrice >= 0.01) {
+    refDecimals = 5;
+  }
+  const priceStr = refPrice.toFixed(refDecimals);
 
   return (
     <div

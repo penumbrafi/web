@@ -9,6 +9,13 @@ import { IbcFlowHistoryContainer, IbcTableContainer } from '@/pages/inspect/expl
 import { nonEmpty } from '@/pages/inspect/explorer/lib/utils';
 export const dynamic = 'force-dynamic';
 
+/** ?range= values the flow chart accepts; anything else is 30 days. */
+const RANGE_DAYS = new Map([
+  ['7', 7],
+  ['90', 90],
+  ['365', 365],
+]);
+
 interface Props {
   searchParams: Promise<{ range?: string }>;
 }
@@ -23,15 +30,7 @@ const IbcPage: FC<Props> = async props => {
         <Breadcrumb>IBC Chains</Breadcrumb>
       </Breadcrumbs>
       <IbcFlowHistoryContainer
-        days={
-          searchParams.range === '7'
-            ? 7
-            : searchParams.range === '90'
-              ? 90
-              : searchParams.range === '365'
-                ? 365
-                : 30
-        }
+        days={RANGE_DAYS.get(searchParams.range ?? '') ?? 30}
         timeRangeSelector={
           <TimeRangeSelector
             paramName='range'

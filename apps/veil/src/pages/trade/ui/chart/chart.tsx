@@ -1012,8 +1012,7 @@ export const Chart = observer(() => {
       addAlert({
         pair: pairKey,
         targetPrice: price,
-        direction:
-          marketPrice == null ? 'above' : price >= marketPrice ? 'above' : 'below',
+        direction: marketPrice == null || price >= marketPrice ? 'above' : 'below',
         browser:
           typeof window !== 'undefined' &&
           'Notification' in window &&

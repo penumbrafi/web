@@ -153,12 +153,12 @@ export const useChartConfig = (
       // empty color string. Empty color crashes the chart imperative
       // API, which under React 19.2 (Next 16) tears down mid-render and
       // trips a hooks-count divergence (#310) in the mobx observer wrap.
-      const color =
-        line.direction === 'buy'
-          ? theme.color.success.light
-          : line.direction === 'sell'
-            ? theme.color.destructive.light
-            : theme.color.text.primary;
+      let color: string = theme.color.text.primary;
+      if (line.direction === 'buy') {
+        color = theme.color.success.light;
+      } else if (line.direction === 'sell') {
+        color = theme.color.destructive.light;
+      }
       const opts: CreatePriceLineOptions = {
         price: line.price,
         color,

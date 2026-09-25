@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@penumbra-zone/ui/Button';
@@ -89,6 +89,37 @@ export const VotePanel = observer(({ proposalId }: { proposalId: number }) => {
     }
   };
 
+  let voteArea: ReactNode;
+  if (!connectionStore.connected) {
+    voteArea = (
+      <div className='w-fit'>
+        <ConnectButton actionType='accent' />
+      </div>
+    );
+  } else if (context.isError) {
+    voteArea = (
+      <span className='text-sm text-destructive-light'>
+        Could not load this proposal&apos;s voting data. Reload the page to try again.
+      </span>
+    );
+  } else {
+    voteArea = (
+      <div className='flex flex-wrap gap-2'>
+        {CHOICES.map(c => (
+          <div key={c.label} className='min-w-24'>
+            <Button
+              actionType={c.vote === Vote_Vote.YES ? 'accent' : 'default'}
+              disabled={!context.data || pending !== null}
+              onClick={() => void submit(c.vote)}
+            >
+              {pending === c.vote ? 'Voting…' : c.label}
+            </Button>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className='flex flex-col gap-3 rounded-lg border border-other-tonal-stroke p-4'>
       <div className='flex flex-col gap-1'>
@@ -99,29 +130,7 @@ export const VotePanel = observer(({ proposalId }: { proposalId: number }) => {
         </span>
       </div>
 
-      {!connectionStore.connected ? (
-        <div className='w-fit'>
-          <ConnectButton actionType='accent' />
-        </div>
-      ) : context.isError ? (
-        <span className='text-sm text-destructive-light'>
-          Could not load this proposal&apos;s voting data. Reload the page to try again.
-        </span>
-      ) : (
-        <div className='flex flex-wrap gap-2'>
-          {CHOICES.map(c => (
-            <div key={c.label} className='min-w-24'>
-              <Button
-                actionType={c.vote === Vote_Vote.YES ? 'accent' : 'default'}
-                disabled={!context.data || pending !== null}
-                onClick={() => void submit(c.vote)}
-              >
-                {pending === c.vote ? 'Voting…' : c.label}
-              </Button>
-            </div>
-          ))}
-        </div>
-      )}
+      {voteArea}
 
       {cast && (
         <span className='text-sm text-success-light'>

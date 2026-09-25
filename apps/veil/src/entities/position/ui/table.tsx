@@ -504,12 +504,12 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
                                 const deltaPct = ((eff - rowMarketPrice) / rowMarketPrice) * 100;
                                 const abs = Math.abs(deltaPct);
                                 const sign = deltaPct > 0 ? '+' : '';
-                                const tone =
-                                  abs < 1
-                                    ? 'text-success-light'
-                                    : abs < 5
-                                      ? 'text-text-secondary'
-                                      : 'text-neutral-light';
+                                let tone = 'text-neutral-light';
+                                if (abs < 1) {
+                                  tone = 'text-success-light';
+                                } else if (abs < 5) {
+                                  tone = 'text-text-secondary';
+                                }
                                 return (
                                   <span
                                     className={cn('text-[10px] tabular-nums', tone)}

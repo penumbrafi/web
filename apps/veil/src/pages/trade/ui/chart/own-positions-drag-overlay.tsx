@@ -19,6 +19,8 @@ import { planToPosition, LiquidityDistributionShape } from '@/shared/math/positi
 
 const BUY_COLOR = '#55d383';
 const SELL_COLOR = '#f17878';
+const SIDE_COLOR = { buy: BUY_COLOR, sell: SELL_COLOR, '': '#9aa0a6' } as const;
+const SIDE_LABEL = { buy: 'Buy', sell: 'Sell', '': 'Order' } as const;
 const HANDLE_SIZE = 10;
 
 interface Rung {
@@ -112,7 +114,7 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
             key: `${dp.idString}-${i}`,
             y: 0,
             price,
-            direction: dir === 'buy' ? 'buy' : dir === 'sell' ? 'sell' : '',
+            direction: dir === 'buy' || dir === 'sell' ? dir : '',
             positionId: dp.id,
             position: dp.position,
             baseExponent: o.baseAsset.exponent,
@@ -274,14 +276,8 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
         {rungs.map(r => {
           const yLive =
             dragY?.key === r.key ? dragY.y : (yByKeyRef.current.get(r.key) ?? -9999);
-          const color =
-            r.direction === 'buy' ? BUY_COLOR : r.direction === 'sell' ? SELL_COLOR : '#9aa0a6';
-          const dirLabel =
-            r.direction === 'buy'
-              ? 'Buy'
-              : r.direction === 'sell'
-                ? 'Sell'
-                : 'Order';
+          const color = SIDE_COLOR[r.direction];
+          const dirLabel = SIDE_LABEL[r.direction];
           const tooltip = r.amountLabel
             ? `${dirLabel} · ${r.amountLabel} @ ${r.price.toPrecision(6)}\n(drag to reprice)`
             : `${dirLabel} @ ${r.price.toPrecision(6)}\n(drag to reprice)`;

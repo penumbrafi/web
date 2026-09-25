@@ -11,6 +11,13 @@ import SortableHeader from '../../sortableHeader'
 import ValidatorStateBonding from '../../validatorStateBonding'
 import { Table, TableCell, TableProps, TableRow } from '../table'
 
+const uptimeTone = (uptime: number) => {
+    if (uptime >= 80) {
+        return 'text-success-light'
+    }
+    return uptime > 5 ? 'text-caution-light' : 'text-destructive-light'
+}
+
 export type SortKey =
     | 'commission'
     | 'growth30d'
@@ -252,11 +259,7 @@ const ValidatorTable: FC<Props> = ({
                                 {typeof validator.uptime === 'number' ? (
                                     <span
                                         className={classNames(
-                                            validator.uptime >= 80
-                                                ? 'text-success-light'
-                                                : validator.uptime > 5
-                                                  ? 'text-caution-light'
-                                                  : 'text-destructive-light'
+                                            uptimeTone(validator.uptime)
                                         )}
                                     >
                                         {validator.uptime.toFixed(2)}%

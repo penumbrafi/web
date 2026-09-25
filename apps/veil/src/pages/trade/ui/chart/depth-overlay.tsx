@@ -49,9 +49,14 @@ const buildLevels = (
   return { bids, asks, max };
 };
 
+const formatPrefill = (price: number): string => {
+  if (price >= 1) {return price.toFixed(4);}
+  if (price >= 0.01) {return price.toFixed(5);}
+  return price.toPrecision(4);
+};
+
 const prefill = (price: number, side: 'bid' | 'ask') => {
-  const formatted =
-    price >= 1 ? price.toFixed(4) : price >= 0.01 ? price.toFixed(5) : price.toPrecision(4);
+  const formatted = formatPrefill(price);
   tradeFormStore.setWhichForm('Limit');
   tradeFormStore.limitForm.setDirection(side === 'bid' ? 'sell' : 'buy');
   tradeFormStore.limitForm.setPriceInput(formatted);

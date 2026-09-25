@@ -63,12 +63,10 @@ export const LimitPreviewOverlay = observer(
     // (executes as taker), and a sell at price <= mid likewise. Surface
     // that in the label so the trader doesn't accidentally submit a
     // crossing limit thinking they're posting maker.
-    const wouldCross =
-      marketPrice && marketPrice > 0
-        ? direction === 'buy'
-          ? price >= marketPrice
-          : price <= marketPrice
-        : false;
+    let wouldCross = false;
+    if (marketPrice && marketPrice > 0) {
+      wouldCross = direction === 'buy' ? price >= marketPrice : price <= marketPrice;
+    }
     const deltaPct =
       marketPrice && marketPrice > 0 ? ((price - marketPrice) / marketPrice) * 100 : null;
     const deltaText =

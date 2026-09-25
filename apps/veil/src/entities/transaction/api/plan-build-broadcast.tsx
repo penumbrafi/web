@@ -213,7 +213,7 @@ export const planBuildBroadcast = async (
     // provision some amount of either asset".
     const described = describeTxError(e);
     toast.update({
-      type: described.cancelled ? 'warning' : described.txAlreadyOnChain ? 'warning' : 'error',
+      type: described.cancelled || described.txAlreadyOnChain ? 'warning' : 'error',
       message: described.title,
       description: described.description,
       dismissible: true,

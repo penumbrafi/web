@@ -16,6 +16,13 @@ import { classNames, formatNumber, nonEmpty, shortenHash } from '@/pages/inspect
 import { validatorImages } from '@/pages/inspect/explorer/lib/validators'
 import type { Props } from './validatorContainer'
 
+const uptimeTone = (uptime: number) => {
+    if (uptime >= 80) {
+        return 'text-success-light'
+    }
+    return uptime > 5 ? 'text-caution-light' : 'text-destructive-light'
+}
+
 const ValidatorLoader: FC<Props> = async props => {
     const validator = await getValidator(props.validatorId)
 
@@ -91,11 +98,7 @@ const ValidatorLoader: FC<Props> = async props => {
                         Total uptime{' '}
                         <span
                             className={classNames(
-                                validator.totalUptime >= 80
-                                    ? 'text-success-light'
-                                    : validator.totalUptime > 5
-                                      ? 'text-caution-light'
-                                      : 'text-destructive-light'
+                                uptimeTone(validator.totalUptime)
                             )}
                         >
                             {validator.totalUptime.toFixed(2)}%

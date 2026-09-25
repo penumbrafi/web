@@ -29,7 +29,9 @@ export const useEpochResults = (
     },
   });
 
-  useRefetchOnNewBlock(name, query, disabled);
+  // Mirror `enabled`: an imperative refetch ignores it, and firing without
+  // an epoch is a guaranteed 400 on every block.
+  useRefetchOnNewBlock(name, query, disabled === true || !params.epoch);
 
   // collect all the gauges for the current epoch by the asset denom
   const gaugeMapByDenom = useMemo(

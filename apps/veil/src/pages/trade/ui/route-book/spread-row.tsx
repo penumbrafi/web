@@ -2,7 +2,7 @@ import { Text } from '@penumbra-zone/ui/Text';
 import type { Trace } from '@/shared/api/server/book/types';
 import { calculateSpread } from '../../model/trace';
 import { usePathSymbols } from '../../model/use-path';
-import { useTickDirection } from '../../model/use-tick-direction';
+import { TICK_ARROW, TICK_TEXT_COLOR, useTickDirection } from '../../model/use-tick-direction';
 import { pnum } from '@penumbra-zone/types/pnum';
 import { tradeFormStore } from '../order-form/store/OrderFormStore';
 
@@ -30,13 +30,8 @@ export const SpreadRow = ({
     tradeFormStore.limitForm.setPriceInput(spreadInfo.midPrice);
   };
 
-  const midColor =
-    direction === 'up'
-      ? 'success.light'
-      : direction === 'down'
-        ? 'destructive.light'
-        : 'text.primary';
-  const arrow = direction === 'up' ? '▲ ' : direction === 'down' ? '▼ ' : '';
+  const midColor = TICK_TEXT_COLOR[direction];
+  const arrow = TICK_ARROW[direction];
 
   return (
     <div

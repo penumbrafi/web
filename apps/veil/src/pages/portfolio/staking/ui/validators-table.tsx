@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Search } from 'lucide-react';
 import { Text } from '@penumbra-zone/ui/Text';
@@ -53,6 +53,71 @@ export const ValidatorsTable = observer(
       });
     }, [filter, validatorInfos]);
 
+    let content: ReactNode;
+    if (loading && validatorInfos.length === 0) {
+      content = (
+        <div className='py-8 text-center'>
+          <Text color='text.secondary'>Loading validators…</Text>
+        </div>
+      );
+    } else if (visible.length === 0) {
+      content = (
+        <div className='py-8 text-center'>
+          <Text color='text.secondary'>No validators match your filter.</Text>
+        </div>
+      );
+    } else {
+      content = (
+        <Table>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>Validator</Table.Th>
+              <Table.Th hAlign='right'>Actions</Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {visible.map(info => {
+              const validator = getValidator(info);
+              const identityKey = bech32mIdentityKey(getIdentityKeyFromValidatorInfo(info));
+              const vp = votingPowerByIdentityKey[identityKey];
+              const existingDelegation = delegations.find(d =>
+                isDelegationTokenForValidator(d, info),
+              );
+
+              return (
+                <Table.Tr key={identityKey}>
+                  <Table.Td>
+                    <ValidatorInfoCell
+                      validatorInfo={info}
+                      votingPowerPercentage={vp}
+                    />
+                  </Table.Td>
+                  <Table.Td hAlign='right'>
+                    <div className='flex justify-end'>
+                      <StakingActions
+                        validatorInfo={info}
+                        stakingTokens={stakingTokens}
+                        delegationTokens={existingDelegation}
+                        delegateOnly={!existingDelegation}
+                      />
+                    </div>
+                    <StakingFormDialog
+                      validator={validator}
+                      votingPowerPercentage={vp ?? 0}
+                      stakingTokens={stakingTokens}
+                      delegationTokens={existingDelegation}
+                      stakingTokenMetadata={stakingTokenMetadata}
+                      allDelegations={delegations}
+                    />
+                  </Table.Td>
+                </Table.Tr>
+              );
+            })}
+          </Table.Tbody>
+        </Table>
+      );
+    }
+
     return (
       <div className='flex flex-col gap-3'>
         <TextInput
@@ -62,63 +127,7 @@ export const ValidatorsTable = observer(
           startAdornment={<Search size={16} />}
         />
 
-        {loading && validatorInfos.length === 0 ? (
-          <div className='py-8 text-center'>
-            <Text color='text.secondary'>Loading validators…</Text>
-          </div>
-        ) : visible.length === 0 ? (
-          <div className='py-8 text-center'>
-            <Text color='text.secondary'>No validators match your filter.</Text>
-          </div>
-        ) : (
-          <Table>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Validator</Table.Th>
-                <Table.Th hAlign='right'>Actions</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {visible.map(info => {
-                const validator = getValidator(info);
-                const identityKey = bech32mIdentityKey(getIdentityKeyFromValidatorInfo(info));
-                const vp = votingPowerByIdentityKey[identityKey];
-                const existingDelegation = delegations.find(d =>
-                  isDelegationTokenForValidator(d, info),
-                );
-
-                return (
-                  <Table.Tr key={identityKey}>
-                    <Table.Td>
-                      <ValidatorInfoCell
-                        validatorInfo={info}
-                        votingPowerPercentage={vp}
-                      />
-                    </Table.Td>
-                    <Table.Td hAlign='right'>
-                      <div className='flex justify-end'>
-                        <StakingActions
-                          validatorInfo={info}
-                          stakingTokens={stakingTokens}
-                          delegationTokens={existingDelegation}
-                          delegateOnly={!existingDelegation}
-                        />
-                      </div>
-                      <StakingFormDialog
-                        validator={validator}
-                        votingPowerPercentage={vp ?? 0}
-                        stakingTokens={stakingTokens}
-                        delegationTokens={existingDelegation}
-                        stakingTokenMetadata={stakingTokenMetadata}
-                        allDelegations={delegations}
-                      />
-                    </Table.Td>
-                  </Table.Tr>
-                );
-              })}
-            </Table.Tbody>
-          </Table>
-        )}
+        {content}
       </div>
     );
   },

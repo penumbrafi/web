@@ -12,6 +12,12 @@ const getPermission = (): NotificationPermission => {
   return Notification.permission as NotificationPermission;
 };
 
+const PERMISSION_HINT: Record<NotificationPermission, string> = {
+  granted: 'Permission granted.',
+  denied: 'Permission denied — re-enable from browser settings.',
+  default: 'You will be asked for permission on save.',
+};
+
 const requestPermission = async (): Promise<NotificationPermission> => {
   if (typeof window === 'undefined' || !('Notification' in window)) {return 'denied';}
   try {
@@ -166,11 +172,7 @@ export const AlertsMenu = ({ pair, marketPrice, alerts, onAdd, onRemove }: Props
                   Browser notification
                 </Text>
                 <Text detail color='text.secondary'>
-                  {perm === 'granted'
-                    ? 'Permission granted.'
-                    : perm === 'denied'
-                      ? 'Permission denied — re-enable from browser settings.'
-                      : 'You will be asked for permission on save.'}
+                  {PERMISSION_HINT[perm]}
                 </Text>
               </span>
             </label>

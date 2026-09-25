@@ -45,6 +45,35 @@ const VIEW_LABEL: Record<ViewMode, string> = {
   bids: 'Bids',
   asks: 'Asks',
 };
+const VIEW_TITLE: Record<ViewMode, string> = {
+  both: 'Show both bids and asks',
+  bids: 'Bids only',
+  asks: 'Asks only',
+};
+
+/** Hover title and inline text for the placeholder row of an empty book side. */
+const emptySideCopy = (
+  side: 'buy' | 'sell' | null,
+  base: string,
+  quote: string,
+): { title: string; text: string } => {
+  if (side === 'buy') {
+    return {
+      title: `No bids yet for ${base} — post a buy limit order to become the first bid.`,
+      text: `No bids yet · be the first to buy ${base}`,
+    };
+  }
+  if (side === 'sell') {
+    return {
+      title: `No asks yet for ${base} — post a sell limit order to become the first ask.`,
+      text: `No asks yet · be the first to sell ${base}`,
+    };
+  }
+  return {
+    title: `No liquidity yet on ${base}/${quote} — provide the first LP to bootstrap the pair.`,
+    text: `No liquidity · be the first LP on ${base}/${quote}`,
+  };
+};
 
 // Hard cap on rows the trader sees. Beyond that the panel doesn't fit and
 // bucketing is the right lever to compress info instead of scrolling.
@@ -474,13 +503,7 @@ export const RouteBook = observer(() => {
                 ? 'bg-primary-main text-base-black'
                 : 'bg-other-tonal-fill5 hover:bg-action-hover-overlay hover:text-text-primary',
             )}
-            title={
-              v === 'both'
-                ? 'Show both bids and asks'
-                : v === 'bids'
-                  ? 'Bids only'
-                  : 'Asks only'
-            }
+            title={VIEW_TITLE[v]}
           >
             {VIEW_LABEL[v]}
           </button>
@@ -524,14 +547,12 @@ export const RouteBook = observer(() => {
   // both sides); buys follow.
   const sellGridStart = 2;
   const buyGridStart = sellGridStart + sellRows.length + (showSpread ? 1 : 0);
-  const emptySide: 'buy' | 'sell' | null =
-    !showSpread || bothSidesPresent
-      ? null
-      : sellRows.length === 0 && buyRows.length === 0
-        ? 'buy'
-        : sellRows.length === 0
-          ? 'sell'
-          : 'buy';
+  let emptySide: 'buy' | 'sell' | null = null;
+  if (showSpread && !bothSidesPresent) {
+    // Both sides empty reads as "no bids"; only asks missing reads as "no asks".
+    emptySide = sellRows.length === 0 && buyRows.length > 0 ? 'sell' : 'buy';
+  }
+  const emptyCopy = emptySideCopy(emptySide, pair.baseSymbol, pair.quoteSymbol);
 
   return (
       <>
@@ -590,19 +611,9 @@ export const RouteBook = observer(() => {
             ) : (
               <div
                 className='col-span-4 flex h-full items-center justify-center px-3 py-3 text-xs text-text-secondary'
-                title={
-                  emptySide === 'buy'
-                    ? `No bids yet for ${pair.baseSymbol} — post a buy limit order to become the first bid.`
-                    : emptySide === 'sell'
-                      ? `No asks yet for ${pair.baseSymbol} — post a sell limit order to become the first ask.`
-                      : `No liquidity yet on ${pair.baseSymbol}/${pair.quoteSymbol} — provide the first LP to bootstrap the pair.`
-                }
+                title={emptyCopy.title}
               >
-                {emptySide === 'buy'
-                  ? `No bids yet · be the first to buy ${pair.baseSymbol}`
-                  : emptySide === 'sell'
-                    ? `No asks yet · be the first to sell ${pair.baseSymbol}`
-                    : `No liquidity · be the first LP on ${pair.baseSymbol}/${pair.quoteSymbol}`}
+                {emptyCopy.text}
               </div>
             ))}
 

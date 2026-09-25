@@ -34,6 +34,10 @@ const Button: FC<Props> = ({
 
     if (href) {
         const externalLink = href.startsWith('http')
+        let linkIcon = icon ? icons[icon] : undefined
+        if (externalLink) {
+            linkIcon = icons['ExternalLink']
+        }
 
         return (
             <Link
@@ -44,13 +48,7 @@ const Button: FC<Props> = ({
             >
                 {/* @ts-expect-error icon typing */}
                 <PenumbraButton
-                    icon={
-                        externalLink
-                            ? icons['ExternalLink']
-                            : icon
-                              ? icons[icon]
-                              : undefined
-                    }
+                    icon={linkIcon}
                     {...props}
                 />
             </Link>

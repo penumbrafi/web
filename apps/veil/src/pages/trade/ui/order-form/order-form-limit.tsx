@@ -5,7 +5,7 @@ import { Button } from '@penumbra-zone/ui/Button';
 import { Text } from '@penumbra-zone/ui/Text';
 import { connectionStore } from '@/shared/model/connection';
 import { ConnectButton } from '@/features/connect/connect-button';
-import { useTickDirection } from '../../model/use-tick-direction';
+import { TICK_ARROW, TICK_TEXT_COLOR, useTickDirection } from '../../model/use-tick-direction';
 import { OrderInput } from './order-input';
 import { SegmentedControl } from './segmented-control';
 import { SelectGroup } from './select-group';
@@ -287,15 +287,9 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
               </Text>
               <Text
                 detail
-                color={
-                  midDirection === 'up'
-                    ? 'success.light'
-                    : midDirection === 'down'
-                      ? 'destructive.light'
-                      : 'text.primary'
-                }
+                color={TICK_TEXT_COLOR[midDirection]}
               >
-                {midDirection === 'up' ? '▲ ' : midDirection === 'down' ? '▼ ' : ''}
+                {TICK_ARROW[midDirection]}
                 {midText}
               </Text>
             </button>

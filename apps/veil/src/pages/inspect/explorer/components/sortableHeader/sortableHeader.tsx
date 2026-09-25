@@ -28,6 +28,11 @@ const SortableHeader: FC<Props> = props => {
         router.push(`${pathname}?${params}`)
     }, [currentDirection, pathname, props.sortKey, router, searchParams])
 
+    let arrow = '\u2195'
+    if (isActive) {
+        arrow = currentDirection === 'asc' ? '\u2191' : '\u2193'
+    }
+
     return (
         <button
             className={classNames(
@@ -41,11 +46,7 @@ const SortableHeader: FC<Props> = props => {
         >
             {props.children}
             <span className="text-xs">
-                {isActive
-                    ? currentDirection === 'asc'
-                        ? '\u2191'
-                        : '\u2193'
-                    : '\u2195'}
+                {arrow}
             </span>
         </button>
     )

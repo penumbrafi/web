@@ -651,12 +651,15 @@ export class OrderFormStore {
 
     // Range bounds are per-form. LP uses upper/lowerPrice on _lp; RangeLP
     // uses upper/lowerPrice on _range; Market and Limit have no range.
-    const rangeBounds =
-      this._whichForm === 'LP'
-        ? { lowerPrice: this._lp.lowerPrice, upperPrice: this._lp.upperPrice }
-        : this._whichForm === 'RangeLP'
-          ? { lowerPrice: this._range.lowerPrice, upperPrice: this._range.upperPrice }
-          : { lowerPrice: undefined, upperPrice: undefined };
+    let rangeBounds: { lowerPrice: number | null | undefined; upperPrice: number | null | undefined } = {
+      lowerPrice: undefined,
+      upperPrice: undefined,
+    };
+    if (this._whichForm === 'LP') {
+      rangeBounds = { lowerPrice: this._lp.lowerPrice, upperPrice: this._lp.upperPrice };
+    } else if (this._whichForm === 'RangeLP') {
+      rangeBounds = { lowerPrice: this._range.lowerPrice, upperPrice: this._range.upperPrice };
+    }
 
     // Build direction-explicit details for the one-sided warning so
     // validator can say "you're bidding X to buy Y" rather than the
@@ -793,14 +796,15 @@ export class OrderFormStore {
     // invalidations refetch — otherwise the 6s SWR cache reads back the
     // pre-swap snapshot and the LP-panel mid/route-book stays stuck on
     // the old price for up to a full TTL.
-    const activeForm =
-      this._whichForm === 'Market'
-        ? this._market
-        : this._whichForm === 'Limit'
-          ? this._limit
-          : this._whichForm === 'RangeLP'
-            ? this._range
-            : this._lp;
+    let activeForm: MarketOrderFormStore | LimitOrderFormStore | RangeOrderFormStore | LPFormStore =
+      this._lp;
+    if (this._whichForm === 'Market') {
+      activeForm = this._market;
+    } else if (this._whichForm === 'Limit') {
+      activeForm = this._limit;
+    } else if (this._whichForm === 'RangeLP') {
+      activeForm = this._range;
+    }
     const pair = {
       base: activeForm.baseAsset?.symbol,
       quote: activeForm.quoteAsset?.symbol,

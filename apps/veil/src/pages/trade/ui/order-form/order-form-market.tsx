@@ -114,7 +114,14 @@ export const MarketOrderForm = observer(({ parentStore }: { parentStore: OrderFo
     const rows: ConfirmInfoRow[] = [];
     if (baseAmt && quoteAmt && baseAmt > 0 && quoteAmt > 0) {
       const fillPrice = quoteAmt / baseAmt;
-      const decimals = fillPrice >= 1 ? 4 : fillPrice >= 0.01 ? 5 : fillPrice >= 0.0001 ? 6 : 8;
+      let decimals = 8;
+      if (fillPrice >= 1) {
+        decimals = 4;
+      } else if (fillPrice >= 0.01) {
+        decimals = 5;
+      } else if (fillPrice >= 0.0001) {
+        decimals = 6;
+      }
       rows.push({
         label: 'Avg fill price',
         value: `${fillPrice.toFixed(decimals)} ${quoteSym}`,

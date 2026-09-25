@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { tradeFormStore } from '../order-form/store/OrderFormStore';
-import { useTickDirection } from '../../model/use-tick-direction';
+import { type TickDirection, useTickDirection } from '../../model/use-tick-direction';
 
 // theme.ts is a typing stub — most fields resolve to ''.
 // Use the actual hex values from theme.css so the line and label render.
@@ -8,6 +8,12 @@ const LABEL_TEXT = '#0d0d0d';
 const NEUTRAL_COLOR = '#f49c43'; // primary.light — first paint, no direction signal
 const UP_COLOR = '#55d383'; // success.light — last tick was up
 const DOWN_COLOR = '#f17878'; // destructive.light — last tick was down
+const DIRECTION_COLOR: Record<TickDirection, string> = {
+  up: UP_COLOR,
+  down: DOWN_COLOR,
+  flat: NEUTRAL_COLOR,
+};
+const DIRECTION_ARROW: Record<TickDirection, string> = { up: '▲', down: '▼', flat: '·' };
 
 interface MidPriceOverlayProps {
   /** Mid-price from the order book; undefined while the book is loading. */
@@ -75,9 +81,8 @@ export const MidPriceOverlay = ({
 
   if (y === undefined || marketPrice === undefined) {return null;}
 
-  const color =
-    direction === 'up' ? UP_COLOR : direction === 'down' ? DOWN_COLOR : NEUTRAL_COLOR;
-  const arrow = direction === 'up' ? '▲' : direction === 'down' ? '▼' : '·';
+  const color = DIRECTION_COLOR[direction];
+  const arrow = DIRECTION_ARROW[direction];
   const priceStr = formatPrice(marketPrice);
 
   const useMidAsLimit = () => {
@@ -89,9 +94,7 @@ export const MidPriceOverlay = ({
   // round to "0%" otherwise — keep one decimal for those.
   const spreadStr =
     spreadPercentage !== undefined && Number.isFinite(spreadPercentage)
-      ? spreadPercentage < 1
-        ? `${spreadPercentage.toFixed(2)}%`
-        : `${spreadPercentage.toFixed(1)}%`
+      ? `${spreadPercentage.toFixed(spreadPercentage < 1 ? 2 : 1)}%`
       : null;
 
   return (

@@ -40,19 +40,22 @@ const StatTile = ({ label, primary, secondary, accent = 'neutral' }: StatTilePro
   </div>
 );
 
+const inflationAccentFor = (pct: number | null): StatTileProps['accent'] => {
+  if (pct === null) {
+    return 'neutral';
+  }
+  if (pct < 1) {
+    return 'green';
+  }
+  return pct < 3 ? 'teal' : 'orange';
+};
+
 export const HeadlineStats = ({ metrics }: { metrics: TokenomicsMetrics }) => {
   const inflationStr =
     metrics.annualizedInflationPct === null
       ? '—'
       : fmtPct(metrics.annualizedInflationPct);
-  const inflationAccent: StatTileProps['accent'] =
-    metrics.annualizedInflationPct === null
-      ? 'neutral'
-      : metrics.annualizedInflationPct < 1
-        ? 'green'
-        : metrics.annualizedInflationPct < 3
-          ? 'teal'
-          : 'orange';
+  const inflationAccent = inflationAccentFor(metrics.annualizedInflationPct);
 
   return (
     <section className='flex flex-col gap-3'>

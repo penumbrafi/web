@@ -5,6 +5,14 @@ import { getValidatorVotingPowerHistory } from '@/pages/inspect/explorer/lib/dat
 import { classNames } from '@/pages/inspect/explorer/lib/utils'
 import type { Props } from './validatorVotingPowerHistoryContainer'
 
+/** Green for a gain, red for a loss, `flat` otherwise. */
+const changeTone = (change: number, flat: string) => {
+    if (change > 0) {
+        return 'text-green-500'
+    }
+    return change < 0 ? 'text-red-500' : flat
+}
+
 const ValidatorVotingPowerHistoryLoader: FC<Props> = async props => {
     const history = await getValidatorVotingPowerHistory(
         props.validatorId,
@@ -79,11 +87,7 @@ const ValidatorVotingPowerHistoryLoader: FC<Props> = async props => {
                     <div
                         className={classNames(
                             'mt-1 text-lg font-medium',
-                            totalChange > 0
-                                ? 'text-green-500'
-                                : totalChange < 0
-                                  ? 'text-red-500'
-                                  : ''
+                            changeTone(totalChange, '')
                         )}
                     >
                         {totalChange > 0 ? '+' : ''}
@@ -95,11 +99,7 @@ const ValidatorVotingPowerHistoryLoader: FC<Props> = async props => {
                     <div
                         className={classNames(
                             'mt-1 text-lg font-medium',
-                            totalChange > 0
-                                ? 'text-green-500'
-                                : totalChange < 0
-                                  ? 'text-red-500'
-                                  : ''
+                            changeTone(totalChange, '')
                         )}
                     >
                         {totalChange > 0 ? '+' : ''}
@@ -155,11 +155,7 @@ const ValidatorVotingPowerHistoryLoader: FC<Props> = async props => {
                                         <td
                                             className={classNames(
                                                 'py-3 pr-4',
-                                                change > 0
-                                                    ? 'text-green-500'
-                                                    : change < 0
-                                                      ? 'text-red-500'
-                                                      : 'text-text-secondary'
+                                                changeTone(change, 'text-text-secondary')
                                             )}
                                         >
                                             {index === 0

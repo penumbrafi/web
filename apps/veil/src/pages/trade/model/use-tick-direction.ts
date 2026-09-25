@@ -12,8 +12,20 @@ import { useEffect, useRef, useState } from 'react';
  * tick — without any of them having to track the previous value
  * themselves.
  */
-export const useTickDirection = (value: number | undefined): 'up' | 'down' | 'flat' => {
-  const [direction, setDirection] = useState<'up' | 'down' | 'flat'>('flat');
+export type TickDirection = 'up' | 'down' | 'flat';
+
+/** Text colour token for the last tick (up green, down red, flat neutral). */
+export const TICK_TEXT_COLOR = {
+  up: 'success.light',
+  down: 'destructive.light',
+  flat: 'text.primary',
+} as const satisfies Record<TickDirection, string>;
+
+/** Arrow prefix for the last tick, including its trailing space. */
+export const TICK_ARROW: Record<TickDirection, string> = { up: '▲ ', down: '▼ ', flat: '' };
+
+export const useTickDirection = (value: number | undefined): TickDirection => {
+  const [direction, setDirection] = useState<TickDirection>('flat');
   const prevRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {

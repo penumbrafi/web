@@ -48,6 +48,16 @@ const fmtM = (um: number) =>
     ? `${(um / 1_000_000).toFixed(2)}M UM`
     : `${(um / 1_000).toFixed(0)}K UM`;
 
+const lqtIssuanceText = (metrics: TokenomicsMetrics): string => {
+  if (metrics.lqtIssuanceAnnualUM === null) {
+    return '—';
+  }
+  if (metrics.lqtIssuanceAnnualUM > 0 && metrics.lqtEndBlock) {
+    return `${fmtM(metrics.lqtIssuanceAnnualUM)}/yr, ends block ${metrics.lqtEndBlock.toLocaleString('en-US')}`;
+  }
+  return 'ended';
+};
+
 export const IssuancePanel = ({ metrics, inflation }: Props) => {
   const [win, setWin] = useState<Window>('1y');
   const windowDays = useMemo(
@@ -70,7 +80,12 @@ export const IssuancePanel = ({ metrics, inflation }: Props) => {
     : 0;
   // Human label for the range card — matches whatever window the trader
   // picked instead of hard-coding "90-day".
-  const rangeLabel = windowDays === null ? 'All-time' : windowDays === 30 ? '30-day' : '1-year';
+  let rangeLabel = '1-year';
+  if (windowDays === null) {
+    rangeLabel = 'All-time';
+  } else if (windowDays === 30) {
+    rangeLabel = '30-day';
+  }
   const issuedSinceGenesis = Math.max(0, metrics.totalSupply - metrics.genesisAllocation);
 
   // Penumbra mints a FIXED per-block budget for staking (and a separate
@@ -201,11 +216,7 @@ export const IssuancePanel = ({ metrics, inflation }: Props) => {
             </span>
           </Text>
           <Text small color='text.secondary'>
-            {metrics.lqtIssuanceAnnualUM === null
-              ? '—'
-              : metrics.lqtIssuanceAnnualUM > 0 && metrics.lqtEndBlock
-                ? `${fmtM(metrics.lqtIssuanceAnnualUM)}/yr, ends block ${metrics.lqtEndBlock.toLocaleString('en-US')}`
-                : 'ended'}
+            {lqtIssuanceText(metrics)}
           </Text>
         </div>
         <div className='flex flex-col gap-1 rounded-lg bg-other-tonal-fill5 p-4'>

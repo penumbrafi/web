@@ -6,7 +6,7 @@ import { Tooltip } from '@penumbra-zone/ui/Tooltip';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { useSummary } from '../api/use-summary';
 import { useMarketPrice } from '../model/useMarketPrice';
-import { useTickDirection } from '../model/use-tick-direction';
+import { TICK_ARROW, TICK_TEXT_COLOR, useTickDirection } from '../model/use-tick-direction';
 import { DurationWindow, isDurationWindow } from '@/shared/utils/duration';
 import { tradeFormStore } from './order-form/store/OrderFormStore';
 import { ValueViewComponent } from '@penumbra-zone/ui/ValueView';
@@ -134,15 +134,9 @@ export const Summary = () => {
           <div className='flex items-center gap-1'>
             <Text
               detail
-              color={
-                midDirection === 'up'
-                  ? 'success.light'
-                  : midDirection === 'down'
-                    ? 'destructive.light'
-                    : 'text.primary'
-              }
+              color={TICK_TEXT_COLOR[midDirection]}
             >
-              {midDirection === 'up' ? '▲ ' : midDirection === 'down' ? '▼ ' : ''}
+              {TICK_ARROW[midDirection]}
               {marketPrice != null ? round({ value: marketPrice, decimals: 6 }) : '-'}
             </Text>
             {/* Spread as % of mid — book tightness at a glance. Same

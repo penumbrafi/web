@@ -245,17 +245,19 @@ export const LpPreviewOverlay = observer(
         const t = n === 1 ? 0 : nearMidIdx / (n - 1);
         return 0.1 + 0.9 * t;
       };
-      const weights: number[] =
-        customWeights && customWeights.length === n
-          ? customWeights
-          : oneSided
-            ? Array.from({ length: n }, (_, priceIdx) => {
-                // Base one-sided ladders from mid → upper (priceIdx 0 at mid).
-                // Quote one-sided ladders from lower → mid (priceIdx n-1 at mid).
-                const nearMidIdx = oneSidedBase ? priceIdx : n - 1 - priceIdx;
-                return monotonicWeightAt(nearMidIdx);
-              })
-            : getPositionWeights(n, shape);
+      let weights: number[];
+      if (customWeights && customWeights.length === n) {
+        weights = customWeights;
+      } else if (oneSided) {
+        weights = Array.from({ length: n }, (_, priceIdx) => {
+          // Base one-sided ladders from mid → upper (priceIdx 0 at mid).
+          // Quote one-sided ladders from lower → mid (priceIdx n-1 at mid).
+          const nearMidIdx = oneSidedBase ? priceIdx : n - 1 - priceIdx;
+          return monotonicWeightAt(nearMidIdx);
+        });
+      } else {
+        weights = getPositionWeights(n, shape);
+      }
       const totalWeight = weights.reduce((s, w) => s + w, 0) || 1;
 
       const recompute = () => {
