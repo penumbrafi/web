@@ -4,6 +4,7 @@ import {
   IChartApi,
   IPriceLine,
   LineStyle,
+  type AutoscaleInfo,
   type CreatePriceLineOptions,
   type Logical,
 } from 'lightweight-charts';
@@ -636,7 +637,7 @@ export const useChartConfig = (
       // anchor + range are always visible AND every candle in view is
       // honestly scaled.
       series.applyOptions({
-        autoscaleInfoProvider: original => {
+        autoscaleInfoProvider: (original: () => AutoscaleInfo | null) => {
           const src = original();
           const dataMin = src?.priceRange?.minValue;
           const dataMax = src?.priceRange?.maxValue;

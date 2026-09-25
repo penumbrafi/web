@@ -38,7 +38,12 @@ export interface FallbackConfig<T> {
 const SLOW_MS = 1_000;
 const LOG_ALL_TIMING = process.env['VEIL_API_TIMING'] === '1';
 
-const stamp = (res: NextResponse, tag: string, startedAt: number, outcome: 'ok' | 'fallback') => {
+const stamp = <R extends NextResponse<unknown>>(
+  res: R,
+  tag: string,
+  startedAt: number,
+  outcome: 'ok' | 'fallback',
+): R => {
   const ms = Math.round(performance.now() - startedAt);
   try {
     res.headers.set('X-Served-Ms', String(ms));

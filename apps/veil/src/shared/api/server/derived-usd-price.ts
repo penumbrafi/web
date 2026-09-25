@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Registry } from '@penumbra-labs/registry';
+import { Registry } from '@penumbrafi/registry';
 import {
   SimulateTradeRequest,
   SimulateTradeResponse,

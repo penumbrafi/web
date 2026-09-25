@@ -182,7 +182,7 @@ export async function fetchTokenomicsMetrics(): Promise<TokenomicsMetrics> {
         .where(
           'sts.height',
           '=',
-          sql`(SELECT MAX(height) FROM supply_total_staked sts2 WHERE sts2.validator_id = sts.validator_id)`,
+          sql<string>`(SELECT MAX(height) FROM supply_total_staked sts2 WHERE sts2.validator_id = sts.validator_id)`,
         )
         .executeTakeFirst(),
       findUnstakedAtOrBefore(new Date(Date.now() - SECONDS_PER_DAY * 1000)),

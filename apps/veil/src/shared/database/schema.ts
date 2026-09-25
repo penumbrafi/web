@@ -480,6 +480,11 @@ export type DB = Pick<
   | 'dex_ex_transactions'
   | 'ibc_transfer'
   | 'block_details'
+  // tokenomics (supply / staking history)
+  | 'insights_supply'
+  | 'supply_total_unstaked'
+  | 'supply_total_staked'
+  | 'stake_validator_set'
   | 'lqt.gauge'
   | 'lqt.delegator_history'
   | 'lqt.delegator_summary'
