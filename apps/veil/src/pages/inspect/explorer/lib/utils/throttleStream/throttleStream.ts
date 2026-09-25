@@ -1,6 +1,6 @@
 import { buffer, interval, map, pipe, Source } from 'wonka'
 
-const throttleStream = <T = any>(
+const throttleStream = <T = unknown>(
     source: Source<T>,
     wait: number,
     take: number

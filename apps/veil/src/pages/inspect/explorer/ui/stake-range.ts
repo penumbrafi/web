@@ -27,7 +27,7 @@ export const parseStakeRange = (raw: string | undefined): StakeRangeKey => {
 };
 
 export const stakeRangeDays = (key: StakeRangeKey): number =>
-  STAKE_RANGES.find(r => r.key === key)!.days;
+  STAKE_RANGES.find(r => r.key === key)?.days ?? 90;
 
 /**
  * Step sizing per window. Numbers tuned so each window ends up with

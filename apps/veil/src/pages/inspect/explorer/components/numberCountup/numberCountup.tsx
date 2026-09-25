@@ -33,7 +33,7 @@ const NumberCountup: FC<Props> = props => {
             ease: 'easeOut',
         })
 
-        animation.finished.then(() => setAnimated(false))
+        void animation.finished.then(() => setAnimated(false))
 
         return () => animation.stop()
     }, [animate, motionValue, props.number])

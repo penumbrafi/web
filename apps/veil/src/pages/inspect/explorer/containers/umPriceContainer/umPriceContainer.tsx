@@ -15,7 +15,7 @@ const UmPriceContainer: FC<Props> = props => {
     const [umPrice, setUmPrice] = useState<UmPriceData>()
 
     useEffect(() => {
-        getUmPrice().then(setUmPrice)
+        void getUmPrice().then(setUmPrice)
     }, [])
 
     return umPrice ? (

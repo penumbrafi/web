@@ -27,16 +27,23 @@ const getVotes = async (
         return { total: 0, votes: [] }
     }
 
-    // TODO: Remove typecasting once schema is corrected
-    const votes = result.data.proposalDetail.votes.items.map(vote => ({
-        id: vote.id,
-        name: vote.name,
-        power: Number(vote.effectiveVotingPower),
-        powerPercentage: Number(vote.votingPowerPercentage),
-        timestamp: dayjs(vote.votedAt).valueOf(),
-        transactionHash: vote.txHash!,
-        value: vote.vote!,
-    }))
+    // The schema allows a vote without a tx hash or value; such a row has
+    // nothing to link or show, so it is skipped rather than crashing the table.
+    const votes = result.data.proposalDetail.votes.items.flatMap(vote =>
+        vote.txHash && vote.vote
+            ? [
+                  {
+                      id: vote.id,
+                      name: vote.name,
+                      power: Number(vote.effectiveVotingPower),
+                      powerPercentage: Number(vote.votingPowerPercentage),
+                      timestamp: dayjs(vote.votedAt).valueOf(),
+                      transactionHash: vote.txHash,
+                      value: vote.vote,
+                  },
+              ]
+            : []
+    )
 
     return { total: result.data.proposalDetail.votes.total, votes }
 }

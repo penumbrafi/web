@@ -159,8 +159,8 @@ export const ActiveStakeChart = ({ data, currentRange }: Props) => {
     { delegated: 0, undelegated: 0 },
   );
   const netFlow = totals.delegated - totals.undelegated;
-  const latest = data.length > 0 ? data[data.length - 1]! : undefined;
-  const first = data.length > 0 ? data[0]! : undefined;
+  const latest = data.at(-1);
+  const first = data.at(0);
   const latestActive = latest?.activeStake ?? 0;
   const latestInactive = latest?.inactiveStake ?? 0;
   const latestBonded = latestActive + latestInactive;
@@ -289,7 +289,7 @@ export const ActiveStakeChart = ({ data, currentRange }: Props) => {
               yAxisId='stake'
               fontSize={11}
               stroke='#666'
-              tickFormatter={v => fmtUM(v)}
+              tickFormatter={(v: number) => fmtUM(v)}
               tickLine={false}
               width={56}
             />
@@ -298,7 +298,7 @@ export const ActiveStakeChart = ({ data, currentRange }: Props) => {
               orientation='right'
               fontSize={11}
               stroke='#666'
-              tickFormatter={v => fmtUM(v)}
+              tickFormatter={(v: number) => fmtUM(v)}
               tickLine={false}
               width={56}
             />

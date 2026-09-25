@@ -6,6 +6,7 @@ import {
 import { proposalQuery } from '@/pages/inspect/explorer/lib/graphql/queries'
 import { TransformedProposal } from '@/pages/inspect/explorer/lib/types'
 import { transformProposalKind } from '@/pages/inspect/explorer/lib/utils'
+import { asRecord } from '@/pages/inspect/explorer/lib/utils/json'
 
 const getProposal = async (
     id: number
@@ -29,19 +30,17 @@ const getProposal = async (
         id: payloadId,
         title: payloadTitle,
         ...remainingPayload
-    } = payload
+    } = asRecord(payload)
 
     return {
         ...proposal,
         kind: transformProposalKind(kind),
-        /* eslint-disable perfectionist/sort-objects */
         rawJson: {
             id: payloadId,
             title: payloadTitle,
             description: payloadDescription,
             ...remainingPayload,
         },
-        /* eslint-enable perfectionist/sort-objects */
     }
 }
 

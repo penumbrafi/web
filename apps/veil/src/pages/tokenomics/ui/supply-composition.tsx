@@ -13,7 +13,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { tooltipNumber, type ChartTooltipProps } from './chart-tooltip';
+import { tooltipNumber, type ChartTooltipProps } from '@/shared/ui/chart-tooltip.ts';
 import type { SupplyPoint } from '../server/timeseries';
 import type { TokenomicsMetrics } from '../server/metrics';
 

@@ -49,7 +49,7 @@ const TransactionTableUpdater: FC<Props> = ({
             TransactionUpdateSubscriptionVariables
         >(transactionSubscription, {})
 
-        const { unsubscribe } = pipe(
+        const sub = pipe(
             source,
             subscribe(result => {
                 const transaction = result.data?.latestTransactions
@@ -94,7 +94,7 @@ const TransactionTableUpdater: FC<Props> = ({
             })
         )
 
-        return () => unsubscribe()
+        return () => sub.unsubscribe()
     }, [client, subscription])
 
     useEffect(() => {

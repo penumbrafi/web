@@ -32,9 +32,12 @@ const formatPower = (value: number) => {
     return value.toLocaleString('en-US')
 }
 
-const CustomTooltip: FC<any> = ({ active, payload }) => {
-    if (!active || !payload?.length) {return null}
-    const entry = payload[0].payload as StakingHistoryEntry
+const CustomTooltip: FC<{
+    active?: boolean
+    payload?: readonly { payload?: StakingHistoryEntry }[]
+}> = ({ active, payload }) => {
+    const entry = active ? payload?.[0]?.payload : undefined
+    if (!entry) {return null}
     return (
         <div className="rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm shadow-lg">
             <div className="text-text-secondary">

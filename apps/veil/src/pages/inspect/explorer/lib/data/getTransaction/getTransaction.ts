@@ -1,6 +1,7 @@
 import dayjs from '@/pages/inspect/explorer/lib/dayjs'
-import { TransformedTransactionFragment } from '@/pages/inspect/explorer/lib/types'
+import { ActionType, TransformedTransactionFragment } from '@/pages/inspect/explorer/lib/types'
 import { decodeTransaction, findPrimaryAction } from '@/pages/inspect/explorer/lib/utils'
+import { asRecord, asTime, sortedEvents } from '@/pages/inspect/explorer/lib/utils/json'
 import createGraphqlClient from '../../graphql/createGraphqlClient'
 import {
     TransactionQuery,
@@ -26,9 +27,9 @@ const getTransaction = async (
         return
     }
 
-    let primaryAction
-    let actionCount
-    let memo
+    let primaryAction: ActionType | undefined
+    let actionCount: number | undefined
+    let memo: boolean | undefined
 
     try {
         const decoded = decodeTransaction(result.data.transaction.raw)
@@ -40,6 +41,10 @@ const getTransaction = async (
         console.error(e)
     }
 
+    const raw = asRecord(result.data.transaction.rawJson)
+    const view = asRecord(raw['transaction_view'])
+    const body = asRecord(view['body'])
+
     return {
         actionCount: actionCount ?? 0,
         blockHeight: result.data.transaction.block.height,
@@ -49,40 +54,24 @@ const getTransaction = async (
         memo: memo ?? false,
         primaryAction,
         raw: result.data.transaction.raw,
-        /* eslint-disable perfectionist/sort-objects */
         rawJson: {
-            hash: result.data.transaction.rawJson.hash,
-            block_height: result.data.transaction.rawJson.block_height,
-            index: result.data.transaction.rawJson.index,
-            timestamp: result.data.transaction.rawJson.timestamp,
+            hash: raw['hash'],
+            block_height: raw['block_height'],
+            index: raw['index'],
+            timestamp: raw['timestamp'],
             transaction_view: {
                 body: {
-                    actions:
-                        result.data.transaction.rawJson.transaction_view.body
-                            .actions,
-                    transactionParameters:
-                        result.data.transaction.rawJson.transaction_view.body
-                            .transactionParameters,
-                    detectionData:
-                        result.data.transaction.rawJson.transaction_view.body
-                            .detectionData,
-                    memo: result.data.transaction.rawJson.transaction_view.body
-                        .memo,
+                    actions: body['actions'],
+                    transactionParameters: body['transactionParameters'],
+                    detectionData: body['detectionData'],
+                    memo: body['memo'],
                 },
-                bindingSig:
-                    result.data.transaction.rawJson.transaction_view.bindingSig,
-                anchor: result.data.transaction.rawJson.transaction_view.anchor,
+                bindingSig: view['bindingSig'],
+                anchor: view['anchor'],
             },
-            events: result.data.transaction.rawJson.events
-                .map((event: any) => ({
-                    event_id: event.event_id,
-                    type: event.type,
-                    attributes: event.attributes,
-                }))
-                .toSorted((a: any, b: any) => a.event_id - b.event_id),
+            events: sortedEvents(raw['events']),
         },
-        /* eslint-enable perfectionist/sort-objects */
-        timestamp: dayjs(result.data.transaction.block.createdAt).valueOf(),
+        timestamp: dayjs(asTime(result.data.transaction.block.createdAt)).valueOf(),
     }
 }
 

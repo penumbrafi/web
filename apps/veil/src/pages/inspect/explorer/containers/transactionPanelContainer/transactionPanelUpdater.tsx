@@ -31,7 +31,7 @@ const TransactionPanelUpdater: FC<Props> = props => {
             TransactionCountUpdateSubscriptionVariables
         >(transactionCountSubscription, {})
 
-        const { unsubscribe } = pipe(
+        const sub = pipe(
             source,
             subscribe(result => {
                 const count = result.data?.transactionCount.count
@@ -42,7 +42,7 @@ const TransactionPanelUpdater: FC<Props> = props => {
             })
         )
 
-        return () => unsubscribe()
+        return () => sub.unsubscribe()
     }, [client])
 
     useEffect(() => {

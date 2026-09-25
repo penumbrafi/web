@@ -1,6 +1,7 @@
 'use client'
 
 import { FC, useMemo } from 'react'
+import { ChartTooltipProps, tooltipNumber } from '@/shared/ui/chart-tooltip.ts'
 import {
     Bar,
     BarChart,
@@ -33,20 +34,20 @@ const formatAmount = (value: number) => {
     return value.toLocaleString('en-US')
 }
 
-const CustomTooltip: FC<any> = ({ active, label, payload }) => {
+const CustomTooltip: FC<ChartTooltipProps> = ({ active, label, payload }) => {
     if (!active || !payload?.length) {return null}
     return (
         <div className="rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm shadow-lg">
             <div className="text-text-secondary">
-                {new Date(label).toLocaleDateString('en-US', { timeZone: 'UTC' })}
+                {new Date(label ?? 0).toLocaleDateString('en-US', { timeZone: 'UTC' })}
             </div>
-            {payload.map((entry: any) => (
+            {payload.map(entry => (
                 <div
-                    key={entry.name}
+                    key={String(entry.name)}
                     className="mt-1"
                     style={{ color: entry.color }}
                 >
-                    {entry.name}: {Number(entry.value).toLocaleString('en-US')}
+                    {entry.name}: {tooltipNumber(entry.value).toLocaleString('en-US')}
                 </div>
             ))}
         </div>

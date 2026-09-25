@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 function useDebounce<T>(value: T, delay: number): [T, () => void]
 
-function useDebounce<F extends (...args: any[]) => any>(
+function useDebounce<F extends (...args: never[]) => unknown>(
     func: F,
     delay: number
 ): [(...args: Parameters<F>) => Promise<Awaited<ReturnType<F>>>, () => void]
@@ -40,12 +40,12 @@ function useDebounce<T>(valueOrFunc: T, delay: number) {
     }, [delay, cancel, valueOrFunc])
 
     const debouncedCallback = useCallback(
-        (...args: any[]) =>
+        (...args: unknown[]) =>
             new Promise((resolve, reject) => {
                 cancel()
 
                 timeoutRef.current = setTimeout(() => {
-                    const result = (valueOrFuncRef.current as Function)(...args)
+                    const result = (valueOrFuncRef.current as (...a: unknown[]) => unknown)(...args)
                     Promise.resolve(result).then(resolve).catch(reject)
                 }, delay)
             }),

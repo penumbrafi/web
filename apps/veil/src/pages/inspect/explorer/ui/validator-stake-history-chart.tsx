@@ -72,7 +72,7 @@ export const ValidatorStakeHistoryChart = ({ data, days = 90 }: Props) => {
     { delegated: 0, undelegated: 0 },
   );
   const netFlow = totals.delegated - totals.undelegated;
-  const latestStake = data.length > 0 ? data[data.length - 1]!.stake : 0;
+  const latestStake = data.at(-1)?.stake ?? 0;
 
   if (data.length === 0) {
     return (
@@ -157,7 +157,7 @@ export const ValidatorStakeHistoryChart = ({ data, days = 90 }: Props) => {
               yAxisId='stake'
               fontSize={11}
               stroke='#666'
-              tickFormatter={v => fmtUM(v)}
+              tickFormatter={(v: number) => fmtUM(v)}
               tickLine={false}
               width={56}
             />
@@ -166,7 +166,7 @@ export const ValidatorStakeHistoryChart = ({ data, days = 90 }: Props) => {
               orientation='right'
               fontSize={11}
               stroke='#666'
-              tickFormatter={v => fmtUM(v)}
+              tickFormatter={(v: number) => fmtUM(v)}
               tickLine={false}
               width={56}
             />

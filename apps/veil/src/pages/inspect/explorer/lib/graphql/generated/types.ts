@@ -14,10 +14,10 @@ export interface Scalars {
   Boolean: { input: boolean; output: boolean; }
   Int: { input: number; output: number; }
   Float: { input: number; output: number; }
-  DateTime: { input: any; output: any; }
-  Decimal: { input: any; output: any; }
+  DateTime: { input: string; output: string; }
+  Decimal: { input: number | string; output: number | string; }
   /** A scalar that can represent any JSON value. */
-  JSON: { input: any; output: any; }
+  JSON: { input: unknown; output: unknown; }
 }
 
 export type Action = IbcRelay | NotYetSupportedAction | Output | Spend;
@@ -945,13 +945,13 @@ export interface VotingPowerHistoryEntry {
   votingPower: Scalars['Int']['output'];
 }
 
-export interface BlockFragment { __typename?: 'Block', height: number, createdAt: any, rawJson: any, transactions: { __typename?: 'Transaction', hash: string, ibcStatus: IbcStatus, raw: string, block: { __typename?: 'Block', height: number, createdAt: any } }[] }
+export interface BlockFragment { __typename?: 'Block', height: number, createdAt: string, rawJson: unknown, transactions: { __typename?: 'Transaction', hash: string, ibcStatus: IbcStatus, raw: string, block: { __typename?: 'Block', height: number, createdAt: string } }[] }
 
-export interface PartialBlockFragment { __typename?: 'Block', height: number, createdAt: any, transactionsCount: number }
+export interface PartialBlockFragment { __typename?: 'Block', height: number, createdAt: string, transactionsCount: number }
 
-export interface PartialTransactionFragment { __typename?: 'Transaction', hash: string, ibcStatus: IbcStatus, raw: string, block: { __typename?: 'Block', height: number, createdAt: any } }
+export interface PartialTransactionFragment { __typename?: 'Transaction', hash: string, ibcStatus: IbcStatus, raw: string, block: { __typename?: 'Block', height: number, createdAt: string } }
 
-export interface TransactionFragment { __typename?: 'Transaction', hash: string, raw: string, rawJson: any, block: { __typename?: 'Block', height: number, createdAt: any }, body: { __typename?: 'TransactionBody', parameters: { __typename?: 'TransactionParameters', chainId: string, fee: { __typename?: 'Fee', amount: string } } } }
+export interface TransactionFragment { __typename?: 'Transaction', hash: string, raw: string, rawJson: unknown, block: { __typename?: 'Block', height: number, createdAt: string }, body: { __typename?: 'TransactionBody', parameters: { __typename?: 'TransactionParameters', chainId: string, fee: { __typename?: 'Fee', amount: string } } } }
 
 export type ActiveProposalsQueryVariables = Exact<Record<string, never>>;
 
@@ -975,7 +975,7 @@ export type BlockQueryVariables = Exact<{
 }>;
 
 
-export interface BlockQuery { __typename?: 'QueryRoot', block?: { __typename?: 'Block', height: number, createdAt: any, rawJson: any, transactions: { __typename?: 'Transaction', hash: string, ibcStatus: IbcStatus, raw: string, block: { __typename?: 'Block', height: number, createdAt: any } }[] } | null }
+export interface BlockQuery { __typename?: 'QueryRoot', block?: { __typename?: 'Block', height: number, createdAt: string, rawJson: unknown, transactions: { __typename?: 'Transaction', hash: string, ibcStatus: IbcStatus, raw: string, block: { __typename?: 'Block', height: number, createdAt: string } }[] } | null }
 
 export type BlocksQueryVariables = Exact<{
   limit: CollectionLimit;
@@ -983,19 +983,19 @@ export type BlocksQueryVariables = Exact<{
 }>;
 
 
-export interface BlocksQuery { __typename?: 'QueryRoot', blocks: { __typename?: 'BlockCollection', total: number, items: { __typename?: 'Block', height: number, createdAt: any, transactionsCount: number }[] } }
+export interface BlocksQuery { __typename?: 'QueryRoot', blocks: { __typename?: 'BlockCollection', total: number, items: { __typename?: 'Block', height: number, createdAt: string, transactionsCount: number }[] } }
 
 export type ChainParametersQueryVariables = Exact<Record<string, never>>;
 
 
-export interface ChainParametersQuery { __typename?: 'QueryRoot', validatorsHomepage: { __typename?: 'ValidatorHomepageData', chainParameters?: { __typename?: 'ChainParameters', chainId: string, currentBlockTime: any, currentBlockHeight: number, currentEpoch: number, epochDuration: number, nextEpochIn: number } | null } }
+export interface ChainParametersQuery { __typename?: 'QueryRoot', validatorsHomepage: { __typename?: 'ValidatorHomepageData', chainParameters?: { __typename?: 'ChainParameters', chainId: string, currentBlockTime: string, currentBlockHeight: number, currentEpoch: number, epochDuration: number, nextEpochIn: number } | null } }
 
 export type DexBlockExecutionsQueryVariables = Exact<{
   filter?: InputMaybe<SwapExecutionFilter>;
 }>;
 
 
-export interface DexBlockExecutionsQuery { __typename?: 'QueryRoot', latestExecutions: { __typename?: 'SwapExecution', blockHeight: number, timestamp: any, batchSwaps: { __typename?: 'BatchSwap', id: number, executionType: string, totalInputAssetId: string, totalInputAmount: string, totalOutputAssetId: string, totalOutputAmount: string, individualSwaps: { __typename?: 'IndividualSwap', routeSteps: { __typename?: 'RouteStep', assetId: string, amount: string }[] }[] }[] }[] }
+export interface DexBlockExecutionsQuery { __typename?: 'QueryRoot', latestExecutions: { __typename?: 'SwapExecution', blockHeight: number, timestamp: string, batchSwaps: { __typename?: 'BatchSwap', id: number, executionType: string, totalInputAssetId: string, totalInputAmount: string, totalOutputAssetId: string, totalOutputAmount: string, individualSwaps: { __typename?: 'IndividualSwap', routeSteps: { __typename?: 'RouteStep', assetId: string, amount: string }[] }[] }[] }[] }
 
 export type DexLiquidityPositionsQueryVariables = Exact<{
   limit: CollectionLimit;
@@ -1003,7 +1003,7 @@ export type DexLiquidityPositionsQueryVariables = Exact<{
 }>;
 
 
-export interface DexLiquidityPositionsQuery { __typename?: 'QueryRoot', liquidityPositions: { __typename?: 'LiquidityPositionCollection', total: number, items: { __typename?: 'LiquidityPosition', tradingPairAsset1: string, tradingPairAsset2: string, reserves1Amount: string, reserves2Amount: string, state: LiquidityPositionState, feePercentage: number, updatedAt: any, positionId: string }[] } }
+export interface DexLiquidityPositionsQuery { __typename?: 'QueryRoot', liquidityPositions: { __typename?: 'LiquidityPositionCollection', total: number, items: { __typename?: 'LiquidityPosition', tradingPairAsset1: string, tradingPairAsset2: string, reserves1Amount: string, reserves2Amount: string, state: LiquidityPositionState, feePercentage: number, updatedAt: string, positionId: string }[] } }
 
 export type DexOpenPositionsQueryVariables = Exact<Record<string, never>>;
 
@@ -1018,7 +1018,7 @@ export interface DexTotalExecutionsQuery { __typename?: 'QueryRoot', dexStats: {
 export type GovParametersQueryVariables = Exact<Record<string, never>>;
 
 
-export interface GovParametersQuery { __typename?: 'QueryRoot', governanceParameters?: { __typename?: 'GovernanceParameters', depositAmount: any, passingThreshold: any, proposalDuration: number, slashingThreshold: any, validQuorum: any } | null }
+export interface GovParametersQuery { __typename?: 'QueryRoot', governanceParameters?: { __typename?: 'GovernanceParameters', depositAmount: number | string, passingThreshold: number | string, proposalDuration: number, slashingThreshold: number | string, validQuorum: number | string } | null }
 
 export type IbcFlowHistoryQueryVariables = Exact<{
   clientId?: InputMaybe<Scalars['String']['input']>;
@@ -1033,7 +1033,7 @@ export type IbcStatsQueryVariables = Exact<{
 }>;
 
 
-export interface IbcStatsQuery { __typename?: 'QueryRoot', ibcStats: { __typename?: 'IbcStats', status: ClientStatus, channelId?: string | null, counterpartyChannelId?: string | null, lastUpdated?: any | null, shieldedVolume: string, shieldedTxCount: number, unshieldedVolume: string, unshieldedTxCount: number, totalTxCount: number, pendingTxCount: number, expiredTxCount: number, id: string }[] }
+export interface IbcStatsQuery { __typename?: 'QueryRoot', ibcStats: { __typename?: 'IbcStats', status: ClientStatus, channelId?: string | null, counterpartyChannelId?: string | null, lastUpdated?: string | null, shieldedVolume: string, shieldedTxCount: number, unshieldedVolume: string, unshieldedTxCount: number, totalTxCount: number, pendingTxCount: number, expiredTxCount: number, id: string }[] }
 
 export type MinValidatorStakeQueryVariables = Exact<Record<string, never>>;
 
@@ -1045,21 +1045,21 @@ export type PastProposalsQueryVariables = Exact<{
 }>;
 
 
-export interface PastProposalsQuery { __typename?: 'QueryRoot', pastProposals: { __typename?: 'PastProposalCollection', total: number, items: { __typename?: 'PastProposal', endBlockHeight: number, endTimestamp?: any | null, id: number, kind: ProposalKind, outcome?: ProposalOutcome | null, state: ProposalState, title: string, totalVotes: any }[] } }
+export interface PastProposalsQuery { __typename?: 'QueryRoot', pastProposals: { __typename?: 'PastProposalCollection', total: number, items: { __typename?: 'PastProposal', endBlockHeight: number, endTimestamp?: string | null, id: number, kind: ProposalKind, outcome?: ProposalOutcome | null, state: ProposalState, title: string, totalVotes: number | string }[] } }
 
 export type ProposalQueryVariables = Exact<{
   id: Scalars['Int']['input'];
 }>;
 
 
-export interface ProposalQuery { __typename?: 'QueryRoot', proposalDetail?: { __typename?: 'ProposalDetail', depositAmount: any, description: string, id: number, kind: ProposalKind, outcome?: ProposalOutcome | null, payload: any, state: ProposalState, title: string } | null }
+export interface ProposalQuery { __typename?: 'QueryRoot', proposalDetail?: { __typename?: 'ProposalDetail', depositAmount: number | string, description: string, id: number, kind: ProposalKind, outcome?: ProposalOutcome | null, payload: unknown, state: ProposalState, title: string } | null }
 
 export type RecentSwapPricesQueryVariables = Exact<{
   limit?: InputMaybe<Scalars['Int']['input']>;
 }>;
 
 
-export interface RecentSwapPricesQuery { __typename?: 'QueryRoot', recentSwapPrices: { __typename?: 'RecentSwapPrice', inputAssetId: string, outputAssetId: string, avgPrice: number, swapCount: number, latestSwap?: any | null }[] }
+export interface RecentSwapPricesQuery { __typename?: 'QueryRoot', recentSwapPrices: { __typename?: 'RecentSwapPrice', inputAssetId: string, outputAssetId: string, avgPrice: number, swapCount: number, latestSwap?: string | null }[] }
 
 export type SearchQueryVariables = Exact<{
   slug: Scalars['String']['input'];
@@ -1097,14 +1097,14 @@ export type TradingVolume24hQueryVariables = Exact<{
 }>;
 
 
-export interface TradingVolume24hQuery { __typename?: 'QueryRoot', tradingVolume24h: { __typename?: 'TradingVolume24h', assetId: string, volume24h: string, swapCount24h: number, periodStart?: any | null, periodEnd?: any | null }[] }
+export interface TradingVolume24hQuery { __typename?: 'QueryRoot', tradingVolume24h: { __typename?: 'TradingVolume24h', assetId: string, volume24h: string, swapCount24h: number, periodStart?: string | null, periodEnd?: string | null }[] }
 
 export type TransactionQueryVariables = Exact<{
   hash: Scalars['String']['input'];
 }>;
 
 
-export interface TransactionQuery { __typename?: 'QueryRoot', transaction?: { __typename?: 'Transaction', hash: string, raw: string, rawJson: any, block: { __typename?: 'Block', height: number, createdAt: any }, body: { __typename?: 'TransactionBody', parameters: { __typename?: 'TransactionParameters', chainId: string, fee: { __typename?: 'Fee', amount: string } } } } | null }
+export interface TransactionQuery { __typename?: 'QueryRoot', transaction?: { __typename?: 'Transaction', hash: string, raw: string, rawJson: unknown, block: { __typename?: 'Block', height: number, createdAt: string }, body: { __typename?: 'TransactionBody', parameters: { __typename?: 'TransactionParameters', chainId: string, fee: { __typename?: 'Fee', amount: string } } } } | null }
 
 export type TransactionsQueryVariables = Exact<{
   limit: CollectionLimit;
@@ -1112,14 +1112,14 @@ export type TransactionsQueryVariables = Exact<{
 }>;
 
 
-export interface TransactionsQuery { __typename?: 'QueryRoot', transactions: { __typename?: 'TransactionCollection', total: number, items: { __typename?: 'Transaction', hash: string, ibcStatus: IbcStatus, raw: string, block: { __typename?: 'Block', height: number, createdAt: any } }[] } }
+export interface TransactionsQuery { __typename?: 'QueryRoot', transactions: { __typename?: 'TransactionCollection', total: number, items: { __typename?: 'Transaction', hash: string, ibcStatus: IbcStatus, raw: string, block: { __typename?: 'Block', height: number, createdAt: string } }[] } }
 
 export type ValidatorActiveSinceQueryVariables = Exact<{
   id: Scalars['String']['input'];
 }>;
 
 
-export interface ValidatorActiveSinceQuery { __typename?: 'QueryRoot', validatorDetails?: { __typename?: 'ValidatorDetails', activeSince?: any | null } | null }
+export interface ValidatorActiveSinceQuery { __typename?: 'QueryRoot', validatorDetails?: { __typename?: 'ValidatorDetails', activeSince?: string | null } | null }
 
 export type ValidatorBlocksQueryVariables = Exact<{
   id: Scalars['String']['input'];
@@ -1135,7 +1135,7 @@ export type ValidatorDelegatesQueryVariables = Exact<{
 }>;
 
 
-export interface ValidatorDelegatesQuery { __typename?: 'QueryRoot', validatorDelegates: { __typename?: 'Delegate', id: number, txHash: string, validatorIdentityKey: string, delegationAmount: string, unbondedAmount: string, epochIndex: number, blockHeight: number, timestamp: any }[] }
+export interface ValidatorDelegatesQuery { __typename?: 'QueryRoot', validatorDelegates: { __typename?: 'Delegate', id: number, txHash: string, validatorIdentityKey: string, delegationAmount: string, unbondedAmount: string, epochIndex: number, blockHeight: number, timestamp: string }[] }
 
 export type ValidatorParametersQueryVariables = Exact<Record<string, never>>;
 
@@ -1164,7 +1164,7 @@ export type ValidatorUndelegatesQueryVariables = Exact<{
 }>;
 
 
-export interface ValidatorUndelegatesQuery { __typename?: 'QueryRoot', validatorUndelegates: { __typename?: 'Undelegate', id: number, txHash: string, validatorIdentityKey: string, delegationAmount: string, unbondedAmount: string, epochIndex: number, unbondingStartHeight: number, releaseHeight: number, blockHeight: number, timestamp: any, claimed: boolean }[] }
+export interface ValidatorUndelegatesQuery { __typename?: 'QueryRoot', validatorUndelegates: { __typename?: 'Undelegate', id: number, txHash: string, validatorIdentityKey: string, delegationAmount: string, unbondedAmount: string, epochIndex: number, unbondingStartHeight: number, releaseHeight: number, blockHeight: number, timestamp: string, claimed: boolean }[] }
 
 export type ValidatorVotingPercentageQueryVariables = Exact<{
   id: Scalars['String']['input'];
@@ -1181,7 +1181,7 @@ export type ValidatorVotingPowerHistoryQueryVariables = Exact<{
 }>;
 
 
-export interface ValidatorVotingPowerHistoryQuery { __typename?: 'QueryRoot', validatorVotingPowerHistory: { __typename?: 'VotingPowerHistoryEntry', validatorIdentityKey: string, votingPower: number, blockHeight: number, timestamp: any }[] }
+export interface ValidatorVotingPowerHistoryQuery { __typename?: 'QueryRoot', validatorVotingPowerHistory: { __typename?: 'VotingPowerHistoryEntry', validatorIdentityKey: string, votingPower: number, blockHeight: number, timestamp: string }[] }
 
 export type ValidatorVotingPowerQueryVariables = Exact<{
   id: Scalars['String']['input'];
@@ -1195,7 +1195,7 @@ export type ValidatorsQueryVariables = Exact<{
 }>;
 
 
-export interface ValidatorsQuery { __typename?: 'QueryRoot', validatorsHomepage: { __typename?: 'ValidatorHomepageData', validators: { __typename?: 'Validator', id: string, name?: string | null, state: ValidatorState, bondingState: BondingState, votingPower: number, votingPowerActivePercentage: number, uptime?: number | null, firstSeenTime?: any | null, commission: number }[] } }
+export interface ValidatorsQuery { __typename?: 'QueryRoot', validatorsHomepage: { __typename?: 'ValidatorHomepageData', validators: { __typename?: 'Validator', id: string, name?: string | null, state: ValidatorState, bondingState: BondingState, votingPower: number, votingPowerActivePercentage: number, uptime?: number | null, firstSeenTime?: string | null, commission: number }[] } }
 
 export type VotesQueryVariables = Exact<{
   proposalId: Scalars['Int']['input'];
@@ -1203,38 +1203,38 @@ export type VotesQueryVariables = Exact<{
 }>;
 
 
-export interface VotesQuery { __typename?: 'QueryRoot', proposalDetail?: { __typename?: 'ProposalDetail', votes: { __typename?: 'VoteCollection', total: number, items: { __typename?: 'Vote', effectiveVotingPower: any, id?: string | null, name: string, txHash?: string | null, vote?: VoteValue | null, votedAt: any, votingPowerPercentage: any }[] } } | null }
+export interface VotesQuery { __typename?: 'QueryRoot', proposalDetail?: { __typename?: 'ProposalDetail', votes: { __typename?: 'VoteCollection', total: number, items: { __typename?: 'Vote', effectiveVotingPower: number | string, id?: string | null, name: string, txHash?: string | null, vote?: VoteValue | null, votedAt: string, votingPowerPercentage: number | string }[] } } | null }
 
 export type VotingEndQueryVariables = Exact<{
   proposalId: Scalars['Int']['input'];
 }>;
 
 
-export interface VotingEndQuery { __typename?: 'QueryRoot', proposalDetail?: { __typename?: 'ProposalDetail', state: ProposalState, votingEndedBlockHeight: number, votingEndedTimestamp?: any | null } | null }
+export interface VotingEndQuery { __typename?: 'QueryRoot', proposalDetail?: { __typename?: 'ProposalDetail', state: ProposalState, votingEndedBlockHeight: number, votingEndedTimestamp?: string | null } | null }
 
 export type VotingQueryVariables = Exact<{
   proposalId: Scalars['Int']['input'];
 }>;
 
 
-export interface VotingQuery { __typename?: 'QueryRoot', proposalDetail?: { __typename?: 'ProposalDetail', abstainVotes: any, abstainVotesPercentage: any, noVotes: any, noVotesPercentage: any, outcome?: ProposalOutcome | null, quorum: any, state: ProposalState, totalVotes: any, yesVotes: any, yesVotesPercentage: any } | null }
+export interface VotingQuery { __typename?: 'QueryRoot', proposalDetail?: { __typename?: 'ProposalDetail', abstainVotes: number | string, abstainVotesPercentage: number | string, noVotes: number | string, noVotesPercentage: number | string, outcome?: ProposalOutcome | null, quorum: number | string, state: ProposalState, totalVotes: number | string, yesVotes: number | string, yesVotesPercentage: number | string } | null }
 
 export type VotingStartQueryVariables = Exact<{
   proposalId: Scalars['Int']['input'];
 }>;
 
 
-export interface VotingStartQuery { __typename?: 'QueryRoot', proposalDetail?: { __typename?: 'ProposalDetail', votingStartedBlockHeight: number, votingStartedTimestamp: any } | null }
+export interface VotingStartQuery { __typename?: 'QueryRoot', proposalDetail?: { __typename?: 'ProposalDetail', votingStartedBlockHeight: number, votingStartedTimestamp: string } | null }
 
 export type BlockUpdateSubscriptionVariables = Exact<Record<string, never>>;
 
 
-export interface BlockUpdateSubscription { __typename?: 'Root', latestBlocks: { __typename?: 'BlockUpdate', height: number, createdAt: any, transactionsCount: number } }
+export interface BlockUpdateSubscription { __typename?: 'Root', latestBlocks: { __typename?: 'BlockUpdate', height: number, createdAt: string, transactionsCount: number } }
 
 export type ChainParametersUpdateSubscriptionVariables = Exact<Record<string, never>>;
 
 
-export interface ChainParametersUpdateSubscription { __typename?: 'Root', chainParameters: { __typename?: 'ChainParametersUpdate', chainId: string, currentBlockTime: any, currentBlockHeight: number, currentEpoch: number, epochDuration: number, nextEpochIn: number } }
+export interface ChainParametersUpdateSubscription { __typename?: 'Root', chainParameters: { __typename?: 'ChainParametersUpdate', chainId: string, currentBlockTime: string, currentBlockHeight: number, currentEpoch: number, epochDuration: number, nextEpochIn: number } }
 
 export type TotalShieldedVolumeUpdateSubscriptionVariables = Exact<Record<string, never>>;
 

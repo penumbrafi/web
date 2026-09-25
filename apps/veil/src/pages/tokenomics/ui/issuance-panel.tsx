@@ -14,7 +14,7 @@ import {
 } from 'recharts';
 import type { InflationPoint } from '../server/timeseries';
 import type { TokenomicsMetrics } from '../server/metrics';
-import { tooltipNumber, type ChartTooltipProps } from './chart-tooltip';
+import { tooltipNumber, type ChartTooltipProps } from '@/shared/ui/chart-tooltip.ts';
 
 const fmtPct = (n: number, digits = 2) => `${n.toFixed(digits)}%`;
 // Pin locale + tz so SSR and client render the exact same label.

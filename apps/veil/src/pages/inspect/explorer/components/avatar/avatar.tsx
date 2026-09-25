@@ -27,13 +27,15 @@ const Avatar: FC<Props> = props => (
             props.className
         )}
     >
-        <Image
-            alt={props.alt}
-            className="rounded-full object-cover"
-            fill
-            sizes="32px"
-            src={(props.src ?? props.fallback)!}
-        />
+        {Boolean(props.src ?? props.fallback) && (
+            <Image
+                alt={props.alt}
+                className="rounded-full object-cover"
+                fill
+                sizes="32px"
+                src={props.src ?? props.fallback ?? ''}
+            />
+        )}
         {Boolean(!props.src && props.fallbackLetter) && (
             <span
                 className={classNames(

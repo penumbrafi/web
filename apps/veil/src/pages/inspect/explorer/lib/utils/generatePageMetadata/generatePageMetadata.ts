@@ -10,7 +10,7 @@ const generatePageMetadata = (
 
     return {
         alternates: {
-            canonical: process.env['BASE_URL'] + pathname,
+            canonical: `${process.env['BASE_URL'] ?? ''}${pathname}`,
         },
         description,
         openGraph: {

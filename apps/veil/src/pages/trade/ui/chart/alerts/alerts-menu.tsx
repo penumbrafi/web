@@ -78,7 +78,11 @@ export const AlertsMenu = ({ pair, marketPrice, alerts, onAdd, onRemove }: Props
 
     let perm2 = perm;
     if (browser && perm !== 'granted') {
-      perm2 = await requestPermission();
+      try {
+        perm2 = await requestPermission();
+      } catch {
+        perm2 = 'denied'; // browsers without the promise form, or a blocked prompt
+      }
       setPerm(perm2);
     }
 
@@ -130,7 +134,7 @@ export const AlertsMenu = ({ pair, marketPrice, alerts, onAdd, onRemove }: Props
             </span>
           </Text>
 
-          <form onSubmit={onSubmit} className='flex flex-col gap-2'>
+          <form onSubmit={e => void onSubmit(e)} className='flex flex-col gap-2'>
             <div className='flex gap-2'>
               <select
                 value={direction}
