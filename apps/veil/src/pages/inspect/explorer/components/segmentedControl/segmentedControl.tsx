@@ -18,7 +18,7 @@ interface StaticProps {
 }
 
 const SegmentedControl: FC<Props> & StaticProps = ({ className, ...props }) => (
-    <div className={classNames(styles.root, className)}>
+    <div className={classNames(styles['root'], className)}>
         <PenumbraSegmentedControl {...props} />
     </div>
 )

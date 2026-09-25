@@ -27,8 +27,8 @@ const Button: FC<Props> = ({
     ...props
 }) => {
     const combinedClassName = classNames(
-        styles.root,
-        fullWidth && styles.fullWidth,
+        styles['root'],
+        fullWidth && styles['fullWidth'],
         className
     )
 

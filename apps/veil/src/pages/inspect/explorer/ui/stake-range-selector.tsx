@@ -27,7 +27,8 @@ export const StakeRangeSelector = ({ current }: { current: StakeRangeKey }) => {
       params.set('range', key);
     }
     const query = params.toString();
-    router.push(query ? `${pathname}?${query}` : pathname);
+    const path = pathname ?? '';
+    router.push(query ? `${path}?${query}` : path);
   };
 
   return (

@@ -13,7 +13,9 @@ const ValidatorVotingPowerHistoryLoader: FC<Props> = async props => {
         500
     )
 
-    if (!history || history.length === 0) {
+    const firstEntry = history?.[0]
+    const lastEntry = history?.[history.length - 1]
+    if (!history || !firstEntry || !lastEntry) {
         return (
             <Surface
                 as="section"
@@ -33,8 +35,6 @@ const ValidatorVotingPowerHistoryLoader: FC<Props> = async props => {
     }
 
     // Calculate total change
-    const firstEntry = history[0]
-    const lastEntry = history[history.length - 1]
     const totalChange = lastEntry.votingPower - firstEntry.votingPower
     const percentChange =
         firstEntry.votingPower > 0

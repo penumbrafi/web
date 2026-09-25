@@ -30,10 +30,8 @@ const ValidatorStatusUpdater: FC<Props> = props => {
     useEffect(() => {
         if (validatorBlockUpdate) {
             setValidatorBlocks(prev => {
-                if (
-                    prev.length &&
-                    validatorBlockUpdate.blockHeight <= prev[0].height
-                ) {
+                const newest = prev[0]
+                if (newest && validatorBlockUpdate.blockHeight <= newest.height) {
                     return prev
                 }
 
@@ -61,7 +59,7 @@ const ValidatorStatusUpdater: FC<Props> = props => {
                     (Last 300 blocks)
                 </span>
             </header>
-            {props.active && validatorBlocks.length ? (
+            {props.active && validatorBlocks[0] ? (
                 <div className="flex flex-col gap-2">
                     <ValidatorStatusLegend
                         lastBlock={validatorBlocks[0].height}

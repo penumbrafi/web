@@ -4,6 +4,10 @@ import { FC, useCallback, useEffect, useRef, useState } from 'react'
 import { classNames } from '@/pages/inspect/explorer/lib/utils'
 import styles from './blockPanel.module.css'
 
+// CSS-module class names are typed string | undefined under strict indexing;
+// classList.add/remove need strings, and an unknown name should add nothing.
+const css = (name: string): string => styles[name] ?? ''
+
 const barCount = 25
 const upcomingCountdown = 5
 const syncTimeout = 30 * 1000
@@ -46,7 +50,7 @@ const BlockPanelChart: FC<Props> = props => {
             const bars = Array.from(barsRef.current.children)
 
             bars.forEach(bar =>
-                bar.classList.remove(styles.fullBar, styles.animatedBar)
+                bar.classList.remove(css('fullBar'), css('animatedBar'))
             )
         }
     }, [])
@@ -54,9 +58,9 @@ const BlockPanelChart: FC<Props> = props => {
     const resetCube = useCallback(() => {
         if (cubeRef.current) {
             cubeRef.current.classList.remove(
-                styles.rotateInfinite,
-                styles.rotateFirstHalf,
-                styles.rotateSecondHalf
+                css('rotateInfinite'),
+                css('rotateFirstHalf'),
+                css('rotateSecondHalf')
             )
         }
     }, [])
@@ -83,7 +87,7 @@ const BlockPanelChart: FC<Props> = props => {
             resetTimeouts()
             resetBars()
             resetCube()
-            cubeRef.current.classList.add(styles.rotateInfinite)
+            cubeRef.current.classList.add(css('rotateInfinite'))
             setSyncState(SyncState.Syncing)
         }
     }, [props.reindexing, resetBars, resetCube, resetTimeouts])
@@ -99,7 +103,7 @@ const BlockPanelChart: FC<Props> = props => {
         }
 
         if (syncState === SyncState.Syncing && blockHeight) {
-            cubeRef.current.classList.add(styles.rotateInfinite)
+            cubeRef.current.classList.add(css('rotateInfinite'))
             setCounter(upcomingCountdown)
             setSyncState(SyncState.Upcoming)
         } else if (props.blockHeight !== blockHeight) {
@@ -138,32 +142,32 @@ const BlockPanelChart: FC<Props> = props => {
             setCounter(prev => prev && prev - 1)
 
             bars.filter(bar =>
-                bar.classList.contains(styles.animatedBar)
+                bar.classList.contains(css('animatedBar'))
             ).forEach(bar => {
-                bar.classList.add(styles.fullBar)
-                bar.classList.remove(styles.animatedBar)
+                bar.classList.add(css('fullBar'))
+                bar.classList.remove(css('animatedBar'))
             })
 
-            bars.filter(bar => !bar.classList.contains(styles.fullBar))
+            bars.filter(bar => !bar.classList.contains(css('fullBar')))
                 .slice(0, barsPerSecond)
                 .forEach((bar, i) => {
-                    bar.classList.add(styles.animatedBar)
+                    bar.classList.add(css('animatedBar'))
 
                     if (i) {
-                        bar.classList.add(styles[`delayed${i}`])
+                        bar.classList.add(css(`delayed${i}`))
                     }
                 })
 
-            cube.classList.remove(styles.rotateInfinite)
+            cube.classList.remove(css('rotateInfinite'))
 
-            if (cube.classList.contains(styles.rotateSecondHalf)) {
-                cube.classList.remove(styles.rotateSecondHalf)
-                cube.classList.add(styles.rotateFirstHalf)
-            } else if (cube.classList.contains(styles.rotateFirstHalf)) {
-                cube.classList.remove(styles.rotateFirstHalf)
-                cube.classList.add(styles.rotateSecondHalf)
+            if (cube.classList.contains(css('rotateSecondHalf'))) {
+                cube.classList.remove(css('rotateSecondHalf'))
+                cube.classList.add(css('rotateFirstHalf'))
+            } else if (cube.classList.contains(css('rotateFirstHalf'))) {
+                cube.classList.remove(css('rotateFirstHalf'))
+                cube.classList.add(css('rotateSecondHalf'))
             } else {
-                cube.classList.add(styles.rotateFirstHalf)
+                cube.classList.add(css('rotateFirstHalf'))
             }
         }, 1000)
 
@@ -179,7 +183,7 @@ const BlockPanelChart: FC<Props> = props => {
 
         lateTimeoutRef.current = setTimeout(() => {
             resetCube()
-            cubeRef.current?.classList.add(styles.rotateInfinite)
+            cubeRef.current?.classList.add(css('rotateInfinite'))
             setCounter(1)
             setSyncState(SyncState.Late)
         }, 1000)
@@ -246,7 +250,7 @@ const BlockPanelChart: FC<Props> = props => {
                     className={classNames(
                         'relative h-2.5 w-2.5 scale-75 transform-3d',
                         'sm:scale-80 xl:scale-85!',
-                        styles.cube
+                        css('cube')
                     )}
                 >
                     {Array.from({ length: 6 }).map((_, i) => (
@@ -255,7 +259,7 @@ const BlockPanelChart: FC<Props> = props => {
                             className={classNames(
                                 `absolute h-full w-full border-${color}`,
                                 'border-1 bg-neutral-900',
-                                styles.face
+                                css('face')
                             )}
                         />
                     ))}

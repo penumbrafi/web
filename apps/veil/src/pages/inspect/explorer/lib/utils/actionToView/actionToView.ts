@@ -271,6 +271,8 @@ const actionToView = (action: Action): ActionView | undefined => {
                 },
             })
     }
+    // an action kind this view doesn't render
+    return undefined
 }
 
 export default actionToView

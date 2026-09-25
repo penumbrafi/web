@@ -15,7 +15,7 @@ interface Props {
 const Tooltip: FC<Props> = props => (
     <ReactTooltip
         anchorSelect={props.anchorSelect}
-        className={classNames(styles.root, styles.override, props.className)}
+        className={classNames(styles['root'], styles['override'], props.className)}
         delayShow={200}
         opacity={1}
         clickable

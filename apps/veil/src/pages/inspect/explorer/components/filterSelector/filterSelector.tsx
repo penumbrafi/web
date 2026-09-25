@@ -23,7 +23,7 @@ const FilterSelector: FC<Props> = props => {
                 return
             }
 
-            const params = new URLSearchParams(searchParams)
+            const params = new URLSearchParams(searchParams ?? undefined)
 
             if (value === props.filters.at(0)) {
                 params.delete('filter')

@@ -23,9 +23,9 @@ const AnimatedValidatorBlock: FC<Props> = props => {
                 }
             }
             className={classNames(
-                styles.block,
-                props.block.signed === true && styles.signed,
-                props.block.signed === false && styles.missed
+                styles['block'],
+                props.block.signed === true && styles['signed'],
+                props.block.signed === false && styles['missed']
             )}
             exit={{
                 opacity: 0,

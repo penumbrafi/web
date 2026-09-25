@@ -16,8 +16,8 @@ interface Props {
 const Pagination: FC<Props> = props => {
     const pathname = usePathname()
     const searchParams = useSearchParams()
-    const prevSearchParams = new URLSearchParams(searchParams)
-    const nextSearchParams = new URLSearchParams(searchParams)
+    const prevSearchParams = new URLSearchParams(searchParams ?? undefined)
+    const nextSearchParams = new URLSearchParams(searchParams ?? undefined)
 
     if (props.page > 2) {
         prevSearchParams.set('page', String(props.page - 1))

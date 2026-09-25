@@ -18,7 +18,7 @@ const Tab: FC<Props> = props => {
     const active =
         props.href === '/'
             ? pathname === '/'
-            : paths.some(path => pathname.startsWith(path))
+            : paths.some(path => pathname?.startsWith(path))
 
     return (
         <Link

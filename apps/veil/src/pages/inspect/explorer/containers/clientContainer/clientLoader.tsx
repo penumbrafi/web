@@ -17,11 +17,11 @@ import { Props } from './clientContainer'
 const ClientLoader: FC<Props> = async props => {
     const stats = await getIbcStats({ clientId: props.id })
 
-    if (stats?.length !== 1) {
+    // exactly one row, or 404 - notFound() never returns, so client narrows
+    const client = stats?.length === 1 ? stats[0] : undefined
+    if (!client) {
         notFound()
     }
-
-    const [client] = stats
 
     return (
         <>

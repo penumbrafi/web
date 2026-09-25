@@ -28,7 +28,7 @@ const ValidatorStatusBlocks: FC<Props> = props => {
                 {props.validatorBlocks.map((block, i) => (
                     <Link
                         key={block.height}
-                        className={styles.link}
+                        className={styles['link']}
                         href={`/explore/block/${block.height}`}
                         id={`block-${block.height}`}
                     >

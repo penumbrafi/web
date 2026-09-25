@@ -25,7 +25,7 @@ const TimeRangeSelector: FC<Props> = props => {
                 return
             }
 
-            const params = new URLSearchParams(searchParams)
+            const params = new URLSearchParams(searchParams ?? undefined)
 
             if (value === props.ranges.at(0)?.value) {
                 params.delete(paramName)

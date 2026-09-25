@@ -33,7 +33,7 @@ const fetchWithRetry: typeof fetch = async (input, init) => {
 }
 
 const createGraphqlClient = (): Client => {
-    const host = process.env.NEXT_PUBLIC_GRAPHQL_HOST
+    const host = process.env['NEXT_PUBLIC_GRAPHQL_HOST']
     if (!host) {
         throw Error('Missing NEXT_PUBLIC_GRAPHQL_HOST')
     }

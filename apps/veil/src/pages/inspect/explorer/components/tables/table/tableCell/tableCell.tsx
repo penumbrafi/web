@@ -15,7 +15,7 @@ const TableCell: FC<Props> = props => {
     return (
         <Element
             className={classNames(
-                styles.root,
+                styles['root'],
                 'h-12 px-3 text-left text-sm font-medium whitespace-nowrap',
                 props.header
                     ? 'border-other-tonal-fill10 text-text-secondary border-b ' +

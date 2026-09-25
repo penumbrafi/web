@@ -30,7 +30,7 @@ const ValidatorStatusLoader: FC<Props> = async props => {
         for (let i = 0; i < firstSignedIndex; i++) {
             const block = validatorBlocks[i]
 
-            if (typeof block.signed === 'undefined') {
+            if (block && typeof block.signed === 'undefined') {
                 block.signed = true
             }
         }

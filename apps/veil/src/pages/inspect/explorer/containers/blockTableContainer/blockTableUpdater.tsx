@@ -16,7 +16,7 @@ import { TransformedPartialBlockFragment } from '@/pages/inspect/explorer/lib/ty
 import { Props as BlockTableContainerProps } from './blockTableContainer'
 
 const COMETBFT_WS_URL =
-    process.env.NEXT_PUBLIC_COMETBFT_WS_URL ?? 'wss://penumbra.rotko.net/websocket'
+    process.env['NEXT_PUBLIC_COMETBFT_WS_URL'] ?? 'wss://penumbra.rotko.net/websocket'
 
 interface Props extends BlockTableContainerProps {
     blocks?: TransformedPartialBlockFragment[]

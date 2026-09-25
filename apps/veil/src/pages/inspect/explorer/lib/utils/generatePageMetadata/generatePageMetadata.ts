@@ -10,12 +10,12 @@ const generatePageMetadata = (
 
     return {
         alternates: {
-            canonical: process.env.BASE_URL + pathname,
+            canonical: process.env['BASE_URL'] + pathname,
         },
         description,
         openGraph: {
             description,
-            images: `${process.env.BASE_URL}/sharing-preview.png`,
+            images: `${process.env['BASE_URL']}/sharing-preview.png`,
             title: fullTitle,
             type: 'website',
             url: pathname,
@@ -24,7 +24,7 @@ const generatePageMetadata = (
         twitter: {
             card: 'summary_large_image',
             description,
-            images: `${process.env.BASE_URL}/sharing-preview.png`,
+            images: `${process.env['BASE_URL']}/sharing-preview.png`,
             title: fullTitle,
         },
     }

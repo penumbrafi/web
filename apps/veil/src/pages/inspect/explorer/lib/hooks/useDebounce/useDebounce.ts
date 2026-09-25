@@ -36,6 +36,7 @@ function useDebounce<T>(valueOrFunc: T, delay: number) {
 
             return cancel
         }
+        return undefined
     }, [delay, cancel, valueOrFunc])
 
     const debouncedCallback = useCallback(

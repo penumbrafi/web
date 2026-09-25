@@ -67,12 +67,16 @@ const SearchContainer: FC<Props> = props => {
                 type: 'transaction',
             }
         } else if (result.data.search.__typename === 'ValidatorSearchResults') {
-            return {
-                id: result.data.search.items[0].id,
-                name: result.data.search.items[0].displayName,
-                type: 'validator',
+            const first = result.data.search.items[0]
+            if (first) {
+                return {
+                    id: first.id,
+                    name: first.displayName,
+                    type: 'validator',
+                }
             }
         }
+        return undefined
     }, 300)
 
     const [recentSearchResults, setRecentSearchResults] =

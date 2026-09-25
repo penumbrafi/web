@@ -21,7 +21,7 @@ const SortableHeader: FC<Props> = props => {
     const currentDirection = isActive ? props.direction : undefined
 
     const onClick = useCallback(() => {
-        const params = new URLSearchParams(searchParams)
+        const params = new URLSearchParams(searchParams ?? undefined)
         params.set('sort', props.sortKey)
         params.set('dir', currentDirection === 'desc' ? 'asc' : 'desc')
         params.delete('page')

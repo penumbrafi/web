@@ -15,8 +15,8 @@ const Container: FC<Props> = props => {
     return (
         <Element
             className={classNames(
-                styles.root,
-                props.narrow && styles.narrow,
+                styles['root'],
+                props.narrow && styles['narrow'],
                 props.className
             )}
         >

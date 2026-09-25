@@ -18,7 +18,7 @@ const MenuItem: FC<Props> = props => {
     const active =
         props.href === '/'
             ? pathname === '/'
-            : paths.some(path => pathname.startsWith(path))
+            : paths.some(path => pathname?.startsWith(path))
 
     // istanbul ignore next
     const onClick = useCallback((e: MouseEvent) => e.stopPropagation(), [])

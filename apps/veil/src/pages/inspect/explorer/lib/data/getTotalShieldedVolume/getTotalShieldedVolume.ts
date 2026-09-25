@@ -22,6 +22,7 @@ const getTotalShieldedVolume = async (): Promise<number | undefined> => {
     if (typeof result.data?.ibcTotalShieldedVolume.value === 'string') {
         return Number(result.data?.ibcTotalShieldedVolume.value)
     }
+    return undefined
 }
 
 export default getTotalShieldedVolume

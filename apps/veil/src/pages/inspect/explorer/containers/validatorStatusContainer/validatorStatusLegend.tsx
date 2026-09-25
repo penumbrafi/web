@@ -28,15 +28,15 @@ const ValidatorStatusLegend: FC<Props> = props => (
             )}
         >
             <span className="inline-flex items-center gap-2">
-                <span className={classNames(styles.block, styles.signed)} />
+                <span className={classNames(styles['block'], styles['signed'])} />
                 Signed
             </span>
             <span className="inline-flex items-center gap-2">
-                <span className={classNames(styles.block, styles.missed)} />
+                <span className={classNames(styles['block'], styles['missed'])} />
                 Missed
             </span>
             <span className="inline-flex items-center gap-2">
-                <span className={styles.block} />
+                <span className={styles['block']} />
                 Inactive
             </span>
         </span>

@@ -19,7 +19,7 @@ const getLatestBlockHeight = async (): Promise<number | undefined> => {
         throw result.error
     }
 
-    return result.data?.blocks.items[0].height
+    return result.data?.blocks.items[0]?.height
 }
 
 export default getLatestBlockHeight
