@@ -7,6 +7,7 @@ import {
   type AutoscaleInfo,
   type CreatePriceLineOptions,
   type Logical,
+  UTCTimestamp,
 } from 'lightweight-charts';
 import { theme } from '@penumbra-zone/ui/theme';
 import { CandleWithVolume } from '@/shared/api/server/candles/utils';
@@ -30,6 +31,10 @@ export interface OwnPositionLine {
 }
 
 // if `high` / `open` ratio is greater than this value, the chart will limit `high` to `open * RATIO`
+// Dated bars kept to the right of the last candle for drawing plans.
+const FUTURE_BARS = 300;
+// Empty bars shown right of the last candle by default.
+const RIGHT_OFFSET_BARS = 24;
 const SUPER_CANDLE_RATIO = 3;
 
 // Compute price-axis precision so at least 2 significant digits are visible.
@@ -90,14 +95,20 @@ const median = (xs: number[]): number => {
 // Typical spacing between consecutive bars, sampled from the tail of the
 // known bar times (robust to the odd gap-filled/missing bar).
 const inferBarInterval = (times: number[]): number => {
-  if (times.length < 2) {return 60;}
+  if (times.length < 2) {
+    return 60;
+  }
   const diffs: number[] = [];
   for (let i = Math.max(1, times.length - 20); i < times.length; i++) {
     const prev = times[i - 1];
     const cur = times[i];
-    if (prev === undefined || cur === undefined) {continue;}
+    if (prev === undefined || cur === undefined) {
+      continue;
+    }
     const d = cur - prev;
-    if (d > 0) {diffs.push(d);}
+    if (d > 0) {
+      diffs.push(d);
+    }
   }
   return diffs.length ? median(diffs) : 60;
 };
@@ -113,6 +124,9 @@ export const useChartConfig = (
   // Overlay line traced through candle closes. Kept in the same price scale
   // as the candles so its Y-axis matches. Toggleable via prefs.closeLine.
   const closeLineSeriesRef = useRef<ReturnType<IChartApi['addLineSeries']>>(undefined);
+  // Timestamps only, no values: gives the time axis dates past the last
+  // candle. See `extendFuture`.
+  const futureSeriesRef = useRef<ReturnType<IChartApi['addLineSeries']>>(undefined);
   const volumeRatioRef = useRef<number>(0.2);
   const ownLinesRef = useRef<Map<string, IPriceLine>>(new Map());
   // Sorted-ascending candle times currently painted on the chart — see the
@@ -137,16 +151,22 @@ export const useChartConfig = (
   // same frame the chart does.
   const redrawHandlersRef = useRef<Set<() => void>>(new Set());
   const redrawTick = useCallback(() => {
-    for (const handler of redrawHandlersRef.current) {handler();}
+    for (const handler of redrawHandlersRef.current) {
+      handler();
+    }
   }, []);
 
   const setOwnPositionLines = useCallback((lines: OwnPositionLine[]) => {
     const series = seriesRef.current;
-    if (!series) {return;}
+    if (!series) {
+      return;
+    }
 
     const seen = new Set<string>();
     for (const line of lines) {
-      if (!Number.isFinite(line.price) || line.price <= 0) {continue;}
+      if (!Number.isFinite(line.price) || line.price <= 0) {
+        continue;
+      }
       seen.add(line.id);
       // theme.color.text.secondary is '' in @penumbra-zone/ui, so neutral
       // lines use primary text - lightweight-charts must never receive an
@@ -214,44 +234,83 @@ export const useChartConfig = (
   // Chart render (Chart re-renders every block via useMarketPrice). The
   // body only reads seriesRef / volumeSeriesRef — both stable refs — so
   // empty deps are honest.
-  const setCandlesData = useCallback((candles: CandleWithVolume[] = []) => {
-    // Full replace (initial paint / duration switch / history page) — the
-    // caller always hands these in ASC order.
-    barTimesRef.current = candles.map(c => c.ohlc.time as number);
-    seriesRef.current?.setData(
-      candles.map(candle => ({
-        ...candle.ohlc,
-        // prevent extreme candle values from breaking the chart
-        high:
-          candle.ohlc.high / candle.ohlc.open > SUPER_CANDLE_RATIO
-            ? candle.ohlc.open * SUPER_CANDLE_RATIO
-            : candle.ohlc.high,
-      })),
-    );
-
-    closeLineSeriesRef.current?.setData(
-      candles
-        .filter(c => Number.isFinite(c.ohlc.close) && c.ohlc.close > 0)
-        .map(c => ({ time: c.ohlc.time, value: c.ohlc.close })),
-    );
-
-    // Derive a representative price (median close) so axis labels and the
-    // crosshair show 2+ significant digits even for sub-cent prices.
-    if (candles.length > 0 && seriesRef.current) {
-      const closes = candles
-        .map(c => c.ohlc.close)
-        .filter(c => Number.isFinite(c) && c > 0)
-        .sort((a, b) => a - b);
-      const median = closes.length > 0 ? closes[Math.floor(closes.length / 2)] : undefined;
-      if (median !== undefined) {
-        const { precision, minMove } = priceFormatFor(median);
-        seriesRef.current.applyOptions({
-          priceFormat: { type: 'price', precision, minMove },
-        });
+  /**
+   * Put dates on the space right of the last candle. lightweight-charts only
+   * labels the time axis where some series has a point, so the empty future
+   * (kept by rightOffset) had no dates, and a plan drawn there couldn't be
+   * read against a day or hour. Whitespace points ({ time } with no value)
+   * on a hidden series add those labels; they live on their own series
+   * because series.update() on the candles rejects a bar older than that
+   * series' last point. The right offset is measured from the last real bar,
+   * so the initial view doesn't move.
+   */
+  const extendFuture = useCallback(() => {
+    const series = futureSeriesRef.current;
+    const times = barTimesRef.current;
+    const last = times[times.length - 1];
+    if (!series || last === undefined || times.length < 2) {
+      return;
+    }
+    // Bar interval from the data itself: the smallest recent gap.
+    let step = Infinity;
+    for (let i = Math.max(1, times.length - 10); i < times.length; i++) {
+      const gap = (times[i] ?? 0) - (times[i - 1] ?? 0);
+      if (gap > 0 && gap < step) {
+        step = gap;
       }
     }
-    redrawTick();
-  }, [redrawTick]);
+    if (!Number.isFinite(step)) {
+      return;
+    }
+    series.setData(
+      Array.from({ length: FUTURE_BARS }, (_, i) => ({
+        time: (last + step * (i + 1)) as UTCTimestamp,
+      })),
+    );
+  }, []);
+
+  const setCandlesData = useCallback(
+    (candles: CandleWithVolume[] = []) => {
+      // Full replace (initial paint / duration switch / history page) — the
+      // caller always hands these in ASC order.
+      barTimesRef.current = candles.map(c => c.ohlc.time as number);
+      seriesRef.current?.setData(
+        candles.map(candle => ({
+          ...candle.ohlc,
+          // prevent extreme candle values from breaking the chart
+          high:
+            candle.ohlc.high / candle.ohlc.open > SUPER_CANDLE_RATIO
+              ? candle.ohlc.open * SUPER_CANDLE_RATIO
+              : candle.ohlc.high,
+        })),
+      );
+
+      closeLineSeriesRef.current?.setData(
+        candles
+          .filter(c => Number.isFinite(c.ohlc.close) && c.ohlc.close > 0)
+          .map(c => ({ time: c.ohlc.time, value: c.ohlc.close })),
+      );
+      extendFuture();
+
+      // Derive a representative price (median close) so axis labels and the
+      // crosshair show 2+ significant digits even for sub-cent prices.
+      if (candles.length > 0 && seriesRef.current) {
+        const closes = candles
+          .map(c => c.ohlc.close)
+          .filter(c => Number.isFinite(c) && c > 0)
+          .sort((a, b) => a - b);
+        const median = closes.length > 0 ? closes[Math.floor(closes.length / 2)] : undefined;
+        if (median !== undefined) {
+          const { precision, minMove } = priceFormatFor(median);
+          seriesRef.current.applyOptions({
+            priceFormat: { type: 'price', precision, minMove },
+          });
+        }
+      }
+      redrawTick();
+    },
+    [redrawTick, extendFuture],
+  );
 
   const setVolumeData = useCallback((candles: CandleWithVolume[] = []) => {
     volumeSeriesRef.current?.setData(
@@ -278,66 +337,82 @@ export const useChartConfig = (
    * after a duration switch but before the new history) doesn't crash the
    * chart, just skips that bar.
    */
-  const updateLatestCandles = useCallback((candles: CandleWithVolume[] = []) => {
-    const series = seriesRef.current;
-    if (!series || !candles.length) {return;}
-    for (const candle of candles) {
-      const t = candle.ohlc.time as number;
-      const times = barTimesRef.current;
-      const lastTime = times[times.length - 1];
-      // Mirror series.update()'s own semantics: append a genuinely new bar,
-      // leave the array as-is for an in-place update of the current last
-      // bar, or skip a stale tick — keeps barTimesRef in lockstep with
-      // what's actually on the chart without a full re-sort every tick.
-      if (lastTime === undefined || t > lastTime) {
-        times.push(t);
-      } else if (t < lastTime) {
-        continue; // stale tick — series.update() below would throw + skip too
+  const updateLatestCandles = useCallback(
+    (candles: CandleWithVolume[] = []) => {
+      const series = seriesRef.current;
+      if (!series || !candles.length) {
+        return;
       }
-      const high =
-        candle.ohlc.high / candle.ohlc.open > SUPER_CANDLE_RATIO
-          ? candle.ohlc.open * SUPER_CANDLE_RATIO
-          : candle.ohlc.high;
-      try {
-        series.update({ ...candle.ohlc, high });
-      } catch {
-        // Bar is older than the series' last known time. Safe to skip.
-      }
-      const line = closeLineSeriesRef.current;
-      if (line && Number.isFinite(candle.ohlc.close) && candle.ohlc.close > 0) {
+      let appended = false;
+      for (const candle of candles) {
+        const t = candle.ohlc.time as number;
+        const times = barTimesRef.current;
+        const lastTime = times[times.length - 1];
+        // Mirror series.update()'s own semantics: append a genuinely new bar,
+        // leave the array as-is for an in-place update of the current last
+        // bar, or skip a stale tick — keeps barTimesRef in lockstep with
+        // what's actually on the chart without a full re-sort every tick.
+        if (lastTime === undefined || t > lastTime) {
+          times.push(t);
+          appended = true;
+        } else if (t < lastTime) {
+          continue; // stale tick — series.update() below would throw + skip too
+        }
+        const high =
+          candle.ohlc.high / candle.ohlc.open > SUPER_CANDLE_RATIO
+            ? candle.ohlc.open * SUPER_CANDLE_RATIO
+            : candle.ohlc.high;
         try {
-          line.update({ time: candle.ohlc.time, value: candle.ohlc.close });
+          series.update({ ...candle.ohlc, high });
         } catch {
-          // Stale bar.
+          // Bar is older than the series' last known time. Safe to skip.
+        }
+        const line = closeLineSeriesRef.current;
+        if (line && Number.isFinite(candle.ohlc.close) && candle.ohlc.close > 0) {
+          try {
+            line.update({ time: candle.ohlc.time, value: candle.ohlc.close });
+          } catch {
+            // Stale bar.
+          }
         }
       }
-    }
-    redrawTick();
-  }, [redrawTick]);
+      // A new bar moves "now" forward; move the dated future with it.
+      if (appended) {
+        extendFuture();
+      }
+      redrawTick();
+    },
+    [redrawTick, extendFuture],
+  );
 
   const setCloseLineVisible = useCallback((visible: boolean) => {
     closeLineSeriesRef.current?.applyOptions({ visible });
   }, []);
 
-  const updateLatestVolumes = useCallback((candles: CandleWithVolume[] = []) => {
-    const vol = volumeSeriesRef.current;
-    if (!vol || !candles.length) {return;}
-    for (const candle of candles) {
-      try {
-        vol.update({
-          time: candle.ohlc.time,
-          value: candle.volume,
-          color:
-            candle.ohlc.close >= candle.ohlc.open
-              ? theme.color.success.light + '80'
-              : theme.color.destructive.light + '80',
-        });
-      } catch {
-        // Same as updateLatestCandles: skip stale bars.
+  const updateLatestVolumes = useCallback(
+    (candles: CandleWithVolume[] = []) => {
+      const vol = volumeSeriesRef.current;
+      if (!vol || !candles.length) {
+        return;
       }
-    }
-    redrawTick();
-  }, [redrawTick]);
+      for (const candle of candles) {
+        try {
+          vol.update({
+            time: candle.ohlc.time,
+            value: candle.volume,
+            color:
+              candle.ohlc.close >= candle.ohlc.open
+                ? theme.color.success.light + '80'
+                : theme.color.destructive.light + '80',
+          });
+        } catch {
+          // Same as updateLatestCandles: skip stale bars.
+        }
+      }
+      redrawTick();
+    },
+    [redrawTick],
+  );
 
   const setChartRef = useCallback((node: HTMLDivElement | null) => {
     // unmount when node is null
@@ -381,7 +456,7 @@ export const useChartConfig = (
           // TradingView / Binance behaviour. Combined with the drawing
           // coordinate fix (continuous logical-index mapping), a second
           // click in this whitespace now completes the shape reliably.
-          rightOffset: 24,
+          rightOffset: RIGHT_OFFSET_BARS,
         },
       });
 
@@ -440,6 +515,13 @@ export const useChartConfig = (
         crosshairMarkerVisible: false,
       });
 
+      futureSeriesRef.current = chartRef.current.addLineSeries({
+        visible: false,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+      });
+
       // subscribe to users scrolling left and right the price chart
       chartRef.current.timeScale().subscribeVisibleLogicalRangeChange(logicalRange => {
         // `from=-10` parameter means there needs to be at least 10 empty candles in the left of the chart
@@ -459,7 +541,9 @@ export const useChartConfig = (
   // y is outside the price scale range.
   const priceAtY = useCallback((y: number): number | undefined => {
     const series = seriesRef.current;
-    if (!series) {return undefined;}
+    if (!series) {
+      return undefined;
+    }
     const price = series.coordinateToPrice(y);
     return typeof price === 'number' && Number.isFinite(price) ? price : undefined;
   }, []);
@@ -468,7 +552,9 @@ export const useChartConfig = (
   // Returns undefined if the chart isn't ready or the price is off-scale.
   const yAtPrice = useCallback((price: number): number | undefined => {
     const series = seriesRef.current;
-    if (!series) {return undefined;}
+    if (!series) {
+      return undefined;
+    }
     const coord = series.priceToCoordinate(price);
     return typeof coord === 'number' && Number.isFinite(coord) ? coord : undefined;
   }, []);
@@ -481,15 +567,21 @@ export const useChartConfig = (
   // anchored under a different candle duration.
   const xAtTime = useCallback((time: number): number | undefined => {
     const chart = chartRef.current;
-    if (!chart) {return undefined;}
+    if (!chart) {
+      return undefined;
+    }
     const coord = chart.timeScale().timeToCoordinate(time as never);
-    if (typeof coord === 'number' && Number.isFinite(coord)) {return coord;}
+    if (typeof coord === 'number' && Number.isFinite(coord)) {
+      return coord;
+    }
 
     const times = barTimesRef.current;
     const lastIdx = times.length - 1;
     const firstTime = times[0];
     const lastTime = times[lastIdx];
-    if (firstTime === undefined || lastTime === undefined) {return undefined;}
+    if (firstTime === undefined || lastTime === undefined) {
+      return undefined;
+    }
     const interval = inferBarInterval(times);
     let logical: number;
     if (time > lastTime) {
@@ -503,8 +595,11 @@ export const useChartConfig = (
       while (hi - lo > 1) {
         const mid = Math.floor((lo + hi) / 2);
         const midTime = times[mid];
-        if (midTime !== undefined && midTime <= time) {lo = mid;}
-        else {hi = mid;}
+        if (midTime !== undefined && midTime <= time) {
+          lo = mid;
+        } else {
+          hi = mid;
+        }
       }
       const loTime = times[lo];
       const hiTime = times[hi];
@@ -523,10 +618,16 @@ export const useChartConfig = (
     const loLogical = Math.floor(logical);
     const frac = logical - loLogical;
     const xLo = ts.logicalToCoordinate(loLogical as Logical);
-    if (typeof xLo !== 'number' || !Number.isFinite(xLo)) {return undefined;}
-    if (frac === 0) {return xLo;}
+    if (typeof xLo !== 'number' || !Number.isFinite(xLo)) {
+      return undefined;
+    }
+    if (frac === 0) {
+      return xLo;
+    }
     const xHi = ts.logicalToCoordinate((loLogical + 1) as Logical);
-    if (typeof xHi !== 'number' || !Number.isFinite(xHi)) {return undefined;}
+    if (typeof xHi !== 'number' || !Number.isFinite(xHi)) {
+      return undefined;
+    }
     return xLo + frac * (xHi - xLo);
   }, []);
 
@@ -540,15 +641,21 @@ export const useChartConfig = (
   // swallowed by chart.tsx's `if (time === undefined) return;` guard.
   const timeAtX = useCallback((x: number): number | undefined => {
     const chart = chartRef.current;
-    if (!chart) {return undefined;}
+    if (!chart) {
+      return undefined;
+    }
     const t = chart.timeScale().coordinateToTime(x);
-    if (typeof t === 'number' && Number.isFinite(t)) {return t;}
+    if (typeof t === 'number' && Number.isFinite(t)) {
+      return t;
+    }
 
     const times = barTimesRef.current;
     const lastIdx = times.length - 1;
     const firstTime = times[0];
     const lastTime = times[lastIdx];
-    if (firstTime === undefined || lastTime === undefined) {return undefined;}
+    if (firstTime === undefined || lastTime === undefined) {
+      return undefined;
+    }
     // coordinateToLogical rounds up to the next integer bar index — not
     // continuous — so recover the true fractional logical position by
     // inverse-interpolating against two neighbouring *integer* logicals'
@@ -556,7 +663,9 @@ export const useChartConfig = (
     // so this affine relationship is exact, not an approximation).
     const ts = chart.timeScale();
     const ceilLogical = ts.coordinateToLogical(x);
-    if (typeof ceilLogical !== 'number' || !Number.isFinite(ceilLogical)) {return undefined;}
+    if (typeof ceilLogical !== 'number' || !Number.isFinite(ceilLogical)) {
+      return undefined;
+    }
     const xAtCeil = ts.logicalToCoordinate(ceilLogical);
     const xAtCeilMinus1 = ts.logicalToCoordinate((ceilLogical - 1) as Logical);
     let logical: number;
@@ -571,14 +680,22 @@ export const useChartConfig = (
       logical = ceilLogical;
     }
     const interval = inferBarInterval(times);
-    if (logical > lastIdx) {return lastTime + (logical - lastIdx) * interval;}
-    if (logical < 0) {return firstTime + logical * interval;}
+    if (logical > lastIdx) {
+      return lastTime + (logical - lastIdx) * interval;
+    }
+    if (logical < 0) {
+      return firstTime + logical * interval;
+    }
     const lo = Math.floor(logical);
     const hi = Math.ceil(logical);
     const loT = times[lo];
-    if (lo === hi) {return loT;}
+    if (lo === hi) {
+      return loT;
+    }
     const hiT = times[hi];
-    if (loT === undefined || hiT === undefined) {return undefined;}
+    if (loT === undefined || hiT === undefined) {
+      return undefined;
+    }
     return loT + (hiT - loT) * (logical - lo);
   }, []);
 
@@ -599,64 +716,79 @@ export const useChartConfig = (
    * the camera actually glides to the new window.
    */
   const CENTER_MULTIPLIER = 1.15;
-  const centerPriceScaleOn = useCallback((
-    mid: number,
-    extras?: readonly number[],
-    opts?: { forceAutoScale?: boolean },
-  ) => {
-    const series = seriesRef.current;
-    if (!series) {return;}
-    if (!Number.isFinite(mid) || mid <= 0) {return;}
-    const forceAutoScale = opts?.forceAutoScale ?? true;
-    // Base window: ±15% around mid so an empty (or trade-thin) chart still
-    // has a sensible Y range to hydrate against.
-    let anchorMin = mid / CENTER_MULTIPLIER;
-    let anchorMax = mid * CENTER_MULTIPLIER;
-    // `extras` are extra prices the camera must keep in view — most
-    // usefully the LP form's lower/upper bounds. As the user drags the
-    // range on the chart, these change and the anchor re-fits so the
-    // range never scrolls off-screen. A small headroom above/below the
-    // widened range keeps the price handles from sitting flush against
-    // the edge.
-    if (extras && extras.length > 0) {
-      const EDGE_PAD = 1.02;
-      for (const v of extras) {
-        if (!Number.isFinite(v) || v <= 0) {continue;}
-        if (v < anchorMin) {anchorMin = v / EDGE_PAD;}
-        if (v > anchorMax) {anchorMax = v * EDGE_PAD;}
+  const centerPriceScaleOn = useCallback(
+    (mid: number, extras?: readonly number[], opts?: { forceAutoScale?: boolean }) => {
+      const series = seriesRef.current;
+      if (!series) {
+        return;
       }
-    }
-    try {
-      // Union the anchor window with the data's own autoscale range
-      // instead of pinning to a hard strip. The old provider ignored
-      // `original()` and clipped 1w / 1mo history to a strip around the
-      // anchor; on a pair switch to a pair whose anchor is null it left
-      // the previous pair's window applied and the new candles rendered
-      // off-screen; "Reset chart view" re-enabled autoscale onto the
-      // still-pinned strip. Take the min of mins and max of maxes so the
-      // anchor + range are always visible AND every candle in view is
-      // honestly scaled.
-      series.applyOptions({
-        autoscaleInfoProvider: (original: () => AutoscaleInfo | null) => {
-          const src = original();
-          const dataMin = src?.priceRange.minValue;
-          const dataMax = src?.priceRange.maxValue;
-          const minValue =
-            dataMin !== undefined && Number.isFinite(dataMin) ? Math.min(anchorMin, dataMin) : anchorMin;
-          const maxValue =
-            dataMax !== undefined && Number.isFinite(dataMax) ? Math.max(anchorMax, dataMax) : anchorMax;
-          const margins = src?.margins;
-          return margins ? { priceRange: { minValue, maxValue }, margins } : { priceRange: { minValue, maxValue } };
-        },
-      });
-      if (forceAutoScale) {
-        series.priceScale().applyOptions({ autoScale: true });
+      if (!Number.isFinite(mid) || mid <= 0) {
+        return;
       }
-    } catch {
-      // chart torn down
-    }
-    redrawTick();
-  }, [redrawTick]);
+      const forceAutoScale = opts?.forceAutoScale ?? true;
+      // Base window: ±15% around mid so an empty (or trade-thin) chart still
+      // has a sensible Y range to hydrate against.
+      let anchorMin = mid / CENTER_MULTIPLIER;
+      let anchorMax = mid * CENTER_MULTIPLIER;
+      // `extras` are extra prices the camera must keep in view — most
+      // usefully the LP form's lower/upper bounds. As the user drags the
+      // range on the chart, these change and the anchor re-fits so the
+      // range never scrolls off-screen. A small headroom above/below the
+      // widened range keeps the price handles from sitting flush against
+      // the edge.
+      if (extras && extras.length > 0) {
+        const EDGE_PAD = 1.02;
+        for (const v of extras) {
+          if (!Number.isFinite(v) || v <= 0) {
+            continue;
+          }
+          if (v < anchorMin) {
+            anchorMin = v / EDGE_PAD;
+          }
+          if (v > anchorMax) {
+            anchorMax = v * EDGE_PAD;
+          }
+        }
+      }
+      try {
+        // Union the anchor window with the data's own autoscale range
+        // instead of pinning to a hard strip. The old provider ignored
+        // `original()` and clipped 1w / 1mo history to a strip around the
+        // anchor; on a pair switch to a pair whose anchor is null it left
+        // the previous pair's window applied and the new candles rendered
+        // off-screen; "Reset chart view" re-enabled autoscale onto the
+        // still-pinned strip. Take the min of mins and max of maxes so the
+        // anchor + range are always visible AND every candle in view is
+        // honestly scaled.
+        series.applyOptions({
+          autoscaleInfoProvider: (original: () => AutoscaleInfo | null) => {
+            const src = original();
+            const dataMin = src?.priceRange.minValue;
+            const dataMax = src?.priceRange.maxValue;
+            const minValue =
+              dataMin !== undefined && Number.isFinite(dataMin)
+                ? Math.min(anchorMin, dataMin)
+                : anchorMin;
+            const maxValue =
+              dataMax !== undefined && Number.isFinite(dataMax)
+                ? Math.max(anchorMax, dataMax)
+                : anchorMax;
+            const margins = src?.margins;
+            return margins
+              ? { priceRange: { minValue, maxValue }, margins }
+              : { priceRange: { minValue, maxValue } };
+          },
+        });
+        if (forceAutoScale) {
+          series.priceScale().applyOptions({ autoScale: true });
+        }
+      } catch {
+        // chart torn down
+      }
+      redrawTick();
+    },
+    [redrawTick],
+  );
 
   /**
    * Clear the pinned anchor so the price axis reverts to lightweight-charts'
@@ -666,7 +798,9 @@ export const useChartConfig = (
    */
   const clearPriceAnchor = useCallback(() => {
     const series = seriesRef.current;
-    if (!series) {return;}
+    if (!series) {
+      return;
+    }
     try {
       series.applyOptions({ autoscaleInfoProvider: undefined });
       series.priceScale().applyOptions({ autoScale: true });
@@ -687,9 +821,22 @@ export const useChartConfig = (
   const resetView = useCallback(() => {
     const chart = chartRef.current;
     const series = seriesRef.current;
-    if (!chart || !series) {return;}
+    if (!chart || !series) {
+      return;
+    }
     try {
-      chart.timeScale().fitContent();
+      // Not fitContent(): that now includes the dated future bars and would
+      // squeeze the candles into the left edge. Fit the candles plus the
+      // usual right margin instead.
+      const count = barTimesRef.current.length;
+      if (count > 0) {
+        chart.timeScale().setVisibleLogicalRange({
+          from: 0 as Logical,
+          to: (count - 1 + RIGHT_OFFSET_BARS) as Logical,
+        });
+      } else {
+        chart.timeScale().fitContent();
+      }
       series.applyOptions({ autoscaleInfoProvider: undefined });
       series.priceScale().applyOptions({ autoScale: true });
     } catch {
@@ -709,12 +856,18 @@ export const useChartConfig = (
     ): (() => void) => {
       const chart = chartRef.current;
       const series = seriesRef.current;
-      if (!chart || !series) {return () => undefined;}
+      if (!chart || !series) {
+        return () => undefined;
+      }
 
       const handler = (param: { point?: { x: number; y: number }; time?: unknown }) => {
-        if (!param.point) {return;}
+        if (!param.point) {
+          return;
+        }
         const price = series.coordinateToPrice(param.point.y);
-        if (typeof price !== 'number' || !Number.isFinite(price) || price <= 0) {return;}
+        if (typeof price !== 'number' || !Number.isFinite(price) || price <= 0) {
+          return;
+        }
         const time = typeof param.time === 'number' ? param.time : undefined;
         cb(param.point, price, time);
       };
@@ -743,7 +896,9 @@ export const useChartConfig = (
       const chart = chartRef.current;
       const series = seriesRef.current;
       const volumeSeries = volumeSeriesRef.current;
-      if (!chart || !series) {return () => undefined;}
+      if (!chart || !series) {
+        return () => undefined;
+      }
 
       const handler = (param: {
         time?: unknown;
@@ -789,11 +944,15 @@ export const useChartConfig = (
   const subscribeRedraw = useCallback((cb: () => void): (() => void) => {
     const chart = chartRef.current;
     const node = chartElRef.current;
-    if (!chart || !node) {return () => undefined;}
+    if (!chart || !node) {
+      return () => undefined;
+    }
 
     let raf = 0;
     const handler = () => {
-      if (raf) {return;}
+      if (raf) {
+        return;
+      }
       raf = requestAnimationFrame(() => {
         raf = 0;
         cb();
