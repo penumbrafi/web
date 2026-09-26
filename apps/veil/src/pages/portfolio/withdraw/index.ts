@@ -1,1 +1,1 @@
-export { WithdrawPage } from './withdraw-page';
+export { WithdrawModal } from './withdraw-page';

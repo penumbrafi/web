@@ -1,13 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { observer } from 'mobx-react-lite';
+import { Dialog } from '@penumbra-zone/ui/Dialog';
 import { useRegistry } from '@/shared/api/registry';
 import { IbcChainProvider } from '@/features/cosmos/chain-provider';
-import { PenumbraWaves } from '@/pages/explore/ui/waves';
-import { PortfolioCard } from '@/pages/portfolio/ui/portfolio-card';
 import type { CexAsset, CexConfig } from '@/features/deposit/cex-config';
 import { DepositHeader } from './steps/deposit-header';
 import { MethodSelect } from './steps/method-select';
@@ -26,36 +24,22 @@ type Step =
   | { name: 'deposit'; cex: CexConfig; asset: CexAsset };
 
 /**
- * Top-level `/portfolio/deposit` page. Wraps the flow in
- * `IbcChainProvider` so the one-click shield accelerator on the final
- * step can call `useChain(...)` for the source-chain wallet — same
- * pattern as `desktop-page.tsx`.
- *
- * Renders the same page shell (waves + centered card) as the rest of
- * the portfolio so the deposit page reads as an in-place section, not
- * a modal detour.
+ * `/portfolio/deposit`: a dialog over the portfolio (the portfolio itself is
+ * rendered by `app/portfolio/layout.tsx`), so the URL is shareable and closing
+ * it just goes back to `/portfolio`. Wrapped in `IbcChainProvider` so the
+ * one-click shield on the final step can call `useChain(...)`.
  */
-export const DepositPage = observer(() => {
+export const DepositModal = observer(() => {
   const { data: registry } = useRegistry();
+  const router = useRouter();
   return (
-    <IbcChainProvider registry={registry}>
-      <PenumbraWaves />
-      <div className='container mx-auto flex max-w-[720px] flex-col gap-4 py-8'>
-        {/* way back out - same link the withdraw page has */}
-        <div>
-          <Link
-            href='/portfolio'
-            className='inline-flex items-center gap-1 text-sm text-text-secondary hover:text-text-primary focus:outline-none'
-          >
-            <ArrowLeft className='h-4 w-4' />
-            Portfolio
-          </Link>
-        </div>
-        <PortfolioCard title='Deposit'>
+    <Dialog isOpen onClose={() => router.push('/portfolio')}>
+      <Dialog.Content title='Deposit'>
+        <IbcChainProvider registry={registry}>
           <DepositFlow />
-        </PortfolioCard>
-      </div>
-    </IbcChainProvider>
+        </IbcChainProvider>
+      </Dialog.Content>
+    </Dialog>
   );
 });
 
@@ -128,4 +112,4 @@ const DepositFlow = observer(() => {
   );
 });
 
-export default DepositPage;
+export default DepositModal;

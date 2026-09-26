@@ -1,18 +1,14 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
 import { observer } from 'mobx-react-lite';
-import { Text } from '@penumbra-zone/ui/Text';
+import { Dialog } from '@penumbra-zone/ui/Dialog';
 
 import type { Chain } from '@penumbrafi/registry';
 import { useRegistry } from '@/shared/api/registry.tsx';
-import type {
-  ShieldedBalance,
-  UnifiedAsset,
-} from '@/pages/portfolio/api/use-unified-assets';
+import type { ShieldedBalance, UnifiedAsset } from '@/pages/portfolio/api/use-unified-assets';
 
 import { AssetSelectStep } from './steps/asset-select';
 import { DestinationStep } from './steps/destination';
@@ -30,36 +26,23 @@ const IbcChainProviderClient = dynamic(
 
 type Step = 'asset' | 'destination' | 'confirm';
 
-export const WithdrawPage = observer(() => {
+/**
+ * `/portfolio/withdraw`: a dialog over the portfolio (the portfolio itself is
+ * rendered by `app/portfolio/layout.tsx`), so the URL is shareable and closing
+ * it just goes back to `/portfolio`.
+ */
+export const WithdrawModal = observer(() => {
   const { data: registry } = useRegistry();
+  const router = useRouter();
 
   return (
-    <IbcChainProviderClient registry={registry}>
-      <div className='container mx-auto max-w-lg px-4 py-8 sm:py-12'>
-        <div className='mb-4'>
-          <Link
-            href='/portfolio'
-            className='inline-flex items-center gap-1 text-sm text-text-secondary hover:text-text-primary focus:outline-none'
-          >
-            <ArrowLeft className='h-4 w-4' />
-            Portfolio
-          </Link>
-        </div>
-
-        <div className='rounded-2xl border border-other-tonal-stroke bg-other-tonal-fill5 p-4 backdrop-blur-lg sm:p-6'>
-          <div className='mb-4'>
-            <Text variant='xxl' color='text.primary'>
-              Withdraw
-            </Text>
-            <Text variant='detail' color='text.secondary'>
-              Send shielded funds out to an exchange or a wallet on another chain.
-            </Text>
-          </div>
-
+    <Dialog isOpen onClose={() => router.push('/portfolio')}>
+      <Dialog.Content title='Withdraw'>
+        <IbcChainProviderClient registry={registry}>
           <WithdrawFlow />
-        </div>
-      </div>
-    </IbcChainProviderClient>
+        </IbcChainProviderClient>
+      </Dialog.Content>
+    </Dialog>
   );
 });
 
