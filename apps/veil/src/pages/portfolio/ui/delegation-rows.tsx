@@ -153,7 +153,11 @@ const UnbondingRows = observer(({ entries }: { entries: UnbondingEntry[] }) => {
             }`}
           >
             <TableCell variant='cell'>
-              <div className='flex flex-col gap-0.5'>
+              {/* The validator is the hover text, keeping the row to one line. */}
+              <div
+                title={`Unbonding from ${e.validatorName}`}
+                aria-label={`Unbonding from ${e.validatorName}`}
+              >
                 <Sensitive>
                   <ValueViewComponent
                     valueView={amount}
@@ -162,9 +166,6 @@ const UnbondingRows = observer(({ entries }: { entries: UnbondingEntry[] }) => {
                     density='compact'
                   />
                 </Sensitive>
-                <Text detail color='text.secondary'>
-                  from {e.validatorName}
-                </Text>
               </div>
             </TableCell>
             <TableCell variant='cell'>
