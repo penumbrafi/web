@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useQuery } from '@tanstack/react-query';
+import { QRCodeCanvas } from 'qrcode.react';
 import { ArrowLeft, Check, Copy, RefreshCw, Share2 } from 'lucide-react';
 import { ViewService } from '@penumbra-zone/protobuf';
 import { bech32mAddress } from '@penumbra-zone/bech32m/penumbra';
@@ -79,6 +80,12 @@ export const SponsorLink = observer(({ onBack }: { onBack: () => void }) => {
           <Text detail color='text.secondary'>
             Payment link
           </Text>
+          {link && (
+            // For opening the link on a phone, where the funds often are.
+            <div className='w-fit rounded-sm bg-white p-2'>
+              <QRCodeCanvas value={link} size={176} bgColor='#ffffff' fgColor='#000000' level='M' />
+            </div>
+          )}
           <div className='break-all'>
             <Text detailTechnical color='text.primary'>
               {isLoading || !link ? 'Making a fresh address…' : link}
