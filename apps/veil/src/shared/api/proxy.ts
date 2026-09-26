@@ -1,45 +1,15 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { DEFAULT_PAIR } from '@/shared/config/featured-pairs';
-
-const LAST_PAIR_COOKIE = 'veil_last_pair';
-const LAST_PAIR_COOKIE_MAX_AGE = 60 * 60 * 24 * 90; // 90 days
+import { DEFAULT_PAIR, LAST_PAIR_COOKIE } from '@/shared/config/featured-pairs';
 
 export const routingProxy = (request: NextRequest) => {
   const { pathname } = request.nextUrl;
 
   // `/` is now the market/landing page itself (app/page.tsx); no redirect.
 
-  // Remember the last viewed pair so /trade can redirect back to it.
-  const tradePairMatch = /^\/trade\/([^/]+)\/([^/]+)\/?$/.exec(pathname);
-  // A prefetch is not a visit. The home page lists every pair as a <Link>,
-  // and Next prefetches each one that scrolls into view through this proxy,
-  // so "last viewed" became whichever pair was prefetched last (e.g.
-  // ATOM.ch0/stATOM) and /trade sent people to a market they never opened.
-  const isPrefetch =
-    request.headers.has('next-router-prefetch') ||
-    request.headers.has('next-router-segment-prefetch') ||
-    request.headers.get('purpose') === 'prefetch' ||
-    request.headers.get('sec-purpose')?.includes('prefetch') === true;
-  if (tradePairMatch && isPrefetch) {
-    return NextResponse.next();
-  }
-  if (tradePairMatch) {
-    const [, base, quote] = tradePairMatch;
-    if (base && quote) {
-      const cookieValue = `${base}/${quote}`;
-      const existing = request.cookies.get(LAST_PAIR_COOKIE)?.value;
-      if (existing !== cookieValue) {
-        const response = NextResponse.next();
-        response.cookies.set(LAST_PAIR_COOKIE, cookieValue, {
-          path: '/',
-          maxAge: LAST_PAIR_COOKIE_MAX_AGE,
-          sameSite: 'lax',
-        });
-        return response;
-      }
-    }
-    return NextResponse.next();
-  }
+  // The last-pair cookie is written by the trade page itself (see
+  // use-remember-pair), not here: Next prefetches every pair link in view
+  // through this proxy, and in this Next version the prefetch headers don't
+  // reach it, so a write here recorded whichever pair was prefetched last.
 
   // /trade — redirect to the last viewed pair, or the default market.
   if (pathname === '/trade') {

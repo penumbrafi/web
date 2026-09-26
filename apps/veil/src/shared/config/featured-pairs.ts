@@ -22,3 +22,14 @@
  * that channel ever goes dark.
  */
 export const DEFAULT_PAIR = { base: 'UM', quote: 'USDC.inj' } as const;
+/**
+ * Cookie holding the last pair actually opened, read by the routing proxy to
+ * send /trade back to it. Written by the trade page when it mounts, never by
+ * the proxy: Next prefetches every pair link in view through the proxy, so a
+ * proxy-side write recorded whichever pair was prefetched last.
+ */
+// v2: the proxy-written 'veil_last_pair' holds whichever pair was prefetched
+// last for everyone who visited while that bug was live; a new name leaves
+// those values behind instead of honoring them for their 90-day lifetime.
+export const LAST_PAIR_COOKIE = 'veil_last_pair_v2';
+export const LAST_PAIR_COOKIE_MAX_AGE = 60 * 60 * 24 * 90; // 90 days

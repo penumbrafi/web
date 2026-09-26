@@ -1,7 +1,6 @@
-// "/trade" → last-viewed pair (cookie) or default,
-// "/trade/:base/:quote" → records last-viewed pair in a cookie.
+// "/trade" → last-viewed pair (cookie, written by the trade page) or default.
 export const config = {
-  matcher: ['/trade', '/trade/:base/:quote'],
+  matcher: ['/trade'],
 };
 
 export { routingProxy as proxy } from '@/shared/index.server';

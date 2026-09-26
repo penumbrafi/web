@@ -3,6 +3,7 @@
 import cn from 'clsx';
 import { useViewport } from '@/shared/utils/use-viewport';
 import { useLivePriceTitle } from '../model/use-live-price-title';
+import { useRememberPair } from '../model/use-remember-pair';
 import { ResizableSplit } from '@/shared/ui/resizable-split';
 import { PairInfo } from './pair-info';
 import { Chart } from './chart/chart';
@@ -215,6 +216,7 @@ export const TradePage = () => {
   // prices off the tab bar. Mounted once at the page root so the layout
   // re-mount on viewport change doesn't churn it.
   useLivePriceTitle();
+  useRememberPair();
 
   return {
     mobile: <MobileLayout />,
