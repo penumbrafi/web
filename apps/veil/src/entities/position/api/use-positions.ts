@@ -1,11 +1,11 @@
 import { DexService, ViewService } from '@penumbra-zone/protobuf';
 import { penumbra } from '@/shared/const/penumbra';
 import { connectionStore } from '@/shared/model/connection';
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Position,
   PositionId,
-  PositionState,
   PositionState_PositionStateEnum,
 } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
 import { AddressIndex } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys_pb';
@@ -14,30 +14,46 @@ import { queryClient } from '@/shared/const/queryClient';
 import { useRefetchOnNewBlock } from '@/shared/api/compact-block';
 
 // Positions per liquidityPositionsById call, and how many calls run at once.
-// Parallel chunks instead of one page after another: a refresh used to walk
-// every loaded page in sequence through the wallet, once per block.
 const CHUNK = 50;
 const PARALLEL = 4;
 
-const fetchOwnedIds = async (
-  subaccount: number,
-  stateFilter?: PositionState_PositionStateEnum[],
-): Promise<PositionId[]> => {
-  const states = stateFilter?.map(state => new PositionState({ state })) ?? [undefined];
-  const res = await Promise.all(
-    states.map(state =>
-      Array.fromAsync(
-        penumbra.service(ViewService).ownedPositionIds({
-          subaccount: new AddressIndex({ account: subaccount }),
-          positionState: state,
-        }),
-      ),
-    ),
+const WITHDRAWN = PositionState_PositionStateEnum.WITHDRAWN;
+
+/**
+ * Every position this wallet ever owned in `subaccount`, by bech32 id. Kept
+ * per subaccount for the session (memory only: the list of your positions is
+ * private and does not belong in localStorage).
+ *
+ * A refresh fetches only what can have changed. A withdrawn position is final
+ * and is never fetched again; open and closed ones are re-read, new ids are
+ * read once. Each Position object is kept when it didn't change, so rows keyed
+ * on it skip re-rendering. Every tab (open, closed, history) and the chart
+ * overlays read this one map and filter it, instead of each streaming its own
+ * copy from scratch.
+ */
+interface PositionCache {
+  byId: Map<string, Position>;
+  /** The map last returned, reused when nothing changed. */
+  last?: Map<string, Position>;
+}
+const caches = new Map<number, PositionCache>();
+
+const cacheFor = (subaccount: number): PositionCache => {
+  let c = caches.get(subaccount);
+  if (!c) {
+    c = { byId: new Map() };
+    caches.set(subaccount, c);
+  }
+  return c;
+};
+
+const fetchOwnedIds = async (subaccount: number): Promise<PositionId[]> => {
+  const res = await Array.fromAsync(
+    penumbra.service(ViewService).ownedPositionIds({
+      subaccount: new AddressIndex({ account: subaccount }),
+    }),
   );
-  return res
-    .flat()
-    .map(item => item.positionId)
-    .filter(Boolean) as PositionId[];
+  return res.map(item => item.positionId).filter(Boolean) as PositionId[];
 };
 
 const fetchChunk = async (ids: PositionId[]): Promise<[string, Position][]> => {
@@ -58,19 +74,12 @@ const fetchChunk = async (ids: PositionId[]): Promise<[string, Position][]> => {
   return out;
 };
 
-// 1) Ask the wallet for owned position ids (one stream read).
-// 2) Fetch those positions from the node in parallel chunks.
-// Context on two-step fetching process: https://github.com/penumbra-zone/penumbra/pull/4837
-const fetchPositions = async (
-  subaccount: number,
-  stateFilter?: PositionState_PositionStateEnum[],
-): Promise<Map<string, Position>> => {
-  const ids = await fetchOwnedIds(subaccount, stateFilter);
+const fetchInParallel = async (ids: PositionId[]): Promise<[string, Position][]> => {
   const chunks: PositionId[][] = [];
   for (let i = 0; i < ids.length; i += CHUNK) {
     chunks.push(ids.slice(i, i + CHUNK));
   }
-  const results: [string, Position][][] = new Array<[string, Position][]>(chunks.length);
+  const results = new Array<[string, Position][]>(chunks.length);
   let next = 0;
   const worker = async () => {
     while (next < chunks.length) {
@@ -82,32 +91,96 @@ const fetchPositions = async (
     }
   };
   await Promise.all(Array.from({ length: Math.min(PARALLEL, chunks.length) }, worker));
-  // Map keeps the owned-id order, so row order is stable across refreshes.
-  return new Map(results.flat());
+  return results.flat();
+};
+
+const refreshPositions = async (subaccount: number): Promise<Map<string, Position>> => {
+  const cache = cacheFor(subaccount);
+  const ids = await fetchOwnedIds(subaccount);
+  const stale = ids.filter(id => {
+    const known = cache.byId.get(bech32mPositionId(id));
+    return !known || known.state?.state !== WITHDRAWN;
+  });
+  for (const [id, position] of await fetchInParallel(stale)) {
+    const known = cache.byId.get(id);
+    if (!known?.equals(position)) {
+      cache.byId.set(id, position);
+    }
+  }
+  // Owned-id order, so rows keep a stable order across refreshes.
+  const out = new Map<string, Position>();
+  for (const id of ids) {
+    const key = bech32mPositionId(id);
+    const position = cache.byId.get(key);
+    if (position) {
+      out.set(key, position);
+    }
+  }
+  // Same positions (by reference) in the same order: hand back the previous
+  // map, so a block with no fills re-renders nothing downstream.
+  const last = cache.last;
+  if (last?.size === out.size) {
+    const a = [...last];
+    const b = [...out];
+    const same = a.every(([k, v], i) => {
+      const entry = b[i];
+      return entry !== undefined && entry[0] === k && entry[1] === v;
+    });
+    if (same) {
+      return last;
+    }
+  }
+  cache.last = out;
+  return out;
+};
+
+const filterByState = (
+  all: Map<string, Position>,
+  stateFilter?: PositionState_PositionStateEnum[],
+): Map<string, Position> => {
+  if (!stateFilter?.length) {
+    return all;
+  }
+  const wanted = new Set(stateFilter);
+  const out = new Map<string, Position>();
+  for (const [id, position] of all) {
+    const state = position.state?.state;
+    if (state !== undefined && wanted.has(state)) {
+      out.set(id, position);
+    }
+  }
+  return out;
 };
 
 /**
- * Every owned position (optionally filtered by state), keyed by bech32 id,
- * in one query. Consumers filter by pair and paginate on the client; paging
- * on the wallet side made /trade stall whenever the first page held no
- * position for the route pair.
+ * Owned positions (optionally filtered by state), keyed by bech32 id. One
+ * shared query per subaccount; the state filter is applied on top, so
+ * switching tabs never refetches.
  *
  * Must be used within the `observer` mobX HOC
  */
 export const usePositions = (subaccount = 0, stateFilter?: PositionState_PositionStateEnum[]) => {
   const query = useQuery<Map<string, Position>>({
-    queryKey: ['positions', subaccount, stateFilter],
-    queryFn: () => fetchPositions(subaccount, stateFilter),
+    queryKey: ['positions', 'all', subaccount],
+    queryFn: () => refreshPositions(subaccount),
     enabled: connectionStore.connected,
+    // Kept for the session: leaving the page and coming back reads the cache
+    // and refreshes only what can have changed.
+    gcTime: Infinity,
   });
 
-  // Third-party fills and auto-close (closeOnFill) change our positions
-  // without our own action, so refresh on each block. Not also on the
-  // pindexer dex_ex tick: nothing here reads pindexer, and the second
-  // trigger only doubled the work.
-  useRefetchOnNewBlock(['positions', subaccount, stateFilter], query, !connectionStore.connected);
+  // Third-party fills and auto-close change open positions without our own
+  // action, so refresh on each block; withdrawn ones are skipped inside.
+  useRefetchOnNewBlock(['positions', 'all', subaccount], query, !connectionStore.connected);
 
-  return query;
+  const filterKey = stateFilter?.join(',') ?? '';
+  const data = useMemo(
+    () => (query.data ? filterByState(query.data, stateFilter) : undefined),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the serialized filter; callers pass a fresh array literal each render
+    [query.data, filterKey],
+  );
+
+  return { ...query, data };
 };
 
 export const updatePositionsQuery = async () => {
