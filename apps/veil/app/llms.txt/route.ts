@@ -18,7 +18,8 @@ Zafu wallet (or another Penumbra wallet); your keys and balances stay in the wal
 - [Portfolio](/portfolio): your balances (decrypted in your wallet), positions, staking.
 - [Deposit](/portfolio/deposit): move funds in from an exchange or a Cosmos wallet; or share a
   deposit link so someone else can pay into your account.
-- [Explorer](/explore): blocks, transactions, validators, governance, IBC channels, DEX stats.
+- [Explorer](/explore): blocks, transactions, validators, governance, IBC channels, DEX stats,
+  and the shielded-pool history of every asset (/explore/assets).
   Your own transactions can be decrypted in place with your wallet.
 - [Tournament](/tournament): the liquidity tournament and its rewards.
 - [Learn](/learn): how Penumbra, shielding and liquidity positions work.

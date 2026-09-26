@@ -17,6 +17,7 @@ const ITEMS: NavItem[] = [
   { label: 'Validators', href: '/explore/validators', matchPrefixes: ['/explore/validator'] },
   { label: 'Governance', href: '/explore/governance', matchPrefixes: ['/explore/proposal'] },
   { label: 'IBC', href: '/explore/ibc' },
+  { label: 'Assets', href: '/explore/assets' },
   { label: 'DEX', href: '/explore/dex' },
   { label: 'LPs', href: '/explore/lp-leaderboard', matchPrefixes: ['/explore/lp/'] },
 ];
@@ -35,8 +36,10 @@ export const InspectNav: FC = () => {
   const pathname = usePathname() ?? '';
 
   return (
-    <nav className='flex justify-center border-b border-other-tonal-fill5'>
-      <ul className='flex flex-wrap gap-1 px-4 py-2'>
+    // One row on every screen: scrolls sideways on phones instead of
+    // wrapping into three.
+    <nav className='flex border-b border-other-tonal-fill5 sm:justify-center'>
+      <ul className='flex gap-1 overflow-x-auto px-4 py-2 whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'>
         {ITEMS.map(item => {
           const active = isActive(item, pathname);
           return (

@@ -11,12 +11,13 @@ import {
 } from '@/shared/api/server/with-api-fallback.ts';
 import { getPriceHistory } from '../portfolio-history';
 import { isHistoryRange } from '../portfolio-history/types';
+import { unregisteredExponent } from './exponents';
 import { ShieldedAsset, ShieldedHistoryResponse } from './types';
 
 const EMPTY: ShieldedHistoryResponse = { points: [], assets: [], indexedHeight: 0 };
 const ROWS_TTL_MS = 60_000;
 
-interface Row {
+export interface Row {
   height: number;
   current: bigint;
   total: bigint;
@@ -30,7 +31,7 @@ let rowsCache: { at: number; byAsset: Map<string, Row[]> } | undefined;
  * cached for a minute). `current_value` is what sits in the shielded pool,
  * `total_value` everything that ever came in.
  */
-const shieldedRows = async (): Promise<Map<string, Row[]>> => {
+export const shieldedRows = async (): Promise<Map<string, Row[]>> => {
   if (rowsCache && Date.now() - rowsCache.at < ROWS_TTL_MS) {
     return rowsCache.byAsset;
   }
@@ -124,7 +125,7 @@ async function handleGet(req: NextRequest): Promise<NextResponse<ShieldedHistory
     }
     indexedHeight = Math.max(indexedHeight, latest.height);
     const meta = metaOf(id);
-    const exponent = meta ? getDisplayDenomExponent(meta) : 0;
+    const exponent = meta ? getDisplayDenomExponent(meta) : unregisteredExponent(id);
     const price = lastIndex >= 0 ? history.usd[id]?.[lastIndex] : undefined;
     const start = firstPoint ? rowAt(rows, firstPoint.height) : undefined;
     assets.push({
