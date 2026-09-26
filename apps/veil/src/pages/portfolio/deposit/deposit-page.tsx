@@ -78,7 +78,7 @@ const DepositFlow = observer(() => {
       case 'sponsor':
         return [
           { label: 'Choose a source', onClick: () => setStep({ name: 'method' }) },
-          { label: 'Someone else is sending' },
+          { label: 'Deposit link' },
         ];
       case 'wallet':
         return [
@@ -101,7 +101,7 @@ const DepositFlow = observer(() => {
       {step.name === 'sponsor' ? (
         <SponsorLink onBack={() => setStep({ name: 'method' })} />
       ) : (
-        <ArrivalWallet onSomeoneElse={() => setStep({ name: 'sponsor' })} />
+        <ArrivalWallet onNoWallet={() => setStep({ name: 'sponsor' })} />
       )}
 
       {isWalletConnected && step.name === 'method' && (

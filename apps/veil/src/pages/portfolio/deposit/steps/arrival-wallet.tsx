@@ -1,7 +1,7 @@
 'use client';
 
 import { observer } from 'mobx-react-lite';
-import { Check, Copy, ExternalLink, Users } from 'lucide-react';
+import { Check, Copy, ExternalLink, Link2 } from 'lucide-react';
 import { useState } from 'react';
 import Image from 'next/image';
 import { useChain } from '@cosmos-kit/react';
@@ -39,12 +39,12 @@ interface ArrivalWalletProps {
   /** 'receive': the user's own deposit (default). 'send': paying someone
    *  else on /pay, where the wallet is the source, not the destination. */
   purpose?: 'receive' | 'send';
-  /** Deposit only: offer "Someone else is sending" alongside the wallets. */
-  onSomeoneElse?: () => void;
+  /** Deposit only: offer the no-wallet route (a deposit link) alongside the wallets. */
+  onNoWallet?: () => void;
 }
 
 export const ArrivalWallet = observer(
-  ({ purpose = 'receive', onSomeoneElse }: ArrivalWalletProps) => {
+  ({ purpose = 'receive', onNoWallet }: ArrivalWalletProps) => {
     const chain = useChain('injective');
     const sending = purpose === 'send';
     const zafu = useZafuHandoff();
@@ -129,12 +129,12 @@ export const ArrivalWallet = observer(
               />
             );
           })}
-          {onSomeoneElse && (
+          {onNoWallet && (
             <WalletButton
-              name='Someone else is sending'
-              hint='Share a link, they pay from their wallet'
-              icon={<Users className='h-5 w-5 text-text-secondary' />}
-              onClick={onSomeoneElse}
+              name='No wallet here'
+              hint='Get a deposit link to pay from anywhere'
+              icon={<Link2 className='h-5 w-5 text-text-secondary' />}
+              onClick={onNoWallet}
             />
           )}
         </div>

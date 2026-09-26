@@ -13,7 +13,7 @@ import { connectionStore } from '@/shared/model/connection';
 import { ConnectButton } from '@/features/connect/connect-button';
 
 /**
- * "Someone else is sending": a link the payer opens to send straight into
+ * The no-wallet route: a deposit link that opens a page to send straight into
  * this account over IBC. The address is single-use (ephemeralAddress), so
  * the payer learns nothing that links to the main address, and it goes in
  * the URL fragment, which browsers never send to the server.
@@ -56,11 +56,12 @@ export const SponsorLink = observer(({ onBack }: { onBack: () => void }) => {
 
       <div className='flex flex-col gap-1'>
         <Text variant='strong' color='text.primary'>
-          Let someone pay into your account
+          Deposit with a link
         </Text>
         <Text small color='text.secondary'>
-          Send them this link. They connect Keplr or Leap and send USDC, USDT or INJ from Injective
-          in one signature. It arrives here in about a minute.
+          Open this link wherever the funds are, or send it to whoever is paying. It takes USDC,
+          USDT or INJ from any Keplr or Leap wallet on Injective in one signature, and arrives here
+          in about a minute.
         </Text>
       </div>
 
@@ -129,7 +130,7 @@ export const SponsorLink = observer(({ onBack }: { onBack: () => void }) => {
           </div>
           <Text detail color='text.secondary'>
             The address is single-use and not linked to your main Penumbra address. Anyone with the
-            link can pay into this account, so give each payer their own.
+            link can pay into this account, so make a new one for each payer.
           </Text>
         </div>
       )}
