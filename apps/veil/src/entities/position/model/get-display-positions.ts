@@ -176,8 +176,10 @@ export const getOrderValueViews = ({
       ? // We are selling the base asset to obtain the quote asset, so we can simply use the current reserves.
         pnum(baseAsset.amount.toString(), baseAsset.exponent).toValueView(baseAsset.asset)
       : // We are buying the base asset, we need to convert the quantity of quote asset that we have provisioned.
+        // Rounded to 10 significant digits: the product of two floats-turned-
+        // BigNumbers carries noise (0.009499999999999998 INJ for 0.0095).
         pnum(
-          quoteAsset.amount.times(quoteAsset.effectivePrice).toString(),
+          quoteAsset.amount.times(quoteAsset.effectivePrice).precision(10).toString(),
           quoteAsset.exponent,
         ).toValueView(baseAsset.asset);
 

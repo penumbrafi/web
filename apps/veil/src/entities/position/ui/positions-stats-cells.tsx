@@ -91,3 +91,55 @@ export const PositionsPnlCell = memo(({ stats }: { stats: PositionDerivedStats |
   );
 });
 PositionsPnlCell.displayName = 'PositionsPnlCell';
+
+/**
+ * Fees earned, with APR and vs HODL on hover. They used to be two more
+ * columns, which pushed the row actions off screen.
+ */
+export const PositionsEarningsCell = memo(
+  ({ stats }: { stats: PositionDerivedStats | undefined }) => {
+    if (!stats) {
+      return <Loading />;
+    }
+    const days = Math.floor(stats.ageDays);
+    let apr = '-';
+    if (stats.aprPct !== undefined) {
+      apr = `${formatPct(stats.aprPct)} over ${days}d`;
+    } else if (stats.feesQuoteNumber > 0) {
+      apr = `after ${MIN_AGE_DAYS_FOR_APR} days (${days}d so far)`;
+    }
+    return (
+      <Tooltip
+        message={
+          <div className='flex flex-col gap-1'>
+            <Text as='div' detail color='text.primary'>
+              APR: {apr}
+            </Text>
+            <div className='flex items-center gap-1'>
+              <Text detail color='text.primary'>
+                vs HODL:
+              </Text>
+              {stats.pnlValue ? (
+                <ValueViewComponent valueView={stats.pnlValue} priority='tertiary' />
+              ) : (
+                <Text detail color='text.primary'>
+                  -
+                </Text>
+              )}
+            </div>
+            <Text as='div' detail color='text.secondary'>
+              vs HODL: value now minus the opening reserves at today&apos;s price, fees included.
+            </Text>
+          </div>
+        }
+      >
+        {stats.feesQuoteNumber === 0 ? (
+          <Dash />
+        ) : (
+          <ValueViewComponent valueView={stats.feesQuote} priority='tertiary' />
+        )}
+      </Tooltip>
+    );
+  },
+);
+PositionsEarningsCell.displayName = 'PositionsEarningsCell';

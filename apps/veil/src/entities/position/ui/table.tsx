@@ -26,7 +26,7 @@ import { getDisplayPositions } from '../model/get-display-positions';
 import { DisplayPosition, ExecutedPosition } from '../model/types';
 import { PositionsCurrentValue } from './positions-current-value';
 import { Sensitive } from '@/shared/ui/sensitive';
-import { PositionsFeesCell, PositionsAprCell, PositionsPnlCell } from './positions-stats-cells';
+import { PositionsEarningsCell } from './positions-stats-cells';
 import { NotConnectedNotice } from './not-connected-notice';
 import { ErrorNotice } from './error-notice';
 import { NoPositions } from './no-positions';
@@ -222,7 +222,7 @@ const PositionRow = memo(
           const rowMarketPrice = position.marketPrice;
 
           return (
-            <div key={orderIndex} className='col-span-11 grid grid-cols-subgrid [&>div]:h-10'>
+            <div key={orderIndex} className='col-span-6 grid grid-cols-subgrid [&>div]:h-10'>
               <TableCell loading={isLoading} variant={variant}>
                 {position.isOpened ? (
                   <Text
@@ -259,87 +259,84 @@ const PositionRow = memo(
                 {position.isClosed || position.isWithdrawn ? (
                   <Dash />
                 ) : (
-                  <Tooltip
-                    message={
-                      <>
-                        <Text as='div' detail color='text.primary'>
-                          Base price: {pnum(order.basePrice).toFormattedString()}
-                        </Text>
-                        <Text as='div' detail color='text.primary'>
-                          Fee:{' '}
-                          {pnum(order.basePrice)
-                            .toBigNumber()
-                            .minus(pnum(order.effectivePrice).toBigNumber())
-                            .toString()}{' '}
-                          ({position.fee})
-                        </Text>
-                        <Text as='div' detail color='text.primary'>
-                          Effective price: {pnum(order.effectivePrice).toFormattedString()}
-                        </Text>
-                      </>
-                    }
-                  >
-                    <div className='flex flex-col items-start'>
-                      <ValueViewComponent
-                        priority='tertiary'
-                        valueView={order.effectivePrice}
-                        trailingZeros={false}
-                      />
-                      {/* Distance from mid — surfaces which rungs are
+                  <div className='flex items-start gap-1.5'>
+                    <Tooltip
+                      message={
+                        <>
+                          <Text as='div' detail color='text.primary'>
+                            Base price: {pnum(order.basePrice).toFormattedString()}
+                          </Text>
+                          <Text as='div' detail color='text.primary'>
+                            Fee:{' '}
+                            {pnum(order.basePrice)
+                              .toBigNumber()
+                              .minus(pnum(order.effectivePrice).toBigNumber())
+                              .toString()}{' '}
+                            ({position.fee})
+                          </Text>
+                          <Text as='div' detail color='text.primary'>
+                            Effective price: {pnum(order.effectivePrice).toFormattedString()}
+                          </Text>
+                        </>
+                      }
+                    >
+                      <div className='flex flex-col items-start'>
+                        <ValueViewComponent
+                          priority='tertiary'
+                          valueView={order.effectivePrice}
+                          trailingZeros={false}
+                        />
+                        {/* Distance from mid — surfaces which rungs are
                                 at-the-money vs. deep in the book at a glance.
                                 Penumbra positions are limit-like, so 'far
                                 from mid' just means dormant, not broken — the
                                 colour is informational, not alarming. */}
-                      {position.isOpened &&
-                        rowMarketPrice != null &&
-                        rowMarketPrice > 0 &&
-                        (() => {
-                          const eff = pnum(order.effectivePrice).toNumber();
-                          if (!Number.isFinite(eff) || eff <= 0) {
-                            return null;
-                          }
-                          const deltaPct = ((eff - rowMarketPrice) / rowMarketPrice) * 100;
-                          const abs = Math.abs(deltaPct);
-                          const sign = deltaPct > 0 ? '+' : '';
-                          // Past 2x a percentage stops reading
-                          // ("+37719.94%"); a multiple doesn't.
-                          const label =
-                            deltaPct >= 100
-                              ? `${(eff / rowMarketPrice).toFixed(1)}× mid`
-                              : `${sign}${deltaPct.toFixed(2)}% from mid`;
-                          let tone = 'text-neutral-light';
-                          if (abs < 1) {
-                            tone = 'text-success-light';
-                          } else if (abs < 5) {
-                            tone = 'text-text-secondary';
-                          }
-                          return (
-                            <span
-                              className={cn('text-[10px] tabular-nums', tone)}
-                              style={{ lineHeight: 1 }}
-                            >
-                              {label}
-                            </span>
-                          );
-                        })()}
-                    </div>
-                  </Tooltip>
-                )}
-              </TableCell>
-
-              <TableCell loading={isLoading} variant={variant}>
-                {position.isClosed || position.isWithdrawn ? <Dash /> : position.fee}
-              </TableCell>
-
-              <TableCell loading={isLoading} variant={variant}>
-                {position.isClosed || position.isWithdrawn ? (
-                  <Dash />
-                ) : (
-                  <ValueViewComponent
-                    priority='tertiary'
-                    valueView={order.basePrice}
-                    trailingZeros={false}
-                  />
+                        {position.isOpened &&
+                          rowMarketPrice != null &&
+                          rowMarketPrice > 0 &&
+                          (() => {
+                            const eff = pnum(order.effectivePrice).toNumber();
+                            if (!Number.isFinite(eff) || eff <= 0) {
+                              return null;
+                            }
+                            const deltaPct = ((eff - rowMarketPrice) / rowMarketPrice) * 100;
+                            const abs = Math.abs(deltaPct);
+                            const sign = deltaPct > 0 ? '+' : '';
+                            // Past 2x a percentage stops reading
+                            // ("+37719.94%"); a multiple doesn't.
+                            const label =
+                              deltaPct >= 100
+                                ? `${(eff / rowMarketPrice).toFixed(1)}× mid`
+                                : `${sign}${deltaPct.toFixed(2)}% from mid`;
+                            let tone = 'text-neutral-light';
+                            if (abs < 1) {
+                              tone = 'text-success-light';
+                            } else if (abs < 5) {
+                              tone = 'text-text-secondary';
+                            }
+                            return (
+                              <span
+                                className={cn('text-[10px] tabular-nums', tone)}
+                                style={{ lineHeight: 1 }}
+                              >
+                                {label} · {position.fee} fee
+                              </span>
+                            );
+                          })()}
+                      </div>
+                    </Tooltip>
+                    {/* Beside the tooltip, not inside it: its trigger is a
+                        button, and a link inside a button is invalid and
+                        swallows the click. The id is the link's title. */}
+                    <Link
+                      href={`/explore/lp/${position.idString}`}
+                      title={position.idString}
+                      aria-label={`Open position ${position.idString}`}
+                      className='mt-0.5'
+                    >
+                      <SquareArrowOutUpRight className='h-3.5 w-3.5 text-text-secondary' />
+                    </Link>
+                  </div>
                 )}
               </TableCell>
 
@@ -358,38 +355,9 @@ const PositionRow = memo(
                   <Dash />
                 ) : (
                   <Sensitive>
-                    <PositionsFeesCell stats={position.stats} />
+                    <PositionsEarningsCell stats={position.stats} />
                   </Sensitive>
                 )}
-              </TableCell>
-
-              <TableCell loading={isLoading} variant={variant}>
-                {fullyWithdrawn(position.position) ? (
-                  <Dash />
-                ) : (
-                  <PositionsAprCell stats={position.stats} />
-                )}
-              </TableCell>
-
-              <TableCell loading={isLoading} variant={variant}>
-                {fullyWithdrawn(position.position) ? (
-                  <Dash />
-                ) : (
-                  <Sensitive>
-                    <PositionsPnlCell stats={position.stats} />
-                  </Sensitive>
-                )}
-              </TableCell>
-
-              <TableCell loading={isLoading} variant={variant}>
-                <div className='flex max-w-[104px]'>
-                  <Text as='div' detailTechnical color='text.primary' truncate>
-                    {position.idString}
-                  </Text>
-                  <Link href={`/explore/lp/${position.idString}`}>
-                    <SquareArrowOutUpRight className='h-4 w-4 text-text-secondary' />
-                  </Link>
-                </div>
               </TableCell>
 
               <TableCell loading={isLoading} variant={variant}>
@@ -588,11 +556,11 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
 
   return (
     <div
-      className='grid grid-cols-[80px_1fr_1fr_80px_1fr_1fr_1fr_1fr_1fr_1fr_1fr] overflow-x-auto overflow-y-auto'
+      className='grid grid-cols-[72px_1fr_1.4fr_1fr_1fr_auto] overflow-x-auto overflow-y-auto'
       style={{ overflowAnchor: 'none' }}
     >
       {onPairKeyChange && pairOptions.length > 1 && (
-        <div className='col-span-11'>
+        <div className='col-span-6'>
           <PairFilter
             options={pairOptions}
             total={displayPositions.length}
@@ -602,7 +570,7 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
         </div>
       )}
       <Density slim>
-        <div className='col-span-11 grid grid-cols-subgrid'>
+        <div className='col-span-6 grid grid-cols-subgrid'>
           <SortableTableHeader
             sortKey='type'
             activeDirection={sortBy.key === 'type' ? sortBy.direction : undefined}
@@ -624,20 +592,6 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
           >
             Effective Price
           </SortableTableHeader>
-          <SortableTableHeader
-            sortKey='feeTier'
-            activeDirection={sortBy.key === 'feeTier' ? sortBy.direction : undefined}
-            onSelect={setSortBy}
-          >
-            Fee Tier
-          </SortableTableHeader>
-          <SortableTableHeader
-            sortKey='basePrice'
-            activeDirection={sortBy.key === 'basePrice' ? sortBy.direction : undefined}
-            onSelect={setSortBy}
-          >
-            Base Price
-          </SortableTableHeader>
           <TableCell heading>Current Value</TableCell>
           <SortableTableHeader
             sortKey='feesQuote'
@@ -645,27 +599,6 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
             onSelect={setSortBy}
           >
             Fees Earned
-          </SortableTableHeader>
-          <SortableTableHeader
-            sortKey='aprPct'
-            activeDirection={sortBy.key === 'aprPct' ? sortBy.direction : undefined}
-            onSelect={setSortBy}
-          >
-            APR
-          </SortableTableHeader>
-          <SortableTableHeader
-            sortKey='pnlVsHodl'
-            activeDirection={sortBy.key === 'pnlVsHodl' ? sortBy.direction : undefined}
-            onSelect={setSortBy}
-          >
-            vs HODL
-          </SortableTableHeader>
-          <SortableTableHeader
-            sortKey='positionId'
-            activeDirection={sortBy.key === 'positionId' ? sortBy.direction : undefined}
-            onSelect={setSortBy}
-          >
-            Position ID
           </SortableTableHeader>
           <TableCell heading>
             <HeaderActionButton displayPositions={sortedPositions} />
@@ -687,7 +620,7 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
       </Density>
 
       {sortedPositions.length > (PAGE_SIZES[0] ?? 25) && (
-        <div className='col-span-11 pt-2'>
+        <div className='col-span-6 pt-2'>
           <Pagination
             value={currentPage}
             onChange={setPage}
