@@ -214,7 +214,7 @@ const PositionRow = memo(
       isLast: boolean;
       /** Checkbox state; undefined for rows that can't be closed or withdrawn. */
       selected?: boolean;
-      onToggle?: (id: string) => void;
+      onToggle?: (id: string, shiftKey: boolean) => void;
     }) => (
       <>
         {position.orders.slice(0, position.isWithdrawn ? 1 : Infinity).map((order, orderIndex) => {
@@ -236,7 +236,10 @@ const PositionRow = memo(
                     aria-label={`Select position ${position.idString}`}
                     className='h-4 w-4 cursor-pointer accent-primary-main'
                     checked={selected}
-                    onChange={() => onToggle(position.idString)}
+                    // onClick, not onChange: it carries shiftKey for range
+                    // selection. onChange stays for React's controlled input.
+                    onChange={() => undefined}
+                    onClick={e => onToggle(position.idString, e.shiftKey)}
                   />
                 ) : null}
               </TableCell>
@@ -504,16 +507,38 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
   const [page, setPage] = useState(1);
   // Checked rows for bulk close/withdraw, by position id.
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
-  const toggleSelected = useCallback((id: string) => {
+  // Shift-click selects the range from the last clicked box, like a file
+  // manager: every actionable row between them takes the clicked row's new
+  // state. The order is the table's current sorted order (sortedIdsRef).
+  const lastClickedRef = useRef<string | undefined>(undefined);
+  const sortedIdsRef = useRef<string[]>([]);
+  const toggleSelected = useCallback((id: string, shiftKey: boolean) => {
+    // Read the anchor and order now: React may run the updater below after
+    // lastClickedRef has already moved to this row.
+    const ids = sortedIdsRef.current;
+    const anchor = lastClickedRef.current;
+    const from = anchor ? ids.indexOf(anchor) : -1;
+    const to = ids.indexOf(id);
     setSelected(prev => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
+      const on = !prev.has(id);
+      if (shiftKey && from !== -1 && to !== -1) {
+        const [lo, hi] = from < to ? [from, to] : [to, from];
+        for (const rangeId of ids.slice(lo, hi + 1)) {
+          if (on) {
+            next.add(rangeId);
+          } else {
+            next.delete(rangeId);
+          }
+        }
+      } else if (on) {
         next.add(id);
+      } else {
+        next.delete(id);
       }
       return next;
     });
+    lastClickedRef.current = id;
   }, []);
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0] ?? 25);
 
@@ -583,6 +608,7 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
   // Rows you can act on in bulk: open ones close, closed ones withdraw.
   const actionable = sortedPositions.filter(p => p.isOpened || p.isClosed);
   const actionableIds = new Set(actionable.map(p => p.idString));
+  sortedIdsRef.current = actionable.map(p => p.idString);
   const pageActionable = shownPositions.filter(p => actionableIds.has(p.idString));
   // Positions that left the filter or the list (closed, withdrawn) drop out.
   const selectedPositions = actionable.filter(p => selected.has(p.idString));
