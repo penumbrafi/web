@@ -17,8 +17,15 @@ export interface TooltipProps {
    * The trigger for the tooltip.
    *
    * Note that the trigger will be wrapped in an HTML button element, so only pass content that can be validly nested inside a button (i.e., don't pass another button).
+   * With `asChild`, it isn't wrapped: pass a single element, which becomes the trigger.
    */
   children: ReactNode;
+  /**
+   * Use `children` (a single element) as the trigger instead of wrapping it
+   * in a button: for a tooltip on something that already sits inside a
+   * button, where a nested button would be invalid HTML.
+   */
+  asChild?: boolean;
 }
 
 /**
@@ -49,9 +56,13 @@ export interface TooltipProps {
  * should be visually tied to a specific element on the page. Tooltips are
  * opened in response to the user hovering over that element.
  */
-export const Tooltip = ({ title, message, children }: TooltipProps) => (
+export const Tooltip = ({ title, message, children, asChild }: TooltipProps) => (
   <RadixTooltip.Root>
-    <RadixTooltip.Trigger className={buttonBase}>{children}</RadixTooltip.Trigger>
+    {asChild ? (
+      <RadixTooltip.Trigger asChild>{children}</RadixTooltip.Trigger>
+    ) : (
+      <RadixTooltip.Trigger className={buttonBase}>{children}</RadixTooltip.Trigger>
+    )}
     <RadixTooltip.Portal>
       <RadixTooltip.Content
         sideOffset={4}

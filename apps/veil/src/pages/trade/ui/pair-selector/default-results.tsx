@@ -41,7 +41,10 @@ const EndAdornment = ({ base, quote }: { base: Metadata; quote: Metadata }) => {
   return (
     <div className='flex items-center gap-2'>
       {isLQTEligible && (
+        // asChild: the row is a button already, so the badge itself is the
+        // trigger rather than a nested button.
         <Tooltip
+          asChild
           message={
             <>
               Providing liquidity to these pairs earns you additional rewards as part of the
@@ -55,11 +58,11 @@ const EndAdornment = ({ base, quote }: { base: Metadata; quote: Metadata }) => {
             </>
           }
         >
-          <div className='flex items-center rounded-xs bg-secondary-dark px-1.5 py-1'>
+          <span className='flex items-center rounded-xs bg-secondary-dark px-1.5 py-1'>
             <span className='text-textXs bg-gradient-to-r from-primary-light to-secondary-light bg-clip-text font-default text-transparent'>
               Rewards
             </span>
-          </div>
+          </span>
         </Tooltip>
       )}
 
