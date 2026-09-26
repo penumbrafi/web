@@ -18,6 +18,9 @@ interface NativeShieldDialogProps {
   asset: UnifiedAsset;
   isOpen: boolean;
   onClose: () => void;
+  /** Someone else's Penumbra deposit address (the /pay flow); default is the
+   *  connected wallet's own fresh address. */
+  receiver?: string;
 }
 
 type Phase = 'idle' | 'pending' | 'success' | 'error';
@@ -59,7 +62,12 @@ const truncate = (s: string) => (s.length > 16 ? `${s.slice(0, 10)}…${s.slice(
  * (Injective / Noble) sending directly to a fresh Penumbra ephemeral
  * address. No third-party bridge in the middle.
  */
-export const NativeShieldDialog = ({ asset, isOpen, onClose }: NativeShieldDialogProps) => {
+export const NativeShieldDialog = ({
+  asset,
+  isOpen,
+  onClose,
+  receiver,
+}: NativeShieldDialogProps) => {
   const { data: registry } = useRegistry();
 
   const {
@@ -75,7 +83,7 @@ export const NativeShieldDialog = ({ asset, isOpen, onClose }: NativeShieldDialo
     isWalletConnected,
     exponent,
     reset,
-  } = useIbcShield(asset);
+  } = useIbcShield(asset, receiver);
 
   const firstBalance = asset.publicBalances[0];
   const displayBalance = firstBalance ? pnum(firstBalance.valueView).toString() : '0';
@@ -172,7 +180,9 @@ export const NativeShieldDialog = ({ asset, isOpen, onClose }: NativeShieldDialo
                 Transfer broadcast
               </Text>
               <Text small color='text.secondary'>
-                Your shield will land in ~1 minute once Penumbra relays the packet.
+                {receiver
+                  ? 'It reaches their Penumbra account in about a minute, once the packet is relayed.'
+                  : 'Your shield will land in ~1 minute once Penumbra relays the packet.'}
               </Text>
               {txHash && <PrivateTxHash hash={txHash} explorerUrl={explorer} />}
               <div className='pt-2'>

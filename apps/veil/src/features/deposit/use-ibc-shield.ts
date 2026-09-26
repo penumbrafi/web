@@ -44,7 +44,12 @@ interface UseIbcShieldResult {
  * registry that lives at `ibcConnection.counterpartyChannelId`
  * (`.channelId` is Penumbra's own side of the same channel).
  */
-export const useIbcShield = (asset: UnifiedAsset): UseIbcShieldResult => {
+/**
+ * `receiver`: send to this Penumbra address instead of a fresh one from the
+ * connected Penumbra wallet. Used when someone else pays in (`/pay`): the
+ * sender has no Penumbra wallet, the recipient shared a single-use address.
+ */
+export const useIbcShield = (asset: UnifiedAsset, receiver?: string): UseIbcShieldResult => {
   const { data: registry } = useRegistry();
 
   const firstBalance = asset.publicBalances[0];
@@ -71,7 +76,8 @@ export const useIbcShield = (asset: UnifiedAsset): UseIbcShieldResult => {
   // below prevent us from actually calling into that empty chain.
   const chain = useChain(chainName ?? SUPPORTED_CHAINS[0]?.chain_name ?? 'noble');
 
-  const { data: penumbraReceiver } = useDepositAddress();
+  const { data: ownReceiver } = useDepositAddress();
+  const penumbraReceiver = receiver ?? ownReceiver;
 
   const exponent = useMemo(() => {
     const units = asset.metadata.denomUnits;

@@ -140,7 +140,7 @@ export const WalletSource = () => {
   );
 };
 
-const useReadyAssets = (
+export const useReadyAssets = (
   balances: ReturnType<typeof useCosmosBalances>['balances'],
 ): UnifiedAsset[] =>
   useMemo(() => {
@@ -180,7 +180,7 @@ const useReadyAssets = (
       });
   }, [balances]);
 
-const ReadyList = ({
+export const ReadyList = ({
   ready,
   onPick,
 }: {

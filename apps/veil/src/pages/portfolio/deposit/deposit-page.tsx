@@ -15,12 +15,14 @@ import { CexAssetSelect } from './steps/cex-asset-select';
 import { DepositPanel } from './steps/deposit-panel';
 import { WalletSource } from './steps/ready-to-shield';
 import { ArrivalWallet } from './steps/arrival-wallet';
+import { SponsorLink } from './steps/sponsor-link';
 import { useChain } from '@cosmos-kit/react';
 
 type Step =
   | { name: 'method' }
   | { name: 'cex-asset' }
   | { name: 'wallet' }
+  | { name: 'sponsor' }
   | { name: 'deposit'; cex: CexConfig; asset: CexAsset };
 
 /**
@@ -73,6 +75,11 @@ const DepositFlow = observer(() => {
           { label: 'From an exchange', onClick: () => setStep({ name: 'method' }) },
           { label: 'Pick asset' },
         ];
+      case 'sponsor':
+        return [
+          { label: 'Choose a source', onClick: () => setStep({ name: 'method' }) },
+          { label: 'Someone else is sending' },
+        ];
       case 'wallet':
         return [
           { label: 'Choose a source', onClick: () => setStep({ name: 'method' }) },
@@ -91,7 +98,11 @@ const DepositFlow = observer(() => {
     <div className='flex flex-col gap-5'>
       <DepositHeader crumbs={crumbs} />
 
-      <ArrivalWallet />
+      {step.name === 'sponsor' ? (
+        <SponsorLink onBack={() => setStep({ name: 'method' })} />
+      ) : (
+        <ArrivalWallet onSomeoneElse={() => setStep({ name: 'sponsor' })} />
+      )}
 
       {isWalletConnected && step.name === 'method' && (
         <MethodSelect
