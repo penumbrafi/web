@@ -79,7 +79,9 @@ const INLINE_CHUNK_GUARD = `
 const RootLayout = ({ children }: { children: ReactNode }) => {
   const clientEnv = getClientSideEnv();
   return (
-    <html lang='en'>
+    // Wallet extensions (Zafu) stamp attributes on <html> before React
+    // loads; this only silences attribute mismatches on this element.
+    <html lang='en' suppressHydrationWarning>
       <head>
         {}
         <script dangerouslySetInnerHTML={{ __html: INLINE_CHUNK_GUARD }} />
