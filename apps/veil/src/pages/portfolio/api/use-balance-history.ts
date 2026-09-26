@@ -9,6 +9,8 @@ import { uint8ArrayToBase64, base64ToUint8Array } from '@penumbra-zone/types/bas
 import { penumbra } from '@/shared/const/penumbra';
 import { connectionStore } from '@/shared/model/connection';
 import { useGetMetadata } from '@/shared/api/assets';
+import { useBalances } from '@/shared/api/balances';
+import { getAmount, getAssetIdFromValueView } from '@penumbra-zone/getters/value-view';
 import {
   HistoryRange,
   PortfolioHistoryResponse,
@@ -61,22 +63,41 @@ export const valueSeries = ({
   spans: NoteSpan[];
   history: PortfolioHistoryResponse;
   exponentOf: (assetId: string) => number | undefined;
-}): number[] =>
-  history.points.map(({ height }, i) => {
+}): number[] => {
+  // Priced notes only, each converted to display units once: the lookup and
+  // base64 decode used to run for every note at every point.
+  const priced: { created: number; spent: number; amount: number; prices: number[] }[] = [];
+  const exponents = new Map<string, number | undefined>();
+  for (const s of spans) {
+    const prices = history.usd[s.assetId];
+    if (!prices) {
+      continue;
+    }
+    if (!exponents.has(s.assetId)) {
+      exponents.set(s.assetId, exponentOf(s.assetId));
+    }
+    const exp = exponents.get(s.assetId);
+    if (exp === undefined) {
+      continue;
+    }
+    priced.push({
+      created: s.created,
+      spent: s.spent,
+      amount: Number(s.amount) / 10 ** exp,
+      prices,
+    });
+  }
+  return history.points.map(({ height }, i) => {
     let total = 0;
-    for (const s of spans) {
-      if (s.created > height || (s.spent !== 0 && s.spent <= height)) {
+    for (const n of priced) {
+      if (n.created > height || (n.spent !== 0 && n.spent <= height)) {
         continue;
       }
-      const price = history.usd[s.assetId]?.[i];
-      const exp = exponentOf(s.assetId);
-      if (price === undefined || exp === undefined) {
-        continue;
-      }
-      total += (Number(s.amount) / 10 ** exp) * price;
+      total += n.amount * (n.prices[i] ?? 0);
     }
     return total;
   });
+};
 
 export interface BalanceHistory {
   points: { timeMs: number; usd: number }[];
@@ -100,12 +121,24 @@ export const useBalanceHistory = (range: HistoryRange): BalanceHistory => {
   const account = connectionStore.subaccount;
   const getMetadata = useGetMetadata();
 
+  // Notes only change when balances do, and balances already refresh every
+  // block. Keying on them re-reads the wallet's notes when something moved,
+  // instead of every 60s whether or not anything did. Kept in memory only:
+  // localStorage would put the balance history in plain text outside the
+  // wallet's encryption, readable by any script on the page.
+  const { data: balances } = useBalances(account);
+  const balancesKey = (balances ?? [])
+    .map(
+      b =>
+        `${getAssetIdFromValueView.optional(b.balanceView)?.inner.join('.') ?? ''}:${getAmount.optional(b.balanceView)?.lo ?? ''}:${getAmount.optional(b.balanceView)?.hi ?? ''}`,
+    )
+    .join('|');
   const notes = useQuery({
-    queryKey: ['view-note-spans', account],
+    queryKey: ['view-note-spans', account, balancesKey],
     queryFn: () => fetchNoteSpans(account),
-    enabled: connectionStore.connected,
-    staleTime: 60_000,
-    refetchInterval: 60_000,
+    enabled: connectionStore.connected && balances !== undefined,
+    staleTime: Infinity,
+    placeholderData: previous => previous,
   });
 
   const history = useQuery({

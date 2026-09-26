@@ -4,7 +4,7 @@ import cn from 'clsx';
 import Link from 'next/link';
 import orderBy from 'lodash/orderBy';
 import { ChevronDown, ChevronUp, SquareArrowOutUpRight } from 'lucide-react';
-import { ReactNode, memo, useMemo, useRef, useState } from 'react';
+import { ReactNode, memo, useMemo, useRef, useState, useEffect } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { Text } from '@penumbra-zone/ui/Text';
@@ -33,7 +33,7 @@ import { NoPositions } from './no-positions';
 import { HeaderActionButton } from './header-action-button';
 import { ActionButton } from './action-button';
 import { Dash } from './dash';
-import { useObserver } from '@/shared/utils/use-observer';
+import { Pagination } from '@penumbra-zone/ui/Pagination';
 import { PositionState_PositionStateEnum } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
 import { fullyWithdrawn } from '@/shared/utils/position';
 
@@ -180,7 +180,7 @@ const SortableTableHeader = memo(
 
 SortableTableHeader.displayName = 'SortableTableHeader';
 
-const PAGE = 50;
+const PAGE_SIZES = [25, 50, 100];
 
 // What a row renders from; equal signatures mean the row can be reused.
 const rowSignature = (row: DisplayPosition): string => {
@@ -514,10 +514,10 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
     return rows;
   }, [data, base, quote, getMetadata, statsById, routeMarketPrice, pairMarketPrice]);
 
-  // Client-side paging over the full list: render PAGE rows, add PAGE more
-  // when the sentinel scrolls into view.
-  const [visible, setVisible] = useState(PAGE);
-  const { observerEl } = useObserver(isLoading, () => setVisible(v => v + PAGE));
+  // Pages over the full list. Infinite scroll left a wallet with hundreds of
+  // positions scrolling past everything to reach the one it wanted.
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(PAGE_SIZES[0] ?? 25);
 
   const [sortBy, setSortBy] = useState<SortBy>({
     key: 'effectivePrice',
@@ -568,7 +568,17 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
     return <ErrorNotice />;
   }
 
-  const shownPositions = sortedPositions.slice(0, visible);
+  // A different pair filter or sort is a different list: start at its top.
+  useEffect(() => setPage(1), [activePairKey, sortBy]);
+
+  // A page past the end (after closing positions, or a narrower pair filter)
+  // falls back to the last page instead of an empty table.
+  const pageCount = Math.max(1, Math.ceil(sortedPositions.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const shownPositions = sortedPositions.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
 
   if (!isLoading && !sortedPositions.length) {
     return <NoPositions />;
@@ -674,9 +684,21 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
             ))}
       </Density>
 
-      {/* Sentinel that reveals the next PAGE rows when scrolled into view */}
-      {shownPositions.length < sortedPositions.length && (
-        <div className='h-1 w-full' ref={observerEl} />
+      {sortedPositions.length > (PAGE_SIZES[0] ?? 25) && (
+        <div className='col-span-11 pt-2'>
+          <Pagination
+            value={currentPage}
+            onChange={setPage}
+            limit={pageSize}
+            limitOptions={PAGE_SIZES}
+            onLimitChange={size => {
+              setPageSize(size);
+              setPage(1);
+            }}
+            totalItems={sortedPositions.length}
+            visibleItems={shownPositions.length}
+          />
+        </div>
       )}
     </div>
   );
