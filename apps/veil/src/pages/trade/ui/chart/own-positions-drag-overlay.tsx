@@ -307,7 +307,8 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
                   right: 56 + 6 + HANDLE_SIZE + 2,
                   top: yLive - 5,
                   height: 10,
-                  cursor: 'help',
+                  // Plain arrow, not '?': the hover title explains it.
+                  cursor: 'default',
                 }}
                 title={tooltip}
               />

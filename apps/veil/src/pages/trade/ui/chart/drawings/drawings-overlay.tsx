@@ -413,9 +413,18 @@ export const DrawingsOverlay = ({
       }
       const startClientX = e.clientX;
       const startClientY = e.clientY;
-      const rect0 = svg.getBoundingClientRect();
-      const startPrice = priceAtY(startClientY - rect0.top);
-      const startTime = timeAtX(startClientX - rect0.left);
+      // Where each endpoint sits on screen when the drag starts. The shape
+      // moves by the cursor's pixel offset and each end converts back to
+      // time/price on its own: on the chart's log price scale (and across
+      // uneven bar gaps) an equal price/time offset covers a different
+      // number of pixels at each end, which bent and stretched the shape
+      // instead of sliding it under the cursor.
+      const x1 = xAtTime(initial.time1);
+      const y1 = yAtPrice(initial.price1);
+      const x2 = xAtTime(initial.time2);
+      const y2 = yAtPrice(initial.price2);
+      // Grabbing a shape selects it (and so shows its handles).
+      onSelect(id);
       let dragging = false;
       let pendingPatch: Partial<TwoPointPatch> | null = null;
       let rafId = 0;
@@ -436,43 +445,26 @@ export const DrawingsOverlay = ({
           }
           dragging = true;
         }
-        if (
-          startPrice === undefined ||
-          startTime === undefined ||
-          !Number.isFinite(startPrice) ||
-          !Number.isFinite(startTime)
-        ) {
+        if (x1 === undefined || y1 === undefined || x2 === undefined || y2 === undefined) {
           return;
         }
-        const rect = svg.getBoundingClientRect();
-        const curPrice = priceAtY(ev.clientY - rect.top);
-        const curTime = timeAtX(ev.clientX - rect.left);
+        const dx = ev.clientX - startClientX;
+        const dy = ev.clientY - startClientY;
+        const newTime1 = timeAtX(x1 + dx);
+        const newTime2 = timeAtX(x2 + dx);
+        const newPrice1 = priceAtY(y1 + dy);
+        const newPrice2 = priceAtY(y2 + dy);
+        // An end that would leave the plottable area can't be converted;
+        // hold the shape at its last valid spot until the cursor comes back.
         if (
-          curPrice === undefined ||
-          curTime === undefined ||
-          !Number.isFinite(curPrice) ||
-          !Number.isFinite(curTime)
-        ) {
-          return;
-        }
-        const dPrice = curPrice - startPrice;
-        const dTime = curTime - startTime;
-        const newTime1 = initial.time1 + dTime;
-        const newTime2 = initial.time2 + dTime;
-        const newPrice1 = initial.price1 + dPrice;
-        const newPrice2 = initial.price2 + dPrice;
-        // Validate: both new endpoints must positionable on the chart.
-        // If a translated endpoint would land outside the chart's
-        // visible time range, xAtTime/yAtPrice return undefined and
-        // recompute would drop the whole shape — the line/rect would
-        // visually disappear during the drag. Skip frames that can't
-        // commit so the shape stays at its last valid position; the
-        // next in-range frame resumes the drag.
-        if (
-          xAtTime(newTime1) === undefined ||
-          xAtTime(newTime2) === undefined ||
-          yAtPrice(newPrice1) === undefined ||
-          yAtPrice(newPrice2) === undefined
+          newTime1 === undefined ||
+          newTime2 === undefined ||
+          newPrice1 === undefined ||
+          newPrice2 === undefined ||
+          !Number.isFinite(newTime1) ||
+          !Number.isFinite(newTime2) ||
+          !(newPrice1 > 0) ||
+          !(newPrice2 > 0)
         ) {
           return;
         }
@@ -819,7 +811,7 @@ export const DrawingsOverlay = ({
                 x2={line.x2}
                 y2={line.y2}
                 stroke={line.color}
-                strokeWidth='1.5'
+                strokeWidth={selectedId === line.id ? '2.5' : '1.5'}
               />
               {/* Wider invisible hit area. Pointer-down enters drag-or-
                   click mode: <4px = click → manage menu; drag = move
@@ -844,11 +836,12 @@ export const DrawingsOverlay = ({
               >
                 <title>Drag to move · click for menu · {slope}</title>
               </line>
-              {/* Endpoint handles — visible always so users know
-                  they can grab them. r=5 with stroke ring for a
-                  clear hit target; pointerEvents='all' so the SVG
-                  parent's `none` doesn't block them. Cursor flips
-                  to `grab` so it reads as draggable. */}
+              {/* Endpoint handles only on the selected line: click the line
+                  first, then reshape. Always-on handles cluttered every
+                  drawing and let a stray press reshape one you weren't
+                  working on. */}
+              {selectedId === line.id && (
+                <>
               <circle
                 cx={line.x1}
                 cy={line.y1}
@@ -875,6 +868,8 @@ export const DrawingsOverlay = ({
               >
                 <title>Drag to reshape (endpoint 2)</title>
               </circle>
+                </>
+              )}
               {/* Inline delete glyph — near the end point (endpoint 2),
                   nudged off it so it doesn't sit on top of the resize
                   handle. */}
@@ -924,7 +919,8 @@ export const DrawingsOverlay = ({
                   drag updates so the *other* corners stay put.
                   cursor flips per corner so the resize affordance is
                   obvious. */}
-              {(() => {
+              {selectedId === rect.id &&
+                (() => {
                 // Figure out which stored corner is at which on-screen
                 // position so the drag updates the right field. The
                 // rectangle is drawn from min/max, so (rect.x, rect.y)

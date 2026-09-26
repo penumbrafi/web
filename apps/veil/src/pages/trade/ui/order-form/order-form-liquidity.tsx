@@ -100,7 +100,7 @@ const SuggestedRefPrice = observer(
     return (
       <div className='mt-1 flex items-center gap-1 text-xs text-text-muted'>
         <Tooltip message={<RefPriceBreakdown base={base} quote={quote} price={price} />}>
-          <span className='cursor-help border-b border-dotted border-text-muted/40'>
+          <span className='cursor-default border-b border-dotted border-text-muted/40'>
             {already
               ? `Applied: ${formatted} ${quoteSym} (${label})`
               : `Suggested: ${formatted} ${quoteSym} (${label})`}

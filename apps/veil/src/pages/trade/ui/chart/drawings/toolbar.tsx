@@ -34,6 +34,7 @@ const ToolButton = ({ active, title, onClick, children }: ToolButtonProps) => (
   <button
     type='button'
     title={title}
+    aria-pressed={active}
     // stopPropagation so the chart container's click handler doesn't see
     // this and try to place a drawing at the toolbar button position.
     onClick={e => {
@@ -43,7 +44,10 @@ const ToolButton = ({ active, title, onClick, children }: ToolButtonProps) => (
     className={cn(
       'flex h-7 w-7 items-center justify-center rounded-sm transition-colors',
       'hover:bg-action-hover-overlay hover:text-text-primary',
-      active ? 'bg-action-active-overlay text-text-primary' : 'text-text-secondary',
+      // The active tool reads as pressed: tinted fill, accent icon, ring.
+      active
+        ? 'bg-primary-main/20 text-primary-light ring-1 ring-primary-main/60'
+        : 'text-text-secondary',
     )}
   >
     {children}

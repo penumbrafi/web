@@ -132,7 +132,8 @@ export const OwnFillsOverlay: FC<Props> = observer(
                 top: pos.y - HIT_SIZE / 2,
                 width: HIT_SIZE,
                 height: HIT_SIZE,
-                cursor: 'help',
+                // Plain arrow, not '?': the hover title explains it.
+                  cursor: 'default',
               }}
               title={tooltip}
             >
