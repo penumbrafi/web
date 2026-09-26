@@ -6,7 +6,6 @@ import { useRegistry } from '@/shared/api/registry';
 import { IbcChainProvider } from '@/features/cosmos/chain-provider';
 import { PenumbraWaves } from '@/pages/explore/ui/waves';
 import { ShieldingTicker } from '@/widgets/shielding-ticker';
-import { StakingSummary } from './staking-summary';
 import { StakingDialogHost } from '@/pages/portfolio/staking/ui/staking-dialog-host';
 import { AssetsTable, AssetsTableLayout } from './assets-table';
 import { WalletConnect } from './wallet-connect';
@@ -58,8 +57,6 @@ const PortfolioBody = observer(() => {
               <WalletConnect />
             </>
           )}
-
-          {isPenumbraConnected && <StakingSummary />}
 
           <AssetsTableLayout>
             {(isPenumbraConnected || isCosmosConnected) && <AssetBars />}

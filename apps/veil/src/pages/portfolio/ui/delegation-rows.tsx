@@ -7,7 +7,7 @@ import { Text } from '@penumbra-zone/ui/Text';
 import { ValueViewComponent } from '@penumbra-zone/ui/ValueView';
 import { Sensitive } from '@/shared/ui/sensitive';
 import { ValueView } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { getValidatorInfoFromValueView } from '@penumbra-zone/getters/value-view';
+import { getAmount, getValidatorInfoFromValueView } from '@penumbra-zone/getters/value-view';
 import {
   getIdentityKeyFromValidatorInfo,
   getValidator,
@@ -21,6 +21,13 @@ import { connectionStore } from '@/shared/model/connection';
 import { useBalances } from '@/shared/api/balances';
 import { useDelegations } from '@/pages/portfolio/staking/api/use-delegations';
 import { stakingStore } from '@/pages/portfolio/staking/model/staking-store';
+import {
+  formatDuration,
+  useUnbondingSchedule,
+  type UnbondingEntry,
+} from '@/pages/portfolio/staking/api/use-unbonding-schedule';
+import { useStakingTokenMetadata } from '@/shared/api/registry';
+import { Tooltip } from '@penumbra-zone/ui/Tooltip';
 
 interface Props {
   /** Price of UM in the assets-table numeraire (typically USDC). */
@@ -45,17 +52,61 @@ export const DelegationRows = observer(({ umPrice, umQuoteSymbol = '-' }: Props)
   const subaccount = connectionStore.subaccount;
   const { data: balances } = useBalances(subaccount);
   const { data: delegations = [] } = useDelegations(balances);
+  const { entries: unbonding } = useUnbondingSchedule();
 
-  if (!delegations.length) {
+  if (!delegations.length && !unbonding.length) {
     return null;
   }
 
   return (
     <Density compact>
+      {delegations.length > 0 && (
+        <>
+          <div className='col-span-7 grid grid-cols-subgrid border-t border-t-other-tonal-stroke'>
+            <TableCell variant='cell'>
+              <Text detail color='text.secondary'>
+                Staked
+              </Text>
+            </TableCell>
+            <TableCell variant='cell'>&nbsp;</TableCell>
+            <TableCell variant='cell'>&nbsp;</TableCell>
+            <TableCell variant='cell'>&nbsp;</TableCell>
+            <TableCell variant='cell'>&nbsp;</TableCell>
+            <TableCell variant='cell'>&nbsp;</TableCell>
+            <TableCell variant='cell'>&nbsp;</TableCell>
+          </div>
+
+          {delegations.map((d, i) => (
+            <DelegationRow
+              key={i}
+              delegation={d}
+              umPrice={umPrice}
+              umQuoteSymbol={umQuoteSymbol}
+              isLast={i === delegations.length - 1}
+            />
+          ))}
+        </>
+      )}
+      {unbonding.length > 0 && <UnbondingRows entries={unbonding} />}
+    </Density>
+  );
+});
+
+/**
+ * Unstaked UM on its way back, one row per validator: how much, from whom,
+ * and when it can be claimed. Lived in a separate card above the page that
+ * said only "Unbonding 106.94 UM".
+ */
+const UnbondingRows = observer(({ entries }: { entries: UnbondingEntry[] }) => {
+  const { data: umMetadata } = useStakingTokenMetadata();
+  const ready = entries.filter(e => e.claimable);
+
+  return (
+    <>
       <div className='col-span-7 grid grid-cols-subgrid border-t border-t-other-tonal-stroke'>
         <TableCell variant='cell'>
           <Text detail color='text.secondary'>
-            Staked
+            Unbonding
           </Text>
         </TableCell>
         <TableCell variant='cell'>&nbsp;</TableCell>
@@ -63,19 +114,90 @@ export const DelegationRows = observer(({ umPrice, umQuoteSymbol = '-' }: Props)
         <TableCell variant='cell'>&nbsp;</TableCell>
         <TableCell variant='cell'>&nbsp;</TableCell>
         <TableCell variant='cell'>&nbsp;</TableCell>
-        <TableCell variant='cell'>&nbsp;</TableCell>
+        <TableCell variant='cell'>
+          {ready.length > 1 && (
+            <Button
+              density='slim'
+              actionType='accent'
+              disabled={stakingStore.submitting}
+              onClick={() => void stakingStore.claimUnbonded(ready.map(e => e.token))}
+            >
+              Claim all
+            </Button>
+          )}
+        </TableCell>
       </div>
-
-      {delegations.map((d, i) => (
-        <DelegationRow
-          key={i}
-          delegation={d}
-          umPrice={umPrice}
-          umQuoteSymbol={umQuoteSymbol}
-          isLast={i === delegations.length - 1}
-        />
-      ))}
-    </Density>
+      {entries.map((e, i) => {
+        const amount = new ValueView({
+          valueView: {
+            case: 'knownAssetId',
+            value: { amount: getAmount(e.token), metadata: umMetadata },
+          },
+        });
+        let when = 'Working out when…';
+        if (e.claimable) {
+          when = 'Ready to claim';
+        } else if (e.msLeft !== undefined) {
+          when = `Ready in ~${formatDuration(e.msLeft)}`;
+        }
+        const tip = e.claimable
+          ? 'Claim to get the UM back into your balance.'
+          : `Unstaked UM unlocks after the unbonding period${
+              e.readyAtHeight ? `, around block ${e.readyAtHeight.toLocaleString()}` : ''
+            }${e.msLeft !== undefined ? ` (~${formatDuration(e.msLeft)} from now)` : ''}.`;
+        return (
+          <div
+            key={i}
+            className={`col-span-7 grid grid-cols-subgrid ${
+              i === entries.length - 1 ? '' : 'border-b border-b-other-tonal-stroke'
+            }`}
+          >
+            <TableCell variant='cell'>
+              <div className='flex flex-col gap-0.5'>
+                <Sensitive>
+                  <ValueViewComponent
+                    valueView={amount}
+                    trailingZeros={false}
+                    priority='tertiary'
+                    density='compact'
+                  />
+                </Sensitive>
+                <Text detail color='text.secondary'>
+                  from {e.validatorName}
+                </Text>
+              </div>
+            </TableCell>
+            <TableCell variant='cell'>
+              <Text
+                variant='smallTechnical'
+                color={e.claimable ? 'success.light' : 'text.secondary'}
+              >
+                {when}
+              </Text>
+            </TableCell>
+            <TableCell variant='cell'>&nbsp;</TableCell>
+            <TableCell variant='cell'>&nbsp;</TableCell>
+            <TableCell variant='cell'>&nbsp;</TableCell>
+            <TableCell variant='cell'>&nbsp;</TableCell>
+            <TableCell variant='cell'>
+              <Tooltip message={tip}>
+                {/* span: a disabled button fires no hover, so the tip would never show */}
+                <span>
+                  <Button
+                    density='slim'
+                    actionType={e.claimable ? 'accent' : 'default'}
+                    disabled={!e.claimable || stakingStore.submitting}
+                    onClick={() => void stakingStore.claimUnbonded([e.token])}
+                  >
+                    Claim
+                  </Button>
+                </span>
+              </Tooltip>
+            </TableCell>
+          </div>
+        );
+      })}
+    </>
   );
 });
 
