@@ -3,34 +3,27 @@ import { PauseCircle } from 'lucide-react';
 import { Text } from '@penumbra-zone/ui/Text';
 
 /**
- * Shown in place of the live round (incentive pool, results, voting) while the
- * chain is not funding the tournament. Nothing here is toggled by hand: it
- * renders whenever `useLqtStatus().active` is false and disappears the block
- * after governance funds a pool.
+ * Shown above the live tally and the vote button while the chain is not
+ * funding the tournament. Voting still works in an unfunded epoch, and its
+ * tally is the best guide to which UM pair gets rewards once governance funds
+ * a round, so the notice sits alongside the round instead of replacing it.
+ * Nothing here is toggled by hand: it renders whenever `useLqtStatus().active`
+ * is false and disappears the block after governance funds a pool.
  */
 export const TournamentInactive = () => (
-  <div className='flex flex-col gap-4 rounded-lg border border-other-tonal-stroke bg-other-tonal-fill5 p-6'>
+  <div className='flex flex-col gap-2 rounded-lg border border-other-tonal-stroke bg-other-tonal-fill5 p-4'>
     <div className='flex items-center gap-2'>
-      <PauseCircle className='h-5 w-5 text-text-secondary' aria-hidden />
-      <Text variant='h4' color='text.primary'>
-        Tournament paused
+      <PauseCircle className='h-4 w-4 text-text-secondary' aria-hidden />
+      <Text strong color='text.primary'>
+        No rewards this epoch
       </Text>
     </div>
-
     <Text small color='text.secondary'>
-      No rewards are being paid right now, so there is nothing to vote on or earn this epoch.
+      The tournament is waiting on a governance proposal to fund it. You can still vote: the tally
+      below shows which UM pair delegators want incentivized. Rewards only pay in funded epochs,
+      and each epoch is voted on separately, so vote again once it is funded. This page switches
+      back on by itself when rewards start accruing.
     </Text>
-
-    <Text small color='text.secondary'>
-      The tournament comes back when it is funded through a governance proposal. This page reads
-      that straight from the chain and switches back on by itself as soon as rewards start
-      accruing — no need to check back for an announcement.
-    </Text>
-
-    <Text small color='text.secondary'>
-      Past rounds, results and leaderboards are still available below.
-    </Text>
-
     <Link
       href='/explore/governance'
       className='self-start text-sm text-primary-light hover:underline focus:outline-none focus-visible:underline'

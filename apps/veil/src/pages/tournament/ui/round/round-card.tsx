@@ -88,7 +88,7 @@ export const RoundCard = observer(({ epoch }: RoundCardProps) => {
                 </Text>
               )}
 
-              {!ended && !paused && summary?.[0]?.ends_in_s && (
+              {!ended && summary?.[0]?.ends_in_s && (
                 <Tooltip message={endingTime}>
                   <div className='flex items-center gap-2'>
                     <Hourglass className='h-5 w-5 text-white/80' />
@@ -137,16 +137,11 @@ export const RoundCard = observer(({ epoch }: RoundCardProps) => {
 
           <div className='h-px w-full shrink-0 bg-other-tonal-stroke md:h-auto md:w-px' />
           <div className='flex w-full flex-col gap-6 md:w-1/2 md:justify-between md:gap-0'>
-            {paused ? (
-              <TournamentInactive />
-            ) : (
-              <>
-                <Text variant='h4' color='text.primary'>
-                  {ended ? 'This Epoch has Ended' : 'Cast Your Vote'}
-                </Text>
-                <VotingInfo epoch={epoch} identifier='round-card' />
-              </>
-            )}
+            {paused && <TournamentInactive />}
+            <Text variant='h4' color='text.primary'>
+              {ended ? 'This Epoch has Ended' : 'Cast Your Vote'}
+            </Text>
+            <VotingInfo epoch={epoch} identifier='round-card' />
           </div>
         </div>
       </GradientCard>

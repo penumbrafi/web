@@ -93,8 +93,7 @@ export const LandingCard = observer(() => {
                 </Text>
               )}
 
-              {!paused &&
-                (epochEndsIn && epochEndsIn <= 0 ? (
+              {(epochEndsIn && epochEndsIn <= 0 ? (
                   <Text technical color='text.secondary'>
                     Ended
                   </Text>
@@ -113,15 +112,13 @@ export const LandingCard = observer(() => {
             {paused ? (
               <TournamentInactive />
             ) : (
-              <>
-                <IncentivePool summary={summary?.[0]} loading={summaryLoading} />
-                <TournamentResults
-                  results={assetGauges.slice(0, 5)}
-                  loading={isPending || epochGaugeLoading}
-                />
-                <VotingInfo epoch={epoch} identifier='landing-card' />
-              </>
+              <IncentivePool summary={summary?.[0]} loading={summaryLoading} />
             )}
+            <TournamentResults
+              results={assetGauges.slice(0, 5)}
+              loading={isPending || epochGaugeLoading}
+            />
+            <VotingInfo epoch={epoch} identifier='landing-card' />
           </div>
         </div>
       </GradientCard>
