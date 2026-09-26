@@ -1,4 +1,4 @@
-import { RefObject, useCallback, useRef, useState } from 'react';
+import { RefObject, useCallback, useRef, useState, useEffect } from 'react';
 import {
   createChart,
   IChartApi,
@@ -25,6 +25,8 @@ export interface OwnPositionLine {
 
 // if `high` / `open` ratio is greater than this value, the chart will limit `high` to `open * RATIO`
 // Dated bars kept to the right of the last candle for drawing plans.
+// Own-position lines closer than this on the same side are drawn as one.
+const OWN_LINE_MIN_GAP_PX = 3;
 const FUTURE_BARS = 300;
 // Empty bars shown right of the last candle by default.
 const RIGHT_OFFSET_BARS = 24;
@@ -122,6 +124,10 @@ export const useChartConfig = (
   const futureSeriesRef = useRef<ReturnType<IChartApi['addLineSeries']>>(undefined);
   const volumeRatioRef = useRef<number>(0.2);
   const ownLinesRef = useRef<Map<string, IPriceLine>>(new Map());
+  // Per own-position line: what thinning needs (see thinOwnLines).
+  const ownLineMetaRef = useRef<
+    Map<string, { price: number; side: string; title: string; shown: boolean }>
+  >(new Map());
   // Sorted-ascending candle times currently painted on the chart — see the
   // timeAtX / xAtTime whitespace-fallback comment above.
   const barTimesRef = useRef<number[]>([]);
@@ -146,6 +152,43 @@ export const useChartConfig = (
   const redrawTick = useCallback(() => {
     for (const handler of redrawHandlersRef.current) {
       handler();
+    }
+  }, []);
+
+  /**
+   * Hide own-position lines that would sit within a few pixels of another
+   * line on the same side. On the log price axis, evenly spaced rungs crowd
+   * together the further they are from price, and a stack of dashed lines
+   * (each with its label) read as one bold smear. Re-run on every redraw,
+   * since zooming changes which lines crowd. Only the drawing changes: every
+   * position is still there, and the hover strips still list each one.
+   */
+  const thinOwnLines = useCallback(() => {
+    const series = seriesRef.current;
+    if (!series) {
+      return;
+    }
+    const placed: { id: string; y: number; side: string }[] = [];
+    for (const [id, meta] of ownLineMetaRef.current) {
+      const y = series.priceToCoordinate(meta.price);
+      if (y !== null) {
+        placed.push({ id, y, side: meta.side });
+      }
+    }
+    placed.sort((a, b) => a.y - b.y);
+    const lastY = new Map<string, number>();
+    for (const { id, y, side } of placed) {
+      const prev = lastY.get(side);
+      const show = prev === undefined || y - prev >= OWN_LINE_MIN_GAP_PX;
+      if (show) {
+        lastY.set(side, y);
+      }
+      const meta = ownLineMetaRef.current.get(id);
+      const line = ownLinesRef.current.get(id);
+      if (meta && line && meta.shown !== show) {
+        meta.shown = show;
+        line.applyOptions({ lineVisible: show, title: show ? meta.title : '' });
+      }
     }
   }, []);
 
@@ -195,6 +238,12 @@ export const useChartConfig = (
       } else {
         ownLinesRef.current.set(line.id, series.createPriceLine(opts));
       }
+      ownLineMetaRef.current.set(line.id, {
+        price: line.price,
+        side: line.direction,
+        title: opts.title ?? '',
+        shown: true,
+      });
     }
 
     // Remove lines that no longer exist
@@ -206,9 +255,11 @@ export const useChartConfig = (
           // chart may already be torn down
         }
         ownLinesRef.current.delete(id);
+        ownLineMetaRef.current.delete(id);
       }
     }
-  }, []);
+    thinOwnLines();
+  }, [thinOwnLines]);
 
   const setVolumeRatio = useCallback((ratio: number) => {
     const clamped = Math.min(0.6, Math.max(0.05, ratio));
@@ -971,6 +1022,13 @@ export const useChartConfig = (
       ro.disconnect();
     };
   }, []);
+
+  // Re-thin own-position lines whenever the chart redraws (zoom, pan, rescale).
+  useEffect(() => (chartReady ? subscribeRedraw(thinOwnLines) : undefined), [
+    chartReady,
+    subscribeRedraw,
+    thinOwnLines,
+  ]);
 
   return {
     chartRef: setChartRef,

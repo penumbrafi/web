@@ -66,6 +66,9 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
     const [, force] = useState(0);
     const dragRef = useRef<{ key: string; pointerId: number; y: number } | null>(null);
     const [dragY, setDragY] = useState<{ key: string; y: number } | null>(null);
+    // Rung under the pointer: shows its side, amount and price in a pill at
+    // the left end of the line.
+    const [hoverKey, setHoverKey] = useState<string>();
     // Pending-confirmation state: on drop, we don't fire the tx immediately.
     // Instead we render a small confirmation card next to the drop location
     // showing old→new price and the sequence of actions (close, withdraw,
@@ -307,11 +310,27 @@ export const OwnPositionsDragOverlay: FC<Props> = observer(
                   right: 56 + 6 + HANDLE_SIZE + 2,
                   top: yLive - 5,
                   height: 10,
-                  // Plain arrow, not '?': the hover title explains it.
                   cursor: 'default',
                 }}
-                title={tooltip}
+                onPointerEnter={() => setHoverKey(r.key)}
+                onPointerLeave={() => setHoverKey(k => (k === r.key ? undefined : k))}
               />
+              {hoverKey === r.key && !dragY && (
+                <div
+                  className='absolute rounded-sm bg-base-black/90 px-1.5 py-0.5 text-[11px] tabular-nums'
+                  style={{
+                    left: 8,
+                    top: yLive - 18,
+                    lineHeight: '14px',
+                    color,
+                    boxShadow: `0 0 0 1px ${color}`,
+                  }}
+                >
+                  {r.amountLabel
+                    ? `${dirLabel} ${r.amountLabel} @ ${r.price.toPrecision(6)}`
+                    : `${dirLabel} @ ${r.price.toPrecision(6)}`}
+                </div>
+              )}
               <div
                 className='pointer-events-auto absolute'
                 style={{
