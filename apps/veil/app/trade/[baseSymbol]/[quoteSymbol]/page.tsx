@@ -36,6 +36,12 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
     title: `${pair} · Trade`,
     description: `Trade ${pair} privately on Penumbra: shielded orders and liquidity positions.`,
     alternates: { canonical: `/trade/${baseSymbol}/${quoteSymbol}` },
+    openGraph: {
+      title: `${pair} · Trade on Penumbra`,
+      description: `Trade ${pair} privately on Penumbra.`,
+      url: `/trade/${baseSymbol}/${quoteSymbol}`,
+    },
+    twitter: { title: `${pair} · Trade on Penumbra` },
   };
 }
 

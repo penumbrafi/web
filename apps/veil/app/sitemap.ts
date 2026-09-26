@@ -2,6 +2,9 @@ import type { MetadataRoute } from 'next';
 import { siteOrigin } from '@/shared/config/site';
 import { DEFAULT_PAIR } from '@/shared/config/featured-pairs';
 
+// Read BASE_URL at request time, not the build's.
+export const dynamic = 'force-dynamic';
+
 // Public, stable pages worth indexing. Per-block pages (blocks, txs, LPs) are
 // reachable from these and too many to list.
 const PAGES: { path: string; priority: number }[] = [
