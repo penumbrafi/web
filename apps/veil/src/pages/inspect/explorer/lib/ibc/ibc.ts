@@ -70,6 +70,12 @@ export const ibc = [
     },
 ]
 
+// Names for counterparty chains that have a client but no entry (and icon)
+// above. Anything else falls back to its chain id.
+const CHAIN_NAMES: Record<string, string> = {
+    'kava_2222-10': 'Kava',
+}
+
 export const searchIbc = (query: string) => {
     if (query.length < 2) {
         return
@@ -94,11 +100,12 @@ export const describeClient = (clientId: string, chainId: string | undefined) =>
         return exact
     }
     const sameChain = chainId ? ibc.find(c => c.chainId === chainId) : undefined
+    const knownName = chainId ? CHAIN_NAMES[chainId] : undefined
     return {
         chainId: chainId ?? clientId,
         id: clientId,
         image: sameChain?.image,
-        name: sameChain?.name ?? chainId ?? 'Unknown',
+        name: sameChain?.name ?? knownName ?? chainId ?? 'Unknown',
         slug: clientId,
     }
 }
