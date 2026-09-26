@@ -19,10 +19,10 @@ export const MethodSelect = ({ onPickCex, onPickWallet }: MethodSelectProps) => 
     <div className='flex flex-col gap-6'>
       <div className='flex flex-col gap-2'>
         <Text variant='strong' color='text.primary'>
-          Deposit to Penumbra
+          Where are your funds now?
         </Text>
         <Text small color='text.secondary'>
-          Choose where your funds are today. We&apos;ll walk you through the rest.
+          We&apos;ll walk you through getting them into this wallet, then into Penumbra.
         </Text>
       </div>
 
@@ -35,13 +35,13 @@ export const MethodSelect = ({ onPickCex, onPickWallet }: MethodSelectProps) => 
         <MethodCard
           icon={Building2}
           title='From an exchange'
-          description='Withdraw to your Injective address, then move it into Penumbra.'
+          description='Withdraw to the wallet above, then move it into Penumbra.'
           onClick={onPickCex}
         />
         <MethodCard
           icon={ArrowRightLeft}
-          title='From another wallet'
-          description='Move funds you hold on Injective in Keplr or Leap.'
+          title='Already in this wallet'
+          description='Shield what the wallet above already holds.'
           onClick={onPickWallet}
         />
       </div>

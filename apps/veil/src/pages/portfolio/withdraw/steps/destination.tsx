@@ -153,7 +153,7 @@ export function DestinationStep({
             <button
               type='button'
               disabled={chain.isWalletConnecting}
-              onClick={() => void chain.connect()}
+              onClick={() => chain.openView()}
               className='text-xs text-primary-light hover:underline focus:outline-none disabled:opacity-50'
             >
               {chain.isWalletConnecting ? 'Connecting…' : `Connect a ${chainDisplay} wallet`}

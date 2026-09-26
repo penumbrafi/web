@@ -77,7 +77,7 @@ export const WalletSource = () => {
           <Button
             actionType='accent'
             density='compact'
-            onClick={() => void chain.connect()}
+            onClick={() => chain.openView()}
             disabled={chain.isWalletConnecting}
           >
             {chain.isWalletConnecting ? 'Connecting...' : 'Connect Keplr or Leap'}

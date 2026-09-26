@@ -99,7 +99,9 @@ export const DepositPanel = observer(({ cex, asset, onBack }: DepositPanelProps)
         address={sourceAddress}
         canConnect={Boolean(chainName)}
         onConnect={() => {
-          void chain.connect();
+          // The picker, not connect(): connect() retries the last-used wallet
+          // and does nothing visible when that one refuses or is gone.
+          chain.openView();
         }}
         zafu={zafu.isZafu && asset.chainId === 'injective-1' ? zafu : undefined}
       />
@@ -201,7 +203,9 @@ const SourceAddressPanel = ({
   const [copied, setCopied] = useState(false);
 
   const onCopy = () => {
-    if (!address) {return;}
+    if (!address) {
+      return;
+    }
     void navigator.clipboard.writeText(address).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
@@ -216,8 +220,8 @@ const SourceAddressPanel = ({
             Shield with Zafu
           </Text>
           <Text small color='text.secondary'>
-            {cexName} withdraws to your own {chainLabel} address. Zafu shows yours, then shields
-            it into Penumbra.
+            {cexName} withdraws to your own {chainLabel} address. Zafu shows yours, then shields it
+            into Penumbra.
           </Text>
         </div>
         <div className='flex flex-wrap gap-2'>
@@ -231,7 +235,12 @@ const SourceAddressPanel = ({
           >
             {zafu.isOpening ? 'Opening Zafu...' : 'Open in Zafu'}
           </Button>
-          <Button actionType='default' priority='secondary' disabled={!canConnect} onClick={onConnect}>
+          <Button
+            actionType='default'
+            priority='secondary'
+            disabled={!canConnect}
+            onClick={onConnect}
+          >
             Use Keplr or Leap
           </Button>
         </div>
@@ -306,14 +315,20 @@ const OneClickShieldSection = ({ cexAsset }: { cexAsset: CexAsset }) => {
   const { unifiedAssets, isCosmosConnected } = useUnifiedAssets();
 
   const narrowed = useMemo(() => {
-    if (!isCosmosConnected) {return null;}
+    if (!isCosmosConnected) {
+      return null;
+    }
     for (const a of unifiedAssets) {
       const match = a.publicBalances.find(
         b => b.chainId === cexAsset.chainId && b.denom === cexAsset.sourceDenom,
       );
-      if (!match) {continue;}
+      if (!match) {
+        continue;
+      }
       const displayAmount = pnum(match.valueView).toNumber();
-      if (!Number.isFinite(displayAmount) || displayAmount <= 0) {continue;}
+      if (!Number.isFinite(displayAmount) || displayAmount <= 0) {
+        continue;
+      }
       // Narrow the UnifiedAsset to just the matching balance so
       // useIbcShield reads the correct chainId/denom from
       // publicBalances[0].
@@ -322,15 +337,21 @@ const OneClickShieldSection = ({ cexAsset }: { cexAsset: CexAsset }) => {
     return null;
   }, [cexAsset.chainId, cexAsset.sourceDenom, isCosmosConnected, unifiedAssets]);
 
-  if (!narrowed) {return null;}
+  if (!narrowed) {
+    return null;
+  }
   return <OneClickShieldPanel asset={narrowed} cexAsset={cexAsset} />;
 };
 
 type Phase = 'idle' | 'pending' | 'success' | 'error';
 
 const explorerUrl = (chainId: string | undefined, hash: string): string | null => {
-  if (chainId === 'injective-1') {return `https://explorer.injective.network/transaction/${hash}`;}
-  if (chainId === 'noble-1') {return `https://mintscan.io/noble/tx/${hash}`;}
+  if (chainId === 'injective-1') {
+    return `https://explorer.injective.network/transaction/${hash}`;
+  }
+  if (chainId === 'noble-1') {
+    return `https://mintscan.io/noble/tx/${hash}`;
+  }
   return null;
 };
 
@@ -352,13 +373,7 @@ const FEE_DENOM: Record<string, string> = {
  * Copy in this panel is allowed to say "shield" — this is the advanced
  * wallet-user flow, not the CEX-guided one.
  */
-const OneClickShieldPanel = ({
-  asset,
-  cexAsset,
-}: {
-  asset: UnifiedAsset;
-  cexAsset: CexAsset;
-}) => {
+const OneClickShieldPanel = ({ asset, cexAsset }: { asset: UnifiedAsset; cexAsset: CexAsset }) => {
   const {
     shield,
     isReady,
@@ -376,7 +391,9 @@ const OneClickShieldPanel = ({
 
   const maxAmount = useMemo(() => {
     const balance = new BigNumber(displayBalance);
-    if (!balance.isFinite() || balance.lte(0)) {return '0';}
+    if (!balance.isFinite() || balance.lte(0)) {
+      return '0';
+    }
     const feeDenom = sourceChainId ? FEE_DENOM[sourceChainId] : undefined;
     const isFeeToken = feeDenom && firstBalance?.denom === feeDenom;
     const buffer = isFeeToken && sourceChainId ? NATIVE_GAS_BUFFER[sourceChainId] : undefined;
@@ -409,8 +426,12 @@ const OneClickShieldPanel = ({
     if (!isWalletConnected) {
       return `Connect your ${cexAsset.network} wallet to sign the transfer`;
     }
-    if (!penumbraReceiver) {return 'Waiting for a Penumbra deposit address…';}
-    if (!amountValid) {return 'Enter a valid amount';}
+    if (!penumbraReceiver) {
+      return 'Waiting for a Penumbra deposit address…';
+    }
+    if (!amountValid) {
+      return 'Enter a valid amount';
+    }
     return null;
   })();
 

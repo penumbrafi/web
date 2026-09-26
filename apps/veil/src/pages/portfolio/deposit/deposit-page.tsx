@@ -14,6 +14,8 @@ import { MethodSelect } from './steps/method-select';
 import { CexAssetSelect } from './steps/cex-asset-select';
 import { DepositPanel } from './steps/deposit-panel';
 import { WalletSource } from './steps/ready-to-shield';
+import { ArrivalWallet } from './steps/arrival-wallet';
+import { useChain } from '@cosmos-kit/react';
 
 type Step =
   | { name: 'method' }
@@ -55,8 +57,12 @@ export const DepositPage = observer(() => {
   );
 });
 
-const DepositFlow = () => {
+const DepositFlow = observer(() => {
   const [step, setStep] = useState<Step>({ name: 'method' });
+  // Everything below lands in this wallet first, so it is step one: with a
+  // wallet the page shows its balances and address; without one there is
+  // nothing to deposit to yet.
+  const { isWalletConnected } = useChain('injective');
 
   const crumbs = (() => {
     switch (step.name) {
@@ -70,7 +76,7 @@ const DepositFlow = () => {
       case 'wallet':
         return [
           { label: 'Choose a source', onClick: () => setStep({ name: 'method' }) },
-          { label: 'From your wallet' },
+          { label: 'Already in this wallet' },
         ];
       case 'deposit':
         return [
@@ -85,22 +91,22 @@ const DepositFlow = () => {
     <div className='flex flex-col gap-5'>
       <DepositHeader crumbs={crumbs} />
 
-      {step.name === 'method' && (
+      <ArrivalWallet />
+
+      {isWalletConnected && step.name === 'method' && (
         <MethodSelect
           onPickCex={() => setStep({ name: 'cex-asset' })}
           onPickWallet={() => setStep({ name: 'wallet' })}
         />
       )}
 
-      {step.name === 'wallet' && <WalletSource />}
+      {isWalletConnected && step.name === 'wallet' && <WalletSource />}
 
-      {step.name === 'cex-asset' && (
-        <CexAssetSelect
-          onPick={(cex, asset) => setStep({ name: 'deposit', cex, asset })}
-        />
+      {isWalletConnected && step.name === 'cex-asset' && (
+        <CexAssetSelect onPick={(cex, asset) => setStep({ name: 'deposit', cex, asset })} />
       )}
 
-      {step.name === 'deposit' && (
+      {isWalletConnected && step.name === 'deposit' && (
         <DepositPanel
           cex={step.cex}
           asset={step.asset}
@@ -109,6 +115,6 @@ const DepositFlow = () => {
       )}
     </div>
   );
-};
+});
 
 export default DepositPage;
