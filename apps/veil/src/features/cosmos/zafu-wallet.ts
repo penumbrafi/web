@@ -48,8 +48,16 @@ const refuseEthermint = (chainIds: string | string[]) => {
  */
 class ZafuClient extends KeplrClient {
   override async enable(chainIds: string | string[]) {
-    refuseEthermint(chainIds);
-    return super.enable(chainIds);
+    // useChains() enables every Penumbra IBC chain in one call. Refusing the
+    // whole call because Injective was in it meant Zafu never saw the request
+    // (no approval prompt) for the chains it does serve. Drop only the
+    // Ethermint ones; refuse only when nothing else is left.
+    const all = [chainIds].flat();
+    const served = all.filter(id => !ETHERMINT_CHAIN_IDS.has(id));
+    if (served.length === 0) {
+      refuseEthermint(all);
+    }
+    return super.enable(served);
   }
   override async getSimpleAccount(chainId: string) {
     refuseEthermint(chainId);

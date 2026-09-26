@@ -31,7 +31,11 @@ const CosmosConnectButtonInner = observer(
     );
     const chains = useChains(penumbraIbcChains);
 
-    const availableChain = Object.keys(chains)[0];
+    // Prefer a chain the wallet actually connected. A wallet that serves only
+    // some chains (Zafu has no Injective here) would otherwise look
+    // disconnected whenever the first chain in the list is one it refused.
+    const availableChain =
+      Object.keys(chains).find(name => chains[name]?.isWalletConnected) ?? Object.keys(chains)[0];
 
     const { address, disconnect, openView, isWalletConnected } = chains[availableChain ?? ''] ?? {};
 
