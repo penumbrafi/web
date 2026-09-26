@@ -86,8 +86,13 @@ const DepthCurveImpl = ({ rows, relativeSizes, side, gridRowStart }: Props) => {
       aria-hidden
       className='pointer-events-none absolute'
       style={{
+        // Explicit width, not just left/right: an <svg> is a replaced
+        // element, so left:0/right:0 does not stretch it. It took its width
+        // from the viewBox ratio instead (100 x n at n*32px tall = 3200px),
+        // so only the leftmost tenth of the curve was on screen and just the
+        // rows past ~90% depth were tinted.
         left: 0,
-        right: 0,
+        width: '100%',
         top: topPx,
         height: n * ROW_PX,
       }}
