@@ -167,17 +167,27 @@ const build = async (range: HistoryRange): Promise<PortfolioHistoryResponse> => 
   return { points, usd: Object.fromEntries(usd) };
 };
 
+/**
+ * Block-time sample points and per-asset USD price series for a range,
+ * cached for a minute. Shared by the portfolio chart and the explorer's
+ * shielded-pool chart.
+ */
+export const getPriceHistory = async (range: HistoryRange): Promise<PortfolioHistoryResponse> => {
+  const hit = cache.get(range);
+  if (hit && Date.now() - hit.at < CACHE_MS) {
+    return hit.body;
+  }
+  const body = await build(range);
+  cache.set(range, { at: Date.now(), body });
+  return body;
+};
+
 async function handleGet(req: NextRequest): Promise<NextResponse<PortfolioHistoryResponse>> {
   const range = new URL(req.url).searchParams.get('range');
   if (!isHistoryRange(range)) {
     return NextResponse.json(EMPTY, { status: 400 });
   }
-  const hit = cache.get(range);
-  if (hit && Date.now() - hit.at < CACHE_MS) {
-    return NextResponse.json(hit.body);
-  }
-  const body = await build(range);
-  cache.set(range, { at: Date.now(), body });
+  const body = await getPriceHistory(range);
   return NextResponse.json(body, {
     headers: { 'Cache-Control': 'public, max-age=60' },
   });

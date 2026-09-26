@@ -485,6 +485,8 @@ export type DB = Pick<
   | 'supply_total_unstaked'
   | 'supply_total_staked'
   | 'stake_validator_set'
+  // shielded pool history (explorer IBC page)
+  | 'insights_shielded_pool'
   | 'lqt.gauge'
   | 'lqt.delegator_history'
   | 'lqt.delegator_summary'
