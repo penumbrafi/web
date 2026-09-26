@@ -27,12 +27,54 @@ const findZafu = async (): Promise<Keplr | undefined> => {
   return get();
 };
 
+// Ethermint chains (eth_secp256k1, coin type 60). Zafu refuses them over this
+// provider: a coin-118 key there is a plausible but unspendable inj1 address.
+const ETHERMINT_CHAIN_IDS = new Set(['injective-1', 'injective-888']);
+
+const refuseEthermint = (chainIds: string | string[]) => {
+  const blocked = [chainIds].flat().filter(id => ETHERMINT_CHAIN_IDS.has(id));
+  if (blocked.length > 0) {
+    throw new Error(
+      `Zafu does not connect ${blocked.join(', ')} to websites yet. Use Keplr or Leap for Injective.`,
+    );
+  }
+};
+
+/**
+ * Stops Ethermint requests in veil, before they reach Zafu. Zafu would refuse
+ * them anyway, but from a page script whose rejection nobody catches: an
+ * "Uncaught (in promise)" in the console and a wallet picker left spinning.
+ * Thrown here, cosmos-kit catches it and shows the message.
+ */
+class ZafuClient extends KeplrClient {
+  override async enable(chainIds: string | string[]) {
+    refuseEthermint(chainIds);
+    return super.enable(chainIds);
+  }
+  override async getSimpleAccount(chainId: string) {
+    refuseEthermint(chainId);
+    return super.getSimpleAccount(chainId);
+  }
+  override async getAccount(chainId: string) {
+    refuseEthermint(chainId);
+    return super.getAccount(chainId);
+  }
+  override async addChain(chainInfo: Parameters<KeplrClient['addChain']>[0]) {
+    const id = (chainInfo as { chain?: { chain_id?: string } }).chain?.chain_id;
+    if (id && ETHERMINT_CHAIN_IDS.has(id)) {
+      // Nothing to suggest: Zafu will not serve this chain here.
+      return;
+    }
+    return super.addChain(chainInfo);
+  }
+}
+
 class ZafuExtensionWallet extends KeplrExtensionWallet {
   override async initClient() {
     this.initingClient();
     try {
       const zafu = await findZafu();
-      this.initClientDone(zafu ? new KeplrClient(zafu) : undefined);
+      this.initClientDone(zafu ? new ZafuClient(zafu) : undefined);
     } catch (error) {
       this.initClientError(error as Error);
     }
