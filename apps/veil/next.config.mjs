@@ -67,6 +67,11 @@ To fix this in production containers, ensure:
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // /inspect/* became /explore/* in the May 2026 route rename, without
+  // redirects, so old links (e.g. /inspect/lp/<id> shared around) 404'd.
+  async redirects() {
+    return [{ source: '/inspect/:path*', destination: '/explore/:path*', permanent: true }];
+  },
   env: getCommitInfo(),
   serverExternalPackages: ['pino-pretty'],
   // Ship source maps in production while we're chasing a React #310 in the

@@ -39,7 +39,13 @@ const NO_CACHE_HEADERS = {
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const chainId = searchParams.get('chainId') ?? process.env['PENUMBRA_CHAIN_ID'];
+  // An empty chainId falls back too, not only a missing one: pages Next
+  // prerenders at build time (the 404 page) bake in the build's env, which
+  // has no PENUMBRA_CHAIN_ID, and ask for `?chainId=`. With `??` that
+  // returned 400 and those pages showed "Registry unavailable".
+  const chainId = [searchParams.get('chainId'), process.env['PENUMBRA_CHAIN_ID']].find(
+    id => !!id,
+  );
   if (!chainId) {
     return NextResponse.json(
       { error: 'chainId not specified and PENUMBRA_CHAIN_ID env not set' },
