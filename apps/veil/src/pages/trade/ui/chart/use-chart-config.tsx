@@ -21,13 +21,6 @@ export interface OwnPositionLine {
   baseAmount?: number;
   /** Reserves of QUOTE this line represents — set on bid/buy lines. */
   quoteAmount?: number;
-  /**
-   * Precomputed lightweight-charts line width (1/2/4), reflecting this
-   * line's size relative to the other open own-position lines on this
-   * pair — only populated when the `linesSizeByAmount` pref is on.
-   * Falls back to 1 when absent (pref off, or amount unavailable).
-   */
-  lineWidth?: number;
 }
 
 // if `high` / `open` ratio is greater than this value, the chart will limit `high` to `open * RATIO`
@@ -183,10 +176,9 @@ export const useChartConfig = (
         price: line.price,
         color,
         lineStyle: LineStyle.Dashed,
-        // lineWidth precomputed by useOwnPositionLines when the
-        // linesSizeByAmount pref is on (1/2/4 by ratio-of-max); otherwise
-        // absent and every line draws at 1px.
-        lineWidth: (line.lineWidth ?? 1) as CreatePriceLineOptions['lineWidth'],
+        // Every position line the same weight: sizing them by amount made the
+        // chart read as clutter. The amount is in the hover label instead.
+        lineWidth: 1,
         // Axis label off — lightweight-charts renders a small arrow-like
         // pointer next to the price which reads as a direction indicator
         // and confuses traders. We render our own hover strip via the

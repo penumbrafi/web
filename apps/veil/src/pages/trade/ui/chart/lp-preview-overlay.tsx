@@ -1,5 +1,6 @@
 'use client';
 
+import { lpDragState } from './lp-drag-state';
 import { useEffect, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import {
@@ -189,6 +190,9 @@ export const LpPreviewOverlay = observer(
       lastCommit: number;
       lastPrice: number | undefined;
     } | null>(null);
+    // A drag cut short by unmounting (e.g. switching forms) must not leave the
+    // chart's camera frozen.
+    useEffect(() => () => lpDragState.setActive(false), []);
 
     // Per-rung drag state (P3) — moved up here from below the
     // `if (!pos) return null` so every hook call happens above the
@@ -409,6 +413,7 @@ export const LpPreviewOverlay = observer(
         // already released — non-fatal, drag will just fall back to
         // document-level events which we don't wire up. Best-effort.
       }
+      lpDragState.setActive(true);
       dragRef.current = {
         edge,
         pointerId: ev.pointerId,
@@ -467,6 +472,7 @@ export const LpPreviewOverlay = observer(
         commitPrice(state.edge, state.lastPrice);
       }
       dragRef.current = null;
+      lpDragState.setActive(false);
       setDrag(null);
     };
 

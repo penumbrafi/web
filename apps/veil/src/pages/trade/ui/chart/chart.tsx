@@ -1,4 +1,5 @@
 import cn from 'clsx';
+import { lpDragState } from './lp-drag-state';
 import { observer } from 'mobx-react-lite';
 import {
   MouseEvent as ReactMouseEvent,
@@ -441,7 +442,14 @@ export const Chart = observer(() => {
   const lpUpper = tradeFormStore.lpForm.upperPrice;
   const rangeLower = tradeFormStore.rangeForm.lowerPrice;
   const rangeUpper = tradeFormStore.rangeForm.upperPrice;
+  // While an LP edge is being dragged, keep the camera where it was (see
+  // lp-drag-state); it re-fits to the new range once the drag ends.
+  const lpDragging = lpDragState.active;
+  const frozenExtrasRef = useRef<number[]>([]);
   const cameraExtras = useMemo<number[]>(() => {
+    if (lpDragging) {
+      return frozenExtrasRef.current;
+    }
     const bounds: number[] = [];
     if (whichForm === 'LP') {
       if (typeof lpLower === 'number' && Number.isFinite(lpLower) && lpLower > 0) {
@@ -458,8 +466,9 @@ export const Chart = observer(() => {
         bounds.push(rangeUpper);
       }
     }
+    frozenExtrasRef.current = bounds;
     return bounds;
-  }, [whichForm, lpLower, lpUpper, rangeLower, rangeUpper]);
+  }, [whichForm, lpLower, lpUpper, rangeLower, rangeUpper, lpDragging]);
 
   // Drop the pinned autoscale window whenever we move to a new pair —
   // without this the previous pair's anchor strip stayed applied and the

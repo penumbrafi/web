@@ -39,13 +39,6 @@ const formatShortAmount = (v: number): string => {
   return v.toPrecision(2);
 };
 
-// Ratio-of-max thresholds for the 1/2/4px line-width spread. Ratio-based
-// (not absolute-amount-based) so a whale pair and a dust pair both get
-// the same visual spread — only relative size within THIS pair's open
-// own-positions matters.
-const BIG_RATIO = 2 / 3;
-const MEDIUM_RATIO = 1 / 3;
-
 /**
  * Reads user's OPEN positions for the current trading pair and pushes
  * horizontal price lines to the candle chart via setOwnPositionLines.
@@ -55,10 +48,10 @@ const MEDIUM_RATIO = 1 / 3;
  */
 export const useOwnPositionLines = (
   setLines: (lines: OwnPositionLine[]) => void,
-  prefs: Pick<ChartPrefs, 'linesSizeByAmount' | 'linesShowAmount'>,
+  prefs: Pick<ChartPrefs, 'linesShowAmount'>,
 ): void => {
   const { connected, subaccount } = connectionStore;
-  const { linesSizeByAmount, linesShowAmount } = prefs;
+  const { linesShowAmount } = prefs;
   const { baseAsset, quoteAsset } = usePathToMetadata();
   const getMetadata = useGetMetadata();
 
@@ -139,27 +132,8 @@ export const useOwnPositionLines = (
         }
       }
 
-      // Max relevant amount across all lines on this pair, used to scale
-      // line width by relative size (not absolute — a whale pair and a
-      // dust pair both get the full 1/2/4 spread).
-      const maxAmount = raw.reduce((m, l) => {
-        const size = l.baseAmount ?? l.quoteAmount;
-        return size !== undefined && size > m ? size : m;
-      }, 0);
-
       const lines: OwnPositionLine[] = raw.map(l => {
         const size = l.baseAmount ?? l.quoteAmount;
-
-        let lineWidth: number | undefined;
-        if (linesSizeByAmount && size !== undefined && maxAmount > 0) {
-          const ratio = size / maxAmount;
-          lineWidth = 1;
-          if (ratio >= BIG_RATIO) {
-            lineWidth = 4;
-          } else if (ratio >= MEDIUM_RATIO) {
-            lineWidth = 2;
-          }
-        }
 
         let label = l.direction ? l.direction.toUpperCase() : 'LP';
         if (linesShowAmount && size !== undefined) {
@@ -174,7 +148,6 @@ export const useOwnPositionLines = (
           label,
           baseAmount: l.baseAmount,
           quoteAmount: l.quoteAmount,
-          lineWidth,
         };
       });
       setLines(lines);
@@ -187,10 +160,7 @@ export const useOwnPositionLines = (
     quoteAsset,
     getMetadata,
     setLines,
-    // Both booleans, so listing them here is enough to re-fire the whole
-    // effect (destroying and recreating the autorun with a closure over
-    // the new pref values) whenever the user toggles either setting.
-    linesSizeByAmount,
+    // A boolean, so listing it re-fires the effect when the setting toggles.
     linesShowAmount,
   ]);
 };

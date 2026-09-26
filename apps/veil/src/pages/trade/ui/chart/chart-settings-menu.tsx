@@ -38,11 +38,6 @@ const SPECS: Omit<ToggleSpec, 'disabled'>[] = [
     hint: 'Horizontal lines for each open LP price you own.',
   },
   {
-    key: 'linesSizeByAmount',
-    label: 'Size-proportional LP lines',
-    hint: 'Line width reflects the position size on this pair — bigger orders read as thicker lines.',
-  },
-  {
     key: 'linesShowAmount',
     label: 'Amount in LP line label',
     hint: 'Suffix the price-scale label with the position amount (base for asks, quote for bids).',
@@ -75,12 +70,18 @@ export const ChartSettingsMenu = memo(({ prefs, onToggle, walletConnected }: Pro
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!open) {return;}
+    if (!open) {
+      return;
+    }
     const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {setOpen(false);}
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {setOpen(false);}
+      if (e.key === 'Escape') {
+        setOpen(false);
+      }
     };
     document.addEventListener('mousedown', onDoc);
     document.addEventListener('keydown', onKey);
@@ -102,10 +103,7 @@ export const ChartSettingsMenu = memo(({ prefs, onToggle, walletConnected }: Pro
         ...s,
         disabled:
           s.key === 'openOrders' ||
-          ((s.key === 'ownPositions' ||
-            s.key === 'ownTrades' ||
-            s.key === 'linesSizeByAmount' ||
-            s.key === 'linesShowAmount') &&
+          ((s.key === 'ownPositions' || s.key === 'ownTrades' || s.key === 'linesShowAmount') &&
             !walletConnected),
       })),
     [walletConnected],
@@ -127,7 +125,7 @@ export const ChartSettingsMenu = memo(({ prefs, onToggle, walletConnected }: Pro
           className='absolute right-0 z-30 mt-1 w-[260px] rounded-md border border-other-tonal-stroke bg-base-black p-2 shadow-lg backdrop-blur-lg'
           role='menu'
         >
-          <Text detail color='text.secondary' as='div' >
+          <Text detail color='text.secondary' as='div'>
             <span className='block px-2 py-1'>Chart overlays</span>
           </Text>
           {specs.map(spec => {
