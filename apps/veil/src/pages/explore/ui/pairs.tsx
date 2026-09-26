@@ -1,10 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import { Text } from '@penumbra-zone/ui/Text';
 import { TextInput } from '@penumbra-zone/ui/TextInput';
 import { Icon } from '@penumbra-zone/ui/Icon';
+import { Pagination } from '@penumbra-zone/ui/Pagination';
 import { PairCard } from '@/pages/explore/ui/pair-card';
 import type { SummaryWithPrices } from '@/shared/api/server/summary';
 import { useDebounce } from '@/shared/utils/use-debounce';
@@ -12,6 +13,12 @@ import { deserialize, Serialized } from '@/shared/utils/serializer';
 import { isPairMarked } from '@/shared/config/bridge-health';
 import { usePausedChannels } from '@/shared/api/ibc-bridge';
 import { joinLoHi } from '@penumbra-zone/types/lo-hi';
+
+// Ten per page: the list is sorted working-pairs-first, so page one is the
+// markets you can actually move money in and out of, and the long tail on
+// closed bridges no longer paints the home page red. More channels are
+// coming, so the list only grows.
+const PAGE_SIZE = 10;
 
 interface ExplorePairsProps {
   summaries: Serialized<SummaryWithPrices[]>;
@@ -64,6 +71,11 @@ export const ExplorePairs = ({ summaries }: ExplorePairsProps) => {
     );
   }, [sortedSummaries, search]);
 
+  const [page, setPage] = useState(1);
+  // A new search starts from its first page.
+  useEffect(() => setPage(1), [search]);
+  const pageSummaries = filteredSummaries.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   return (
     <div className='flex w-full flex-col gap-4'>
       <div className='flex items-center justify-between gap-4 text-text-primary'>
@@ -106,13 +118,24 @@ export const ExplorePairs = ({ summaries }: ExplorePairsProps) => {
           </div>
         )}
 
-        {filteredSummaries.map(summary => (
+        {pageSummaries.map(summary => (
           <PairCard
             summary={summary}
             key={`${summary.startAsset.penumbraAssetId?.toJsonString() ?? summary.startAsset.symbol}-${summary.endAsset.penumbraAssetId?.toJsonString() ?? summary.endAsset.symbol}`}
           />
         ))}
       </div>
+
+      {filteredSummaries.length > PAGE_SIZE && (
+        <Pagination
+          value={page}
+          onChange={setPage}
+          limit={PAGE_SIZE}
+          totalItems={filteredSummaries.length}
+          visibleItems={pageSummaries.length}
+          hideLimitSelector
+        />
+      )}
     </div>
   );
 };
