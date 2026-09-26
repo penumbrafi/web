@@ -560,6 +560,11 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
     return orderBy([...rows], `sortValues.${sortBy.key}`, sortBy.direction);
   }, [displayPositions, activePairKey, sortBy]);
 
+  // A different pair filter or sort is a different list: start at its top.
+  // Above the early returns below: a hook after them changes the hook count
+  // between renders (React #300).
+  useEffect(() => setPage(1), [activePairKey, sortBy]);
+
   if (!connected) {
     return <NotConnectedNotice />;
   }
@@ -567,9 +572,6 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
   if (error) {
     return <ErrorNotice />;
   }
-
-  // A different pair filter or sort is a different list: start at its top.
-  useEffect(() => setPage(1), [activePairKey, sortBy]);
 
   // A page past the end (after closing positions, or a narrower pair filter)
   // falls back to the last page instead of an empty table.
