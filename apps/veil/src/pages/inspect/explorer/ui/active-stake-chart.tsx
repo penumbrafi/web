@@ -192,19 +192,19 @@ export const ActiveStakeChart = ({ data, currentRange }: Props) => {
     <section className='flex flex-col gap-6'>
       <div className='flex flex-col gap-2'>
         <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
-          <Text variant='h2' color='text.primary'>
+          <h2 className='font-heading text-xl font-medium text-text-primary sm:text-3xl'>
             Bonded stake history
-          </Text>
+          </h2>
           <StakeRangeSelector current={currentRange} />
         </div>
-        <Text body color='text.secondary'>
+        <p className='text-sm text-text-secondary sm:text-base'>
           The teal area is total UM bonded to all validators at end-of-day (active + jailed /
           disabled / not-yet-promoted). The lighter band above is the rest of the UM supply, so the
           chart top reads as total supply and the teal share reads as the staking ratio. Bars are
           daily delegation (positive) and undelegation (negative) tx flows. Active vs inactive is
           shown for the latest point only — the indexer doesn&apos;t track per-height validator
           state, so historically the chart can&apos;t honestly split the teal band.
-        </Text>
+        </p>
       </div>
 
       <div className='grid grid-cols-2 gap-3 desktop:grid-cols-4'>

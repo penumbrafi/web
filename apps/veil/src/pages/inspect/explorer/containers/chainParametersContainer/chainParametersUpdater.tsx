@@ -36,7 +36,7 @@ const ChainParametersUpdater: FC<Props> = props => {
     return (
         <Surface
             as="section"
-            className={classNames('flex flex-col gap-2 p-6', props.className)}
+            className={classNames('flex flex-col gap-2 p-4 sm:p-6', props.className)}
         >
             <div className="flex flex-col gap-2">
                 <h2 className="text-lg">Chain parameters</h2>

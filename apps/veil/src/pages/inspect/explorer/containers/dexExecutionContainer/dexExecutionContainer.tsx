@@ -14,11 +14,11 @@ const DexExecutionContainer: FC<Props> = props => (
             <Surface
                 as="section"
                 className={classNames(
-                    'flex flex-col gap-10 p-6 lg:w-[550px]',
+                    'flex flex-col gap-10 p-4 sm:p-6 lg:w-[550px]',
                     props.className
                 )}
             >
-                <h2 className="text-2xl font-medium">Latest executions</h2>
+                <h2 className="text-xl font-medium sm:text-2xl">Latest executions</h2>
                 <Skeleton className="h-44 rounded-sm lg:h-full" />
             </Surface>
         }

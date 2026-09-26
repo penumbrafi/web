@@ -14,12 +14,12 @@ const DexPriceTableContainer: FC<Props> = props => (
             <Surface
                 as="section"
                 className={classNames(
-                    'flex flex-col gap-6 p-6',
+                    'flex flex-col gap-6 p-4 sm:p-6',
                     props.className
                 )}
             >
                 <header>
-                    <h2 className="text-2xl font-medium">Recent prices</h2>
+                    <h2 className="text-xl font-medium sm:text-2xl">Recent prices</h2>
                 </header>
                 <Skeleton className="h-60 rounded-sm" />
             </Surface>

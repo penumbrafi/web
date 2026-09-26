@@ -15,12 +15,12 @@ const ValidatorDelegationFlowContainer: FC<Props> = props => (
             <Surface
                 as="section"
                 className={classNames(
-                    'flex flex-col gap-6 p-6',
+                    'flex flex-col gap-6 p-4 sm:p-6',
                     props.className
                 )}
             >
                 <header>
-                    <h2 className="text-2xl font-medium">Delegation flow</h2>
+                    <h2 className="text-xl font-medium sm:text-2xl">Delegation flow</h2>
                 </header>
                 <Skeleton
                     className={classNames('h-95 rounded-sm sm:h-72 md:h-100')}

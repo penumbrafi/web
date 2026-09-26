@@ -16,12 +16,12 @@ const ValidatorStatusContainer: FC<Props> = props => (
             <Surface
                 as="section"
                 className={classNames(
-                    'flex flex-col gap-6 p-6',
+                    'flex flex-col gap-6 p-4 sm:p-6',
                     props.className
                 )}
             >
                 <header>
-                    <h2 className="inline text-2xl font-medium">
+                    <h2 className="inline text-xl font-medium sm:text-2xl">
                         Validator status
                     </h2>{' '}
                     <span className="text-xs text-text-secondary">

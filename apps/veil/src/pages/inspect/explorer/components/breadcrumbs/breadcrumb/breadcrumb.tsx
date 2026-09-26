@@ -8,7 +8,7 @@ export interface Props {
 }
 
 const Breadcrumb: FC<Props> = props => {
-    const className = classNames('font-heading text-3xl font-medium')
+    const className = classNames('font-heading text-xl font-medium sm:text-3xl')
 
     return props.href ? (
         <Link

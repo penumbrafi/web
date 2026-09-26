@@ -16,7 +16,7 @@ const View: FC<Props> = props => (
       'border-other-tonal-stroke flex flex-col gap-4 rounded-lg',
       'border-1 bg-radial-[100%_100%_at_0%_0%]',
       'from-[rgba(174,174,174,0.25)] from-0%',
-      'to-[rgba(174,174,174,0.03)] to-100% p-6 backdrop-blur-md',
+      'to-[rgba(174,174,174,0.03)] to-100% p-4 sm:p-6 backdrop-blur-md',
       props.className,
     )}
   >

@@ -14,7 +14,7 @@ const GovParametersContainer: FC<Props> = props => (
             <Surface
                 as="section"
                 className={classNames(
-                    'flex flex-col gap-2 p-6',
+                    'flex flex-col gap-2 p-4 sm:p-6',
                     props.className
                 )}
             >

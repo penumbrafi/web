@@ -15,7 +15,7 @@ const GovParametersLoader: FC<Props> = async props => {
 
     return (
         <Surface
-            className={classNames('flex flex-col gap-2 p-6', props.className)}
+            className={classNames('flex flex-col gap-2 p-4 sm:p-6', props.className)}
         >
             <h3 className="text-lg">Governance parameters</h3>
             <Parameters>

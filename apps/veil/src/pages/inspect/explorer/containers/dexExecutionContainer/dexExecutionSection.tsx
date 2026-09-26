@@ -20,14 +20,14 @@ const DexExecutionSection: FC<Props> = props => {
         <Surface
             as="section"
             className={classNames(
-                'scroll-area-component flex flex-col gap-10 p-6',
+                'scroll-area-component flex flex-col gap-10 p-4 sm:p-6',
                 'lg:overflow-y-hidden',
                 maximized ? 'lg:w-3/4' : 'lg:w-[550px]',
                 props.className
             )}
         >
             <div className="flex justify-between gap-2">
-                <h2 className="text-2xl font-medium">Latest executions</h2>
+                <h2 className="text-xl font-medium sm:text-2xl">Latest executions</h2>
                 <Button
                     className="hidden lg:block"
                     density="compact"

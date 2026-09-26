@@ -20,7 +20,7 @@ const Breadcrumbs: FC<Props> = props => {
     return (
         <nav
             className={classNames(
-                'mb-4 flex items-center gap-2',
+                'mb-4 flex flex-wrap items-center gap-x-2 gap-y-1',
                 props.className
             )}
         >
@@ -28,10 +28,7 @@ const Breadcrumbs: FC<Props> = props => {
                 <>
                     {child}
                     {index < lastIndex && (
-                        <ChevronRightIcon
-                            className="text-text-muted"
-                            size={24}
-                        />
+                        <ChevronRightIcon className="size-5 text-text-muted sm:size-6" />
                     )}
                 </>
             ))}

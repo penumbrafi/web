@@ -33,7 +33,7 @@ const ValidatorLoader: FC<Props> = async props => {
     return (
         <Surface
             as="section"
-            className={classNames('flex flex-col gap-6 p-6', props.className)}
+            className={classNames('flex flex-col gap-6 p-4 sm:p-6', props.className)}
         >
             <header className="flex justify-between gap-4">
                 <span className="flex gap-2">

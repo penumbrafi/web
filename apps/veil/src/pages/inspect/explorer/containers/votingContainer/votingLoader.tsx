@@ -16,7 +16,7 @@ const VotingLoader: FC<Props> = async ({ proposalId, ...props }) => {
     return (
         <Surface
             as="section"
-            className={classNames('flex flex-col gap-4 p-6', props.className)}
+            className={classNames('flex flex-col gap-4 p-4 sm:p-6', props.className)}
         >
             <VotingStatePill state={voting.state} />
             <VotingNumbers

@@ -58,12 +58,12 @@ const ValidatorDelegationFlowLoader: FC<Props> = async props => {
             <Surface
                 as="section"
                 className={classNames(
-                    'flex flex-col gap-6 p-6',
+                    'flex flex-col gap-6 p-4 sm:p-6',
                     props.className
                 )}
             >
                 <header>
-                    <h2 className="text-2xl font-medium">Delegation flow</h2>
+                    <h2 className="text-xl font-medium sm:text-2xl">Delegation flow</h2>
                 </header>
                 <p className="text-text-secondary">
                     No delegation data available yet.
@@ -77,10 +77,10 @@ const ValidatorDelegationFlowLoader: FC<Props> = async props => {
     return (
         <Surface
             as="section"
-            className={classNames('flex flex-col gap-6 p-6', props.className)}
+            className={classNames('flex flex-col gap-6 p-4 sm:p-6', props.className)}
         >
             <header className="flex items-baseline justify-between">
-                <h2 className="text-2xl font-medium">Delegation flow</h2>
+                <h2 className="text-xl font-medium sm:text-2xl">Delegation flow</h2>
                 <div className="text-sm">
                     <span className="text-text-secondary">
                         {delegates.length} delegates, {undelegates.length}{' '}

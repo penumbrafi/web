@@ -14,7 +14,7 @@ interface Props {
 }
 
 const IbcChannels: FC<Props> = props => (
-    <Surface className={classNames('flex items-center p-6', props.className)}>
+    <Surface className={classNames('flex items-center p-4 sm:p-6', props.className)}>
         <div className="flex flex-1 items-center">
             <div
                 className={classNames(

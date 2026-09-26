@@ -15,7 +15,7 @@ export interface Props {
 }
 
 const Table: FC<Props> = props => (
-    <Surface className={classNames('flex flex-col gap-4 p-6', props.className)}>
+    <Surface className={classNames('flex flex-col gap-4 p-4 sm:p-6', props.className)}>
         {props.header}
         <div className="scroll-area-component flex-1 overflow-x-auto">
             <table className="w-max min-w-full">{props.children}</table>

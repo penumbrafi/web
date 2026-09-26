@@ -14,12 +14,12 @@ const IbcFlowHistoryLoader: FC<Props> = async props => {
             <Surface
                 as="section"
                 className={classNames(
-                    'flex flex-col gap-6 p-6',
+                    'flex flex-col gap-6 p-4 sm:p-6',
                     props.className
                 )}
             >
                 <header>
-                    <h2 className="text-2xl font-medium">
+                    <h2 className="text-xl font-medium sm:text-2xl">
                         IBC inflows & outflows
                     </h2>
                 </header>
@@ -42,11 +42,11 @@ const IbcFlowHistoryLoader: FC<Props> = async props => {
     return (
         <Surface
             as="section"
-            className={classNames('flex flex-col gap-6 p-6', props.className)}
+            className={classNames('flex flex-col gap-6 p-4 sm:p-6', props.className)}
         >
             <header className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-baseline gap-3">
-                    <h2 className="text-2xl font-medium">
+                    <h2 className="text-xl font-medium sm:text-2xl">
                         IBC inflows & outflows
                     </h2>
                     <span className="text-sm text-text-secondary">

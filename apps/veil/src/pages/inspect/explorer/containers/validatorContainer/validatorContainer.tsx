@@ -14,7 +14,7 @@ const ValidatorContainer: FC<Props> = props => (
         fallback={
             <Surface
                 as="section"
-                className={classNames('p-6', props.className)}
+                className={classNames('p-4 sm:p-6', props.className)}
             >
                 <Skeleton className="h-125 rounded-sm" />
             </Surface>

@@ -77,9 +77,9 @@ export const ValidatorStakeHistoryChart = ({ data, days = 90 }: Props) => {
   if (data.length === 0) {
     return (
       <section className='flex flex-col gap-4 rounded-lg bg-other-tonal-fill5 p-6'>
-        <Text variant='h2' color='text.primary'>
+        <h2 className='font-heading text-xl font-medium text-text-primary sm:text-3xl'>
           Stake history
-        </Text>
+        </h2>
         <Text body color='text.secondary'>
           No stake history recorded for this validator in the last {days} days.
         </Text>
@@ -90,9 +90,9 @@ export const ValidatorStakeHistoryChart = ({ data, days = 90 }: Props) => {
   return (
     <section className='flex flex-col gap-6'>
       <div className='flex flex-col gap-2'>
-        <Text variant='h2' color='text.primary'>
+        <h2 className='font-heading text-xl font-medium text-text-primary sm:text-3xl'>
           Stake history
-        </Text>
+        </h2>
         <Text body color='text.secondary'>
           Daily UM staked to this validator over the last {days} days, with
           delegation and undelegation tx flows.

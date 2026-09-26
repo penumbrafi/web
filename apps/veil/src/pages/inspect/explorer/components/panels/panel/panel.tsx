@@ -14,7 +14,7 @@ export interface Props {
 const Panel: FC<Props> = props => (
     <Surface
         as="section"
-        className={classNames('flex flex-col p-6', props.className)}
+        className={classNames('flex flex-col p-4 sm:p-6', props.className)}
     >
         <header className={classNames('flex flex-col', props.headerClassName)}>
             <h3

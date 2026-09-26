@@ -20,7 +20,7 @@ const ClientContainer: FC<Props> = props => (
             <>
                 <Surface
                     className={classNames(
-                        'flex flex-col gap-4 p-6',
+                        'flex flex-col gap-4 p-4 sm:p-6',
                         props.statsClassName
                     )}
                 >
@@ -59,7 +59,7 @@ const ClientContainer: FC<Props> = props => (
                     </div>
                     <Skeleton className="h-14 rounded-sm" />
                 </Surface>
-                <Surface className={classNames('p-6', props.channelsClassName)}>
+                <Surface className={classNames('p-4 sm:p-6', props.channelsClassName)}>
                     <Skeleton className="h-10 w-full rounded-sm" />
                 </Surface>
             </>

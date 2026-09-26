@@ -87,12 +87,12 @@ const DexMarketOverviewLoader: FC<Props> = async props => {
             <Surface
                 as="section"
                 className={classNames(
-                    'flex flex-col gap-6 p-6',
+                    'flex flex-col gap-6 p-4 sm:p-6',
                     props.className
                 )}
             >
                 <header>
-                    <h2 className="text-2xl font-medium">Market overview</h2>
+                    <h2 className="text-xl font-medium sm:text-2xl">Market overview</h2>
                 </header>
                 <p className="text-text-secondary">
                     No market data available yet.
@@ -104,10 +104,10 @@ const DexMarketOverviewLoader: FC<Props> = async props => {
     return (
         <Surface
             as="section"
-            className={classNames('flex flex-col gap-6 p-6', props.className)}
+            className={classNames('flex flex-col gap-6 p-4 sm:p-6', props.className)}
         >
             <header>
-                <h2 className="text-2xl font-medium">Market overview</h2>
+                <h2 className="text-xl font-medium sm:text-2xl">Market overview</h2>
             </header>
 
             {hasVolumes && (

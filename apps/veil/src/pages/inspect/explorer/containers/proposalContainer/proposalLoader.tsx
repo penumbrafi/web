@@ -25,7 +25,7 @@ const ProposalLoader: FC<Props> = async ({ proposalId, ...props }) => {
     return (
         <Surface
             as="section"
-            className={classNames('flex flex-col gap-6 p-6', props.className)}
+            className={classNames('flex flex-col gap-6 p-4 sm:p-6', props.className)}
         >
             <header className="flex flex-col gap-2">
                 <div className="flex justify-between">
@@ -34,7 +34,7 @@ const ProposalLoader: FC<Props> = async ({ proposalId, ...props }) => {
                     </span>
                     <ProposalStatePill state={proposal.state} />
                 </div>
-                <h1 className="text-2xl font-medium">{proposal.title}</h1>
+                <h1 className="text-xl font-medium sm:text-2xl">{proposal.title}</h1>
                 <div className="text-xs text-text-secondary">
                     {proposal.kind}
                 </div>

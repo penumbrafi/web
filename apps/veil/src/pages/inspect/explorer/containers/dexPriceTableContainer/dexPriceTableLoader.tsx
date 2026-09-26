@@ -1,5 +1,7 @@
 // istanbul ignore file
 import { FC } from 'react'
+import { AssetId } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb'
+import { getCachedRegistry } from '@/shared/api/fetch-registry'
 import { Surface } from '@/pages/inspect/explorer/components'
 import getRecentSwapPrices from '@/pages/inspect/explorer/lib/data/getRecentSwapPrices'
 import { classNames } from '@/pages/inspect/explorer/lib/utils'
@@ -18,20 +20,40 @@ function formatPrice(price: number): string {
     return price.toExponential(4)
 }
 
+/** Registry symbol for a base64 asset id; unknown ids stay truncated. */
+const symbolResolver = async (): Promise<(id: string) => string> => {
+    const chainId = process.env['PENUMBRA_CHAIN_ID']
+    const registry = chainId
+        ? await getCachedRegistry(chainId).catch(() => undefined)
+        : undefined
+    return id => {
+        const meta = registry?.tryGetMetadata(
+            new AssetId({ inner: Buffer.from(id, 'base64') })
+        )
+        const symbol = meta?.symbol
+        return symbol !== undefined && symbol !== ''
+            ? symbol
+            : truncateAssetId(id)
+    }
+}
+
 const DexPriceTableLoader: FC<Props> = async props => {
-    const prices = await getRecentSwapPrices(20)
+    const [prices, symbolOf] = await Promise.all([
+        getRecentSwapPrices(20),
+        symbolResolver(),
+    ])
 
     if (prices.length === 0) {
         return (
             <Surface
                 as="section"
                 className={classNames(
-                    'flex flex-col gap-6 p-6',
+                    'flex flex-col gap-6 p-4 sm:p-6',
                     props.className
                 )}
             >
                 <header>
-                    <h2 className="text-2xl font-medium">Recent prices</h2>
+                    <h2 className="text-xl font-medium sm:text-2xl">Recent prices</h2>
                 </header>
                 <p className="text-text-secondary">
                     No recent swap price data available. Prices are derived from
@@ -44,10 +66,10 @@ const DexPriceTableLoader: FC<Props> = async props => {
     return (
         <Surface
             as="section"
-            className={classNames('flex flex-col gap-6 p-6', props.className)}
+            className={classNames('flex flex-col gap-6 p-4 sm:p-6', props.className)}
         >
             <header className="flex items-baseline justify-between">
-                <h2 className="text-2xl font-medium">Recent prices</h2>
+                <h2 className="text-xl font-medium sm:text-2xl">Recent prices</h2>
                 <div className="text-sm text-text-secondary">
                     Derived from last hour of swaps
                 </div>
@@ -80,11 +102,17 @@ const DexPriceTableLoader: FC<Props> = async props => {
                                 key={i}
                                 className="border-b border-other-tonal-stroke"
                             >
-                                <td className="py-2 pr-4 font-mono text-xs">
-                                    {truncateAssetId(p.inputAssetId)}
+                                <td
+                                    className="py-2 pr-4"
+                                    title={p.inputAssetId}
+                                >
+                                    {symbolOf(p.inputAssetId)}
                                 </td>
-                                <td className="py-2 pr-4 font-mono text-xs">
-                                    {truncateAssetId(p.outputAssetId)}
+                                <td
+                                    className="py-2 pr-4"
+                                    title={p.outputAssetId}
+                                >
+                                    {symbolOf(p.outputAssetId)}
                                 </td>
                                 <td className="py-2 pr-4 text-right font-mono">
                                     {formatPrice(p.avgPrice)}

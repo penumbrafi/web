@@ -16,7 +16,7 @@ const VotingContainer: FC<Props> = props => (
             <Surface
                 as="section"
                 className={classNames(
-                    'flex flex-col gap-4 p-6',
+                    'flex flex-col gap-4 p-4 sm:p-6',
                     props.className
                 )}
             >

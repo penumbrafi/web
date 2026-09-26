@@ -13,7 +13,7 @@ const ChainParametersContainer: FC<Props> = props => (
         fallback={
             <Surface
                 as="section"
-                className={classNames('p-6', props.className)}
+                className={classNames('p-4 sm:p-6', props.className)}
             >
                 <div className="flex flex-col gap-2">
                     <h2 className="text-lg">Chain parameters</h2>
