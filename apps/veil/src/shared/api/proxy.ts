@@ -11,6 +11,18 @@ export const routingProxy = (request: NextRequest) => {
 
   // Remember the last viewed pair so /trade can redirect back to it.
   const tradePairMatch = /^\/trade\/([^/]+)\/([^/]+)\/?$/.exec(pathname);
+  // A prefetch is not a visit. The home page lists every pair as a <Link>,
+  // and Next prefetches each one that scrolls into view through this proxy,
+  // so "last viewed" became whichever pair was prefetched last (e.g.
+  // ATOM.ch0/stATOM) and /trade sent people to a market they never opened.
+  const isPrefetch =
+    request.headers.has('next-router-prefetch') ||
+    request.headers.has('next-router-segment-prefetch') ||
+    request.headers.get('purpose') === 'prefetch' ||
+    request.headers.get('sec-purpose')?.includes('prefetch') === true;
+  if (tradePairMatch && isPrefetch) {
+    return NextResponse.next();
+  }
   if (tradePairMatch) {
     const [, base, quote] = tradePairMatch;
     if (base && quote) {
