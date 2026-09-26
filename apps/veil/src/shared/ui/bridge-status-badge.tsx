@@ -26,7 +26,7 @@ const CHIP = 'text-textXs rounded-xs px-1.5 py-0.5 whitespace-nowrap';
  * Warning tag for an asset or pair whose settlement path is degraded. Renders
  * at most one chip, worst problem first:
  *
- *   1. "Bridging paused" — the asset arrived over an IBC channel whose client
+ *   1. "Bridge closed" — the asset arrived over an IBC channel whose client
  *      has expired or been frozen, so transfers no longer settle (chain state
  *      from /api/ibc-bridge, matched against the channel in the base denom).
  *   2. "Sunsetting" — Noble USDC, which Circle is winding down.

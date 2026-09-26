@@ -6,7 +6,7 @@ import type { IbcBridgeResponse } from '@/shared/api/server/ibc-bridge';
 /**
  * Channel ids (`channel-N`) whose IBC client is expired or frozen. Read
  * straight off an asset's base denom with `channelOfBaseDenom`, this is what
- * makes the "Bridging paused" badge chain-state-driven instead of a
+ * makes the "Bridge closed" badge chain-state-driven instead of a
  * hand-maintained symbol list.
  */
 export type PausedChannels = ReadonlySet<string>;

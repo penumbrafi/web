@@ -8,20 +8,25 @@ import type { PausedChannels } from '@/shared/api/ibc-bridge';
  * over IBC carries the channel it came in on inside its base denom
  * (`transfer/channel-2/uusdc`), and a channel is only usable while its IBC
  * client is active. `/api/ibc-bridge` reports the channels whose client has
- * expired or been frozen; assets on those channels are marked "Bridging
- * paused".
+ * expired or been frozen; assets on those channels are marked "Bridge
+ * closed".
  *
  * This is display-only. A paused channel means transfers over it no longer
  * settle, but the market itself keeps quoting and filling — nothing here
  * touches trading, routing, pair health, or amounts.
  */
 
-/** Copy shown on assets whose channel client is expired or frozen. */
-export const BRIDGE_PAUSED_LABEL = 'Bridging paused';
+/**
+ * Copy shown on assets whose channel client is expired or frozen. It names the
+ * bridge, not the asset: the asset still trades on Penumbra, only moving it in
+ * or out is dead. "Closed", not "paused": nothing reopens it short of a
+ * recovery on both chains.
+ */
+export const BRIDGE_PAUSED_LABEL = 'Bridge closed';
 export const BRIDGE_PAUSED_TOOLTIP =
-  'The IBC client for the channel this asset arrived on has expired, so the channel is frozen ' +
-  'and transfers over it no longer settle. Recovering it needs a new channel, and moving the ' +
-  'funds already escrowed in the old one requires a governance upgrade on the counterparty chain.';
+  'Still tradable on Penumbra. Moving this asset in or out over its original IBC channel no ' +
+  "longer works: the channel's light client expired. Reopening it takes a network upgrade " +
+  'on Penumbra and a governance vote on the other chain.';
 
 /** `transfer/channel-2/uusdc` -> `channel-2`. Undefined for native denoms. */
 const CHANNEL_TRACE = /^transfer\/channel-(\d+)\//;
