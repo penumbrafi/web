@@ -19,10 +19,10 @@ export const TournamentInactive = () => (
       </Text>
     </div>
     <Text small color='text.secondary'>
-      The tournament is waiting on a governance proposal to fund it. You can still vote: the tally
-      below shows which UM pair delegators want incentivized. Rewards only pay in funded epochs,
-      and each epoch is voted on separately, so vote again once it is funded. This page switches
-      back on by itself when rewards start accruing.
+      The tournament is waiting on a governance proposal to fund it. You can still vote: votes
+      count for the epoch they are cast in, so if funding lands before this epoch ends, it pays
+      out on the tally below, and the UM pairs over the threshold get the liquidity rewards. This
+      page switches back on by itself when rewards start accruing.
     </Text>
     <Link
       href='/explore/governance'
