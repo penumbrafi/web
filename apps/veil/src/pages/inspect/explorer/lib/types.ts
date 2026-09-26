@@ -97,6 +97,8 @@ export interface TransformedIbcStats
     > {
     id: string
     timestamp: number
+    /** Counterparty chain id from the node's client state, when known. */
+    counterpartyChainId?: string
 }
 
 export interface ValidatorBlock {

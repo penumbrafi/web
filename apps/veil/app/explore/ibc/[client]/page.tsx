@@ -12,7 +12,8 @@ import {
   TransactionTableContainer,
 } from '@/pages/inspect/explorer/containers';
 import { IbcStatusFilter } from '@/pages/inspect/explorer/lib/graphql/generated/types';
-import ibc from '@/pages/inspect/explorer/lib/ibc';
+import ibc, { describeClient } from '@/pages/inspect/explorer/lib/ibc';
+import { getClientChainIds } from '@/pages/inspect/explorer/lib/ibc/client-chains';
 import { classNames, nonEmpty } from '@/pages/inspect/explorer/lib/utils';
 export const dynamic = 'force-dynamic';
 
@@ -27,9 +28,12 @@ const ClientPage: FC<Props> = async props => {
   // but current callers emit the client id (`/explore/ibc/07-tendermint-26`).
   // Without the id branch the resolver misses, and the page renders as
   // "Unknown" with no image or chainId.
-  const client = ibc.find(c => c.slug === params.client || c.id === params.client);
-  const id = client?.id ?? params.client;
-  const name = client?.name ?? 'Unknown';
+  const bySlug = ibc.find(c => c.slug === params.client || c.id === params.client);
+  const id = bySlug?.id ?? params.client;
+  // Clients the hand-kept list doesn't know are named from the node's own
+  // client state (its counterparty chain id), not shown as "Unknown".
+  const client = bySlug ?? describeClient(id, (await getClientChainIds()).get(id));
+  const name = client.name;
 
   const searchParams = await props.searchParams;
   const page = searchParams.page ? Number(searchParams.page) - 1 : 0;
@@ -63,12 +67,12 @@ const ClientPage: FC<Props> = async props => {
         )}
       >
         <ClientContainer
-          chainId={client?.chainId}
+          chainId={client.chainId}
           channelsClassName='lg:col-2 lg:row-1'
           id={id}
           // SVGR turns the .svg import into a component; ClientContainer typed
           // it as `string` upstream — cast through unknown to satisfy strict mode.
-          image={client?.image as unknown as string | undefined}
+          image={client.image as unknown as string | undefined}
           name={name}
           statsClassName='lg:col-1 lg:row-span-2'
         />

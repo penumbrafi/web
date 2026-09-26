@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { FC, useMemo } from 'react'
-import ibc from '@/pages/inspect/explorer/lib/ibc'
+import { describeClient } from '@/pages/inspect/explorer/lib/ibc'
 import { placeholderAvatarImage } from '@/pages/inspect/explorer/lib/images'
 import { TransformedIbcStats } from '@/pages/inspect/explorer/lib/types'
 import { classNames, formatNumber } from '@/pages/inspect/explorer/lib/utils'
@@ -17,23 +17,10 @@ export interface Props extends Omit<TableProps, 'children'> {
 const IbcTable: FC<Props> = props => {
     const clients = useMemo(
         () =>
-            props.stats.map(stats => {
-                const client = ibc.find(c => c.id === stats.id)
-
-                return client
-                    ? {
-                          ...stats,
-                          ...client,
-                      }
-                    : {
-                          ...stats,
-                          chainId: stats.id,
-                          id: stats.id,
-                          image: undefined,
-                          name: 'Unknown',
-                          slug: stats.id,
-                      }
-            }),
+            props.stats.map(stats => ({
+                ...stats,
+                ...describeClient(stats.id, stats.counterpartyChainId),
+            })),
         [props.stats]
     )
 

@@ -6,17 +6,21 @@ import {
 } from '@/pages/inspect/explorer/lib/graphql/generated/types'
 import { ibcStatsQuery } from '@/pages/inspect/explorer/lib/graphql/queries'
 import { TransformedIbcStats } from '@/pages/inspect/explorer/lib/types'
+import { getClientChainIds } from '@/pages/inspect/explorer/lib/ibc/client-chains'
 
 const getIbcStats = async (args?: {
     clientId?: string
 }): Promise<TransformedIbcStats[] | undefined> => {
     const graphqlClient = createGraphqlClient()
 
-    const result = await graphqlClient
-        .query<IbcStatsQuery, IbcStatsQueryVariables>(ibcStatsQuery, {
-            ...args,
-        })
-        .toPromise()
+    const [result, chainIds] = await Promise.all([
+        graphqlClient
+            .query<IbcStatsQuery, IbcStatsQueryVariables>(ibcStatsQuery, {
+                ...args,
+            })
+            .toPromise(),
+        getClientChainIds(),
+    ])
 
     if (result.error) {
         throw result.error
@@ -28,6 +32,7 @@ const getIbcStats = async (args?: {
         return {
             ...props,
             timestamp: dayjs(lastUpdated).valueOf(),
+            counterpartyChainId: chainIds.get(props.id),
         }
     })
 }

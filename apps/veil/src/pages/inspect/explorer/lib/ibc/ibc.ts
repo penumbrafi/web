@@ -81,3 +81,24 @@ export const searchIbc = (query: string) => {
         client.name.toLowerCase().startsWith(transformedQuery)
     )
 }
+
+/**
+ * Display info for a client: the hand-kept entry for that exact client if
+ * there is one, else the entry for its counterparty chain (name and icon;
+ * the id and slug stay this client's, so links open this client, not an
+ * older one for the same chain), else the chain id itself.
+ */
+export const describeClient = (clientId: string, chainId: string | undefined) => {
+    const exact = ibc.find(c => c.id === clientId)
+    if (exact) {
+        return exact
+    }
+    const sameChain = chainId ? ibc.find(c => c.chainId === chainId) : undefined
+    return {
+        chainId: chainId ?? clientId,
+        id: clientId,
+        image: sameChain?.image,
+        name: sameChain?.name ?? chainId ?? 'Unknown',
+        slug: clientId,
+    }
+}
