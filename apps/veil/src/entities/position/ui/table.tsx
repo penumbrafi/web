@@ -4,7 +4,7 @@ import cn from 'clsx';
 import Link from 'next/link';
 import orderBy from 'lodash/orderBy';
 import { ChevronDown, ChevronUp, SquareArrowOutUpRight } from 'lucide-react';
-import { ReactNode, memo, useMemo, useRef, useState, useEffect } from 'react';
+import { ReactNode, memo, useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { Text } from '@penumbra-zone/ui/Text';
@@ -30,7 +30,7 @@ import { PositionsEarningsCell } from './positions-stats-cells';
 import { NotConnectedNotice } from './not-connected-notice';
 import { ErrorNotice } from './error-notice';
 import { NoPositions } from './no-positions';
-import { HeaderActionButton } from './header-action-button';
+import { SelectionBar } from './selection-bar';
 import { ActionButton } from './action-button';
 import { Dash } from './dash';
 import { Pagination } from '@penumbra-zone/ui/Pagination';
@@ -206,10 +206,15 @@ const PositionRow = memo(
       position,
       isLoading,
       isLast,
+      selected,
+      onToggle,
     }: {
       position: DisplayPosition;
       isLoading: boolean;
       isLast: boolean;
+      /** Checkbox state; undefined for rows that can't be closed or withdrawn. */
+      selected?: boolean;
+      onToggle?: (id: string) => void;
     }) => (
       <>
         {position.orders.slice(0, position.isWithdrawn ? 1 : Infinity).map((order, orderIndex) => {
@@ -222,7 +227,19 @@ const PositionRow = memo(
           const rowMarketPrice = position.marketPrice;
 
           return (
-            <div key={orderIndex} className='col-span-6 grid grid-cols-subgrid [&>div]:h-10'>
+            <div key={orderIndex} className='col-span-7 grid grid-cols-subgrid [&>div]:h-10'>
+              <TableCell loading={isLoading} variant={variant}>
+                {/* One checkbox per position, on its first row. */}
+                {orderIndex === 0 && selected !== undefined && onToggle ? (
+                  <input
+                    type='checkbox'
+                    aria-label={`Select position ${position.idString}`}
+                    className='h-4 w-4 cursor-pointer accent-primary-main'
+                    checked={selected}
+                    onChange={() => onToggle(position.idString)}
+                  />
+                ) : null}
+              </TableCell>
               <TableCell loading={isLoading} variant={variant}>
                 {position.isOpened ? (
                   <Text
@@ -485,6 +502,19 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
   // Pages over the full list. Infinite scroll left a wallet with hundreds of
   // positions scrolling past everything to reach the one it wanted.
   const [page, setPage] = useState(1);
+  // Checked rows for bulk close/withdraw, by position id.
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const toggleSelected = useCallback((id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0] ?? 25);
 
   const [sortBy, setSortBy] = useState<SortBy>({
@@ -550,17 +580,27 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
     currentPage * pageSize,
   );
 
+  // Rows you can act on in bulk: open ones close, closed ones withdraw.
+  const actionable = sortedPositions.filter(p => p.isOpened || p.isClosed);
+  const actionableIds = new Set(actionable.map(p => p.idString));
+  const pageActionable = shownPositions.filter(p => actionableIds.has(p.idString));
+  // Positions that left the filter or the list (closed, withdrawn) drop out.
+  const selectedPositions = actionable.filter(p => selected.has(p.idString));
+  const pageAllSelected =
+    pageActionable.length > 0 && pageActionable.every(p => selected.has(p.idString));
+  const pageSomeSelected = pageActionable.some(p => selected.has(p.idString));
+
   if (!isLoading && !sortedPositions.length) {
     return <NoPositions />;
   }
 
   return (
     <div
-      className='grid grid-cols-[72px_1fr_1.4fr_1fr_1fr_auto] overflow-x-auto overflow-y-auto'
+      className='grid grid-cols-[32px_72px_1fr_1.4fr_1fr_1fr_auto] overflow-x-auto overflow-y-auto'
       style={{ overflowAnchor: 'none' }}
     >
       {onPairKeyChange && pairOptions.length > 1 && (
-        <div className='col-span-6'>
+        <div className='col-span-7'>
           <PairFilter
             options={pairOptions}
             total={displayPositions.length}
@@ -570,7 +610,43 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
         </div>
       )}
       <Density slim>
-        <div className='col-span-6 grid grid-cols-subgrid'>
+        {selectedPositions.length > 0 && (
+          <SelectionBar
+            selected={selectedPositions}
+            matchingCount={actionable.length}
+            onSelectAllMatching={() => setSelected(new Set(actionable.map(p => p.idString)))}
+            onClear={() => setSelected(new Set())}
+          />
+        )}
+        <div className='col-span-7 grid grid-cols-subgrid'>
+          <TableCell heading>
+            {pageActionable.length > 0 && (
+              <input
+                type='checkbox'
+                aria-label='Select this page'
+                className='h-4 w-4 cursor-pointer accent-primary-main'
+                checked={pageAllSelected}
+                ref={el => {
+                  if (el) {
+                    el.indeterminate = pageSomeSelected && !pageAllSelected;
+                  }
+                }}
+                onChange={() =>
+                  setSelected(prev => {
+                    const next = new Set(prev);
+                    for (const p of pageActionable) {
+                      if (pageAllSelected) {
+                        next.delete(p.idString);
+                      } else {
+                        next.add(p.idString);
+                      }
+                    }
+                    return next;
+                  })
+                }
+              />
+            )}
+          </TableCell>
           <SortableTableHeader
             sortKey='type'
             activeDirection={sortBy.key === 'type' ? sortBy.direction : undefined}
@@ -600,9 +676,7 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
           >
             Fees Earned
           </SortableTableHeader>
-          <TableCell heading>
-            <HeaderActionButton displayPositions={sortedPositions} />
-          </TableCell>
+          <TableCell heading>Actions</TableCell>
         </div>
 
         {isLoading
@@ -613,6 +687,10 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
               <PositionRow
                 key={position.idString}
                 position={position}
+                selected={
+                  actionableIds.has(position.idString) ? selected.has(position.idString) : undefined
+                }
+                onToggle={toggleSelected}
                 isLoading={false}
                 isLast={index === shownPositions.length - 1}
               />
@@ -620,7 +698,7 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
       </Density>
 
       {sortedPositions.length > (PAGE_SIZES[0] ?? 25) && (
-        <div className='col-span-6 pt-2'>
+        <div className='col-span-7 pt-2'>
           <Pagination
             value={currentPage}
             onChange={setPage}
