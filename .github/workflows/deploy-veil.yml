@@ -59,6 +59,12 @@ jobs:
           # endpoint into the bundle.
           NEXT_PUBLIC_GRAPHQL_HOST: ${{ vars.NEXT_PUBLIC_GRAPHQL_HOST || 'api.explorer.rotko.net' }}
           NEXT_PUBLIC_COMETBFT_WS_URL: ${{ vars.NEXT_PUBLIC_COMETBFT_WS_URL || 'wss://penumbra.rotko.net/websocket' }}
+          # Pages Next prerenders at build time (404, metadata, sitemap, robots)
+          # read these then, not from the host's runtime .env. Without them the
+          # 404 page asked for the registry with an empty chain id and link
+          # previews had no absolute URLs.
+          BASE_URL: ${{ vars.BASE_URL || 'https://penumbra.fi' }}
+          PENUMBRA_CHAIN_ID: ${{ vars.PENUMBRA_CHAIN_ID || 'penumbra-1' }}
           # Server Actions are encrypted with this key at BUILD time and
           # decrypted with it at runtime, so build and host must agree or every
           # action 500s on the deployed bundle. It is therefore a *repository*

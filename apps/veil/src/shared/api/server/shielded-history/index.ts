@@ -16,7 +16,12 @@ import { ShieldedAsset, ShieldedHistoryResponse } from './types';
 const EMPTY: ShieldedHistoryResponse = { points: [], assets: [], indexedHeight: 0 };
 const ROWS_TTL_MS = 60_000;
 
-type Row = { height: number; current: bigint; total: bigint; depositors: number };
+interface Row {
+  height: number;
+  current: bigint;
+  total: bigint;
+  depositors: number;
+}
 let rowsCache: { at: number; byAsset: Map<string, Row[]> } | undefined;
 
 /**
@@ -59,7 +64,7 @@ const rowAt = (rows: Row[], height: number): Row | undefined => {
   let hi = rows.length - 1;
   let found: Row | undefined;
   while (lo <= hi) {
-    const mid = (lo + hi) >> 1;
+    const mid = Math.floor((lo + hi) / 2);
     const r = rows[mid];
     if (r && r.height <= height) {
       found = r;

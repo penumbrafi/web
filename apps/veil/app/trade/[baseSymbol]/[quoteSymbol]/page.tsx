@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import type { Metadata } from 'next';
 import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
 import { TradePage } from '@/pages/trade';
 import { deserializeRouteBookResponseJson } from '@/shared/api/server/book/serialization';
@@ -28,6 +29,16 @@ interface Params {
  * `TradePage` itself stays `'use client'`: the ResizableSplit / useViewport
  * / mobx observers all need the client tree.
  */
+export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
+  const { baseSymbol, quoteSymbol } = await params;
+  const pair = `${decodeURIComponent(baseSymbol)}/${decodeURIComponent(quoteSymbol)}`;
+  return {
+    title: `${pair} · Trade`,
+    description: `Trade ${pair} privately on Penumbra: shielded orders and liquidity positions.`,
+    alternates: { canonical: `/trade/${baseSymbol}/${quoteSymbol}` },
+  };
+}
+
 export default async function Page({ params }: { params: Promise<Params> }) {
   const { baseSymbol, quoteSymbol } = await params;
 
@@ -69,7 +80,10 @@ async function prefetchBook(qc: QueryClient, baseSymbol: string, quoteSymbol: st
     }
     // Same key the client's `useBook` uses. Default (undefined) traceLimit —
     // matches useMarketPrice/depth-overlay.
-    qc.setQueryData(['book', baseSymbol, quoteSymbol, undefined], deserializeRouteBookResponseJson(json));
+    qc.setQueryData(
+      ['book', baseSymbol, quoteSymbol, undefined],
+      deserializeRouteBookResponseJson(json),
+    );
   } catch {
     // Never break the trade page on prefetch failure — the client fetches
     // normally.

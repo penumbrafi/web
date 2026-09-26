@@ -1,4 +1,6 @@
 import { ReactNode } from 'react';
+import type { Metadata } from 'next';
+import { SITE, siteOrigin } from '@/shared/config/site';
 import { App } from './app';
 import { getClientSideEnv } from '@/shared/api/env/getClientSideEnv';
 import { ChunkReloadGuard } from '@/shared/ui/chunk-reload-guard';
@@ -6,6 +8,28 @@ import { ChunkReloadGuard } from '@/shared/ui/chunk-reload-guard';
 import '@penumbra-zone/ui/style.css';
 import '@penumbra-zone/ui/theme.css';
 import './v2.css';
+
+// Title, description and link-preview tags for every page. Pages add their own
+// title through the template; the preview image is app/opengraph-image.tsx.
+export const metadata: Metadata = {
+  metadataBase: siteOrigin(),
+  title: { default: SITE.title, template: `%s · ${SITE.name}` },
+  description: SITE.description,
+  applicationName: SITE.name,
+  openGraph: {
+    type: 'website',
+    siteName: SITE.name,
+    title: SITE.title,
+    description: SITE.description,
+    url: '/',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: SITE.title,
+    description: SITE.description,
+  },
+  alternates: { canonical: '/' },
+};
 
 // Inline-script chunk guard: runs at HTML parse time so it's in place
 // before webpack ever starts fetching chunks. The React-mounted
@@ -57,7 +81,7 @@ const RootLayout = ({ children }: { children: ReactNode }) => {
   return (
     <html lang='en'>
       <head>
-        { }
+        {}
         <script dangerouslySetInnerHTML={{ __html: INLINE_CHUNK_GUARD }} />
       </head>
       <body className='scroll-area-page'>
