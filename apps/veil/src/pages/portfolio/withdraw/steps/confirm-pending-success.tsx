@@ -61,7 +61,12 @@ export function ConfirmPendingSuccess({
         // Nothing is emitted until sendIbcOut has planned, built, been
         // approved and broadcast; the old "Packet emitted" line was shown
         // before any of that happened.
-        const result = await sendIbcOut(balance, normalized, address);
+        const result = await sendIbcOut(
+          balance,
+          normalized,
+          address,
+          destinationChain.channelId,
+        );
         // `planBuildBroadcast` may return `undefined` on user cancellation.
         if (!result) {
           setPhase({ kind: 'confirm' });

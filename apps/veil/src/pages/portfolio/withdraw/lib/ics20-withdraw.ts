@@ -109,11 +109,14 @@ export const getTimeout = async (
 /**
  * Plans, builds, and broadcasts an `ics20Withdrawal` (unshield) transaction.
  * `amount` is in DISPLAY units (e.g. "1.25" INJ, not raw base units).
+ * `channelId` defaults to the channel in the asset's denom trace; pass it for
+ * a native asset like UM, which has no trace and can leave over any channel.
  */
 export async function sendIbcOut(
   asset: ShieldedBalance,
   amount: string,
   destAddress: string,
+  channelId?: string,
 ) {
   const addressIndex = getAddressIndex(asset.balance);
   const { address: returnAddress } = await penumbra
@@ -124,8 +127,8 @@ export async function sendIbcOut(
   }
 
   const denom = getMetadata(asset.valueView).base;
-  const channelId = denom.split('/')[1] ?? '';
-  const { timeoutHeight, timeoutTime } = await getTimeout(channelId);
+  const sourceChannel = channelId ?? denom.split('/')[1] ?? '';
+  const { timeoutHeight, timeoutTime } = await getTimeout(sourceChannel);
 
   const req = new TransactionPlannerRequest({
     ics20Withdrawals: [
@@ -139,7 +142,7 @@ export async function sendIbcOut(
         returnAddress,
         timeoutHeight,
         timeoutTime,
-        sourceChannel: channelId,
+        sourceChannel,
       },
     ],
     source: addressIndex,

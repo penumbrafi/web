@@ -11,6 +11,8 @@ import { getMetadata } from '@penumbra-zone/getters/value-view';
 import { useRegistry } from '@/shared/api/registry.tsx';
 import { useUnifiedAssets, type UnifiedAsset, type ShieldedBalance } from '@/pages/portfolio/api/use-unified-assets';
 
+const UM_BASE = 'upenumbra';
+
 interface AssetSelectStepProps {
   onSelect: (asset: UnifiedAsset, balance: ShieldedBalance) => void;
 }
@@ -21,10 +23,12 @@ interface AssetSelectStepProps {
  * "Withdrawable" means:
  *   1. the asset has a non-zero shielded balance, AND
  *   2. its metadata carries an IBC channel (`base` starts with
- *      `transfer/channel-N/...`) that we can look up in the registry.
+ *      `transfer/channel-N/...`) that we can look up in the registry, OR
+ *   3. it is UM, which has no source chain and can go out over any open
+ *      channel (picked on the next step).
  *
- * Assets that are shielded but not sourced from an IBC connection (e.g.
- * native UM) are omitted — you can't unshield UM to a Cosmos chain.
+ * Other Penumbra-native assets (delegation tokens, LP / auction NFTs) are
+ * omitted.
  */
 export const AssetSelectStep = observer(({ onSelect }: AssetSelectStepProps) => {
   const { data: registry } = useRegistry();
@@ -50,7 +54,7 @@ export const AssetSelectStep = observer(({ onSelect }: AssetSelectStepProps) => 
         .filter(b => {
           const meta = getMetadata.optional(b.valueView);
           if (!meta) {return false;}
-          if (!meta.base.startsWith('transfer/')) {return false;}
+          if (!meta.base.startsWith('transfer/') && meta.base !== UM_BASE) {return false;}
           // Non-zero amount.
           const view = b.valueView.valueView;
           if (view.case !== 'knownAssetId') {return false;}
@@ -95,15 +99,17 @@ export const AssetSelectStep = observer(({ onSelect }: AssetSelectStepProps) => 
         Select an asset
       </Text>
       <Text variant='detail' color='text.secondary'>
-        Only shielded balances with an IBC source chain can be withdrawn.
-        The destination network is fixed by the asset&apos;s origin.
+        Assets go back to the chain they came from. UM can go to any open channel.
       </Text>
 
       <ul className='flex flex-col gap-2'>
         {rows.map(({ asset, balance }) => {
           const meta = getMetadata.optional(balance.valueView);
           const channelId = meta?.base.split('/')[1] ?? '';
-          const chain = registry.ibcConnections.find(c => c.channelId === channelId);
+          const isUm = meta?.base === UM_BASE;
+          const chain = isUm
+            ? undefined
+            : registry.ibcConnections.find(c => c.channelId === channelId);
           return (
             <li key={`${asset.symbol}-${channelId}`}>
               <button
@@ -128,7 +134,7 @@ export const AssetSelectStep = observer(({ onSelect }: AssetSelectStepProps) => 
                     />
                   )}
                   <Text variant='detail' color='text.secondary'>
-                    to {chain?.displayName ?? 'Unknown'}
+                    {isUm ? 'to any open channel' : `to ${chain?.displayName ?? 'Unknown'}`}
                   </Text>
                 </div>
               </button>

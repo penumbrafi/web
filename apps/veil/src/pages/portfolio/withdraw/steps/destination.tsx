@@ -17,6 +17,7 @@ import {
   amountMoreThanBalance,
   unknownAddrIsValid,
 } from '@/pages/portfolio/withdraw/lib/ics20-withdraw';
+import { useWithdrawChannels } from '@/pages/portfolio/withdraw/lib/use-withdraw-channels';
 import type { ShieldedBalance } from '@/pages/portfolio/api/use-unified-assets';
 
 interface DestinationStepProps {
@@ -38,11 +39,22 @@ export function DestinationStep({
 
   const metadata = getMetadata.optional(balance.valueView);
   const symbol = metadata?.symbol ?? '';
-  const channelId = metadata?.base.split('/')[1] ?? '';
+  // an asset that came in over IBC goes back where it came from; UM (native,
+  // no denom trace) can go out over any channel that's live right now
+  const tracedChannelId = metadata?.base.startsWith('transfer/')
+    ? metadata.base.split('/')[1]
+    : undefined;
+  const isNative = tracedChannelId === undefined;
+  const { data: liveChains, isLoading: liveChainsLoading } = useWithdrawChannels();
+  const [pickedChannelId, setPickedChannelId] = useState<string>();
+  const channelId = tracedChannelId ?? pickedChannelId ?? liveChains?.[0]?.channelId ?? '';
 
   const destinationChain = useMemo(
-    () => registry.ibcConnections.find(c => c.channelId === channelId),
-    [registry, channelId],
+    () =>
+      isNative
+        ? liveChains?.find(c => c.channelId === channelId)
+        : registry.ibcConnections.find(c => c.channelId === channelId),
+    [isNative, liveChains, registry, channelId],
   );
 
   // Resolve the cosmos-kit chain_name slug from the Penumbra chainId
@@ -98,8 +110,15 @@ export function DestinationStep({
 
   // The primary button states exactly what happens next, or why it can't.
   let buttonLabel = `Withdraw ${amount} ${symbol}`;
-  if (!destinationChain) {
+  // an OPEN channel whose light client has expired takes the funds and never
+  // delivers them, so a returning asset needs its channel live too
+  const channelLive = !!liveChains?.some(c => c.channelId === channelId);
+  if (liveChainsLoading) {
+    buttonLabel = 'Checking channels...';
+  } else if (!destinationChain) {
     buttonLabel = 'Unsupported network';
+  } else if (!channelLive) {
+    buttonLabel = `${chainDisplay} channel is down`;
   } else if (address === '') {
     buttonLabel = 'Enter destination address';
   } else if (!isValid) {
@@ -111,25 +130,54 @@ export function DestinationStep({
   } else if (!isPositive) {
     buttonLabel = 'Invalid amount';
   }
-  const canSubmit = !!destinationChain && isValid && amountValid;
+  const canSubmit = !!destinationChain && channelLive && isValid && amountValid;
 
   return (
     <div className='flex flex-col gap-4'>
       <Text variant='body' color='text.primary'>
         Network
       </Text>
-      <TextInput
-        disabled
-        value={chainDisplay}
-        startAdornment={
-          chainImage ? (
-            <Image width={24} height={24} src={chainImage} alt={chainDisplay} />
-          ) : undefined
-        }
-      />
-      <Text variant='detail' color='text.secondary'>
-        {symbol} can only be withdrawn to its source chain ({chainDisplay}).
-      </Text>
+      {isNative ? (
+        <div className='flex items-center gap-2 rounded-sm bg-other-tonal-fill5 px-3 py-2'>
+          {chainImage && <Image width={24} height={24} src={chainImage} alt={chainDisplay} />}
+          <select
+            aria-label='Destination network'
+            value={channelId}
+            disabled={liveChainsLoading || !liveChains?.length}
+            onChange={e => {
+              setPickedChannelId(e.target.value);
+              setAddress('');
+              setTouched(false);
+            }}
+            className='flex-1 bg-transparent text-text-primary outline-none'
+          >
+            {liveChainsLoading && <option value=''>Checking channels...</option>}
+            {!liveChainsLoading && !liveChains?.length && (
+              <option value=''>No open channels right now</option>
+            )}
+            {liveChains?.map(c => (
+              <option key={c.channelId} value={c.channelId}>
+                {c.displayName}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : (
+        <>
+          <TextInput
+            disabled
+            value={chainDisplay}
+            startAdornment={
+              chainImage ? (
+                <Image width={24} height={24} src={chainImage} alt={chainDisplay} />
+              ) : undefined
+            }
+          />
+          <Text variant='detail' color='text.secondary'>
+            {symbol} can only be withdrawn to its source chain ({chainDisplay}).
+          </Text>
+        </>
+      )}
 
       <div className='flex items-center justify-between'>
         <Text variant='body' color='text.primary'>
