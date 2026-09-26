@@ -310,7 +310,7 @@ export enum LiquidityDistributionStrategy {
   INVERTED_PYRAMID = 5,
 }
 
-interface SimpleLiquidityPlan {
+export interface SimpleLiquidityPlan {
   baseAsset: Asset;
   quoteAsset: Asset;
   baseLiquidity: number;
@@ -456,122 +456,139 @@ export const simpleLiquidityPositions = (plan: SimpleLiquidityPlan): PositionedL
   );
 
 /**
- * The cheap half of `simpleLiquidityPositions`: rung prices + reserves,
- * filtered exactly as the built positions would be, no protos and no nonces.
+ * Weight of a rung by its distance from mid, `f` in [0, 1] (0 = the rung
+ * nearest mid, 1 = the far edge of its side). One rule for both sides and
+ * for one-sided ladders, so a shape means the same thing everywhere:
+ * Concentrated is heavy at mid, Linear is even, Volatile is light at mid and
+ * heavy at the edge. (A one-sided ladder used to ignore the chosen shape and
+ * always ramp like Volatile, while the chain recorded the chosen one.)
  */
-export const simpleLiquidityRungs = (plan: SimpleLiquidityPlan): LiquidityRung[] => {
+export const shapeWeight = (shape: LiquidityDistributionShape, f: number): number => {
+  const t = Math.max(0, Math.min(1, f));
+  switch (shape) {
+    case LiquidityDistributionShape.PYRAMID:
+      return 1 - 0.9 * t;
+    case LiquidityDistributionShape.INVERTED_PYRAMID:
+      return 0.1 + 0.9 * t;
+    default:
+      return 1;
+  }
+};
+
+/** Position of rung `i` of `count` on a side, as distance from mid in [0, 1]. */
+const distanceFromMid = (i: number, count: number, midAtStart: boolean): number => {
+  if (count <= 1) {
+    return 0;
+  }
+  const f = i / (count - 1);
+  return midAtStart ? f : 1 - f;
+};
+
+/** One rung of a planned ladder, before quantising and dropping empty rungs. */
+export interface LadderRung {
+  /** Index into the ladder (and into `customWeights`), 0 = lowest price. */
+  index: number;
+  price: number;
+  side: 'buy' | 'sell';
+  /** Display units: base on asks, quote on bids. */
+  baseReserves: number;
+  quoteReserves: number;
+  /** This rung's share of its side's total, in [0, 1]; a side sums to 1. */
+  share: number;
+}
+
+/**
+ * The full ladder for a simple LP: every one of `plan.positions` rungs with
+ * its price, side, reserves and share of its side. The single source for
+ * the built positions (via `simpleLiquidityRungs`), the chart preview and
+ * custom-weight seeding, so what is drawn and dragged is what gets opened.
+ *
+ * Custom weights, when set, are per ladder index and normalised within each
+ * side: making one rung smaller makes the others on its side larger, and
+ * the side's total never changes.
+ */
+export const simpleLiquidityLadder = (plan: SimpleLiquidityPlan): LadderRung[] => {
   const hasBase = plan.baseLiquidity > 0;
   const hasQuote = plan.quoteLiquidity > 0;
+  const custom =
+    plan.distributionShape === LiquidityDistributionShape.CUSTOM && plan.customWeights
+      ? plan.customWeights
+      : undefined;
+  // A CUSTOM ladder without weights (shouldn't happen) reads as Linear.
+  const baseShape =
+    plan.distributionShape === LiquidityDistributionShape.CUSTOM
+      ? LiquidityDistributionShape.FLAT
+      : plan.distributionShape;
 
-  // One-sided funding: use every position on the funded side across
-  // [mid, upper] (base only, ask ladder) or [lower, mid] (quote only, bid
-  // ladder), instead of splitting positions in two and leaving half as
-  // zero-reserve dead rungs. Weights are computed across the full n so
-  // PYRAMID reads as a monotonic stair heavy near mid, and
-  // INVERTED_PYRAMID as a stair heavy at the edge.
-  if (hasBase && !hasQuote) {
-    return oneSidedRungs(plan, 'base');
-  }
-  if (hasQuote && !hasBase) {
-    return oneSidedRungs(plan, 'quote');
+  if (hasBase !== hasQuote) {
+    return oneSidedLadder(plan, hasBase ? 'base' : 'quote', custom, baseShape);
   }
 
-  // Two-sided path. The split is anchored at mid *clamped into the range*,
-  // not at raw mid. Raw mid is only inside [lower, upper] when the range
-  // straddles it; for a deliberately one-sided range (with both sides funded
-  // but the range set entirely above or below mid) it sits outside, and
-  // using it as the start of the upper rungs (or the end of the lower
-  // rungs) laid positions clean outside the range the user chose. With the
-  // range straddling mid the anchor IS mid, so nothing changes.
+  // Two-sided: split at mid clamped into the range. Raw mid is only inside
+  // [lower, upper] when the range straddles it; for a range set wholly
+  // above or below mid, clamping keeps every rung inside the chosen range.
   const totalRange = plan.upperPrice - plan.lowerPrice;
   const anchorPrice = Math.min(Math.max(plan.marketPrice, plan.lowerPrice), plan.upperPrice);
   const marketPosition = (anchorPrice - plan.lowerPrice) / totalRange;
-
-  // Position-count split. `marketPosition` is only in [0, 1] when mid sits
-  // inside the range; for a one-sided range it drifts out of bounds, and the
-  // unclamped `floor(positions * marketPosition)` could exceed
-  // `plan.positions`, opening more rungs than the form advertised. Clamp so
-  // the split always sums to exactly `plan.positions`.
-  const lowerPositionsAmount = Math.min(
+  // Clamp so the split always sums to exactly `plan.positions`.
+  const lowerCount = Math.min(
     plan.positions,
     Math.max(0, Math.floor(plan.positions * marketPosition)),
   );
-  const upperPositionsAmount = plan.positions - lowerPositionsAmount;
+  const upperCount = plan.positions - lowerCount;
+  // Finite even for an empty side, so no NaN price can reach priceToPQ.
+  const lowerStep = lowerCount > 0 ? (anchorPrice - plan.lowerPrice) / lowerCount : 0;
+  const upperStep = upperCount > 0 ? (plan.upperPrice - anchorPrice) / upperCount : 0;
 
-  // Guard the zero-count side: a fully one-sided range leaves one of these
-  // at 0 and the division would yield Infinity/NaN prices. The corresponding
-  // Array.from({length: 0}) never reads the value, but keeping it finite
-  // means a stray NaN can never reach priceToPQ and silently produce p=q=0
-  // coefficients the chain rejects ("trading function coefficients must be
-  // nonzero").
-  const lowerStepWidth =
-    lowerPositionsAmount > 0 ? (anchorPrice - plan.lowerPrice) / lowerPositionsAmount : 0;
-  const upperStepWidth =
-    upperPositionsAmount > 0 ? (plan.upperPrice - anchorPrice) / upperPositionsAmount : 0;
+  const weightAt = (index: number, sideIndex: number, sideCount: number, midAtStart: boolean) =>
+    custom
+      ? Math.max(0, custom[index] ?? 0)
+      : shapeWeight(baseShape, distanceFromMid(sideIndex, sideCount, midAtStart));
 
-  // CUSTOM uses the user-supplied per-rung weights verbatim; every other
-  // shape derives them from the shape formula. Length is padded/truncated
-  // to match the split total.
-  const rawWeights =
-    plan.distributionShape === LiquidityDistributionShape.CUSTOM && plan.customWeights
-      ? plan.customWeights
-      : getPositionWeights(lowerPositionsAmount + upperPositionsAmount, plan.distributionShape);
-  const weights = Array.from(
-    { length: lowerPositionsAmount + upperPositionsAmount },
-    (_, i) => rawWeights[i] ?? 0,
+  // Bids ascend toward mid (mid at the end); asks start at mid.
+  const lowerWeights = Array.from({ length: lowerCount }, (_, i) =>
+    weightAt(i, i, lowerCount, false),
   );
+  const upperWeights = Array.from({ length: upperCount }, (_, i) =>
+    weightAt(lowerCount + i, i, upperCount, true),
+  );
+  const lowerTotal = lowerWeights.reduce((s, w) => s + w, 0) || 1;
+  const upperTotal = upperWeights.reduce((s, w) => s + w, 0) || 1;
 
-  const lowerRangeTotalWeight = weights
-    .slice(0, lowerPositionsAmount)
-    .reduce((sum, w) => sum + w, 0);
-  const upperRangeTotalWeight = weights.slice(lowerPositionsAmount).reduce((sum, w) => sum + w, 0);
-
-  const lowerPositions = Array.from({ length: lowerPositionsAmount }, (_, i): PositionPlan => {
-    const price = plan.lowerPrice + i * lowerStepWidth;
-    const weight = (weights[i] ?? 0) / (lowerRangeTotalWeight || 1);
+  const lower = lowerWeights.map((w, i): LadderRung => {
+    const share = w / lowerTotal;
     return {
-      baseAsset: plan.baseAsset,
-      quoteAsset: plan.quoteAsset,
-      feeBps: plan.feeBps,
-      price,
+      index: i,
+      price: plan.lowerPrice + i * lowerStep,
+      side: 'buy',
       baseReserves: 0,
-      quoteReserves: plan.quoteLiquidity * weight,
+      quoteReserves: plan.quoteLiquidity * share,
+      share,
     };
   });
-
-  const upperPositions = Array.from({ length: upperPositionsAmount }, (_, i): PositionPlan => {
-    const price = anchorPrice + i * upperStepWidth;
-    const weight = (weights[i + lowerPositionsAmount] ?? 0) / (upperRangeTotalWeight || 1);
+  const upper = upperWeights.map((w, i): LadderRung => {
+    const share = w / upperTotal;
     return {
-      baseAsset: plan.baseAsset,
-      quoteAsset: plan.quoteAsset,
-      feeBps: plan.feeBps,
-      price,
-      baseReserves: plan.baseLiquidity * weight,
+      index: lowerCount + i,
+      price: anchorPrice + i * upperStep,
+      side: 'sell',
+      baseReserves: plan.baseLiquidity * share,
       quoteReserves: 0,
+      share,
     };
   });
-
-  return plansToRungs([...lowerPositions, ...upperPositions]);
+  return [...lower, ...upper];
 };
 
-const oneSidedRungs = (plan: SimpleLiquidityPlan, side: 'base' | 'quote'): LiquidityRung[] => {
-  // Two regimes, keyed on whether mid sits INSIDE the user's range:
-  //
-  //  - Mid outside [lower, upper]: emit rungs across the FULL range.
-  //    The user has explicitly placed the whole ladder off-mid (bidding
-  //    above market / asking below it). Chain does not enforce a mid;
-  //    arbs may drain such positions, but it is the user's call and the
-  //    validator surfaces an advisory off-mid warning. Clamping here
-  //    used to return [] and read as "amounts too small" on wide-spread
-  //    pairs where the mid is barely meaningful.
-  //
-  //  - Mid inside [lower, upper] (straddle): clamp the funded side to
-  //    its sensible half — base → [mid, upper], quote → [lower, mid].
-  //    Without this a base-only ladder on [0.9, 1.2] with mid 1.0 would
-  //    post asks at 0.9–1.0, i.e. sell base BELOW live market: instant
-  //    arb food, silently. The dropped portion is reported by
-  //    `LPFormStore.offMidWarning` ('partial-straddle').
+const oneSidedLadder = (
+  plan: SimpleLiquidityPlan,
+  side: 'base' | 'quote',
+  custom: number[] | undefined,
+  shape: LiquidityDistributionShape,
+): LadderRung[] => {
+  // Mid inside the range (straddle): only the funded side's half, so a
+  // base-only ladder never sells below market. Mid outside: the whole
+  // range, the trader's explicit off-mid placement (the validator warns).
   const { lowerPrice: lower, upperPrice: upper, marketPrice: mid } = plan;
   const midInRange = mid >= lower && mid <= upper;
   let from = lower;
@@ -585,11 +602,7 @@ const oneSidedRungs = (plan: SimpleLiquidityPlan, side: 'base' | 'quote'): Liqui
   }
   const span = to - from;
   const n = plan.positions;
-  // Also bail on non-finite span or non-finite bounds — a NaN
-  // marketPrice or bound would silently produce NaN prices below and
-  // crash priceToPQ inside BigNumber.toFraction with the cryptic
-  // "n.default is not iterable" destructuring error. Better a
-  // no-op empty plan than a hard crash.
+  // Non-finite bounds or span would put NaN prices into priceToPQ.
   if (
     span <= 0 ||
     n <= 0 ||
@@ -599,54 +612,47 @@ const oneSidedRungs = (plan: SimpleLiquidityPlan, side: 'base' | 'quote'): Liqui
   ) {
     return [];
   }
-
-  // One-sided always uses the volatile / INVERTED_PYRAMID growth (light
-  // near mid, rising to the far edge), regardless of the shape the
-  // trader picked in the form. Concentrated (heavy near mid) on a
-  // one-sided plan empties the near-mid rungs on the first tick and
-  // leaves the LP holding empty positions; volatile keeps inventory
-  // out where it can catch a real swing. FLAT is a valid honest
-  // uniform, but the overlay preview also flips to volatile for one-
-  // sided so the preview matches this path.
-  const nearMidFraction = (i: number) => (n === 1 ? 0 : i / (n - 1));
-  const weightAt = (i: number): number => 0.1 + 0.9 * nearMidFraction(i);
-
-  // 'from' is the mid end for base-side; the low end for quote-side.
-  // Emit rungs left-to-right (ascending price) either way.
-  const midEndIsFrom = side === 'base';
-  const isCustom =
-    plan.distributionShape === LiquidityDistributionShape.CUSTOM && plan.customWeights;
-  const weights = isCustom
-    ? Array.from({ length: n }, (_, priceIdx) => plan.customWeights?.[priceIdx] ?? 0)
-    : Array.from({ length: n }, (_, priceIdx) => {
-        const distFromMidIdx = midEndIsFrom ? priceIdx : n - 1 - priceIdx;
-        return weightAt(distFromMidIdx);
-      });
+  // Asks (base) start at mid; bids (quote) end at mid.
+  const midAtStart = side === 'base';
+  const weights = Array.from({ length: n }, (_, i) =>
+    custom ? Math.max(0, custom[i] ?? 0) : shapeWeight(shape, distanceFromMid(i, n, midAtStart)),
+  );
   const total = weights.reduce((s, w) => s + w, 0) || 1;
   const totalLiq = side === 'base' ? plan.baseLiquidity : plan.quoteLiquidity;
   const step = span / n;
-
-  const built = Array.from({ length: n }, (_, i): PositionPlan => {
-    const price = from + i * step;
-    const share = totalLiq * ((weights[i] ?? 0) / total);
+  return weights.map((w, i): LadderRung => {
+    const share = w / total;
+    // `share` of the funded side, already in that side's display units.
+    const amount = totalLiq * share;
     return {
-      baseAsset: plan.baseAsset,
-      quoteAsset: plan.quoteAsset,
-      feeBps: plan.feeBps,
-      price,
-      // `share` is already in the funded side's display units — no price
-      // conversion. plan.baseLiquidity and plan.quoteLiquidity are each in
-      // their own denomination per SimpleLiquidityPlan; dividing by price
-      // here (as rangeLiquidityPositions does for its quote-denominated
-      // targetLiquidity) would inflate the base reserves by ~1/price.
-      baseReserves: side === 'base' ? share : 0,
-      quoteReserves: side === 'quote' ? share : 0,
+      index: i,
+      price: from + i * step,
+      side: side === 'base' ? 'sell' : 'buy',
+      baseReserves: side === 'base' ? amount : 0,
+      quoteReserves: side === 'quote' ? amount : 0,
+      share,
     };
   });
-  // Same zero-reserve filter as the two-sided path — a thin outer PYRAMID
-  // rung on a small size can truncate to zero and the chain rejects the tx.
-  return plansToRungs(built);
 };
+
+/**
+ * The cheap half of `simpleLiquidityPositions`: rung prices + reserves,
+ * filtered exactly as the built positions would be (a rung that quantises
+ * to nothing is dropped: the chain rejects an empty position).
+ */
+export const simpleLiquidityRungs = (plan: SimpleLiquidityPlan): LiquidityRung[] =>
+  plansToRungs(
+    simpleLiquidityLadder(plan).map(
+      (r): PositionPlan => ({
+        baseAsset: plan.baseAsset,
+        quoteAsset: plan.quoteAsset,
+        feeBps: plan.feeBps,
+        price: r.price,
+        baseReserves: r.baseReserves,
+        quoteReserves: r.quoteReserves,
+      }),
+    ),
+  );
 
 /** A limit order plan attempts to buy or sell the baseAsset at a given price.
  *

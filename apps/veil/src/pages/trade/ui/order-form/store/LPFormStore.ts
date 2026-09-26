@@ -2,10 +2,13 @@ import { scaleLinear } from 'd3-scale';
 import { openToast } from '@penumbra-zone/ui/Toast';
 import { AssetInfo } from '@/pages/trade/model/AssetInfo';
 import {
+  LadderRung,
   LiquidityDistributionShape,
   LiquidityRung,
   PositionedLiquidity,
   rungsToPositions,
+  SimpleLiquidityPlan,
+  simpleLiquidityLadder,
   simpleLiquidityRungs,
 } from '@/shared/math/position';
 import { parseNumber } from '@/shared/utils/num';
@@ -89,6 +92,10 @@ export class LPFormStore {
   // showing no selection at all once the user drags a bar. Null whenever
   // `liquidityShape` is not CUSTOM.
   customBaseShape: LiquidityDistributionShape | null = null;
+  // Whether `customWeights` were drawn on a one-sided or a two-sided ladder.
+  // Their indices only mean the same rungs on the same kind of ladder, so a
+  // switch between the two stops applying them (see `activeCustomWeights`).
+  customSided: 'one' | 'two' | null = null;
 
   /**
    * Fraction of each side's wallet balance the `suggestPosition` helper
@@ -413,7 +420,20 @@ export class LPFormStore {
    * construction and no `crypto.getRandomValues`. See `plan` for the
    * expensive half.
    */
-  get rungs(): LiquidityRung[] | undefined {
+  /** Custom weights, when they were drawn on this kind of ladder (one- or two-sided). */
+  get activeCustomWeights(): number[] | null {
+    if (!this.customWeights) {
+      return null;
+    }
+    return this.customSided === (this.isOneSided ? 'one' : 'two') ? this.customWeights : null;
+  }
+
+  /**
+   * Inputs for the ladder math: the one place rungs, ladder and plan all
+   * read, so the chart preview can't draw a different ladder than the one
+   * that gets opened.
+   */
+  get planInput(): SimpleLiquidityPlan | undefined {
     if (
       !this._baseAsset ||
       !this._quoteAsset ||
@@ -435,7 +455,12 @@ export class LPFormStore {
       return undefined;
     }
 
-    return simpleLiquidityRungs({
+    const custom = this.activeCustomWeights;
+    let shape = this.liquidityShape;
+    if (shape === LiquidityDistributionShape.CUSTOM && !custom) {
+      shape = this.customBaseShape ?? LiquidityDistributionShape.FLAT;
+    }
+    return {
       baseAsset: this._baseAsset,
       quoteAsset: this._quoteAsset,
       baseLiquidity: this.baseLiquidity,
@@ -450,9 +475,23 @@ export class LPFormStore {
       // like 0.5799999999999999. Round to the nearest bp.
       feeBps: Math.round(this.feeTierPercent * 100),
       positions: this.positions,
-      distributionShape: this.liquidityShape,
-      customWeights: this.customWeights ?? undefined,
-    });
+      distributionShape: shape,
+      customWeights: custom ?? undefined,
+    };
+  }
+
+  get rungs(): LiquidityRung[] | undefined {
+    const input = this.planInput;
+    return input ? simpleLiquidityRungs(input) : undefined;
+  }
+
+  /**
+   * Every rung of the ladder (none dropped), with its index, side, reserves
+   * and share of its side: what the chart preview draws and drags.
+   */
+  get ladder(): LadderRung[] | undefined {
+    const input = this.planInput;
+    return input ? simpleLiquidityLadder(input) : undefined;
   }
 
   /**
@@ -502,11 +541,12 @@ export class LPFormStore {
 
   setPositions = (n: number) => {
     const clamped = Math.max(1, Math.min(20, Math.floor(n)));
-    if (this.customWeights && this.customWeights.length !== clamped) {
-      // Drop hand-edited weights whose length no longer matches the new
-      // rung count — safer to fall back to the shape formula than to
-      // truncate / pad an intent the user set at a different N.
-      this.customWeights = null;
+    if (this.customWeights && clamped !== this.positions) {
+      // Hand-drawn weights belong to a ladder with a different rung count.
+      // Leave custom mode properly (back to the shape they were drawn from)
+      // rather than only dropping the weights: that left the button saying
+      // "Custom", hid Reset, and quietly planned Linear.
+      this.clearCustomWeights();
     }
     this.positions = clamped;
   };
@@ -518,6 +558,7 @@ export class LPFormStore {
     if (shape !== LiquidityDistributionShape.CUSTOM) {
       this.customWeights = null;
       this.customBaseShape = null;
+      this.customSided = null;
     }
   };
 
@@ -533,10 +574,13 @@ export class LPFormStore {
     const clamped = Math.max(0, weight);
     // Seed from the current shape so the first drag doesn't wipe every
     // other rung — the user drags one bar, the rest stay where they were.
+    // Seed from the ladder on screen (its per-side shares), so the first
+    // drag changes only the dragged rung and nothing else snaps.
+    const active = this.activeCustomWeights;
     const seed =
-      this.customWeights && this.customWeights.length === n
-        ? [...this.customWeights]
-        : deriveWeightsFromShape(n, this.liquidityShape);
+      active && active.length === n
+        ? [...active]
+        : (this.ladder?.map(r => r.share) ?? Array.from({ length: n }, () => 1));
     seed[index] = clamped;
     // Remember the shape we sculpted FROM the first time only, so repeated
     // drags don't lose the original base.
@@ -544,11 +588,13 @@ export class LPFormStore {
       this.customBaseShape = this.liquidityShape;
     }
     this.customWeights = seed;
+    this.customSided = this.isOneSided ? 'one' : 'two';
     this.liquidityShape = LiquidityDistributionShape.CUSTOM;
   };
 
   clearCustomWeights = () => {
     this.customWeights = null;
+    this.customSided = null;
     // Drop back to whatever shape the overrides were sculpted from.
     if (this.liquidityShape === LiquidityDistributionShape.CUSTOM) {
       this.liquidityShape = this.customBaseShape ?? LiquidityDistributionShape.FLAT;
@@ -676,6 +722,7 @@ export class LPFormStore {
     this.liquidityShape = LiquidityDistributionShape.FLAT;
     this.customWeights = null;
     this.customBaseShape = null;
+    this.customSided = null;
     this.positions = DEFAULT_POSITION_COUNT;
   };
 }
@@ -688,26 +735,3 @@ const sumBy = (rungs: LiquidityRung[], pick: (r: LiquidityRung) => number): numb
   return out;
 };
 
-// Local mirror of the shape → weights fallback used when the user first
-// drags a bar and there's no prior customWeights snapshot. Kept in-store
-// (rather than imported from the math module) so a future decoupling of
-// shape formulas from the preview doesn't require a store change.
-const deriveWeightsFromShape = (
-  n: number,
-  shape: LiquidityDistributionShape,
-): number[] => {
-  if (n <= 0) {return [];}
-  if (n === 1) {return [1];}
-  return Array.from({ length: n }, (_, i) => {
-    const t = i / (n - 1);
-    switch (shape) {
-      case LiquidityDistributionShape.PYRAMID:
-        return 0.1 + 0.9 * (1 - Math.abs(t - 0.5) * 2);
-      case LiquidityDistributionShape.INVERTED_PYRAMID:
-        return Math.abs(t - 0.5) * 2;
-      case LiquidityDistributionShape.FLAT:
-      default:
-        return 1;
-    }
-  });
-};

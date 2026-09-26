@@ -5,6 +5,7 @@ import {
   simpleLiquidityPositions,
   LiquidityDistributionShape,
   getPositionWeights,
+  simpleLiquidityLadder,
 } from './position';
 import { pnum } from '@penumbra-zone/types/pnum';
 import { Position } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
@@ -341,9 +342,7 @@ describe('simpleLiquidityPositions', () => {
       ).length;
       expect(zeroBaseCount).toBe(0);
       positions.forEach(p =>
-        expect(
-          pnum(p.position.reserves?.r2 ?? 0, baseOnly.quoteAsset.exponent).toNumber(),
-        ).toBe(0),
+        expect(pnum(p.position.reserves?.r2 ?? 0, baseOnly.quoteAsset.exponent).toNumber()).toBe(0),
       );
     });
 
@@ -354,27 +353,38 @@ describe('simpleLiquidityPositions', () => {
       });
       expect(positions).toHaveLength(quoteOnly.positions);
       positions.forEach(p =>
-        expect(
-          pnum(p.position.reserves?.r1 ?? 0, quoteOnly.baseAsset.exponent).toNumber(),
-        ).toBe(0),
+        expect(pnum(p.position.reserves?.r1 ?? 0, quoteOnly.baseAsset.exponent).toNumber()).toBe(0),
       );
     });
 
-    // One-sided ladders always use the rising (volatile) growth whatever shape
-    // is picked - light near mid, heavier toward the far edge - so near-mid
-    // rungs aren't emptied on the first tick (see oneSidedRungs).
-    it('base-only ladder rises from mid to upper even when PYRAMID is picked', () => {
-      const positions = simpleLiquidityPositions({
-        ...baseOnly,
-        distributionShape: LiquidityDistributionShape.PYRAMID,
-      });
-      const bases = positions.map(p =>
+    // The chosen shape applies to one-sided ladders too, by distance from mid
+    // (it used to be ignored there: every shape came out as Volatile).
+    const bases = (shape: LiquidityDistributionShape) =>
+      simpleLiquidityPositions({ ...baseOnly, distributionShape: shape }).map(p =>
         pnum(p.position.reserves?.r1 ?? 0, baseOnly.baseAsset.exponent).toNumber(),
       );
-      // strictly increasing (nearest mid rung has the least base)
-      for (let i = 1; i < bases.length; i++) {
-        expect(bases[i]!).toBeGreaterThan(bases[i - 1]!);
+
+    it('base-only Concentrated is heaviest at mid, falling to the edge', () => {
+      const b = bases(LiquidityDistributionShape.PYRAMID);
+      for (let i = 1; i < b.length; i++) {
+        expect(b[i]!).toBeLessThan(b[i - 1]!);
       }
+    });
+
+    it('base-only Volatile is lightest at mid, rising to the edge', () => {
+      const b = bases(LiquidityDistributionShape.INVERTED_PYRAMID);
+      for (let i = 1; i < b.length; i++) {
+        expect(b[i]!).toBeGreaterThan(b[i - 1]!);
+      }
+    });
+
+    it('base-only shapes give different ladders', () => {
+      const flat = bases(LiquidityDistributionShape.FLAT);
+      const conc = bases(LiquidityDistributionShape.PYRAMID);
+      const vol = bases(LiquidityDistributionShape.INVERTED_PYRAMID);
+      expect(conc).not.toEqual(flat);
+      expect(vol).not.toEqual(flat);
+      expect(conc).not.toEqual(vol);
     });
 
     it('base-only reserves sum to baseLiquidity (no price division)', () => {
@@ -628,6 +638,79 @@ describe('simpleLiquidityPositions — every emitted position is chain-acceptabl
       } else {
         expect(price).toBeLessThanOrEqual(1 + 1e-9);
       }
+    });
+  });
+});
+
+describe('simpleLiquidityLadder', () => {
+  const plan = {
+    baseAsset: { id: new AssetId({ inner: new Uint8Array([1]) }), exponent: 6 },
+    quoteAsset: { id: new AssetId({ inner: new Uint8Array([2]) }), exponent: 6 },
+    baseLiquidity: 100,
+    quoteLiquidity: 100,
+    lowerPrice: 0.5,
+    upperPrice: 1.5,
+    marketPrice: 1,
+    feeBps: 30,
+    positions: 6,
+  };
+
+  const sideShares = (rungs: ReturnType<typeof simpleLiquidityLadder>, side: 'buy' | 'sell') =>
+    rungs.filter(r => r.side === side).reduce((s, r) => s + r.share, 0);
+
+  it('returns every rung with its index, and each side sums to 1', () => {
+    const ladder = simpleLiquidityLadder({
+      ...plan,
+      distributionShape: LiquidityDistributionShape.FLAT,
+    });
+    expect(ladder.map(r => r.index)).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(sideShares(ladder, 'buy')).toBeCloseTo(1);
+    expect(sideShares(ladder, 'sell')).toBeCloseTo(1);
+  });
+
+  it('two-sided Concentrated is heaviest at the rungs next to mid on both sides', () => {
+    const ladder = simpleLiquidityLadder({
+      ...plan,
+      distributionShape: LiquidityDistributionShape.PYRAMID,
+    });
+    const bids = ladder.filter(r => r.side === 'buy').map(r => r.quoteReserves);
+    const asks = ladder.filter(r => r.side === 'sell').map(r => r.baseReserves);
+    expect(Math.max(...bids)).toBe(bids[bids.length - 1]); // bid nearest mid
+    expect(Math.max(...asks)).toBe(asks[0]); // ask nearest mid
+  });
+
+  it('shrinking one custom rung rebalances its side: the total stays the same', () => {
+    const flat = simpleLiquidityLadder({
+      ...plan,
+      distributionShape: LiquidityDistributionShape.FLAT,
+    });
+    const weights = flat.map(r => r.share);
+    weights[4] = weights[4]! / 4; // shrink one ask
+    const custom = simpleLiquidityLadder({
+      ...plan,
+      distributionShape: LiquidityDistributionShape.CUSTOM,
+      customWeights: weights,
+    });
+    const askTotal = custom.filter(r => r.side === 'sell').reduce((s, r) => s + r.baseReserves, 0);
+    expect(askTotal).toBeCloseTo(100);
+    // the others on that side grew; the bid side is untouched
+    expect(custom[3]!.baseReserves).toBeGreaterThan(flat[3]!.baseReserves);
+    expect(custom[0]!.quoteReserves).toBeCloseTo(flat[0]!.quoteReserves);
+  });
+
+  it('seeding custom weights from the ladder reproduces it exactly', () => {
+    const vol = simpleLiquidityLadder({
+      ...plan,
+      distributionShape: LiquidityDistributionShape.INVERTED_PYRAMID,
+    });
+    const seeded = simpleLiquidityLadder({
+      ...plan,
+      distributionShape: LiquidityDistributionShape.CUSTOM,
+      customWeights: vol.map(r => r.share),
+    });
+    seeded.forEach((r, i) => {
+      expect(r.baseReserves).toBeCloseTo(vol[i]!.baseReserves);
+      expect(r.quoteReserves).toBeCloseTo(vol[i]!.quoteReserves);
     });
   });
 });

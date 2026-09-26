@@ -49,6 +49,8 @@ interface LpPreviewOverlayProps {
 }
 
 interface Rung {
+  /** Ladder index (the store's customWeights index), not the draw order. */
+  index: number;
   y: number;
   side: 'buy' | 'sell';
   /** Per-rung quantity in normalized units, used for bar width. */
@@ -164,6 +166,12 @@ export const LpPreviewOverlay = observer(
     }
 
     const mid = anchorMid;
+    // The LP form's full ladder, from the same planner that builds the
+    // positions: the preview draws exactly what will be opened (it used to
+    // redo the math, with a different mid, spacing and weights).
+    const ladder = whichForm === 'LP' ? lpForm.ladder : undefined;
+    const ladderRef = useRef(ladder);
+    ladderRef.current = ladder;
 
     const valid =
       isLp &&
@@ -204,6 +212,9 @@ export const LpPreviewOverlay = observer(
       pointerId: number;
       lastCommit: number;
       lastFrac: number | undefined;
+      /** The rung's drawn width and share of its side when the drag began. */
+      startFrac: number;
+      startShare: number;
     } | null>(null);
     // Visual live-drag state so the bar tracks the pointer 1:1 during
     // the commit throttle window; only the live-dragged rung is affected.
@@ -295,7 +306,29 @@ export const LpPreviewOverlay = observer(
         // price put every bar where nothing actually trades, which is why
         // the ladder never lined up with the book.
         const feeFrac = Math.max(0, feePct) / 100;
-        for (let i = 0; i < n; i++) {
+        const planned = ladderRef.current;
+        if (planned) {
+          for (const r of planned) {
+            const buy = r.side === 'buy';
+            const effectivePrice = buy ? r.price * (1 - feeFrac) : r.price * (1 + feeFrac);
+            const y = yAtPrice(effectivePrice);
+            if (y === undefined) {
+              continue;
+            }
+            rungs.push({
+              index: r.index,
+              y,
+              side: r.side,
+              // Quote-equivalent, so bid and ask widths share one axis.
+              qty: buy ? r.quoteReserves : r.baseReserves * r.price,
+              price: r.price,
+              effectivePrice,
+              baseAmount: r.baseReserves,
+              quoteAmount: r.quoteReserves,
+            });
+          }
+        }
+        for (let i = 0; i < (planned ? 0 : n); i++) {
           const price = start + i * step;
           const effectivePrice = price < m ? price * (1 - feeFrac) : price * (1 + feeFrac);
           const y = yAtPrice(effectivePrice);
@@ -305,6 +338,7 @@ export const LpPreviewOverlay = observer(
             // bid: offers quote
             const q = (w / totalWeight) * quoteLiq;
             rungs.push({
+              index: i,
               y,
               side: 'buy',
               qty: q,
@@ -318,6 +352,7 @@ export const LpPreviewOverlay = observer(
             // bar widths share a comparable axis on the overlay.
             const b = (w / totalWeight) * baseLiq;
             rungs.push({
+              index: i,
               y,
               side: 'sell',
               qty: b * price,
@@ -371,6 +406,12 @@ export const LpPreviewOverlay = observer(
       midRef.current = mid;
       recomputeRef.current?.();
     }, [mid]);
+
+    // Redraw when the planned ladder changes (a rung drag, a shape change,
+    // the reference price) without rebuilding the redraw subscription.
+    useEffect(() => {
+      recomputeRef.current?.();
+    }, [ladder]);
 
     if (!pos) {return null;}
 
@@ -481,14 +522,21 @@ export const LpPreviewOverlay = observer(
     // per-rung setter and its liquidityTarget is a single number, not a
     // vector. State declared above the early return; handlers below are
     // plain functions that close over those refs.
+    // The new weight is the rung's starting share scaled by how much wider or
+    // narrower it is now drawn than when the drag began. Weights are
+    // normalised per side, so the rung takes that much of its side and the
+    // others on the side give way (the side's total doesn't change). It used
+    // to save the pointer's x (0..1.5 of the width) as the weight, which
+    // changed the rung on a mere click whenever its bar wasn't already that
+    // exact width.
     const commitRungWeight = (index: number, frac: number) => {
-      if (whichForm !== 'LP') {return;}
-      const clamped = Math.max(0, Math.min(1.5, frac));
-      lpForm.setCustomWeight(index, clamped);
+      const state = rungDragRef.current;
+      if (whichForm !== 'LP' || !state || state.startFrac <= 0) {return;}
+      lpForm.setCustomWeight(index, Math.max(0, state.startShare * (frac / state.startFrac)));
     };
 
     const onRungPointerDown =
-      (index: number) => (ev: React.PointerEvent<HTMLDivElement>) => {
+      (index: number, startFrac: number) => (ev: React.PointerEvent<HTMLDivElement>) => {
         if (whichForm !== 'LP') {return;}
         if (ev.button !== 0) {return;}
         const target = ev.currentTarget;
@@ -508,9 +556,11 @@ export const LpPreviewOverlay = observer(
           pointerId: ev.pointerId,
           lastCommit: 0,
           lastFrac: frac,
+          startFrac,
+          startShare: ladder?.find(r => r.index === index)?.share ?? 0,
         };
-        setRungDrag({ index, frac });
-        commitRungWeight(index, frac);
+        // No commit here: a click that doesn't move changes nothing.
+        setRungDrag({ index, frac: startFrac });
         ev.preventDefault();
         ev.stopPropagation();
       };
@@ -625,8 +675,8 @@ export const LpPreviewOverlay = observer(
             the right end so the user can pull it longer/shorter to
             over-ride the shape formula (flips liquidityShape to CUSTOM
             on first drag). */}
-        {pos.rungs.map((r, i) => {
-          const isDraggingThis = rungDrag?.index === i;
+        {pos.rungs.map(r => {
+          const isDraggingThis = rungDrag?.index === r.index;
           const naturalFrac = r.qty > 0 ? Math.max(MIN_BAR_FRAC, r.qty / maxQty) : 0;
           // While dragging this rung, the visible width follows the pointer
           // (rungDrag.frac). Its per-rung amount is a linear scale of the
@@ -635,9 +685,10 @@ export const LpPreviewOverlay = observer(
           const widthFrac = isDraggingThis
             ? Math.max(MIN_BAR_FRAC, rungDrag.frac)
             : naturalFrac;
-          const scale = isDraggingThis && naturalFrac > 0 ? widthFrac / naturalFrac : 1;
-          const liveBase = r.baseAmount * scale;
-          const liveQuote = r.quoteAmount * scale;
+          // The label shows the committed amount: commits rebalance the side
+          // live during the drag, so every rung's label is the real figure.
+          const liveBase = r.baseAmount;
+          const liveQuote = r.quoteAmount;
           const draggable = whichForm === 'LP';
           const liveAmt = r.side === 'buy' ? liveQuote : liveBase;
           const liveSym = r.side === 'buy' ? quoteSym : baseSym;
@@ -648,7 +699,7 @@ export const LpPreviewOverlay = observer(
           const showLabel = liveAmt > 0;
           const label = showLabel ? `${formatRungAmount(liveAmt)} ${liveSym}` : '';
           return (
-            <div key={i}>
+            <div key={r.index}>
               <div
                 className='absolute'
                 style={{
@@ -707,7 +758,7 @@ export const LpPreviewOverlay = observer(
               {draggable && (
                 <div
                   role='slider'
-                  aria-label={`Rung ${i + 1} allocation`}
+                  aria-label={`Rung ${r.index + 1} allocation`}
                   className='pointer-events-auto absolute'
                   style={{
                     left: `calc((100% - 56px) * ${widthFrac} - ${BAR_HANDLE_WIDTH / 2}px)`,
@@ -717,7 +768,7 @@ export const LpPreviewOverlay = observer(
                     cursor: 'ew-resize',
                     touchAction: 'none',
                   }}
-                  onPointerDown={onRungPointerDown(i)}
+                  onPointerDown={onRungPointerDown(r.index, naturalFrac)}
                   onPointerMove={onRungPointerMove}
                   onPointerUp={onRungPointerUp}
                   onPointerCancel={onRungPointerUp}
