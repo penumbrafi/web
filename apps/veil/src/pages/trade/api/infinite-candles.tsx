@@ -23,6 +23,13 @@ export const useInfiniteCandles = (durationWindow: DurationWindow, linearTime = 
     initialPageParam: 1,
     placeholderData: keepPreviousData,
     getNextPageParam: (lastPage, _, lastPageParam) => {
+      // 1b is a live view: the server serves only the recent ~15-minute
+      // window (an idle block stores nothing, so there is no archive), which
+      // means scrolling back has nothing to fetch. Every other window pages
+      // through pindexer's stored buckets normally.
+      if (durationWindow === '1b') {
+        return undefined;
+      }
       return lastPage.length ? (lastPageParam as number) + 1 : undefined;
     },
     queryFn: async ({ pageParam }): Promise<CandleWithVolume[]> => {

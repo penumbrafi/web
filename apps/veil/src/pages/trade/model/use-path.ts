@@ -1,4 +1,5 @@
 import { useAssets } from '@/shared/api/assets';
+import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useMemo } from 'react';
 
@@ -20,8 +21,15 @@ export const usePathSymbols = () => {
   return { baseSymbol: params.baseSymbol, quoteSymbol: params.quoteSymbol };
 };
 
+export interface PathAssetMetadata {
+  baseSymbol: string;
+  quoteSymbol: string;
+  baseAsset: Metadata | undefined;
+  quoteAsset: Metadata | undefined;
+}
+
 // Converts symbol to Metadata
-export const usePathToMetadata = () => {
+export const usePathToMetadata = (): PathAssetMetadata => {
   const { data } = useAssets();
   const { baseSymbol, quoteSymbol } = usePathSymbols();
 

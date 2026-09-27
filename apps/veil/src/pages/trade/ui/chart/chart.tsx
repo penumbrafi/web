@@ -37,7 +37,7 @@ import { OwnPositionsDragOverlay } from './own-positions-drag-overlay';
 import { LimitPreviewOverlay } from './limit-preview-overlay';
 import { useOwnPositionLines } from './use-own-position-lines';
 import { OwnFillsOverlay } from './own-fills-overlay';
-import { usePathSymbols } from '../../model/use-path';
+import { usePathSymbols, usePathToMetadata } from '../../model/use-path';
 import { useDrawings } from './drawings/use-drawings';
 import { DrawingToolbar } from './drawings/toolbar';
 import { DrawingsOverlay } from './drawings/drawings-overlay';
@@ -51,6 +51,8 @@ import { usePriceAlerts } from './alerts/use-price-alerts';
 import { AlertsOverlay } from './alerts/alerts-overlay';
 import { useAlertWatcher } from './alerts/use-alert-watcher';
 import { AlertsMenu } from './alerts/alerts-menu';
+import { subscribeToNewBlocks, COMETBFT_WS_URL } from '@/shared/cometbft/subscribe-new-blocks';
+import { dexTracesToCandle } from '@/shared/cometbft/dex-block-candles';
 
 // theme.ts exports a typing stub, so theme.color.primary.main resolves to ''
 // at runtime. Use the actual hex from theme.css for SVG strokes/fills that
@@ -674,6 +676,72 @@ export const Chart = observer(() => {
     updateLatestCandles,
     updateLatestVolumes,
   ]);
+
+  // `1b` only: draw the in-progress block from local state, so the chart keeps
+  // advancing at the chain's block rhythm even when pindexer's tick is late or
+  // its stream is down (which is the one failure mode where the windowed
+  // chart has nothing to show, since nothing is gap-filled server-side for
+  // block candles).
+  //
+  // Each new block appends a flat bar at the current mid with no volume, at
+  // the block header time. The route's real candle for that height carries the
+  // same header time, so it replaces this bar in place on the next tick, and
+  // the following block just appends the next one. The mid is read through a
+  // ref: listing marketPrice as a dep would tear the websocket down on every
+  // block, and a replayed NewBlock event is dropped as a stale bar by
+  // updateLatestCandles.
+  const midRef = useRef<number | undefined>(undefined);
+  midRef.current =
+    marketPrice != null && Number.isFinite(marketPrice) && marketPrice > 0
+      ? marketPrice
+      : midRef.current;
+  // Metadata for the traded pair, for turning the block's raw swap traces
+  // into a display-priced bar. Held in a ref for the same reason as the mid:
+  // the registry resolves asynchronously, and listing it as a dep would tear
+  // the subscription down and back up every time it settled.
+  const pairMetadata = usePathToMetadata();
+  const pairMetadataRef = useRef(pairMetadata);
+  pairMetadataRef.current = pairMetadata;
+  useEffect(() => {
+    if (duration !== '1b' || !chartReady) {
+      return;
+    }
+    return subscribeToNewBlocks({
+      url: COMETBFT_WS_URL,
+      onBlock: block => {
+        const mid = midRef.current;
+        const time = Math.floor(new Date(block.time).getTime() / 1000);
+        if (mid === undefined || !Number.isFinite(time)) {
+          return;
+        }
+        const bar = [
+          {
+            ohlc: { time, open: mid, high: mid, low: mid, close: mid },
+            volume: 0,
+          },
+        ] as Parameters<typeof setCandlesData>[0];
+        updateLatestCandles(bar);
+        updateLatestVolumes(bar);
+      },
+      // The chain emitted the block's swaps with the block itself, so the bar
+      // for this pair is drawn from the same numbers pindexer will index a
+      // moment later - no refetch round-trip. `updateLatestCandles` treats a
+      // bar at the current last time as an in-place update, so this replaces
+      // the mid bar pushed just above within the same tick.
+      onDex: ({ time, traces }) => {
+        const { baseAsset, quoteAsset } = pairMetadataRef.current;
+        if (!baseAsset || !quoteAsset) {
+          return;
+        }
+        const bar = dexTracesToCandle(traces, time, baseAsset, quoteAsset);
+        if (!bar) {
+          return;
+        }
+        updateLatestCandles([bar]);
+        updateLatestVolumes([bar]);
+      },
+    });
+  }, [duration, chartReady, updateLatestCandles, updateLatestVolumes]);
 
   // A pair with no trades yet returns pages=[[]] (one page, empty
   // array), not pages=[]. Detect "actual candles present" instead of

@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { UTCTimestamp } from 'lightweight-charts';
 import { getCachedRegistry } from '@/shared/api/fetch-registry';
-import { AssetId } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
+import { AssetId, Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { DurationWindow, durationWindows, isDurationWindow } from '@/shared/utils/duration.ts';
-import { combineDbCandles, insertEmptyCandles } from '@/shared/api/server/candles/utils.ts';
+import {
+  combineDbCandles,
+  insertEmptyCandles,
+  mergeBlockCandles,
+} from '@/shared/api/server/candles/utils.ts';
 import { CandleApiResponse, DbCandle } from '@/shared/api/server/candles/types.ts';
 import { pindexerDb } from '@/shared/database/client';
+import { pindexer } from '@/shared/database';
 import { withApiFallback, withTimeout, DEFAULT_TIMEOUT_MS } from '@/shared/api/server/with-api-fallback.ts';
 
 const MAINNET_CHAIN_ID = 'penumbra-1';
@@ -105,6 +110,60 @@ export const GET = withApiFallback(handleGet, {
   logTag: 'candles',
 });
 
+/**
+ * Cap on the `1b` backfill window: ~15 minutes of 6-second blocks. Nothing is
+ * stored for these candles (they are aggregated on demand), and an idle block
+ * has no row at all, so there is no archive to walk back through — the live
+ * edge comes from the client's own block stream.
+ */
+const BLOCK_CANDLE_WINDOW_BLOCKS = 150;
+
+/**
+ * `1b`: one candle per chain block.
+ *
+ * pindexer's `dex_ex_price_charts` only carries wall-clock windows (1m at the
+ * finest), so a block series is aggregated on demand from
+ * `dex_ex_batch_swap_traces`, which is keyed by height. Nothing is gap- or
+ * tail-filled: an idle block produced no trades, and a block's timestamp gives
+ * no wall-clock step to walk towards "now". The chart instead draws the
+ * in-progress block from local state (block header time + current mid) and
+ * this route's candle for that height replaces it in place once pindexer
+ * commits the block. Only the most recent `BLOCK_CANDLE_WINDOW_BLOCKS` are
+ * served (no pagination): older blocks are not a chart concern.
+ */
+const getBlockCandles = async ({
+  base,
+  quote,
+  baseMetadata,
+  quoteMetadata,
+  limit,
+  since,
+}: {
+  base: AssetId;
+  quote: AssetId;
+  baseMetadata: Metadata;
+  quoteMetadata: Metadata;
+  limit?: number;
+  since?: Date;
+}): Promise<CandleApiResponse> => {
+  const heights = await withTimeout(
+    pindexer.blockCandleHeights(base, quote, { limit, offset: 0, since }),
+    DEFAULT_TIMEOUT_MS,
+    'candles pindexer block heights',
+  );
+  // Both directions are fetched for the exact same heights, then merged.
+  const [forwardRows, reverseRows] = await withTimeout(
+    Promise.all([
+      pindexer.blockCandles(base, quote, heights),
+      pindexer.blockCandles(quote, base, heights),
+    ]),
+    DEFAULT_TIMEOUT_MS,
+    'candles pindexer block candles',
+  );
+
+  return mergeBlockCandles(forwardRows, reverseRows, baseMetadata, quoteMetadata);
+};
+
 async function handleGet(req: NextRequest): Promise<NextResponse<CandleApiResponse>> {
   const grpcEndpoint =
     process.env['PENUMBRA_GRPC_ENDPOINT_INTERNAL'] ?? process.env['PENUMBRA_GRPC_ENDPOINT'];
@@ -158,6 +217,32 @@ async function handleGet(req: NextRequest): Promise<NextResponse<CandleApiRespon
       { error: `Base asset or quoteAsset asset ids not found in registry` },
       { status: 400 },
     );
+  }
+
+  // Block candles come from a per-height aggregate, not from the windowed
+  // chart table, and are never filled — see getBlockCandles. Their times are
+  // block header times, so a `1b` response has no wall-clock grid at all.
+  if (durationWindow === '1b') {
+    // 1b is a live view, not an archive: the chart's live edge is drawn from
+    // the block stream client-side, so this branch only paints the recent
+    // past on load. Serve the last ~15 minutes and refuse to page deeper —
+    // there is no stored per-block history to page into (an idle block has
+    // no row at all).
+    if (page !== undefined && page > 1) {
+      return NextResponse.json(
+        { error: '1b candles serve only the most recent blocks; there is no older history' },
+        { status: 400 },
+      );
+    }
+    const blockCandles = await getBlockCandles({
+      base: baseAssetMetadata.penumbraAssetId,
+      quote: quoteAssetMetadata.penumbraAssetId,
+      baseMetadata: baseAssetMetadata,
+      quoteMetadata: quoteAssetMetadata,
+      limit: Math.min(limit ?? BLOCK_CANDLE_WINDOW_BLOCKS, BLOCK_CANDLE_WINDOW_BLOCKS),
+      since: chainId === MAINNET_CHAIN_ID ? new Date('2024-08-06') : undefined,
+    });
+    return NextResponse.json(blockCandles);
   }
 
   // Two-step: first take the distinct start_times to fetch this page (a

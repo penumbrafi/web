@@ -1,6 +1,9 @@
 import { OhlcData, UTCTimestamp } from 'lightweight-charts';
 import type { DbCandle } from '@/shared/api/server/candles/types.ts';
-import { addDurationWindow, DurationWindow } from '@/shared/utils/duration.ts';
+// Type-only: keeps the database module (which opens a Pool on load) out of this
+// module's runtime graph.
+import type { BlockCandleRow } from '@/shared/database/index.ts';
+import { addDurationWindow, WallClockWindow } from '@/shared/utils/duration.ts';
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { getDisplayDenomExponent } from '@penumbra-zone/getters/metadata';
 import { calculateDisplayPrice } from '@/shared/utils/price-conversion.ts';
@@ -149,8 +152,45 @@ const flatCandle = (time: UTCTimestamp, price: number): CandleWithVolume => ({
   directVolume: 0,
 });
 
-const nextBucket = (window: DurationWindow, time: UTCTimestamp): UTCTimestamp =>
+const nextBucket = (window: WallClockWindow, time: UTCTimestamp): UTCTimestamp =>
   (addDurationWindow(window, new Date(time * 1000)).getTime() / 1000) as UTCTimestamp;
+
+/**
+ * Merge a page of per-height rows from both trade directions into candles.
+ * Both sides were fetched for the same heights, so merging cannot interleave
+ * two pages (the failure mode the wall-clock path avoids by unioning bucket
+ * times before paginating), and a height with rows in only one direction
+ * still yields a candle. Sorted by time ascending, which is the order the
+ * chart expects.
+ */
+export const mergeBlockCandles = (
+  forwardRows: BlockCandleRow[],
+  reverseRows: BlockCandleRow[],
+  base: Metadata,
+  quote: Metadata,
+): CandleWithVolume[] => {
+  const byHeight = new Map<number, { time: number; fwd?: BlockCandleRow; rev?: BlockCandleRow }>();
+  for (const row of forwardRows) {
+    const slot = byHeight.get(row.height);
+    if (slot) {
+      slot.fwd = row;
+    } else {
+      byHeight.set(row.height, { time: row.start_time.getTime(), fwd: row });
+    }
+  }
+  for (const row of reverseRows) {
+    const slot = byHeight.get(row.height);
+    if (slot) {
+      slot.rev = row;
+    } else {
+      byHeight.set(row.height, { time: row.start_time.getTime(), rev: row });
+    }
+  }
+
+  return Array.from(byHeight.values())
+    .sort((a, b) => a.time - b.time)
+    .map(({ fwd, rev }) => combineDbCandles(fwd, rev, base, quote));
+};
 
 /**
  * Insert empty candles so that every timestamp as one candle.
@@ -164,7 +204,7 @@ const nextBucket = (window: DurationWindow, time: UTCTimestamp): UTCTimestamp =>
  * hole at every page boundary and a dangling tail on the newest page.
  */
 export const insertEmptyCandles = (
-  window: DurationWindow,
+  window: WallClockWindow,
   data: CandleWithVolume[],
   fillTo?: UTCTimestamp,
 ): CandleWithVolume[] => {

@@ -44,6 +44,32 @@ export interface PositionStatsRow {
   fees_2: string;
 }
 
+/**
+ * One candle per chain block, for a single trade direction. Deliberately the
+ * same shape as a `dex_ex_price_charts` row (`DbCandle`) plus the height it
+ * was aggregated from, so `combineDbCandles` can merge a forward and a
+ * reverse row without knowing which table they came from.
+ *
+ * Conventions (all inherited from the traces table, which is the only
+ * per-block source pindexer exposes):
+ *  - `start_time` is the earliest execution time recorded at that height,
+ *  - OHLC are `price_float`, i.e. atomic `asset_end` per atomic
+ *    `asset_start` — the same orientation `combineDbCandles` expects from the
+ *    chart rows,
+ *  - `swap_volume` is the `asset_end` amount moved (`output`),
+ *  - `direct_volume` is the same, restricted to swaps with no routing hops.
+ */
+export interface BlockCandleRow {
+  height: number;
+  start_time: Date;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  swap_volume: number;
+  direct_volume: number;
+}
+
 class Pindexer {
   private db: Kysely<DB>;
 
@@ -333,6 +359,91 @@ class Pindexer {
       .orderBy('time', 'desc')
       .orderBy('rowid', 'asc') // Secondary sort by ID to maintain order within the same time frame
       .limit(amount)
+      .execute();
+  }
+
+  /**
+   * Distinct block heights with at least one batch swap on this pair, newest
+   * first, paged. Both directions are unioned before pagination for the same
+   * reason `getPagedBucketTimes` unions bucket times: paginating each
+   * direction separately lets a sparser direction's page reach further back
+   * than the denser one's, and the merged page stops being a contiguous slice
+   * of the pair's history.
+   */
+  async blockCandleHeights(
+    base: AssetId,
+    quote: AssetId,
+    { limit, offset, since }: { limit?: number; offset?: number; since?: Date } = {},
+  ): Promise<number[]> {
+    const forward = this.db
+      .selectFrom('dex_ex_batch_swap_traces')
+      .select('height')
+      .where('asset_start', '=', Buffer.from(base.inner))
+      .where('asset_end', '=', Buffer.from(quote.inner))
+      // Same price filter as `blockCandles`, so a page of heights yields
+      // exactly as many candles: a height whose only traces carry a
+      // non-positive price produces no candle at all.
+      .where('price_float', '>', 0)
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- Kysely limitation: `$if` callbacks do not preserve narrowing
+      .$if(since !== undefined, qb => qb.where('time', '>=', since!));
+    const reverse = this.db
+      .selectFrom('dex_ex_batch_swap_traces')
+      .select('height')
+      .where('asset_start', '=', Buffer.from(quote.inner))
+      .where('asset_end', '=', Buffer.from(base.inner))
+      .where('price_float', '>', 0)
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- Kysely limitation: `$if` callbacks do not preserve narrowing
+      .$if(since !== undefined, qb => qb.where('time', '>=', since!));
+
+    const rows = await this.db
+      .selectFrom(forward.union(reverse).as('u'))
+      .select('height')
+      .distinct()
+      .orderBy('height', 'desc')
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- Kysely limitation
+      .$if(limit !== undefined, qb => qb.limit(limit!))
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- Kysely limitation
+      .$if(offset !== undefined && offset > 0, qb => qb.offset(offset!))
+      .execute();
+
+    return rows.map(r => r.height);
+  }
+
+  /**
+   * Per-block OHLC + volume for an explicit set of heights, one row per height
+   * for a single direction. Traces with a non-positive `price_float` are
+   * skipped: they carry no price signal, and a zero would drag the chart's
+   * y-axis down to zero for the whole visible range.
+   */
+  async blockCandles(
+    assetStart: AssetId,
+    assetEnd: AssetId,
+    heights: number[],
+  ): Promise<BlockCandleRow[]> {
+    if (heights.length === 0) {
+      return [];
+    }
+    return this.db
+      .selectFrom('dex_ex_batch_swap_traces')
+      .select('height')
+      .select(sql<Date>`min(time)`.as('start_time'))
+      // `rowid` is insertion order, which is execution order within a block —
+      // the same assumption `recentExecutions` relies on for its ordering.
+      .select(sql<number>`(array_agg(price_float ORDER BY rowid))[1]`.as('open'))
+      .select(sql<number>`(array_agg(price_float ORDER BY rowid DESC))[1]`.as('close'))
+      .select(sql<number>`max(price_float)`.as('high'))
+      .select(sql<number>`min(price_float)`.as('low'))
+      .select(sql<number>`sum(output)::float8`.as('swap_volume'))
+      .select(
+        sql<number>`(sum(output) FILTER (WHERE COALESCE(array_length(asset_hops, 1), 0) = 0))::float8`.as(
+          'direct_volume',
+        ),
+      )
+      .where('asset_start', '=', Buffer.from(assetStart.inner))
+      .where('asset_end', '=', Buffer.from(assetEnd.inner))
+      .where('price_float', '>', 0)
+      .where('height', 'in', heights)
+      .groupBy('height')
       .execute();
   }
 

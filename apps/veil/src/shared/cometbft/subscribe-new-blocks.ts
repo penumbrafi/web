@@ -1,5 +1,11 @@
 'use client';
 
+import {
+  parseDexTraces,
+  type CometbftAbciEvent,
+  type CometbftDexTrace,
+} from '@/shared/cometbft/dex-block-candles';
+
 /**
  * Subscribe to NewBlock events directly from a CometBFT RPC WebSocket.
  *
@@ -22,9 +28,33 @@ export interface CometbftNewBlock {
   txCount: number;
 }
 
+/**
+ * Public CometBFT RPC WebSocket. Every consumer that wants new-block events
+ * subscribes here rather than through an indexer, so live updates survive an
+ * indexer outage.
+ */
+export const COMETBFT_WS_URL =
+  process.env['NEXT_PUBLIC_COMETBFT_WS_URL'] ?? 'wss://penumbra.rotko.net/websocket';
+
+/**
+ * Per-block dex payload: every position's swap trace in the block, as the
+ * chain itself emitted them. Consumers that only care about the header skip
+ * the parse by leaving `onDex` unset.
+ */
+export interface CometbftDexBlock {
+  height: number;
+  time: string;
+  traces: CometbftDexTrace[];
+}
+
 interface SubscribeOptions {
   url: string;
   onBlock: (block: CometbftNewBlock) => void;
+  /**
+   * Called with the block's swap traces after `onBlock` (never with an empty
+   * list, so consumers don't have to filter idle blocks themselves).
+   */
+  onDex?: (dex: CometbftDexBlock) => void;
   onError?: (err: unknown) => void;
 }
 
@@ -43,12 +73,20 @@ interface NewBlockMessage {
           header?: { height?: string | number; time?: string };
           data?: { txs?: unknown };
         };
+        result_end_block?: {
+          events?: CometbftAbciEvent[];
+        };
       };
     };
   };
 }
 
-export const subscribeToNewBlocks = ({ url, onBlock, onError }: SubscribeOptions): (() => void) => {
+export const subscribeToNewBlocks = ({
+  url,
+  onBlock,
+  onDex,
+  onError,
+}: SubscribeOptions): (() => void) => {
   let ws: WebSocket | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let attempt = 0;
@@ -97,11 +135,18 @@ export const subscribeToNewBlocks = ({ url, onBlock, onError }: SubscribeOptions
           return;
         }
         const txs = msg.result?.data?.value?.block?.data?.txs ?? [];
-        onBlock({
+        const block = {
           height: Number(header.height),
           time: String(header.time),
           txCount: Array.isArray(txs) ? txs.length : 0,
-        });
+        };
+        onBlock(block);
+        if (onDex) {
+          const traces = parseDexTraces(msg.result?.data?.value?.result_end_block?.events);
+          if (traces.length) {
+            onDex({ height: block.height, time: block.time, traces });
+          }
+        }
       } catch (err) {
         onError?.(err);
       }
