@@ -28,7 +28,7 @@ const fmtCount = (n: number) => {
  * UM tokenomics page. Mixes educational copy with live pindexer data:
  *
  *   Hero          → 24h DEX volume, trades, total burned
- *   HeadlineStats → supply, %staked, annualized issuance, total burned
+ *   HeadlineStats → supply, %staked, realized inflation, total burned
  *   IssuancePanel → 90d annualized inflation chart
  *   BurnPanel     → daily arb vs fee burns chart
  *   SupplyComposition → staked vs unstaked stacked-area over 90d

@@ -29,7 +29,7 @@ import {
 export const dynamic = 'force-dynamic';
 
 /** ?sort= values the validator table understands; anything else is ignored. */
-const SORT_KEYS = ['commission', 'growth30d', 'growth7d', 'name', 'power', 'uptime'] as const;
+const SORT_KEYS = ['apy', 'commission', 'growth30d', 'growth7d', 'name', 'power', 'uptime'] as const;
 
 // Progressive-refinement chart loader. Awaits the cheap coarse-step query
 // (always returns within ~150ms even for 2y) and kicks the denser query as

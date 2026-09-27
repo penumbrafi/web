@@ -6,10 +6,12 @@ import { ValidatorTable } from '@/pages/inspect/explorer/components'
 import { getValidators } from '@/pages/inspect/explorer/lib/data'
 import { ValidatorStateFilter } from '@/pages/inspect/explorer/lib/graphql/generated/types'
 import { fetchValidatorStakeDeltas } from '@/pages/inspect/explorer/server/validator-stake-deltas'
+import { fetchValidatorYieldBoard } from '@/pages/inspect/explorer/server/validator-yields'
+import { ValidatorYieldSummary } from '@/pages/inspect/explorer/ui/validator-yield-summary'
 import type { Props } from './validatorTableContainer'
 
 const ValidatorTableLoader: FC<Props> = async props => {
-    const [validators, deltas] = await Promise.all([
+    const [validators, deltas, yieldBoard] = await Promise.all([
         getValidators({
             state: props.inactive
                 ? ValidatorStateFilter.Inactive
@@ -20,6 +22,11 @@ const ValidatorTableLoader: FC<Props> = async props => {
             console.warn('[validators] stake deltas unavailable', err)
             return new Map<string, never>()
         }),
+        // Stake endpoint or pindexer down -> APY cells render as "—", not a dead table
+        fetchValidatorYieldBoard().catch((err: unknown) => {
+            console.warn('[validators] validator yields unavailable', err)
+            return null
+        }),
     ])
 
     if (!validators) {
@@ -28,6 +35,7 @@ const ValidatorTableLoader: FC<Props> = async props => {
 
     const enriched = validators.map(v => {
         const d = deltas.get(v.id)
+        const y = yieldBoard?.byKey[v.id]
         return {
             ...v,
             stakeDelta7d: d?.delta7d ?? 0,
@@ -35,6 +43,11 @@ const ValidatorTableLoader: FC<Props> = async props => {
             // supply_total_staked updates per-block; votingPower only at epoch boundaries.
             // Leave undefined when unknown so the display falls back to votingPower.
             currentStake: d && d.current !== 0 ? d.current : undefined,
+            // The board covers the whole validator set: outside the active set
+            // the yield is a real 0, not an unknown.
+            netApyPct: y?.netApyPct,
+            realYieldPct: y?.realYieldPct,
+            realizedApyPct: y?.realizedApyPct,
         }
     })
 
@@ -44,6 +57,14 @@ const ValidatorTableLoader: FC<Props> = async props => {
     return (
         <ValidatorTable
             {...props}
+            header={
+                <div className="flex flex-col gap-4">
+                    {props.header}
+                    {!props.inactive && (
+                        <ValidatorYieldSummary board={yieldBoard} />
+                    )}
+                </div>
+            }
             footer={
                 <span className="flex items-center gap-2 text-sm text-text-secondary">
                     <span>

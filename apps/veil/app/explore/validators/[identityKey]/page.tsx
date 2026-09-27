@@ -9,6 +9,7 @@ import {
   ValidatorVotingPercentagePanelContainer,
   ValidatorVotingPowerHistoryContainer,
   ValidatorVotingPowerPanelContainer,
+  ValidatorYieldPanelContainer,
 } from '@/pages/inspect/explorer/containers';
 import { fetchValidatorStakeHistory } from '@/pages/inspect/explorer/server/validator-stake-history';
 import { fetchValidatorSlashings } from '@/pages/inspect/explorer/server/validator-slashings';
@@ -78,6 +79,13 @@ const ValidatorDetailPage: FC<Props> = async props => {
             'lg:row-start-1!',
           )}
           validatorId={identityKey}
+        />
+        <ValidatorYieldPanelContainer
+          validatorId={identityKey}
+          className={classNames(
+            'col-span-12 md:col-span-7 md:col-start-6',
+            'lg:col-span-8! lg:col-start-5!',
+          )}
         />
         <ValidatorStakeActions
           validatorId={identityKey}

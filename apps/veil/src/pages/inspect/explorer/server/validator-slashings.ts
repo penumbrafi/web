@@ -2,6 +2,7 @@
 
 import { sql } from 'kysely';
 import { pindexerDb } from '@/shared/database/client';
+import { degrade } from './degrade';
 
 export interface ValidatorSlashing {
   height: number;
@@ -40,7 +41,13 @@ export async function fetchValidatorSlashings(
     WHERE s.ik = ${identityKey}
     ORDER BY s.height DESC
     LIMIT ${limit}
-  `.execute(pindexerDb);
+  `
+    .execute(pindexerDb)
+    .catch(degrade('slashings', null));
+
+  if (!result) {
+    return [];
+  }
 
   return result.rows.map(r => ({
     height: Number(r.height),

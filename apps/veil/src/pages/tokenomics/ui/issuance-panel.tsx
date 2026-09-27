@@ -27,7 +27,9 @@ const fmtDate = (d: string) =>
 
 const InflationTooltip = ({ active, payload, label }: ChartTooltipProps) => {
   const p = payload?.[0];
-  if (!active || !p) {return null;}
+  if (!active || !p) {
+    return null;
+  }
   return (
     <div className='rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm shadow-lg'>
       <div className='text-text-secondary'>{fmtDate(String(label ?? ''))}</div>
@@ -44,26 +46,21 @@ interface Props {
 }
 
 const fmtM = (um: number) =>
-  um >= 1_000_000
-    ? `${(um / 1_000_000).toFixed(2)}M UM`
-    : `${(um / 1_000).toFixed(0)}K UM`;
+  um >= 1_000_000 ? `${(um / 1_000_000).toFixed(2)}M UM` : `${(um / 1_000).toFixed(0)}K UM`;
 
-const lqtIssuanceText = (metrics: TokenomicsMetrics): string => {
-  if (metrics.lqtIssuanceAnnualUM === null) {
+const lqtIncentiveText = (metrics: TokenomicsMetrics): string => {
+  if (metrics.lqtIncentiveAnnualUM === null) {
     return '—';
   }
-  if (metrics.lqtIssuanceAnnualUM > 0 && metrics.lqtEndBlock) {
-    return `${fmtM(metrics.lqtIssuanceAnnualUM)}/yr, ends block ${metrics.lqtEndBlock.toLocaleString('en-US')}`;
+  if (metrics.lqtIncentiveAnnualUM > 0 && metrics.lqtEndBlock) {
+    return `${fmtM(metrics.lqtIncentiveAnnualUM)}/yr from the pool, ends block ${metrics.lqtEndBlock.toLocaleString('en-US')}`;
   }
   return 'ended';
 };
 
 export const IssuancePanel = ({ metrics, inflation }: Props) => {
   const [win, setWin] = useState<Window>('1y');
-  const windowDays = useMemo(
-    () => WINDOWS.find(w => w.value === win)?.days ?? null,
-    [win],
-  );
+  const windowDays = useMemo(() => WINDOWS.find(w => w.value === win)?.days ?? null, [win]);
   const filteredInflation = useMemo(
     () => sliceByWindow(inflation, windowDays),
     [inflation, windowDays],
@@ -87,31 +84,57 @@ export const IssuancePanel = ({ metrics, inflation }: Props) => {
     rangeLabel = '30-day';
   }
   const issuedSinceGenesis = Math.max(0, metrics.totalSupply - metrics.genesisAllocation);
+  // Yield figures quoted in the prose below come from the same metrics the
+  // cards render, so the two can never drift apart.
+  const apyText = metrics.stakingApyPct === null ? '—' : fmtPct(metrics.stakingApyPct, 1);
+  // Realized (net of commission) numbers, straight off the chain's
+  // per-validator rate data. Null when the stake endpoint is unreachable, in
+  // which case the prose below skips the commission story entirely.
+  const netApyText = metrics.delegatorApyPct === null ? '—' : fmtPct(metrics.delegatorApyPct, 2);
+  const bestNetApyText =
+    metrics.maxDelegatorApyPct === null ? '—' : fmtPct(metrics.maxDelegatorApyPct, 2);
+  const commissionShareText =
+    metrics.commissionShareOfIssuancePct === null
+      ? '—'
+      : fmtPct(metrics.commissionShareOfIssuancePct, 0);
+  const bondedYieldText =
+    metrics.bondedStakingYieldPct === null ? '—' : fmtPct(metrics.bondedStakingYieldPct, 1);
+  const mintText =
+    metrics.stakingIssuancePct === null ? '—' : fmtPct(metrics.stakingIssuancePct, 1);
+  const worstNetApyText =
+    metrics.minDelegatorApyPct === null ? '—' : fmtPct(metrics.minDelegatorApyPct, 2);
+  // Annualization input, shown so the APY is auditable: the per-block budget
+  // is minted at today's cadence, not at some nominal 5s.
+  const cadenceText =
+    metrics.blockTimeSeconds === null
+      ? null
+      : `${metrics.blockTimeSeconds.toFixed(2)}s/block (${(
+          (metrics.blocksPerYearEmpirical ?? 0) / 1_000_000
+        ).toFixed(2)}M blocks/yr)`;
 
-  // Penumbra mints a FIXED per-block budget for staking (and a separate
-  // fixed per-block budget for the LQT), configured in
-  // distributions_params. That budget is split across whatever amount of
-  // active stake happens to exist, so:
-  //   - Network gross issuance does not scale with participation.
-  //   - Per-staker APY moves inversely with active bonded stake.
+  // Penumbra mints a FIXED per-block budget for staking, configured in
+  // distributions_params. That budget is split across whatever stake is in
+  // the ACTIVE validator set (jailed/disabled/tombstoned validators mint
+  // nothing), so:
+  //   - Minted supply does not scale with participation.
+  //   - Per-staker APY moves inversely with ACTIVE bonded stake, and is
+  //     always higher than the same budget spread over all bonded UM.
   //   - There is no "capped at X% at full participation" ceiling — the
   //     chain doesn't work that way.
   //
-  // The old copy inferred base_rate = realized / active_fraction, called
-  // it inflation, and labelled it a ceiling. That number is actually the
-  // staker APY on active bonded stake, minus a tiny burn drag — a real
-  // number, but not what it was labelled as. See fetchChainIssuanceParams
-  // for the source-of-truth path.
-  const havingChainParams = metrics.grossIssuancePct !== null;
+  // The LQT budget is a different thing entirely: it is paid out of the
+  // community pool, not minted, so it belongs nowhere near an "issuance %"
+  // line. See fetchChainIssuanceParams for the source-of-truth path.
+  const havingChainParams = metrics.stakingIssuancePct !== null;
 
   return (
     <section className='flex flex-col gap-6'>
       <div className='flex flex-col gap-2'>
         <Text variant='h2' color='text.primary'>
-          Fixed issuance, variable yield
+          Fixed issuance, selected payout
         </Text>
         <Text body color='text.secondary'>
-          Penumbra mints a fixed number of new UM every block —{' '}
+          Penumbra mints a fixed{' '}
           {metrics.stakingIssuancePerBlockUM !== null && (
             <>
               <span className='font-mono'>
@@ -119,11 +142,40 @@ export const IssuancePanel = ({ metrics, inflation }: Props) => {
               </span>{' '}
             </>
           )}
-          for staking rewards, split across whichever validators are in the active set.
-          Participation doesn&apos;t change the budget: doubling active stake halves the
-          per-staker yield rather than doubling the network&apos;s issuance. Staking APY
-          shown here is issuance divided by the currently-active bonded stake, before
-          each validator&apos;s commission cut.
+          every block for staking rewards, and nothing else. The budget never scales with
+          participation — it is split across the stake that is in the <em>active</em> validator set,
+          and validators that are jailed, disabled or tombstoned mint nothing at all. Today that set
+          is {metrics.activeValidatorCount} validators holding{' '}
+          <span className='font-mono'>{fmtM(metrics.activeStakedSupply)}</span> of the{' '}
+          <span className='font-mono'>{fmtM(metrics.bondedSupply)}</span> bonded to validators, so
+          the same budget is worth {apyText} before commission and {bondedYieldText} if it were
+          spread over every bonded UM.{' '}
+          {metrics.delegatorApyPct !== null && (
+            <>
+              Commission comes off the top before a delegator sees anything: the chain&apos;s own
+              per-validator rate data puts the best active validator at {bestNetApyText} net and the
+              power-weighted average at {netApyText}, because {commissionShareText} of the budget is
+              paid out as validator commission
+              {metrics.largestValidatorPowerPct !== null &&
+                metrics.largestValidatorCommissionBps !== null && (
+                  <>
+                    {' '}
+                    (the largest active validator holds{' '}
+                    <span className='font-mono'>
+                      {fmtPct(metrics.largestValidatorPowerPct, 1)}
+                    </span>{' '}
+                    of the active stake at a{' '}
+                    <span className='font-mono'>
+                      {fmtPct(metrics.largestValidatorCommissionBps / 100, 0)}
+                    </span>{' '}
+                    commission)
+                  </>
+                )}
+              .
+            </>
+          )}{' '}
+          The liquidity tournament is a separate flow: it is paid out of the community pool, not
+          minted.
         </Text>
       </div>
 
@@ -131,7 +183,7 @@ export const IssuancePanel = ({ metrics, inflation }: Props) => {
         <div className='rounded-lg bg-other-tonal-fill5 p-4'>
           <Text small color='text.secondary'>
             <span className='font-mono text-teal-300'>staking APY</span> ={' '}
-            <span className='font-mono'>issuance / active bonded</span>
+            <span className='font-mono'>issuance per block × blocks per year / active bonded</span>
             {'  →  '}
             <span className='font-mono text-teal-300'>
               {metrics.stakingApyPct === null ? '—' : fmtPct(metrics.stakingApyPct)}
@@ -142,17 +194,60 @@ export const IssuancePanel = ({ metrics, inflation }: Props) => {
                 ? '—'
                 : fmtM(metrics.stakingIssuanceAnnualUM)}
             </span>
-            {' / '}
-            <span className='font-mono'>{fmtM(metrics.activeStakedSupply)}</span>
+            /yr / <span className='font-mono'>{fmtM(metrics.activeStakedSupply)}</span>
+            {cadenceText !== null && <> at {cadenceText}</>}
           </Text>
           <Text small color='text.secondary' as='div'>
             <span className='mt-1 block'>
-              <span className='font-mono text-orange-400'>gross issuance</span>{' '}
-              (staking + LQT) ≈{' '}
-              <span className='font-mono text-orange-400'>
-                {metrics.grossIssuancePct === null
+              The budget is what is capped, not the rate. The chain pays at most{' '}
+              <span className='font-mono'>
+                {metrics.stakingIssuanceAnnualUM === null
                   ? '—'
-                  : fmtPct(metrics.grossIssuancePct)}
+                  : fmtM(metrics.stakingIssuanceAnnualUM)}
+              </span>{' '}
+              per year in total (an epoch whose rewards would exceed the accumulated budget is
+              rejected, so payout cannot exceed the budget), but the per-epoch rate is that budget{' '}
+              <em>divided by the active stake</em>: with less stake active, the same UM is shared
+              among fewer bonded UM and the per-unit APY rises. There is no participation ceiling at
+              which the chain stops paying — nor a &quot;max ~2%&quot;: at today&apos;s cadence the
+              full budget buys {apyText} on the active set.
+            </span>
+          </Text>
+          <Text small color='text.secondary' as='div'>
+            <span className='mt-1 block'>
+              <span className='font-mono text-teal-300'>same budget, all bonded</span> ={' '}
+              <span className='font-mono'>
+                {metrics.bondedStakingYieldPct === null
+                  ? '—'
+                  : fmtPct(metrics.bondedStakingYieldPct)}
+              </span>
+              {' — '}
+              <span className='font-mono'>{fmtM(metrics.inactiveBondedSupply)}</span> is bonded to
+              inactive validators and earns none of it, so this is the average across the whole
+              bonded pile, not a rate anyone is paid.
+            </span>
+          </Text>
+          {metrics.delegatorApyPct !== null && (
+            <Text small color='text.secondary' as='div'>
+              <span className='mt-1 block'>
+                <span className='font-mono text-teal-300'>delegator APY</span> ={' '}
+                <span className='font-mono'>staking APY × (1 − commission)</span>
+                {'  →  '}
+                <span className='font-mono text-teal-300'>{netApyText}</span>
+                {' power-weighted, '}
+                <span className='font-mono text-teal-300'>{bestNetApyText}</span> best,{' '}
+                <span className='font-mono text-teal-300'>{worstNetApyText}</span> worst — each
+                validator&apos;s own reward rate from the chain, net of its commission streams. Even
+                the lowest-rate active validator beats the all-bonded average, which only counts
+                stake that is not earning.
+              </span>
+            </Text>
+          )}
+          <Text small color='text.secondary' as='div'>
+            <span className='mt-1 block'>
+              <span className='font-mono text-orange-400'>minted supply</span> (staking only) ≈{' '}
+              <span className='font-mono text-orange-400'>
+                {metrics.stakingIssuancePct === null ? '—' : fmtPct(metrics.stakingIssuancePct)}
               </span>
               {' of supply/yr'}
               {'  →  '}
@@ -164,10 +259,21 @@ export const IssuancePanel = ({ metrics, inflation }: Props) => {
               </span>
               {' + burns '}
               <span className='font-mono'>
-                {metrics.burnAnnualizedPct === null
-                  ? '—'
-                  : fmtPct(metrics.burnAnnualizedPct)}
+                {metrics.burnAnnualizedPct === null ? '—' : fmtPct(metrics.burnAnnualizedPct)}
               </span>
+            </span>
+          </Text>
+          <Text small color='text.secondary' as='div'>
+            <span className='mt-1 block'>
+              <span className='font-mono text-orange-400'>LQT</span> pays{' '}
+              <span className='font-mono'>
+                {metrics.lqtIncentiveAnnualUM === null ? '—' : fmtM(metrics.lqtIncentiveAnnualUM)}
+              </span>
+              /yr out of the community pool
+              {metrics.communityPoolUM === null
+                ? ''
+                : ` (${fmtM(metrics.communityPoolUM)} balance)`}
+              {' — a transfer, so it never shows up as supply growth.'}
             </span>
           </Text>
         </div>
@@ -180,11 +286,17 @@ export const IssuancePanel = ({ metrics, inflation }: Props) => {
           </Text>
           <Text large color='text.primary'>
             <span className='font-mono text-teal-300'>
-              {metrics.stakingApyPct === null ? '—' : fmtPct(metrics.stakingApyPct, 1)}
+              {metrics.delegatorApyPct === null
+                ? metrics.stakingApyPct === null
+                  ? '—'
+                  : fmtPct(metrics.stakingApyPct, 1)
+                : fmtPct(metrics.delegatorApyPct, 1)}
             </span>
           </Text>
           <Text small color='text.secondary'>
-            pre-commission, on active bonded
+            {metrics.delegatorApyPct === null
+              ? 'gross, pre-commission, active validators only — chain stake data unreachable'
+              : `net of commission, power-weighted across the active set — gross before commission ${apyText}, best active ${bestNetApyText} net`}
           </Text>
         </div>
         <div className='flex flex-col gap-1 rounded-lg bg-other-tonal-fill5 p-4'>
@@ -193,30 +305,26 @@ export const IssuancePanel = ({ metrics, inflation }: Props) => {
           </Text>
           <Text large color='text.primary'>
             <span className='font-mono'>
-              {metrics.stakingIssuancePct === null
-                ? '—'
-                : fmtPct(metrics.stakingIssuancePct, 2)}
+              {metrics.stakingIssuancePct === null ? '—' : fmtPct(metrics.stakingIssuancePct, 2)}
             </span>
           </Text>
           <Text small color='text.secondary'>
             {metrics.stakingIssuanceAnnualUM === null
               ? 'fixed budget / block'
-              : `${fmtM(metrics.stakingIssuanceAnnualUM)}/yr`}
+              : `${fmtM(metrics.stakingIssuanceAnnualUM)}/yr — the only new supply`}
           </Text>
         </div>
         <div className='flex flex-col gap-1 rounded-lg bg-other-tonal-fill5 p-4'>
           <Text detail color='text.secondary'>
-            LQT issuance
+            LQT payout
           </Text>
           <Text large color='text.primary'>
             <span className='font-mono'>
-              {metrics.lqtIssuancePct === null
-                ? '—'
-                : fmtPct(metrics.lqtIssuancePct, 2)}
+              {metrics.lqtIncentivePct === null ? '—' : fmtPct(metrics.lqtIncentivePct, 2)}
             </span>
           </Text>
           <Text small color='text.secondary'>
-            {lqtIssuanceText(metrics)}
+            {lqtIncentiveText(metrics)}
           </Text>
         </div>
         <div className='flex flex-col gap-1 rounded-lg bg-other-tonal-fill5 p-4'>
@@ -231,7 +339,8 @@ export const IssuancePanel = ({ metrics, inflation }: Props) => {
             </span>
           </Text>
           <Text small color='text.secondary'>
-            net of {metrics.burnAnnualizedPct === null ? '—' : fmtPct(metrics.burnAnnualizedPct, 3)} burns
+            net of {metrics.burnAnnualizedPct === null ? '—' : fmtPct(metrics.burnAnnualizedPct, 3)}{' '}
+            burns
           </Text>
         </div>
       </div>
@@ -255,9 +364,7 @@ export const IssuancePanel = ({ metrics, inflation }: Props) => {
             Issued since genesis
           </Text>
           <Text large color='text.primary'>
-            <span className='font-mono'>
-              {(issuedSinceGenesis / 1_000_000).toFixed(2)}M UM
-            </span>
+            <span className='font-mono'>{(issuedSinceGenesis / 1_000_000).toFixed(2)}M UM</span>
           </Text>
           <Text small color='text.secondary'>
             from {(metrics.genesisAllocation / 1_000_000).toFixed(1)}M genesis
@@ -309,13 +416,24 @@ export const IssuancePanel = ({ metrics, inflation }: Props) => {
       </div>
 
       <Text small color='text.secondary'>
-        For comparison: BTC ~0.85%/yr post-2024 halving, ZEC ~4%/yr post-2024 halving,
-        ETH net ~0.4%/yr, most Cosmos chains 7–20%, Solana ~5%. Penumbra&apos;s gross
-        issuance is a fixed budget (staking + LQT) that stays roughly constant
-        regardless of participation. DEX fee burns and MEV arb burns run against
-        issuance, so a busy DEX can push realized inflation below zero. As more UM
-        becomes actively bonded, the staking APY shown above falls proportionally —
-        the network mints the same UM either way, it&apos;s just split more thinly.
+        For comparison: BTC ~0.85%/yr post-2024 halving, ZEC ~4%/yr post-2024 halving, ETH net
+        ~0.4%/yr, most Cosmos chains 7–20%, Solana ~5%. Penumbra mints a fixed staking budget that
+        stays roughly constant regardless of participation; nothing else is minted, and the LQT is
+        paid out of the community pool rather than new supply. DEX fee burns and MEV arb burns run
+        against that issuance, so a busy DEX can push realized inflation below zero. Staking APY is
+        high next to the {mintText} mint rate only because so little stake sits with active
+        validators: the same budget over all bonded UM pays {bondedYieldText}. As more UM becomes
+        actively bonded, the staking APY above falls proportionally.
+        {metrics.delegatorApyPct !== null && (
+          <>
+            {' '}
+            Commission is skimmed before delegators are paid, and today {commissionShareText} of the
+            budget goes to it, so the realized power-weighted average is {netApyText} — the range
+            across active validators runs from{' '}
+            {metrics.minDelegatorApyPct === null ? '—' : fmtPct(metrics.minDelegatorApyPct, 2)} (a
+            validator routing all of its rewards away from delegators) to {bestNetApyText}.
+          </>
+        )}
       </Text>
     </section>
   );

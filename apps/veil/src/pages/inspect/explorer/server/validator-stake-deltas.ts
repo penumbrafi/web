@@ -2,6 +2,7 @@
 
 import { sql } from 'kysely';
 import { pindexerDb } from '@/shared/database/client';
+import { degrade } from './degrade';
 
 const UM_UNIT = 1_000_000;
 const toUM = (raw: bigint | number | string | null | undefined): number =>
@@ -33,7 +34,8 @@ export async function fetchValidatorStakeDeltas(): Promise<Map<string, Validator
   const sevenDaysAgo = new Date(Date.now() - 7 * 86_400 * 1000);
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86_400 * 1000);
 
-  const [currentRows, sevenRows, thirtyRows] = await Promise.all([
+  // See degrade.ts: a pindexer outage must not reject into the RSC render.
+  const rows = await Promise.all([
     sql<IkUmRow>`
       SELECT
         svs.ik AS ik,
@@ -74,7 +76,12 @@ export async function fetchValidatorStakeDeltas(): Promise<Map<string, Validator
         )::bigint AS um
       FROM stake_validator_set svs
     `.execute(pindexerDb),
-  ]);
+  ]).catch(degrade('stake deltas', null));
+
+  if (!rows) {
+    return new Map();
+  }
+  const [currentRows, sevenRows, thirtyRows] = rows;
 
   const sevenByIk = new Map<string, number>();
   for (const r of sevenRows.rows) {

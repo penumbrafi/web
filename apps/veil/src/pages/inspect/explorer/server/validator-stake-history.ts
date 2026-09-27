@@ -2,6 +2,7 @@
 
 import { sql } from 'kysely';
 import { pindexerDb } from '@/shared/database/client';
+import { degrade } from './degrade';
 
 const UM_UNIT = 1_000_000;
 const toUM = (raw: bigint | number | string | null | undefined): number =>
@@ -41,7 +42,8 @@ export async function fetchValidatorStakeHistory(
 ): Promise<ValidatorStakeFlowPoint[]> {
   const since = new Date(Date.now() - days * 86_400 * 1000);
 
-  const [stakeRows, delegationRows, undelegationRows] = await Promise.all([
+  // See degrade.ts: a pindexer outage must not reject into the RSC render.
+  const rows = await Promise.all([
     sql<DateUmRow>`
       WITH validator AS (
         SELECT id FROM stake_validator_set WHERE ik = ${identityKey} LIMIT 1
@@ -78,7 +80,12 @@ export async function fetchValidatorStakeHistory(
       GROUP BY date_trunc('day', bd.timestamp)
       ORDER BY date ASC
     `.execute(pindexerDb),
-  ]);
+  ]).catch(degrade('stake history', null));
+
+  if (!rows) {
+    return [];
+  }
+  const [stakeRows, delegationRows, undelegationRows] = rows;
 
   const byDate = new Map<string, ValidatorStakeFlowPoint>();
   const ensure = (date: string): ValidatorStakeFlowPoint => {

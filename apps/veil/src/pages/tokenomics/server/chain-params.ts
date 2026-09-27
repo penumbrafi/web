@@ -5,10 +5,11 @@ import { createClient } from '@/shared/utils/protos/utils';
 
 // AppParameters is the chain's authoritative source for issuance mechanics.
 // distributions_params.staking_issuance_per_block: upenumbra minted per
-//   block and distributed to the active set as staking rewards. FIXED
-//   budget — does NOT scale with participation.
+//   block and distributed to the ACTIVE validator set as staking rewards.
+//   FIXED budget — does NOT scale with participation.
 // distributions_params.liquidity_tournament_incentive_per_block: upenumbra
-//   minted per block and distributed to LP votes each epoch. Also fixed;
+//   moved per block FROM the community pool into the liquidity tournament.
+//   Not newly minted — supply does not grow from this stream. Also fixed;
 //   sunsets at liquidity_tournament_end_block.
 // sct_params.epoch_duration: block count per epoch — the cadence at which
 //   issuance is paid out.
@@ -18,7 +19,7 @@ import { createClient } from '@/shared/utils/protos/utils';
 export interface ChainIssuanceParams {
   // upenumbra units (1 UM = 1_000_000 upenumbra)
   stakingIssuancePerBlock: number;
-  lqtIssuancePerBlock: number;
+  lqtIncentivePerBlock: number;
   lqtEndBlock: number;
   epochBlocks: number;
   fetchedAt: Date;
@@ -62,7 +63,7 @@ export async function fetchChainIssuanceParams(): Promise<ChainIssuanceParams | 
 
     cached = {
       stakingIssuancePerBlock: Number(p.distributionsParams.stakingIssuancePerBlock),
-      lqtIssuancePerBlock: Number(p.distributionsParams.liquidityTournamentIncentivePerBlock),
+      lqtIncentivePerBlock: Number(p.distributionsParams.liquidityTournamentIncentivePerBlock),
       lqtEndBlock: Number(p.distributionsParams.liquidityTournamentEndBlock),
       epochBlocks: Number(p.sctParams.epochDuration),
       fetchedAt: new Date(),

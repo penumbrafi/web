@@ -86,7 +86,10 @@ async function fetchActiveStakeHistoryUncached(
 ): Promise<ActiveStakeFlowPoint[]> {
   const since = new Date(Date.now() - days * 86_400 * 1000);
 
-  const [stakeRows, delegationRows, undelegationRows, supplyRows] = await Promise.all([
+  // The chart is context, not the page: if pindexer is unreachable the series
+  // is empty. Rejecting here would take the whole /explore/validators render
+  // down — including the validator table, which reads GraphQL, not pindexer.
+  const rows = await Promise.all([
     sql<PerBucketRow>`
       WITH bonded_validators AS (
         SELECT
@@ -226,7 +229,15 @@ async function fetchActiveStakeHistoryUncached(
       )
       ORDER BY b.bucket_start ASC
     `.execute(pindexerDb),
-  ]);
+  ]).catch((err: unknown) => {
+    console.warn('[validators] stake history unavailable', err);
+    return null;
+  });
+
+  if (!rows) {
+    return [];
+  }
+  const [stakeRows, delegationRows, undelegationRows, supplyRows] = rows;
 
   const byDate = new Map<string, ActiveStakeFlowPoint>();
   const flowsByDate = new Map<string, Map<string, ValidatorFlow & { ik: string }>>();

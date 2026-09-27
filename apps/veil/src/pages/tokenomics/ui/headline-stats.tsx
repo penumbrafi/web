@@ -81,9 +81,9 @@ export const HeadlineStats = ({ metrics }: { metrics: TokenomicsMetrics }) => {
           accent='teal'
         />
         <StatTile
-          label='Annual issuance'
+          label='Realized inflation'
           primary={inflationStr}
-          secondary='30d realized, annualized'
+          secondary='30d supply growth, net of burns, annualized'
           accent={inflationAccent}
         />
         <StatTile

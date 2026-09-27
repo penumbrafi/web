@@ -5,18 +5,20 @@ import { FC, useCallback, useEffect } from 'react';
 import Density from '../density';
 import SegmentedControl from '../segmentedControl';
 
-type Option = 'topStake' | 'growth7d' | 'growth30d';
+type Option = 'apy' | 'topStake' | 'growth7d' | 'growth30d' | 'realized30d';
 
 const STORAGE_KEY = 'veil:validators:sort';
 
 const URL_FOR: Record<Option, { sort?: string; dir?: string }> = {
   topStake: {},
+  apy: { sort: 'apy', dir: 'desc' },
   growth7d: { sort: 'growth7d', dir: 'desc' },
   growth30d: { sort: 'growth30d', dir: 'desc' },
+  realized30d: { sort: 'realized30d', dir: 'desc' },
 };
 
 const isOption = (v: string | null): v is Option =>
-  v === 'topStake' || v === 'growth7d' || v === 'growth30d';
+  v === 'topStake' || v === 'apy' || v === 'growth7d' || v === 'growth30d' || v === 'realized30d';
 
 interface Props {
   className?: string;
@@ -86,11 +88,17 @@ const ValidatorSortToggle: FC<Props> = ({ className }) => {
         <SegmentedControl.Item style='filled' value='topStake'>
           Top stake
         </SegmentedControl.Item>
+        <SegmentedControl.Item style='filled' value='apy'>
+          Est. APY
+        </SegmentedControl.Item>
         <SegmentedControl.Item style='filled' value='growth7d'>
           Δ stake 7d
         </SegmentedControl.Item>
         <SegmentedControl.Item style='filled' value='growth30d'>
           Δ stake 30d
+        </SegmentedControl.Item>
+        <SegmentedControl.Item style='filled' value='realized30d'>
+          Realized APY
         </SegmentedControl.Item>
       </SegmentedControl>
     </Density>
