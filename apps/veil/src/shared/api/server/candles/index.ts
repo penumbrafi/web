@@ -111,12 +111,23 @@ export const GET = withApiFallback(handleGet, {
 });
 
 /**
- * Cap on the `1b` backfill window: ~15 minutes of 6-second blocks. Nothing is
+ * Cap on the `1b` backfill window: at most 150 traded heights. Nothing is
  * stored for these candles (they are aggregated on demand), and an idle block
  * has no row at all, so there is no archive to walk back through — the live
  * edge comes from the client's own block stream.
  */
 const BLOCK_CANDLE_WINDOW_BLOCKS = 150;
+
+/**
+ * Recency bound on the same window: ~15 minutes of wall clock. The height cap
+ * alone is not enough — it counts traded heights, not blocks, so for a pair
+ * that trades rarely it reaches back arbitrarily far. Measured on mainnet:
+ * a liquid pair's 150 heights span ~38 minutes, while a barely-traded pair's
+ * span months (one sampled pair: 225 days), which drags the chart's y-axis to
+ * the price range of bars nobody is looking at. A live view has no business
+ * showing either: past this horizon the block stream owns the chart.
+ */
+const BLOCK_CANDLE_WINDOW_MS = 15 * 60_000;
 
 /**
  * `1b`: one candle per chain block.
@@ -128,8 +139,9 @@ const BLOCK_CANDLE_WINDOW_BLOCKS = 150;
  * no wall-clock step to walk towards "now". The chart instead draws the
  * in-progress block from local state (block header time + current mid) and
  * this route's candle for that height replaces it in place once pindexer
- * commits the block. Only the most recent `BLOCK_CANDLE_WINDOW_BLOCKS` are
- * served (no pagination): older blocks are not a chart concern.
+ * commits the block. Only the most recent `BLOCK_CANDLE_WINDOW_BLOCKS` traded
+ * heights, and never anything older than `BLOCK_CANDLE_WINDOW_MS`, are served
+ * (no pagination): older blocks are not a chart concern.
  */
 const getBlockCandles = async ({
   base,
@@ -240,7 +252,7 @@ async function handleGet(req: NextRequest): Promise<NextResponse<CandleApiRespon
       baseMetadata: baseAssetMetadata,
       quoteMetadata: quoteAssetMetadata,
       limit: Math.min(limit ?? BLOCK_CANDLE_WINDOW_BLOCKS, BLOCK_CANDLE_WINDOW_BLOCKS),
-      since: chainId === MAINNET_CHAIN_ID ? new Date('2024-08-06') : undefined,
+      since: new Date(Date.now() - BLOCK_CANDLE_WINDOW_MS),
     });
     return NextResponse.json(blockCandles);
   }
