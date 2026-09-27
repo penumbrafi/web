@@ -31,6 +31,11 @@ const FUTURE_BARS = 300;
 // Empty bars shown right of the last candle by default.
 const RIGHT_OFFSET_BARS = 24;
 const SUPER_CANDLE_RATIO = 3;
+// How long the visible-range verdict is left alone after a programmatic data
+// mutation. Long enough to cover every range change that setData /
+// series.update / setVisibleLogicalRange emit (synchronous and deferred),
+// short enough that a user's scroll re-judges within the same gesture.
+const RANGE_VERDICT_HOLD_MS = 250;
 
 // Compute price-axis precision so at least 2 significant digits are visible.
 // Examples:
@@ -131,6 +136,20 @@ export const useChartConfig = (
   // Sorted-ascending candle times currently painted on the chart — see the
   // timeAtX / xAtTime whitespace-fallback comment above.
   const barTimesRef = useRef<number[]>([]);
+  // True while the visible window is parked at the live edge (last bar at
+  // the reserved right offset). Maintained by the visible-range subscription
+  // below and consulted by parkAtLiveEdge: a user who scrolled back into
+  // history must not be dragged forward to "now" when a history page lands.
+  //
+  // The verdict is only recomputed outside `verdictHoldUntilRef` windows:
+  // every programmatic range change (setData, series.update on an appended
+  // bar, parking) fires the subscription while the bar count is mid-update,
+  // so judging those events would read a batch append as the user scrolling
+  // into history and stop the chart from following new bars for good. A
+  // wheel/keyboard scroll emits a continuous stream of range changes, so a
+  // short blind window after each data mutation costs no fidelity.
+  const followLiveRef = useRef<boolean>(true);
+  const verdictHoldUntilRef = useRef<number>(0);
 
   // chartReady flips true after createChart() runs in setChartRef. Consumers
   // that need to subscribe to chart events list this in their useEffect deps
@@ -312,8 +331,48 @@ export const useChartConfig = (
     );
   }, []);
 
+  /**
+   * Re-park the visible window on the live edge.
+   *
+   * lightweight-charts only auto-scrolls on `series.update()` appends
+   * (`shiftVisibleRangeOnNewBar`); `setData()` deliberately preserves
+   * whatever window is on screen. Every full replace we do — the sentinel →
+   * real-bars swap, a history page landing, cached latest candles on
+   * remount — therefore leaves the window where it was while the new bars
+   * pile up off-screen to the right: the 1b pane sits on its first few bars
+   * and the live candle is never seen again ("time runs out of the screen").
+   *
+   * `followLiveRef` (maintained by the visible-range subscription in
+   * setChartRef) says whether the window was parked at the live edge to
+   * begin with, so scroll-back pagination and a user inspecting history are
+   * never yanked forward.
+   */
+  const parkAtLiveEdge = useCallback(() => {
+    const chart = chartRef.current;
+    const count = barTimesRef.current.length;
+    if (!chart || count === 0) {
+      return;
+    }
+    try {
+      const timeScale = chart.timeScale();
+      const current = timeScale.getVisibleLogicalRange();
+      // Keep the current zoom (bar spacing) — only the position moves.
+      const span =
+        current && current.to > current.from
+          ? current.to - current.from
+          : count - 1 + RIGHT_OFFSET_BARS;
+      timeScale.setVisibleLogicalRange({
+        from: (count - 1 + RIGHT_OFFSET_BARS - span) as Logical,
+        to: (count - 1 + RIGHT_OFFSET_BARS) as Logical,
+      });
+    } catch {
+      // chart torn down
+    }
+  }, []);
+
   const setCandlesData = useCallback(
     (candles: CandleWithVolume[] = []) => {
+      verdictHoldUntilRef.current = performance.now() + RANGE_VERDICT_HOLD_MS;
       // Full replace (initial paint / duration switch / history page) — the
       // caller always hands these in ASC order.
       barTimesRef.current = candles.map(c => c.ohlc.time as number);
@@ -334,7 +393,13 @@ export const useChartConfig = (
           .map(c => ({ time: c.ohlc.time, value: c.ohlc.close })),
       );
       extendFuture();
-
+      // setData() preserves the on-screen window, so a full replace of the
+      // bars leaves the view wherever it was — park it back on the live
+      // edge (unless the user scrolled into history) or the live candle is
+      // never visible again.
+      if (followLiveRef.current) {
+        parkAtLiveEdge();
+      }
       // Derive a representative price (median close) so axis labels and the
       // crosshair show 2+ significant digits even for sub-cent prices.
       if (candles.length > 0 && seriesRef.current) {
@@ -352,7 +417,7 @@ export const useChartConfig = (
       }
       redrawTick();
     },
-    [redrawTick, extendFuture],
+    [redrawTick, extendFuture, parkAtLiveEdge],
   );
 
   const setVolumeData = useCallback((candles: CandleWithVolume[] = []) => {
@@ -386,6 +451,7 @@ export const useChartConfig = (
       if (!series || !candles.length) {
         return;
       }
+      verdictHoldUntilRef.current = performance.now() + RANGE_VERDICT_HOLD_MS;
       let appended = false;
       for (const candle of candles) {
         const t = candle.ohlc.time as number;
@@ -422,10 +488,16 @@ export const useChartConfig = (
       // A new bar moves "now" forward; move the dated future with it.
       if (appended) {
         extendFuture();
+        // series.update() shifts the view on its own, but the shift keeps
+        // whatever span drift the full replaces introduced; parking makes
+        // both paths land on the same live-edge window.
+        if (followLiveRef.current) {
+          parkAtLiveEdge();
+        }
       }
       redrawTick();
     },
-    [redrawTick, extendFuture],
+    [redrawTick, extendFuture, parkAtLiveEdge],
   );
 
   const setCloseLineVisible = useCallback((visible: boolean) => {
@@ -567,6 +639,19 @@ export const useChartConfig = (
 
       // subscribe to users scrolling left and right the price chart
       chartRef.current.timeScale().subscribeVisibleLogicalRangeChange(logicalRange => {
+        if (logicalRange) {
+          // Parked at the live edge == right edge sits at the reserved right
+          // offset. Two bars of slack absorb fractional/clamped ranges so an
+          // accidental nudge doesn't silently stop the chart from following
+          // new bars; anything further left is the user inspecting history.
+          // Skipped while a data mutation is settling — see
+          // `verdictHoldUntilRef`.
+          if (performance.now() >= verdictHoldUntilRef.current) {
+            const lastIndex = barTimesRef.current.length - 1;
+            followLiveRef.current =
+              lastIndex < 0 || logicalRange.to >= lastIndex + RIGHT_OFFSET_BARS - 2;
+          }
+        }
         // `from=-10` parameter means there needs to be at least 10 empty candles in the left of the chart
         if (!loadingDisabled.current && logicalRange?.from && logicalRange.from < -10) {
           void loadMore();
@@ -771,25 +856,27 @@ export const useChartConfig = (
       const forceAutoScale = opts?.forceAutoScale ?? true;
       // Base window: ±15% around mid so an empty (or trade-thin) chart still
       // has a sensible Y range to hydrate against.
-      let anchorMin = mid / CENTER_MULTIPLIER;
-      let anchorMax = mid * CENTER_MULTIPLIER;
+      const stripMin = mid / CENTER_MULTIPLIER;
+      const stripMax = mid * CENTER_MULTIPLIER;
       // `extras` are extra prices the camera must keep in view — most
       // usefully the LP form's lower/upper bounds. As the user drags the
       // range on the chart, these change and the anchor re-fits so the
       // range never scrolls off-screen. A small headroom above/below the
       // widened range keeps the price handles from sitting flush against
       // the edge.
+      let extrasMin = mid;
+      let extrasMax = mid;
       if (extras && extras.length > 0) {
         const EDGE_PAD = 1.02;
         for (const v of extras) {
           if (!Number.isFinite(v) || v <= 0) {
             continue;
           }
-          if (v < anchorMin) {
-            anchorMin = v / EDGE_PAD;
+          if (v < extrasMin) {
+            extrasMin = v / EDGE_PAD;
           }
-          if (v > anchorMax) {
-            anchorMax = v * EDGE_PAD;
+          if (v > extrasMax) {
+            extrasMax = v * EDGE_PAD;
           }
         }
       }
@@ -800,22 +887,32 @@ export const useChartConfig = (
         // anchor; on a pair switch to a pair whose anchor is null it left
         // the previous pair's window applied and the new candles rendered
         // off-screen; "Reset chart view" re-enabled autoscale onto the
-        // still-pinned strip. Take the min of mins and max of maxes so the
-        // anchor + range are always visible AND every candle in view is
-        // honestly scaled.
+        // still-pinned strip.
+        //
+        // The ±15% strip is only the *no data to fit* fallback: a 1b candle
+        // spans a few basis points of its own close, so unioning it with a
+        // 30%-wide strip left every body and wick under a pixel tall — the
+        // 1b pane looked empty while the volume pane below it was plainly
+        // busy ("candles appear and disappear"). Whenever the visible bars
+        // have a real range, fit that instead (plus the mid and any extras,
+        // so the live price and LP bounds stay on screen).
         series.applyOptions({
           autoscaleInfoProvider: (original: () => AutoscaleInfo | null) => {
             const src = original();
             const dataMin = src?.priceRange.minValue;
             const dataMax = src?.priceRange.maxValue;
-            const minValue =
-              dataMin !== undefined && Number.isFinite(dataMin)
-                ? Math.min(anchorMin, dataMin)
-                : anchorMin;
-            const maxValue =
-              dataMax !== undefined && Number.isFinite(dataMax)
-                ? Math.max(anchorMax, dataMax)
-                : anchorMax;
+            const hasDataRange =
+              dataMin !== undefined &&
+              dataMax !== undefined &&
+              Number.isFinite(dataMin) &&
+              Number.isFinite(dataMax) &&
+              dataMax > dataMin;
+            const minValue = hasDataRange
+              ? Math.min(mid, extrasMin, dataMin)
+              : Math.min(stripMin, extrasMin);
+            const maxValue = hasDataRange
+              ? Math.max(mid, extrasMax, dataMax)
+              : Math.max(stripMax, extrasMax);
             const margins = src?.margins;
             return margins
               ? { priceRange: { minValue, maxValue }, margins }
