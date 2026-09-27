@@ -64,6 +64,18 @@ export class PriceLinkedInputs {
     this.computeAFromB();
   }
 
+  /** Set both inputs at once, with no derivation between them.
+   *
+   * Used by the take-mode sizer, where the two amounts come from walking the
+   * book: their ratio is the *average* fill price, not `price`, so deriving
+   * one from the other would misreport what the order returns.
+   */
+  setPair(a: string, b: string) {
+    this._lastEdited = 'A';
+    this._inputA = a;
+    this._inputB = b;
+  }
+
   set price(x: number) {
     this._price = x;
     if (this._lastEdited === 'A') {

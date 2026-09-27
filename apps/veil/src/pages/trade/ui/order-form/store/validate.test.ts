@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { AssetId, Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { AssetInfo } from '@/pages/trade/model/AssetInfo';
 import { blockingIssue, validateOrder } from './validate';
+import type { TakeLimitInfo } from './LimitOrderFormStore';
 
 const asset = (symbol: string, fill: number, balance?: number): AssetInfo =>
   new AssetInfo(
@@ -140,5 +141,102 @@ describe('validateOrder', () => {
     expect(blockingIssue(issues)).toBeUndefined();
     expect(issues[0]?.severity).toBe('warning');
     expect(issues[0]?.message).toMatch(/One-sided/);
+  });
+});
+
+const take = (over: Partial<TakeLimitInfo> = {}): TakeLimitInfo => ({
+  status: 'sized',
+  targetPrice: 11.5,
+  direction: 'buy',
+  baseSymbol: 'UM',
+  quoteSymbol: 'USDC',
+  ...over,
+});
+
+describe('validateOrder in take mode', () => {
+  it('passes a sized take', () => {
+    const issues = validateOrder({
+      requirements: [{ asset: USDC, amount: 50 }],
+      hasPlan: true,
+      takeLimit: take(),
+    });
+    expect(blockingIssue(issues)).toBeUndefined();
+    expect(issues).toHaveLength(0);
+  });
+
+  it('asks for the target before anything else can be said', () => {
+    const issue = blockingIssue(
+      validateOrder({ requirements: [], hasPlan: false, takeLimit: take({ status: 'idle', targetPrice: 0 }) }),
+    );
+    expect(issue?.message).toMatch(/Enter a target price/);
+  });
+
+  it('explains a missing mid rather than disabling submit silently', () => {
+    const issue = blockingIssue(
+      validateOrder({ requirements: [], hasPlan: false, takeLimit: take({ status: 'no-mid' }) }),
+    );
+    expect(issue?.message).toMatch(/nothing to aim from/);
+    expect(issue?.message).toMatch(/Rest/);
+  });
+
+  it('says the route book is still loading', () => {
+    const issue = blockingIssue(
+      validateOrder({ requirements: [], hasPlan: false, takeLimit: take({ status: 'loading' }) }),
+    );
+    expect(issue?.message).toMatch(/route book/);
+  });
+
+  it('names the empty side of the book and the way out', () => {
+    const issue = blockingIssue(
+      validateOrder({
+        requirements: [],
+        hasPlan: false,
+        takeLimit: take({ status: 'empty', direction: 'sell', targetPrice: 9.5 }),
+      }),
+    );
+    expect(issue?.message).toContain('no bids at or above 9.50000 USDC');
+    expect(issue?.message).toMatch(/switch to Rest/);
+  });
+
+  it('warns — but does not block — when the target is past the whole book', () => {
+    const issues = validateOrder({
+      requirements: [{ asset: USDC, amount: 10 }],
+      hasPlan: true,
+      takeLimit: take({ status: 'beyond', targetPrice: 25, worstPrice: 20 }),
+    });
+    expect(blockingIssue(issues)).toBeUndefined();
+    expect(issues[0]?.severity).toBe('warning');
+    expect(issues[0]?.message).toContain('20.0000 USDC');
+  });
+
+  it('still runs the balance checks after a beyond-book warning', () => {
+    // The beyond-book note is only a warning; the balance check must still
+    // fire behind it (USDC holds 50 here, the order needs 210).
+    const issues = validateOrder({
+      requirements: [{ asset: USDC, amount: 210 }],
+      hasPlan: true,
+      takeLimit: take({ status: 'beyond', targetPrice: 25, worstPrice: 20 }),
+    });
+    expect(issues.map(i => i.severity)).toEqual(['warning', 'blocking']);
+    expect(issues[1]?.message).toContain('USDC');
+  });
+
+  it('warns that a capped take only moves the market part of the way', () => {
+    const issues = validateOrder({
+      requirements: [{ asset: USDC, amount: 30 }],
+      hasPlan: true,
+      takeLimit: take({ status: 'capped', cappedSymbol: 'USDC' }),
+    });
+    expect(blockingIssue(issues)).toBeUndefined();
+    expect(issues[0]?.message).toContain('balance');
+  });
+
+  it('stays quiet when the amount was typed by hand', () => {
+    const issues = validateOrder({
+      requirements: [{ asset: USDC, amount: 50 }],
+      hasPlan: true,
+      takeLimit: take({ status: 'manual' }),
+    });
+    expect(issues).toHaveLength(0);
   });
 });

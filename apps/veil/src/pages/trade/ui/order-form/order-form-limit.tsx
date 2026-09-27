@@ -1,16 +1,22 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { observer } from 'mobx-react-lite';
+import cn from 'clsx';
 import { round } from '@penumbra-zone/types/round';
 import { Button } from '@penumbra-zone/ui/Button';
 import { Text } from '@penumbra-zone/ui/Text';
 import { connectionStore } from '@/shared/model/connection';
 import { ConnectButton } from '@/features/connect/connect-button';
+import { useBook } from '../../api/book';
 import { TICK_ARROW, TICK_TEXT_COLOR, useTickDirection } from '../../model/use-tick-direction';
 import { OrderInput } from './order-input';
 import { SegmentedControl } from './segmented-control';
 import { SelectGroup } from './select-group';
 import { OrderFormStore } from './store/OrderFormStore';
-import { BuyLimitOrderOptions, SellLimitOrderOptions } from './store/LimitOrderFormStore';
+import {
+  BuyLimitOrderOptions,
+  LimitOrderMode,
+  SellLimitOrderOptions,
+} from './store/LimitOrderFormStore';
 import { ConfirmInfoRow, ConfirmOrderModal, ConfirmWarning } from './confirm-order-modal';
 import { FormIssueNotice } from './form-issue';
 
@@ -19,6 +25,45 @@ import { FormIssueNotice } from './form-issue';
 // Same idiom as the form-tabs / history-tabs / trades-tabs hoists.
 const BUY_PRICE_OPTIONS = Object.values(BuyLimitOrderOptions);
 const SELL_PRICE_OPTIONS = Object.values(SellLimitOrderOptions);
+
+// Module-scoped for the same reason as the option arrays above.
+const MODE_ORDER: readonly LimitOrderMode[] = ['take', 'rest'];
+const MODE_LABEL: Record<LimitOrderMode, string> = { take: 'Take', rest: 'Rest' };
+const MODE_TITLE: Record<LimitOrderMode, string> = {
+  take: 'Fill against the book right now, sized so the fill stops at your price. No position is opened.',
+  rest: 'Quote a one-sided position at your price and wait for the market to reach it.',
+};
+
+/**
+ * Take / Rest switch.
+ *
+ * Two genuinely different transactions live under this tab: Rest opens the
+ * one-sided position that has always been here, Take swaps against the book
+ * immediately. Making that a visible choice rather than a hidden consequence
+ * of which field you filled in is the whole point of the control.
+ */
+const ModeToggle = memo(
+  ({ mode, setMode }: { mode: LimitOrderMode; setMode: (mode: LimitOrderMode) => void }) => (
+    <div className='mb-2 flex gap-1'>
+      {MODE_ORDER.map(m => (
+        <button
+          key={m}
+          type='button'
+          title={MODE_TITLE[m]}
+          onClick={() => setMode(m)}
+          className={cn(
+            'flex-1 cursor-pointer rounded-lg border border-other-tonal-stroke px-2 py-0.5',
+            mode === m ? 'bg-neutral-main text-text-primary' : 'text-text-secondary',
+          )}
+        >
+          <Text small>{MODE_LABEL[m]}</Text>
+        </button>
+      ))}
+    </div>
+  ),
+);
+
+ModeToggle.displayName = 'ModeToggle';
 
 interface BalanceSliderProps {
   inputValue: string;
@@ -97,6 +142,16 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
   const midDirection = useTickDirection(parentStore.marketPrice);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
+  const isTake = store.mode === 'take';
+  // The sizer walks the very route book the ladder renders. Pushed into the
+  // store rather than read there, matching how the mid price gets in — and
+  // only when the arrays' identity actually moves, since the book refetches
+  // every block.
+  const { data: book } = useBook();
+  useEffect(() => {
+    store.setBookRows(book?.multiHops.buy, book?.multiHops.sell);
+  }, [store, book]);
+
   const isBuy = store.direction === 'buy';
   const baseSym = store.baseAsset?.symbol ?? '';
   const quoteSym = store.quoteAsset?.symbol ?? '';
@@ -109,8 +164,9 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
       : null;
   // Crosses-at-touch: buy at or above mid (or sell at or below) hits the
   // resting book and executes as a taker, paying the taker fee instead
-  // of resting as a maker.
-  const wouldCross = deltaPct != null && (isBuy ? deltaPct >= 0 : deltaPct <= 0);
+  // of resting as a maker. Take mode is a taker by construction, so the
+  // warning it would raise is replaced by the take line below.
+  const wouldCross = !isTake && deltaPct != null && (isBuy ? deltaPct >= 0 : deltaPct <= 0);
 
   // The amount field that's actually bounded by a wallet balance: what
   // you pay with on a buy, what you sell on a sell. Drives the balance
@@ -143,10 +199,44 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
     return equivAsset.formatDisplayAmount(equiv);
   }, [isBuy, mid, store.baseAsset, store.quoteAsset]);
 
+  // One line saying what the sizing actually did, right under the field that
+  // drives it. The blocking cases (no price, no mid, empty side, book still
+  // loading) are said under the submit button instead, by `validateOrder`.
+  const takeLine = useMemo(() => {
+    if (!isTake) {
+      return undefined;
+    }
+    const target =
+      Number.isFinite(limitPrice) && limitPrice > 0
+        ? `${round({ value: limitPrice, decimals: 6 })} ${quoteSym}`
+        : 'your target';
+    switch (store.takeSizeStatus) {
+      case 'sized':
+        return `Takes ${store.baseInput} ${baseSym} for ${store.quoteInput} ${quoteSym} — the last level taken sits at ${target}.`;
+      case 'capped':
+        return `Reaching ${target} costs more than your balance, so this spends all of it and moves the market part of the way.`;
+      case 'beyond':
+        return `The deepest level in view is ${round({ value: store.takeWorstPrice ?? 0, decimals: 6 })} ${quoteSym} — this takes every level shown and still may not reach ${target}.`;
+      case 'manual':
+        return 'Amount set by hand — the size no longer tracks the target price.';
+      default:
+        return undefined;
+    }
+  }, [
+    isTake,
+    baseSym,
+    quoteSym,
+    limitPrice,
+    store.takeSizeStatus,
+    store.baseInput,
+    store.quoteInput,
+    store.takeWorstPrice,
+  ]);
+
   const confirmRows = useMemo<ConfirmInfoRow[]>(() => {
     const rows: ConfirmInfoRow[] = [];
     rows.push({
-      label: 'Limit price',
+      label: isTake ? 'Target price' : 'Limit price',
       value: Number.isFinite(limitPrice) ? `${limitPrice} ${quoteSym}` : '—',
     });
     if (mid != null) {
@@ -161,6 +251,9 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
         value: `${deltaPct > 0 ? '+' : ''}${deltaPct.toFixed(2)}%`,
         valueColor: wouldCross ? 'error' : undefined,
       });
+    }
+    if (isTake) {
+      rows.push({ label: 'Order type', value: 'Market, capped at your target' });
     }
     rows.push({
       label: isBuy ? 'You pay' : 'You receive',
@@ -181,6 +274,7 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
     });
     return rows;
   }, [
+    isTake,
     limitPrice,
     mid,
     deltaPct,
@@ -197,26 +291,39 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
   ]);
 
   const confirmWarnings = useMemo<ConfirmWarning[]>(() => {
-    if (!wouldCross) {
-      return [];
+    const warnings: ConfirmWarning[] = [];
+    if (isTake) {
+      warnings.push({
+        key: 'take-not-onchain',
+        message:
+          'Market order: it fills at the batch auction’s clearing price. Sizing it stops the fill at your target for the book you can see, but nothing on-chain caps it if the book moves before this lands.',
+      });
     }
-    return [
-      {
+    if (wouldCross) {
+      warnings.push({
         key: 'cross-spread',
         message: `${isBuy ? 'Buy ≥ mid' : 'Sell ≤ mid'} — will execute as taker, not maker.`,
-      },
-    ];
-  }, [wouldCross, isBuy]);
+      });
+    }
+    return warnings;
+  }, [isTake, wouldCross, isBuy]);
 
   const actionLabel = useMemo(() => {
     if (!Number.isFinite(limitPrice) || limitPrice <= 0 || !store.baseInput) {
-      return `${isBuy ? 'Buy' : 'Sell'} ${baseSym} as a limit order`;
+      return isTake
+        ? `${isBuy ? 'Buy' : 'Sell'} ${baseSym} as a market order`
+        : `${isBuy ? 'Buy' : 'Sell'} ${baseSym} as a limit order`;
     }
-    return `${isBuy ? 'Buy' : 'Sell'} ${store.baseInput} ${baseSym} at ${round({
-      value: limitPrice,
-      decimals: 6,
-    })} ${quoteSym}`;
-  }, [isBuy, baseSym, quoteSym, limitPrice, store.baseInput]);
+    const at = `${round({ value: limitPrice, decimals: 6 })} ${quoteSym}`;
+    if (isTake) {
+      // The sizing makes the target the *worst* price the order can touch, so
+      // a buy fills at or below it and a sell at or above it.
+      return `${isBuy ? 'Buy' : 'Sell'} ~${store.baseInput} ${baseSym} now at ${
+        isBuy ? 'up to' : 'at least'
+      } ${at}`;
+    }
+    return `${isBuy ? 'Buy' : 'Sell'} ${store.baseInput} ${baseSym} at ${at}`;
+  }, [isTake, isBuy, baseSym, quoteSym, limitPrice, store.baseInput]);
 
   // A limit order on Penumbra is a one-sided liquidity position that closes
   // when filled — not an order sitting in a matching engine. Saying so, along
@@ -234,8 +341,11 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
     const receive = isBuy
       ? `${store.baseInput || '—'} ${baseSym}`
       : `${store.quoteInput || '—'} ${quoteSym}`;
+    if (isTake) {
+      return `You spend ${spend} and receive ${receive} now, against the book — sized so the last level taken sits at your target. Nothing rests afterwards, so there is no position to close.`;
+    }
     return `You commit ${spend} and receive ${receive} once the market reaches your price. This opens a single one-sided liquidity position that closes automatically when filled; until then you can close it and take the ${spend} back.`;
-  }, [isBuy, baseSym, quoteSym, limitPrice, store.baseInput, store.quoteInput]);
+  }, [isTake, isBuy, baseSym, quoteSym, limitPrice, store.baseInput, store.quoteInput]);
 
   const openConfirm = useCallback(() => setConfirmOpen(true), []);
   const closeConfirm = useCallback(() => setConfirmOpen(false), []);
@@ -266,7 +376,14 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
 
   return (
     <div className='flex flex-col p-3'>
+      <ModeToggle mode={store.mode} setMode={store.setMode} />
       <SegmentedControl direction={store.direction} setDirection={store.setDirection} />
+      {isTake && (
+        <div className='-mt-3 mb-3 text-[11px] leading-tight text-text-secondary'>
+          The side follows the target: a price above mid buys, below mid sells. Click Buy or Sell to
+          pin it instead.
+        </div>
+      )}
       <div className='mb-2'>
         {/* Live mid-price chip above the price input — saves the trader
             from scanning the chart label or the bottom rate row to find
@@ -285,10 +402,7 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
               <Text detail color='text.secondary'>
                 Mid:{' '}
               </Text>
-              <Text
-                detail
-                color={TICK_TEXT_COLOR[midDirection]}
-              >
+              <Text detail color={TICK_TEXT_COLOR[midDirection]}>
                 {TICK_ARROW[midDirection]}
                 {midText}
               </Text>
@@ -298,7 +412,9 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
         <div className='mb-2'>
           <OrderInput
             round
-            label={`When ${store.baseAsset?.symbol} is`}
+            label={
+              isTake ? `Move ${store.baseAsset?.symbol} to` : `When ${store.baseAsset?.symbol} is`
+            }
             value={store.priceInput}
             placeholder={midText ?? undefined}
             decimals={store.quoteAsset?.exponent ?? defaultDecimals}
@@ -314,11 +430,21 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
             denominator={store.quoteAsset?.symbol}
           />
         </div>
-        <SelectGroup<BuyLimitOrderOptions | SellLimitOrderOptions>
-          options={isBuy ? BUY_PRICE_OPTIONS : SELL_PRICE_OPTIONS}
-          value={store.priceInputOption}
-          onChange={store.setPriceInputOption}
-        />
+        {/* The ±% chips place a *resting* order relative to mid; a take is
+            already aimed at one price, so the chips would only offer to move
+            the target to a price with nothing behind it. */}
+        {!isTake && (
+          <SelectGroup<BuyLimitOrderOptions | SellLimitOrderOptions>
+            options={isBuy ? BUY_PRICE_OPTIONS : SELL_PRICE_OPTIONS}
+            value={store.priceInputOption}
+            onChange={store.setPriceInputOption}
+          />
+        )}
+        {takeLine && (
+          <div className='mb-2 rounded-sm bg-other-tonal-fill5 px-2 py-1 text-[11px] leading-tight text-text-secondary'>
+            {takeLine}
+          </div>
+        )}
       </div>
       <div className='mb-2'>
         <OrderInput

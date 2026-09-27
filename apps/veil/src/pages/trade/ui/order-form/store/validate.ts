@@ -3,6 +3,7 @@ import { pnum } from '@penumbra-zone/types/pnum';
 import { AssetInfo } from '@/pages/trade/model/AssetInfo';
 import type { LiquidityRung } from '@/shared/math/position';
 import type { OffMidWarningKind } from './LPFormStore';
+import type { TakeLimitInfo } from './LimitOrderFormStore';
 
 /**
  * A single thing standing between the user and a successful transaction.
@@ -150,6 +151,11 @@ export interface ValidationInput {
    */
   lowerPrice?: number | null;
   upperPrice?: number | null;
+  /**
+   * For the Limit tab in Take mode: what the book walk made of the target
+   * price. Absent in Rest mode, where the existing checks cover it.
+   */
+  takeLimit?: TakeLimitInfo;
 }
 
 const formatAmount = (asset: AssetInfo, amount: number): string =>
@@ -170,6 +176,59 @@ export const validateOrder = (input: ValidationInput): FormIssue[] => {
         'No live market price for this pair yet, so the price range has nothing to anchor to. Pick a pair with an active route book, or use the Limit tab to name your own price.',
     });
     return issues;
+  }
+
+  if (input.takeLimit) {
+    const t = input.takeLimit;
+    const target = `${t.targetPrice.toPrecision(6)} ${t.quoteSymbol}`;
+    const targetSide =
+      t.direction === 'buy'
+        ? `no asks at or below ${target}`
+        : `no bids at or above ${target}`;
+    const aimFurther = t.direction === 'buy' ? 'above' : 'below';
+    switch (t.status) {
+      case 'idle':
+        return [
+          {
+            severity: 'blocking',
+            message: 'Enter a target price — Take sizes the order to move the market to it.',
+          },
+        ];
+      case 'no-mid':
+        return [
+          {
+            severity: 'blocking',
+            message:
+              'No live market price for this pair yet, so Take has nothing to aim from. Pick a pair with an active route book, or switch to Rest to name your own price.',
+          },
+        ];
+      case 'loading':
+        return [
+          { severity: 'blocking', message: 'Reading the route book to size this order…' },
+        ];
+      case 'empty':
+        return [
+          {
+            severity: 'blocking',
+            message: `Nothing to take at ${target}: the book has ${targetSide}. Aim ${aimFurther} it, or switch to Rest to quote there instead.`,
+          },
+        ];
+      case 'beyond':
+        issues.push({
+          severity: 'warning',
+          message: `The deepest level in view is ${(t.worstPrice ?? 0).toPrecision(6)} ${t.quoteSymbol}, so taking the whole book still may not move the market to ${target}. This order is sized for every level the book shows.`,
+        });
+        break;
+      case 'capped':
+        issues.push({
+          severity: 'warning',
+          message: `Reaching ${target} costs more than your ${t.cappedSymbol ?? ''} balance, so this is sized to spend all of it. Expect to move the market only part of the way.`,
+        });
+        break;
+      case 'manual':
+      case 'sized':
+        break;
+    }
   }
 
   // Range sanity — reject non-finite, non-positive, or inverted bounds
