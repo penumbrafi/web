@@ -330,20 +330,27 @@ this topology they are not — it must be set to
 
 ### What the workflow does
 
-1. `deploy-veil.yml` on `push: main` (or `workflow_dispatch` with
-   `promote: auto`, the default): build → ask `proxy` which colour is active
-   → rsync the artifact into the *other* colour's `releases/<sha>` on
-   `target` → flip that colour's `current` symlink → restart its unit →
-   poll its port directly until it answers (up to 120s; it isn't serving
-   traffic yet, so there's no rush) → `veil-swap <target>` on `proxy` →
-   smoke test through nginx.
-2. `workflow_dispatch` with `promote: staging-only` does the same but stops
-   before the swap — the new build sits on the standby colour, reachable at
-   its backend port and (once the staging vhost is enabled) at
-   `staging.penumbra.fi`, while prod traffic stays on the old colour.
+1. `deploy-veil.yml` on `push: main` — the automatic **staging** path:
+   build → ask `proxy` which colour is active → rsync the artifact into the
+   *other* colour's `releases/<sha>` on `target` → flip that colour's
+   `current` symlink → restart its unit → poll its port directly until it
+   answers (up to 120s; it isn't serving traffic yet, so there's no rush) →
+   verify the served HTML's chunk names all exist in the new release. Then it
+   stops. No swap, prod untouched. The standby colour is what
+   `staging.penumbra.fi` serves, so a push to main is also the staging
+   deploy.
+2. `workflow_dispatch` with `promote: auto` (the default) does the same and
+   then continues: `veil-swap <target>` on `proxy` → smoke test through
+   nginx. This is the only path that can cut prod over, and it is
+   deliberately unreachable from `push` — `main` is unprotected, so the swap
+   steps are gated on `event_name == 'workflow_dispatch' && promote == 'auto'`
+   rather than on "not a dispatch, therefore auto".
+   `promote: staging-only` is the same run as a push (ship the standby colour,
+   stop before the swap), for when you want the staging deploy on demand.
 3. `promote-veil.yml` (`workflow_dispatch`, no build) just calls
-   `veil-swap <standby>` — the same primitive, for when a `staging-only` run
-   already checked out fine and someone says "ship it" without a rebuild.
+   `veil-swap <standby>` — the same primitive, for when a push-to-main or
+   `staging-only` run already checked out fine and someone says "ship it"
+   without a rebuild.
    `dry_run: true` prints what would happen without swapping.
 
 Rollback is `gh workflow run promote-veil.yml` again — the previous colour

@@ -1,10 +1,11 @@
 # Build and deploy Veil to the shared dev slot (https://dev.penumbra.fi).
 #
 # Purpose: give the team a single always-fresh WIP URL. The idea is
-# staging.penumbra.fi becomes actual staging (main + pre-prod, gated by
-# workflow_dispatch), while dev.penumbra.fi is the last-write-wins
-# scratch slot — whatever non-draft PR was most recently pushed, or
-# whatever branch a maintainer explicitly dispatched.
+# staging.penumbra.fi becomes actual staging (main + pre-prod, shipped
+# automatically by deploy-veil.yml on every push to main, promoted to prod
+# by hand), while dev.penumbra.fi is the last-write-wins scratch slot —
+# whatever non-draft PR was most recently pushed, or whatever branch a
+# maintainer explicitly dispatched.
 #
 # Same workload container (CT1199) as prod's blue/green, its own port
 # (3010), its own release tree at /opt/penumbra-veil/dev, its own

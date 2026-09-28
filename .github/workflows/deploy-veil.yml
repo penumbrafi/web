@@ -7,20 +7,31 @@
 name: deploy veil
 
 on:
-  # Manual only — no auto-deploy on push. To ship a change you either
-  # run this workflow (`to_prod`) or, for a rollback that reuses the
-  # previous build already sitting on the other colour, run
-  # `promote-veil.yml`. Nothing lands on prod without a hand on the
-  # trigger.
+  # Push to main = automatic STAGING deploy: build → ship to the standby
+  # colour → verify it answers and serves this release's chunks. Prod
+  # traffic is never touched by a push, so the standby colour — what
+  # `staging.penumbra.fi` points at — always carries the tip of main, and
+  # prod only moves when a hand says so: `deploy-veil` with
+  # `promote: auto`, or `promote-veil.yml` to cut over to the build that
+  # is already sitting on the standby colour (no rebuild — the rollback
+  # path too).
+  #
+  # Why a push must not be able to swap: `main` is unprotected, so a
+  # push-triggered run is the one path an unreviewed commit could take to
+  # prod. The `flip nginx upstream …` and `post-swap smoke test …` steps
+  # are therefore gated on `event_name == 'workflow_dispatch' && promote
+  # == 'auto'` and nothing else.
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       promote:
         description: >-
           `auto` (default): build → deploy to standby colour → verify →
-          swap. Zero-downtime cutover on success.
+          swap. Zero-downtime cutover on success. Human-only; a push to
+          main can never do this.
           `staging-only`: build → deploy to standby colour → verify.
-          Skips the swap so the standby serves the new build for
-          inspection on its backend port; a follow-up
+          Skips the swap — same effect as pushing to main; a follow-up
           `promote-veil.yml` run flips traffic when you say so.
         type: choice
         default: auto
@@ -134,9 +145,11 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
-  # (No tag-based release job — deploys are workflow_dispatch only, no
-  # tag push triggers this workflow. If you want a release artifact,
-  # cut the tag separately and download the workflow run's artifact.)
+  # (No tag-based release job — no tag push triggers this workflow. A push
+  # to main and a `workflow_dispatch` both ship the standby colour; only a
+  # dispatch with `promote: auto` reaches prod. If you want a release
+  # artifact, cut the tag separately and download the workflow run's
+  # artifact.)
 
   deploy:
     name: deploy veil (blue/green)
@@ -315,14 +328,16 @@ jobs:
           REMOTE
 
       - name: flip nginx upstream to target colour
-        # Skip on `staging-only` — the standby colour keeps serving the
-        # new build on its backend port, but prod traffic stays on the
-        # old colour until a follow-up `promote-veil.yml` run says so.
-        # `promote` is only present on workflow_dispatch, so treat the
-        # default (push / tag) as `auto`.
+        # Swap runs on an explicit human dispatch with `promote: auto`, and
+        # nothing else. A push-to-main run stops after verifying the standby
+        # colour; `staging-only` stops there by request. Prod traffic stays on
+        # the old colour until a follow-up `promote-veil.yml` run says so.
+        # (This used to read `event != 'workflow_dispatch' || promote ==
+        # 'auto'` — i.e. "a push means auto" — which would have made every
+        # main push cut prod over the moment a push trigger was added.)
         if: >-
-          (github.event_name != 'workflow_dispatch') ||
-          (inputs.promote == 'auto')
+          github.event_name == 'workflow_dispatch' &&
+          inputs.promote == 'auto'
         env:
           TARGET: ${{ steps.pick.outputs.target }}
         run: |
@@ -335,9 +350,11 @@ jobs:
           ssh proxy "sudo -n /usr/local/sbin/veil-swap ${TARGET}"
 
       - name: post-swap smoke test through nginx
+        # Only meaningful directly after a swap, so it follows the swap's gate
+        # exactly.
         if: >-
-          (github.event_name != 'workflow_dispatch') ||
-          (inputs.promote == 'auto')
+          github.event_name == 'workflow_dispatch' &&
+          inputs.promote == 'auto'
         run: |
           set -euo pipefail
           # This request goes to :80/:443 via nginx on the front-proxy
@@ -351,13 +368,16 @@ jobs:
           # all exercised; -k because the pinned address is loopback.
           ssh proxy 'curl -fsS -k -o /dev/null -w "post-swap %{http_code}\n" --resolve penumbra.fi:443:127.0.0.1 https://penumbra.fi/'
 
-      - name: staging-only handoff message
+      - name: staging handoff message
+        # Every run that did NOT swap ends here: the auto path (push to main)
+        # and an explicit `staging-only` dispatch. Say what is live where, and
+        # how to cut it over.
         if: >-
-          github.event_name == 'workflow_dispatch' &&
+          github.event_name != 'workflow_dispatch' ||
           inputs.promote == 'staging-only'
         env:
           TARGET: ${{ steps.pick.outputs.target }}
           PORT: ${{ steps.pick.outputs.port }}
         run: |
-          echo "::notice title=Staging deployed::penumbra-veil@${TARGET}.service is running the new build on :${PORT}. Prod traffic is still on the old colour."
-          echo "::notice title=Promote::gh workflow run promote-veil.yml"
+          echo "::notice title=Staging deployed::penumbra-veil@${TARGET}.service is running the new build on :${PORT} (staging.penumbra.fi). Prod traffic is still on the old colour."
+          echo "::notice title=Promote::gh workflow run promote-veil.yml — cut prod over to this build, no rebuild"
