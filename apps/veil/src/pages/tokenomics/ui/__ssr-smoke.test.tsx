@@ -8,7 +8,17 @@ import { HeadlineStats } from './headline-stats';
 import { IssuancePanel } from './issuance-panel';
 import type { InflationPoint } from '../server/timeseries';
 
-test('tokenomics panels render against the smoke DB', async () => {
+/**
+ * The panels render a metrics object that comes out of pindexer, so the case
+ * needs a reachable indexer database and is skipped without one - same
+ * convention as the explorer's puzzle-fixture suite:
+ *
+ *     PENUMBRA_INDEXER_ENDPOINT=postgresql://... pnpm vitest run \
+ *       src/pages/tokenomics/ui/__ssr-smoke.test.tsx
+ */
+const ENDPOINT = process.env['PENUMBRA_INDEXER_ENDPOINT'];
+
+test.skipIf(!ENDPOINT)('tokenomics panels render against the smoke DB', async () => {
   const metrics = await import('../server/metrics').then(m => m.fetchTokenomicsMetrics());
   const inflation: InflationPoint[] = [
     { date: '2026-08-28', annualizedPct: 2.6 },
