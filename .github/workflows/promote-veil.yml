@@ -7,7 +7,9 @@
 #   gh workflow run promote-veil.yml
 #
 # The dry-run input skips the swap and just prints what would change,
-# useful right after a `deploy-veil.yml` staging-only run.
+# useful right after a non-swapping `deploy-veil.yml` run — a push to
+# main or a `promote: staging-only` dispatch — to check the exact tree
+# that is about to become prod.
 name: promote veil
 
 on:

@@ -57,8 +57,9 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
-  # (No tag-based release job — workflow_dispatch only, same as
-  # deploy-veil.yml.)
+  # (No tag-based release job — this workflow is workflow_dispatch only.
+  # `deploy-veil.yml` is the one that also serves the staging slot on push
+  # to main.)
 
   deploy:
     name: deploy node-status

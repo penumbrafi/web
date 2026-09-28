@@ -397,8 +397,10 @@ container 2026-09-20). The record is Cloudflare-proxied, so CF terminates the
 browser TLS and the origin reuses the `penumbra.fi` certificate (Full mode);
 the vhost sends `X-Robots-Tag: noindex, nofollow`. `veil_staging` always
 points at the standby colour, so `https://staging.penumbra.fi/` is whatever
-the last `staging-only` (or pre-swap `auto`) deploy put there — check chunk
-membership in the release tree before trusting it, a 200 alone is not proof.
+the last non-swapping deploy put there — every push to main, or a
+`staging-only` dispatch, or the standby half of a pre-swap `auto` run —
+check chunk membership in the release tree before trusting it, a 200 alone
+is not proof.
 
 ### Host setup (blue/green pieces)
 
