@@ -6,20 +6,21 @@ import {
 } from '@/pages/inspect/explorer/lib/graphql/generated/types'
 import { ibcStatsQuery } from '@/pages/inspect/explorer/lib/graphql/queries'
 import { TransformedIbcStats } from '@/pages/inspect/explorer/lib/types'
-import { getClientChainIds } from '@/pages/inspect/explorer/lib/ibc/client-chains'
+import { clientExpiresAt } from '@/pages/inspect/explorer/lib/ibc/client-health'
+import { getClientStates } from '@/pages/inspect/explorer/lib/ibc/client-states'
 
 const getIbcStats = async (args?: {
     clientId?: string
 }): Promise<TransformedIbcStats[] | undefined> => {
     const graphqlClient = createGraphqlClient()
 
-    const [result, chainIds] = await Promise.all([
+    const [result, states] = await Promise.all([
         graphqlClient
             .query<IbcStatsQuery, IbcStatsQueryVariables>(ibcStatsQuery, {
                 ...args,
             })
             .toPromise(),
-        getClientChainIds(),
+        getClientStates(),
     ])
 
     if (result.error) {
@@ -28,11 +29,14 @@ const getIbcStats = async (args?: {
 
     return result.data?.ibcStats.map(stats => {
         const { lastUpdated, ...props } = stats
+        const timestamp = dayjs(lastUpdated).valueOf()
+        const state = states.get(props.id)
 
         return {
             ...props,
-            timestamp: dayjs(lastUpdated).valueOf(),
-            counterpartyChainId: chainIds.get(props.id),
+            timestamp,
+            counterpartyChainId: state?.chainId,
+            expiresAt: clientExpiresAt(props.status, timestamp, state?.trustingPeriodMs),
         }
     })
 }

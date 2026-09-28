@@ -13,7 +13,7 @@ import {
 } from '@/pages/inspect/explorer/containers';
 import { IbcStatusFilter } from '@/pages/inspect/explorer/lib/graphql/generated/types';
 import ibc, { describeClient } from '@/pages/inspect/explorer/lib/ibc';
-import { getClientChainIds } from '@/pages/inspect/explorer/lib/ibc/client-chains';
+import { getClientStates } from '@/pages/inspect/explorer/lib/ibc/client-states';
 import { classNames, nonEmpty } from '@/pages/inspect/explorer/lib/utils';
 export const dynamic = 'force-dynamic';
 
@@ -32,7 +32,7 @@ const ClientPage: FC<Props> = async props => {
   const id = bySlug?.id ?? params.client;
   // Clients the hand-kept list doesn't know are named from the node's own
   // client state (its counterparty chain id), not shown as "Unknown".
-  const client = bySlug ?? describeClient(id, (await getClientChainIds()).get(id));
+  const client = bySlug ?? describeClient(id, (await getClientStates()).get(id)?.chainId);
   const name = client.name;
 
   const searchParams = await props.searchParams;

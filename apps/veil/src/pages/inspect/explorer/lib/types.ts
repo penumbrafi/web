@@ -99,6 +99,8 @@ export interface TransformedIbcStats
     timestamp: number
     /** Counterparty chain id from the node's client state, when known. */
     counterpartyChainId?: string
+    /** When the client stops accepting proofs, when it can be estimated. */
+    expiresAt?: number
 }
 
 export interface ValidatorBlock {
