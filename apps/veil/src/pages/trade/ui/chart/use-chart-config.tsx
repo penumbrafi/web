@@ -211,74 +211,77 @@ export const useChartConfig = (
     }
   }, []);
 
-  const setOwnPositionLines = useCallback((lines: OwnPositionLine[]) => {
-    const series = seriesRef.current;
-    if (!series) {
-      return;
-    }
+  const setOwnPositionLines = useCallback(
+    (lines: OwnPositionLine[]) => {
+      const series = seriesRef.current;
+      if (!series) {
+        return;
+      }
 
-    const seen = new Set<string>();
-    for (const line of lines) {
-      if (!Number.isFinite(line.price) || line.price <= 0) {
-        continue;
-      }
-      seen.add(line.id);
-      // theme.color.text.secondary is '' in @penumbra-zone/ui, so neutral
-      // lines use primary text - lightweight-charts must never receive an
-      // empty color string. Empty color crashes the chart imperative
-      // API, which under React 19.2 (Next 16) tears down mid-render and
-      // trips a hooks-count divergence (#310) in the mobx observer wrap.
-      let color: string = theme.color.text.primary;
-      if (line.direction === 'buy') {
-        color = theme.color.success.light;
-      } else if (line.direction === 'sell') {
-        color = theme.color.destructive.light;
-      }
-      const opts: CreatePriceLineOptions = {
-        price: line.price,
-        color,
-        lineStyle: LineStyle.Dashed,
-        // Every position line the same weight: sizing them by amount made the
-        // chart read as clutter. The amount is in the hover label instead.
-        lineWidth: 1,
-        // Axis label off — lightweight-charts renders a small arrow-like
-        // pointer next to the price which reads as a direction indicator
-        // and confuses traders. We render our own hover strip via the
-        // drag overlay, so the trader hovers the line to see direction +
-        // price + amount instead. If linesShowAmount is on, the label
-        // text still ends up in the hover tooltip (see use-own-position-
-        // lines.ts).
-        axisLabelVisible: false,
-        title: line.label ?? line.id.slice(0, 6),
-      };
-      const existing = ownLinesRef.current.get(line.id);
-      if (existing) {
-        existing.applyOptions(opts);
-      } else {
-        ownLinesRef.current.set(line.id, series.createPriceLine(opts));
-      }
-      ownLineMetaRef.current.set(line.id, {
-        price: line.price,
-        side: line.direction,
-        title: opts.title ?? '',
-        shown: true,
-      });
-    }
-
-    // Remove lines that no longer exist
-    for (const [id, lineRef] of ownLinesRef.current.entries()) {
-      if (!seen.has(id)) {
-        try {
-          series.removePriceLine(lineRef);
-        } catch {
-          // chart may already be torn down
+      const seen = new Set<string>();
+      for (const line of lines) {
+        if (!Number.isFinite(line.price) || line.price <= 0) {
+          continue;
         }
-        ownLinesRef.current.delete(id);
-        ownLineMetaRef.current.delete(id);
+        seen.add(line.id);
+        // theme.color.text.secondary is '' in @penumbra-zone/ui, so neutral
+        // lines use primary text - lightweight-charts must never receive an
+        // empty color string. Empty color crashes the chart imperative
+        // API, which under React 19.2 (Next 16) tears down mid-render and
+        // trips a hooks-count divergence (#310) in the mobx observer wrap.
+        let color: string = theme.color.text.primary;
+        if (line.direction === 'buy') {
+          color = theme.color.success.light;
+        } else if (line.direction === 'sell') {
+          color = theme.color.destructive.light;
+        }
+        const opts: CreatePriceLineOptions = {
+          price: line.price,
+          color,
+          lineStyle: LineStyle.Dashed,
+          // Every position line the same weight: sizing them by amount made the
+          // chart read as clutter. The amount is in the hover label instead.
+          lineWidth: 1,
+          // Axis label off — lightweight-charts renders a small arrow-like
+          // pointer next to the price which reads as a direction indicator
+          // and confuses traders. We render our own hover strip via the
+          // drag overlay, so the trader hovers the line to see direction +
+          // price + amount instead. If linesShowAmount is on, the label
+          // text still ends up in the hover tooltip (see use-own-position-
+          // lines.ts).
+          axisLabelVisible: false,
+          title: line.label ?? line.id.slice(0, 6),
+        };
+        const existing = ownLinesRef.current.get(line.id);
+        if (existing) {
+          existing.applyOptions(opts);
+        } else {
+          ownLinesRef.current.set(line.id, series.createPriceLine(opts));
+        }
+        ownLineMetaRef.current.set(line.id, {
+          price: line.price,
+          side: line.direction,
+          title: opts.title ?? '',
+          shown: true,
+        });
       }
-    }
-    thinOwnLines();
-  }, [thinOwnLines]);
+
+      // Remove lines that no longer exist
+      for (const [id, lineRef] of ownLinesRef.current.entries()) {
+        if (!seen.has(id)) {
+          try {
+            series.removePriceLine(lineRef);
+          } catch {
+            // chart may already be torn down
+          }
+          ownLinesRef.current.delete(id);
+          ownLineMetaRef.current.delete(id);
+        }
+      }
+      thinOwnLines();
+    },
+    [thinOwnLines],
+  );
 
   const setVolumeRatio = useCallback((ratio: number) => {
     const clamped = Math.min(0.6, Math.max(0.05, ratio));
@@ -1140,11 +1143,10 @@ export const useChartConfig = (
   }, []);
 
   // Re-thin own-position lines whenever the chart redraws (zoom, pan, rescale).
-  useEffect(() => (chartReady ? subscribeRedraw(thinOwnLines) : undefined), [
-    chartReady,
-    subscribeRedraw,
-    thinOwnLines,
-  ]);
+  useEffect(
+    () => (chartReady ? subscribeRedraw(thinOwnLines) : undefined),
+    [chartReady, subscribeRedraw, thinOwnLines],
+  );
 
   return {
     chartRef: setChartRef,
