@@ -3,9 +3,11 @@ import {
   Breadcrumb,
   Breadcrumbs,
   Container,
+  FilterSelector,
   TimeRangeSelector,
 } from '@/pages/inspect/explorer/components';
 import { IbcFlowHistoryContainer, IbcTableContainer } from '@/pages/inspect/explorer/containers';
+import { CLIENT_FILTERS, isClientFilter } from '@/pages/inspect/explorer/lib/ibc/client-health';
 import { nonEmpty } from '@/pages/inspect/explorer/lib/utils';
 export const dynamic = 'force-dynamic';
 
@@ -17,11 +19,14 @@ const RANGE_DAYS = new Map([
 ]);
 
 interface Props {
-  searchParams: Promise<{ range?: string }>;
+  searchParams: Promise<{ filter?: string; range?: string }>;
 }
 
 const IbcPage: FC<Props> = async props => {
   const searchParams = await props.searchParams;
+  // Expired and frozen clients outnumber the live ones by an order of
+  // magnitude, so dead channels are opt-in tabs and `open` is the default.
+  const filter = isClientFilter(searchParams.filter) ? searchParams.filter : 'open';
 
   return (
     <Container>
@@ -44,7 +49,16 @@ const IbcPage: FC<Props> = async props => {
           />
         }
       />
-      <IbcTableContainer className='mt-4' />
+      <IbcTableContainer
+        className='mt-4'
+        filter={filter}
+        header={
+          <header className='flex flex-wrap items-center justify-between gap-4'>
+            <h2 className='text-xl font-medium sm:text-2xl'>IBC clients</h2>
+            <FilterSelector filters={[...CLIENT_FILTERS]} selectedFilter={filter} />
+          </header>
+        }
+      />
     </Container>
   );
 };
