@@ -345,6 +345,7 @@ export const Chart = observer(() => {
     setOwnPositionLines,
     chartReady,
     resetView,
+    parkAtLiveEdge,
     centerPriceScaleOn,
     clearPriceAnchor,
     timeAtX,
@@ -629,6 +630,11 @@ export const Chart = observer(() => {
   // the union autoscale keeps the stale sentinel price in the window
   // while the mid marker walks away from it).
   const lastSeededAnchorRef = useRef<number | null>(null);
+  // Set when a duration/pair change must land on a fresh window (1b:
+  // ~10 live blocks) instead of inheriting the previous window's zoom.
+  // Consumed by the first full replace that paints the new data — either
+  // the latest-candles seed or the history landing, whichever comes first.
+  const resetWindowRef = useRef(false);
   // Latest-candles tail, read (not depended on) by the history effect so a
   // history page landing doesn't wipe the live bars appended since mount.
   // A ref rather than a dep: listing latestCandles would turn every block
@@ -638,6 +644,12 @@ export const Chart = observer(() => {
     placeholder: boolean;
   }>({ candles: undefined, placeholder: false });
   latestCandlesRef.current = { candles: latestCandles, placeholder: latestIsPlaceholder };
+  // Read (not depended on) by the seed/history effects for the same reason
+  // as latestCandlesRef: listing duration would re-run the full replace on
+  // every switch with the previous timeframe's placeholder data and mark
+  // the chart seeded before the new data lands.
+  const durationRef = useRef(duration);
+  durationRef.current = duration;
 
   // Reset on duration OR pair change — the chart container's isLoading gate
   // does NOT unmount on pair switch (keepPreviousData keeps `isLoading`
@@ -648,6 +660,9 @@ export const Chart = observer(() => {
     fullySeededRef.current = false;
     sentinelActiveRef.current = false;
     lastSeededAnchorRef.current = null;
+    // 1b is a live block view: a switch must land on a block-scale window
+    // (~10 bars), not carry the old timeframe's zoom across.
+    resetWindowRef.current = duration === '1b';
   }, [duration, pairKey]);
 
   useEffect(() => {
@@ -661,6 +676,11 @@ export const Chart = observer(() => {
       // Full-replace here and clear the sentinel flag.
       setCandlesData(latestCandles);
       setVolumeData(latestCandles);
+      // Consumed by whichever full replace lands first; the history
+      // effect clears it once it has applied the fresh window too.
+      if (resetWindowRef.current && durationRef.current === '1b') {
+        parkAtLiveEdge({ visibleBars: 10, forceLive: true });
+      }
       sentinelActiveRef.current = false;
       fullySeededRef.current = true;
       return;
@@ -671,6 +691,7 @@ export const Chart = observer(() => {
     updateLatestVolumes(latestCandles);
   }, [
     latestCandles,
+    parkAtLiveEdge,
     setCandlesData,
     setVolumeData,
     updateLatestCandles,
@@ -788,7 +809,11 @@ export const Chart = observer(() => {
     setVolumeData(candles);
     sentinelActiveRef.current = false;
     fullySeededRef.current = true;
-  }, [hasRealCandles, historyCandles, setCandlesData, setVolumeData]);
+    if (resetWindowRef.current && durationRef.current === '1b') {
+      parkAtLiveEdge({ visibleBars: 10, forceLive: true });
+      resetWindowRef.current = false;
+    }
+  }, [hasRealCandles, historyCandles, parkAtLiveEdge, setCandlesData, setVolumeData]);
 
   // Empty-history fallback: lightweight-charts refuses to render axes
   // when the candle series has zero data points — no candles = no

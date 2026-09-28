@@ -346,8 +346,17 @@ export const useChartConfig = (
    * setChartRef) says whether the window was parked at the live edge to
    * begin with, so scroll-back pagination and a user inspecting history are
    * never yanked forward.
+   *
+   * `opts.visibleBars` switches to a fresh-window reset instead: show that
+   * many bars at the live edge at a canonical zoom, whatever span the
+   * previous window had. Used by the 1b duration switch, so clicking 1b
+   * lands on ~10 live blocks rather than inheriting the old timeframe's
+   * zoom (which left the new bars a sliver at the right edge — "1y and
+   * zoom in"). `opts.forceLive` marks the user as back at "now" — the
+   * reset is programmatic, so a pre-existing scroll-back verdict must not
+   * keep new bars piling up off-screen.
    */
-  const parkAtLiveEdge = useCallback(() => {
+  const parkAtLiveEdge = useCallback((opts?: { visibleBars?: number; forceLive?: boolean }) => {
     const chart = chartRef.current;
     const count = barTimesRef.current.length;
     if (!chart || count === 0) {
@@ -355,16 +364,26 @@ export const useChartConfig = (
     }
     try {
       const timeScale = chart.timeScale();
-      const current = timeScale.getVisibleLogicalRange();
-      // Keep the current zoom (bar spacing) — only the position moves.
-      const span =
-        current && current.to > current.from
-          ? current.to - current.from
-          : count - 1 + RIGHT_OFFSET_BARS;
-      timeScale.setVisibleLogicalRange({
-        from: (count - 1 + RIGHT_OFFSET_BARS - span) as Logical,
-        to: (count - 1 + RIGHT_OFFSET_BARS) as Logical,
-      });
+      const to = (count - 1 + RIGHT_OFFSET_BARS) as Logical;
+      let from: Logical;
+      if (opts?.visibleBars !== undefined) {
+        // Fresh window: the last `visibleBars` bars plus the reserved
+        // right offset. Clamped at 0 so a series with fewer bars than the
+        // requested window shows everything rather than blank space.
+        from = Math.max(0, count - opts.visibleBars) as Logical;
+      } else {
+        // Keep the current zoom (bar spacing) — only the position moves.
+        const current = timeScale.getVisibleLogicalRange();
+        const span =
+          current && current.to > current.from
+            ? current.to - current.from
+            : count - 1 + RIGHT_OFFSET_BARS;
+        from = (count - 1 + RIGHT_OFFSET_BARS - span) as Logical;
+      }
+      if (opts?.forceLive) {
+        followLiveRef.current = true;
+      }
+      timeScale.setVisibleLogicalRange({ from, to });
     } catch {
       // chart torn down
     }
@@ -1141,6 +1160,7 @@ export const useChartConfig = (
     setOwnPositionLines,
     chartReady,
     resetView,
+    parkAtLiveEdge,
     centerPriceScaleOn,
     clearPriceAnchor,
     subscribeRedraw,
