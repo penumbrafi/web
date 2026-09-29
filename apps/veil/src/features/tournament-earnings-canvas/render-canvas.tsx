@@ -3,6 +3,8 @@ import { TournamentParams } from './types';
 import { pnum } from '@penumbra-zone/types/pnum';
 import { shortify } from '@penumbra-zone/types/shortify';
 
+const baseUrl = process.env['BASE_URL'] ?? 'http://localhost:3000';
+
 const theme = {
   font: {
     default: 'Poppins',
@@ -172,8 +174,12 @@ export async function renderTournamentEarningsCanvas(
     bgImage.src = bgImageSrc;
     bgImage.onload = () => draw(bgImage);
   } else {
+    const serverBgSrc = landscape
+      ? `${baseUrl}/assets/lqt-social-rewards-bg-landscape.jpg`
+      : `${baseUrl}/assets/lqt-social-rewards-bg-square.jpg`;
+
     await import('canvas').then(async ({ loadImage }) => {
-      await loadImage(bgImageSrc)
+      await loadImage(serverBgSrc)
         .then(bgImage => {
           draw(bgImage as unknown as CanvasImageSource);
         })
