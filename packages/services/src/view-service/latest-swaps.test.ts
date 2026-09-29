@@ -60,7 +60,7 @@ describe('LatestSwaps request handler', () => {
 
   it('collects swaps with "transaction" source only', async () => {
     mockIndexedDb.iterateSwaps.mockImplementationOnce(async function* () {
-      yield* await Promise.resolve([
+      yield* await Promise.all([
         IRRELEVANT_SWAP,
         getSwap({
           height: 100,
@@ -91,7 +91,7 @@ describe('LatestSwaps request handler', () => {
 
   it('applies `responseLimit` filter correctly', async () => {
     mockIndexedDb.iterateSwaps.mockImplementationOnce(async function* () {
-      yield* await Promise.resolve([
+      yield* await Promise.all([
         getSwap({
           height: 100,
           account: 0,
@@ -123,7 +123,7 @@ describe('LatestSwaps request handler', () => {
 
   it('applies `afterHeight` filter correctly', async () => {
     mockIndexedDb.iterateSwaps.mockImplementationOnce(async function* () {
-      yield* await Promise.resolve([
+      yield* await Promise.all([
         getSwap({
           height: 100,
           account: 0,
@@ -155,7 +155,7 @@ describe('LatestSwaps request handler', () => {
 
   it('applies `accountFilter` filter correctly', async () => {
     mockIndexedDb.iterateSwaps.mockImplementationOnce(async function* () {
-      yield* await Promise.resolve([
+      yield* await Promise.all([
         getSwap({
           height: 100,
           account: 0,
@@ -186,7 +186,7 @@ describe('LatestSwaps request handler', () => {
 
   it('applies `pair` filter correctly', async () => {
     mockIndexedDb.iterateSwaps.mockImplementationOnce(async function* () {
-      yield* await Promise.resolve([
+      yield* await Promise.all([
         getSwap({
           height: 100,
           account: 0,
@@ -222,7 +222,7 @@ describe('LatestSwaps request handler', () => {
 
   it('applies all filters together correctly', async () => {
     mockIndexedDb.iterateSwaps.mockImplementationOnce(async function* () {
-      yield* await Promise.resolve([
+      yield* await Promise.all([
         IRRELEVANT_SWAP,
         getSwap({
           height: 0,
@@ -294,7 +294,7 @@ interface GetSwapOptions {
 }
 
 // Constructs correct SwapRecord with the most essential data needed for `latestSwaps`
-const getSwap = ({ account, to, from, height, input, output }: GetSwapOptions) => {
+const getSwap = async ({ account, to, from, height, input, output }: GetSwapOptions) => {
   return new SwapRecord({
     heightClaimed: BigInt(height),
     swapCommitment: { inner: new Uint8Array([1, 2, 3]) },
@@ -308,7 +308,7 @@ const getSwap = ({ account, to, from, height, input, output }: GetSwapOptions) =
       },
     }),
     swap: {
-      claimAddress: getAddressByIndex(testFullViewingKey, account),
+      claimAddress: await getAddressByIndex(testFullViewingKey, account),
     },
     outputData: {
       height: BigInt(height),

@@ -19,7 +19,7 @@ export const authorizeAndBuild: Impl['authorizeAndBuild'] = async function* (
   const fvk = ctx.values.get(fvkCtx);
 
   const sct = await indexedDb.getStateCommitmentTree();
-  const witnessData = getWitness(transactionPlan, sct);
+  const witnessData = await getWitness(transactionPlan, sct);
 
   yield* buildTransaction(
     transactionPlan,

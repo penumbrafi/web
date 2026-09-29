@@ -15,7 +15,7 @@ export const witness: Impl['witness'] = async (req, ctx) => {
   const { indexedDb } = await services.getWalletServices();
   const sct = await indexedDb.getStateCommitmentTree();
 
-  const witnessData = getWitness(req.transactionPlan, sct);
+  const witnessData = await getWitness(req.transactionPlan, sct);
 
   return { witnessData };
 };

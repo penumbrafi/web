@@ -10,7 +10,7 @@ export const indexByAddress: Impl['indexByAddress'] = async (req, ctx) => {
     throw new ConnectError('no address given in request', Code.InvalidArgument);
   }
   const fvk = ctx.values.get(fvkCtx);
-  const addressIndex = getAddressIndexByAddress(await fvk(), req.address);
+  const addressIndex = await getAddressIndexByAddress(await fvk(), req.address);
 
   if (!addressIndex) {
     return {};

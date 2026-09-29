@@ -8,7 +8,7 @@ export const ephemeralAddress: Impl['ephemeralAddress'] = async (req, ctx) => {
     throw new Error('Missing address index');
   }
   const fvk = ctx.values.get(fvkCtx);
-  const address = getEphemeralByIndex(await fvk(), req.addressIndex.account);
+  const address = await getEphemeralByIndex(await fvk(), req.addressIndex.account);
 
   return { address };
 };

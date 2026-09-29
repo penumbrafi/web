@@ -66,28 +66,28 @@ const mockIsControlledAddress = (address?: Address) =>
 
 describe('assertSwapClaimAddressesBelongToCurrentUser()', () => {
   describe('when the transaction plan has no swaps', () => {
-    it('does not throw', () => {
-      expect(() =>
+    it('does not throw', async () => {
+      await expect(
         assertSwapClaimAddressesBelongToCurrentUser(new TransactionPlan(), mockIsControlledAddress),
-      ).not.toThrow();
+      ).resolves.toBeUndefined();
     });
   });
 
   describe('when the transaction plan has swaps', () => {
     describe("when all of the swaps' `claimAddress`es belong to the current user", () => {
-      it('does not throw', () => {
+      it('does not throw', async () => {
         const plan = new TransactionPlan({
           actions: [swapWithCurrentUserAddress1, swapWithCurrentUserAddress2],
         });
 
-        expect(() =>
+        await expect(
           assertSwapClaimAddressesBelongToCurrentUser(plan, mockIsControlledAddress),
-        ).not.toThrow();
+        ).resolves.toBeUndefined();
       });
     });
 
     describe("when any of the swaps' `claimAddress`es do not belong to the current user", () => {
-      it('throws a `ConnectError` with the `PermissionDenied` code', () => {
+      it('throws a `ConnectError` with the `PermissionDenied` code', async () => {
         const plan = new TransactionPlan({
           actions: [swapWithCurrentUserAddress1, swapWithOtherUserAddress],
         });
@@ -95,7 +95,7 @@ describe('assertSwapClaimAddressesBelongToCurrentUser()', () => {
         expect.assertions(2);
 
         try {
-          assertSwapClaimAddressesBelongToCurrentUser(plan, mockIsControlledAddress);
+          await assertSwapClaimAddressesBelongToCurrentUser(plan, mockIsControlledAddress);
         } catch (error) {
           expect(error).toBeInstanceOf(ConnectError);
           expect((error as ConnectError).code).toBe(Code.PermissionDenied);
@@ -104,7 +104,7 @@ describe('assertSwapClaimAddressesBelongToCurrentUser()', () => {
     });
 
     describe("when any of the swaps' `claimAddress`es are empty", () => {
-      it('throws a `ConnectError` with the `PermissionDenied` code', () => {
+      it('throws a `ConnectError` with the `PermissionDenied` code', async () => {
         const plan = new TransactionPlan({
           actions: [swapWithUndefinedAddress],
         });
@@ -112,7 +112,7 @@ describe('assertSwapClaimAddressesBelongToCurrentUser()', () => {
         expect.assertions(2);
 
         try {
-          assertSwapClaimAddressesBelongToCurrentUser(plan, mockIsControlledAddress);
+          await assertSwapClaimAddressesBelongToCurrentUser(plan, mockIsControlledAddress);
         } catch (error) {
           expect(error).toBeInstanceOf(ConnectError);
           expect((error as ConnectError).code).toBe(Code.PermissionDenied);

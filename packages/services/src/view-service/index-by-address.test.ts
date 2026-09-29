@@ -13,7 +13,7 @@ describe('IndexByAddress request handler', () => {
   let mockCtx: HandlerContext;
   let testAddress: Address;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     mockCtx = createHandlerContext({
       service: ViewService,
       method: ViewService.methods.indexByAddress,
@@ -23,7 +23,7 @@ describe('IndexByAddress request handler', () => {
       contextValues: createContextValues().set(fvkCtx, () => Promise.resolve(testFullViewingKey)),
     });
 
-    testAddress = getAddressByIndex(testFullViewingKey, 0);
+    testAddress = await getAddressByIndex(testFullViewingKey, 0);
   });
 
   test('should successfully get index for a given address', async () => {
@@ -35,7 +35,7 @@ describe('IndexByAddress request handler', () => {
   });
 
   test('should successfully get index for ephemeral address', async () => {
-    testAddress = getEphemeralByIndex(testFullViewingKey, 2);
+    testAddress = await getEphemeralByIndex(testFullViewingKey, 2);
 
     const addressByIndexResponse = await indexByAddress(
       new IndexByAddressRequest({ address: testAddress }),
@@ -51,7 +51,7 @@ describe('IndexByAddress request handler', () => {
       ),
     );
 
-    testAddress = getEphemeralByIndex(anotherFVK, 5);
+    testAddress = await getEphemeralByIndex(anotherFVK, 5);
 
     const addressByIndexResponse = await indexByAddress(
       new IndexByAddressRequest({ address: testAddress }),

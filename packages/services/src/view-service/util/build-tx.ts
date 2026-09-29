@@ -39,8 +39,8 @@ export const optimisticBuild = async function* (
   // status updates
   yield* progressStream(offscreenTasks, cancel);
 
-  // final build is synchronous
-  const transaction: Transaction = buildParallel(
+  // final build step
+  const transaction: Transaction = await buildParallel(
     await Promise.all(offscreenTasks),
     transactionPlan,
     witnessData,

@@ -16,7 +16,7 @@ export const latestSwaps: Impl['latestSwaps'] = async function* (_req, ctx) {
   const { indexedDb } = await services.getWalletServices();
 
   const accountFilter = _req.accountFilter
-    ? getAddressByIndex(await fvk(), _req.accountFilter.account)
+    ? await getAddressByIndex(await fvk(), _req.accountFilter.account)
     : undefined;
   const pairFilter = _req.pair
     ? new TradingPair({ asset1: _req.pair.start, asset2: _req.pair.end })

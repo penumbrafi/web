@@ -4,7 +4,7 @@ import { getTransparentAddress } from '@rotko/penumbra-wasm/keys';
 
 export const transparentAddress: Impl['transparentAddress'] = async (_, ctx) => {
   const fvk = await ctx.values.get(fvkCtx)();
-  const t_addr = getTransparentAddress(fvk);
+  const t_addr = await getTransparentAddress(fvk);
 
   return {
     address: t_addr.address,

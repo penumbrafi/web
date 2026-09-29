@@ -13,7 +13,7 @@ export const authorize: Impl['authorize'] = async (req, ctx) => {
   }
 
   const fullViewingKey = await ctx.values.get(fvkCtx)();
-  assertValidAuthorizeRequest(req, fullViewingKey);
+  await assertValidAuthorizeRequest(req, fullViewingKey);
 
   const choice = await ctx.values.get(approverCtx)(req);
   if (choice !== UserChoice.Approved) {
@@ -22,6 +22,6 @@ export const authorize: Impl['authorize'] = async (req, ctx) => {
 
   const spendKey = await ctx.values.get(skCtx)();
 
-  const data = authorizePlan(spendKey, req.plan);
+  const data = await authorizePlan(spendKey, req.plan);
   return { data };
 };
