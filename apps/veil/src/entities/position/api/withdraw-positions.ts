@@ -87,7 +87,13 @@ export const withdrawPositions = async (
         source: new AddressIndex({ account: connectionStore.subaccount }),
       });
 
-      await planBuildBroadcast('positionWithdraw', planReq);
+      // planBuildBroadcast swallows a wallet-side cancellation and returns
+      // undefined; reporting that as 'ok' would let a batch run carry on
+      // (and a removal wait for closes that were never sent).
+      const sent = await planBuildBroadcast('positionWithdraw', planReq);
+      if (!sent) {
+        return { status: 'cancelled' };
+      }
     } catch (e) {
       if (userDeniedTransaction(e)) {
         return { status: 'cancelled' };
