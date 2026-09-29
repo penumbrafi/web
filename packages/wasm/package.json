@@ -18,7 +18,6 @@
     "clean:rust": "cargo clean --manifest-path ./crate/Cargo.toml",
     "compile": "cd crate && wasm-pack build --no-pack --target bundler --out-name index --out-dir ../wasm",
     "compile:parallel": "bash ./crate/scripts/build-wasm-parallel.sh",
-    "postcompile:parallel": "touch ./wasm-parallel/.npmignore",
     "compile:all": "pnpm compile && pnpm compile:parallel",
     "compile:bundler": "cd crate && wasm-pack build --no-pack --target bundler --out-name index --out-dir ../wasm",
     "dev:compile": "cargo watch -C ./crate --postpone -- $npm_execpath run compile",

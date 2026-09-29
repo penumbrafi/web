@@ -41,5 +41,7 @@ for dir in "${PKGS[@]}"; do
     continue
   fi
   (cd "$dir" && pnpm publish --access public)
+  # Tag the published commit; changesets/action pushes tags and makes releases from "New tag:".
+  git tag "$name@$version"
   echo "New tag: $name@$version"
 done

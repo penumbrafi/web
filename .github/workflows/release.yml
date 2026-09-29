@@ -57,6 +57,7 @@ jobs:
     needs: version
     if: needs.version.outputs.hasChangesets == 'false'
     runs-on: ubuntu-24.04
+    timeout-minutes: 120 # fat-LTO parallel wasm + serial wasm from a cold cargo cache
     environment: npm
     permissions:
       contents: write # tags + GitHub releases

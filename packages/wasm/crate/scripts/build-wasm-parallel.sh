@@ -113,6 +113,10 @@ else
     echo "Step 3: SKIPPED (SKIP_WASM_OPT=1)"
 fi
 
+# npm-packlist would otherwise apply wasm-parallel/.gitignore ("*") and publish the
+# package WITHOUT the parallel build.
+touch "$OUT_DIR/.npmignore"
+
 echo
 echo "Multi-threaded WASM build complete:"
 wc -c "$OUT_DIR/index_bg.wasm" | awk '{printf "  index_bg.wasm: %s bytes (%.2f MB)\n", $1, $1/1024/1024}'

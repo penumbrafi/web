@@ -42,7 +42,7 @@ pinned `ZCLI_REV`, applies the Chrome `workerHelpers.js` patch as a scripted ste
   `workspace:*` peers. That can't happen again, because publishing goes through `pnpm publish`.
 - `@penumbra-zone/keys` moved from `optionalDependencies` to `devDependencies` of `wasm`. Nothing
   in `src` imports it, and consumers install the ~100MB keys themselves.
-- `wasm-parallel/` gets a `.npmignore` (the new `postcompile:parallel` script). Without it,
+- `wasm-parallel/` gets a `.npmignore`, written at the end of `build-wasm-parallel.sh`. Without it,
   npm-packlist applies `wasm-parallel/.gitignore` (`*`) and **the tarball silently ships without
   the parallel build**. This was checked with `npm pack --dry-run`: 0 wasm-parallel files before
   the fix, 5 after.
