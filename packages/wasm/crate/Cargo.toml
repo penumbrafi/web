@@ -6,6 +6,18 @@ edition = "2021"
 [profile.release]
 opt-level = "s"
 
+# Speed-optimized profile for the multi-threaded (rayon) build that runs the
+# Groth16 provers. The serial `wasm/` build keeps the size-optimized "s"
+# profile above; the parallel build is only loaded in the offscreen prover
+# worker, where proving time matters far more than a few hundred KB.
+# Used by `pnpm compile:parallel` / scripts/build-wasm-parallel.sh via
+# `--profile release-parallel`.
+[profile.release-parallel]
+inherits = "release"
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+
 [lib]
 crate-type = ["cdylib", "rlib"]
 

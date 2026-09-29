@@ -59,6 +59,11 @@ export const initWasmWithParallel = async (
 
     // Create shared memory for rayon threads
     // Initial: 512 pages (32MB), max: 65536 pages (4GB)
+    // Do NOT raise `initial` to "pre-fit" the ~100MB of proving keys: Rust's
+    // wasm allocator only uses pages it obtained via memory.grow, so pages
+    // present at instantiation beyond the module's static data are never
+    // handed out. Measured (node, all 6 keys): initial 4096 pages ended at
+    // 428MB vs 204MB for 512, with identical key-load time.
     // Note: maximum must match the WASM module's declared maximum (set via --max-memory linker flag)
     const memory = new WebAssembly.Memory({
       initial: 512,
