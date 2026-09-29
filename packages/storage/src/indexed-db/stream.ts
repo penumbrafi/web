@@ -1,6 +1,6 @@
 import { AnyMessage, JsonValue, Message, MessageType } from '@bufbuild/protobuf';
 import { IDBPCursorWithValue } from 'idb';
-import type { PenumbraDb, PenumbraStoreNames } from '@penumbra-zone/types/indexed-db';
+import type { PenumbraDb, PenumbraStoreNames } from '@penumbrafi/types/indexed-db';
 import { typeRegistry } from '@penumbra-zone/protobuf';
 
 export class IdbCursorSource<N extends PenumbraStoreNames, T extends Message<T> = AnyMessage>

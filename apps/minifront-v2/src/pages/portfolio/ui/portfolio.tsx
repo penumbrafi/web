@@ -5,7 +5,7 @@ import {
   getBalanceView,
   getMetadataFromBalancesResponse,
 } from '@penumbra-zone/getters/balances-response';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 
 import { useBalancesStore } from '@/shared/stores/store-context';
 import { BalancesByAccount } from '@/shared/stores/balances-store';

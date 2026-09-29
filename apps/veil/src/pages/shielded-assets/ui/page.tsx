@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { AssetId, Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { AssetIcon } from '@penumbra-zone/ui/AssetIcon';
-import { base64ToUint8Array } from '@penumbra-zone/types/base64';
+import { base64ToUint8Array } from '@penumbrafi/types/base64';
 import { useRegistry } from '@/shared/api/registry';
 import type {
   OverviewAsset,

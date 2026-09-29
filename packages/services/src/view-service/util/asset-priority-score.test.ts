@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { getAssetPriorityScore } from './asset-priority-score.js';
 import { AssetId, Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { base64ToUint8Array } from '@penumbra-zone/types/base64';
+import { base64ToUint8Array } from '@penumbrafi/types/base64';
 
 describe('getAssetPriorityScore', () => {
   const umTokenId = 'KeqcLzNx9qSH5+lcJHBB9KNW+YPrBk5dKzvPMiypahA=';

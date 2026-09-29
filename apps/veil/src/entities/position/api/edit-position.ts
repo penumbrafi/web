@@ -6,7 +6,7 @@ import { AssetId } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb
 import { ViewService } from '@penumbra-zone/protobuf';
 import { TransactionPlannerRequest } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
 import { AddressIndex } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys_pb';
-import { joinLoHiAmount } from '@penumbra-zone/types/amount';
+import { joinLoHiAmount } from '@penumbrafi/types/amount';
 import { openToast } from '@penumbra-zone/ui/Toast';
 import { penumbra } from '@/shared/const/penumbra';
 import { connectionStore } from '@/shared/model/connection';

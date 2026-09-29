@@ -1,6 +1,6 @@
 import sample from 'lodash/sample';
 import { ValueView, Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 
 export interface DisplayLP {
   date: string;

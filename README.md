@@ -28,7 +28,7 @@ You can talk to us on [Discord](https://discord.gg/hKvkrqa3zC).
 
 ### Published Packages
 
-All have a `@penumbra-zone/` namespace prefix on npm.
+All have a `@penumbra-zone/` namespace prefix on npm, except `types`, `services` and `wasm`, which this fork publishes as `@penumbrafi/types`, `@penumbrafi/services` and `@penumbrafi/wasm`.
 
 **🌘
 [bech32m](https://www.npmjs.com/package/@penumbra-zone/bech32m) 🌑
@@ -39,13 +39,13 @@ All have a `@penumbra-zone/` namespace prefix on npm.
 [keys](https://www.npmjs.com/package/@penumbra-zone/keys) 🌑
 [perspective](https://www.npmjs.com/package/@penumbra-zone/perspective) 🌑
 [protobuf](https://www.npmjs.com/package/@penumbra-zone/protobuf) 🌑
-[services](https://www.npmjs.com/package/@penumbra-zone/services) 🌑
+[services](https://www.npmjs.com/package/@penumbrafi/services) 🌑
 [services-context](https://www.npmjs.com/package/@penumbra-zone/services-context) 🌑
 [storage](https://www.npmjs.com/package/@penumbra-zone/storage) 🌑
 [transport-chrome](https://www.npmjs.com/package/@penumbra-zone/transport-chrome) 🌑
 [transport-dom](https://www.npmjs.com/package/@penumbra-zone/transport-dom) 🌑
-[types](https://www.npmjs.com/package/@penumbra-zone/types) 🌑
-[wasm](https://www.npmjs.com/package/@penumbra-zone/wasm)
+[types](https://www.npmjs.com/package/@penumbrafi/types) 🌑
+[wasm](https://www.npmjs.com/package/@penumbrafi/wasm)
 🌒**
 
 ## Documentation

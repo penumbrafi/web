@@ -2,7 +2,7 @@ import { DurationWindow } from '@/shared/utils/duration.ts';
 import { Metadata, ValueView } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { DexExPairsSummary } from '@/shared/database/schema';
 import { calculateDisplayPrice, calculateEquivalentInUSDC } from '@/shared/utils/price-conversion';
-import { round } from '@penumbra-zone/types/round';
+import { round } from '@penumbrafi/types/round';
 import { toValueView } from '@/shared/utils/value-view';
 
 const priceDiffLabel = (num: number): ChangeData['sign'] => {

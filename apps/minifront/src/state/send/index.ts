@@ -14,7 +14,7 @@ import {
   getDisplayDenomExponentFromValueView,
 } from '@penumbra-zone/getters/value-view';
 import { getAddress, getAddressIndex } from '@penumbra-zone/getters/address-view';
-import { toBaseUnit } from '@penumbra-zone/types/lo-hi';
+import { toBaseUnit } from '@penumbrafi/types/lo-hi';
 import { isAddress } from '@penumbra-zone/bech32m/penumbra';
 import {
   checkSendMaxInvariants,

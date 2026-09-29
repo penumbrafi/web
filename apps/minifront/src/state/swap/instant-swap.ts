@@ -24,10 +24,10 @@ import {
 import { getAssetId } from '@penumbra-zone/getters/metadata';
 import { getSwapCommitmentFromTx } from '@penumbra-zone/getters/transaction';
 import { getAddressIndex } from '@penumbra-zone/getters/address-view';
-import { toBaseUnit } from '@penumbra-zone/types/lo-hi';
+import { toBaseUnit } from '@penumbrafi/types/lo-hi';
 import { getAmountFromValue, getAssetIdFromValue } from '@penumbra-zone/getters/value';
 import { Amount } from '@penumbra-zone/protobuf/penumbra/core/num/v1/num_pb';
-import { divideAmounts } from '@penumbra-zone/types/amount';
+import { divideAmounts } from '@penumbrafi/types/amount';
 import { bech32mAssetId } from '@penumbra-zone/bech32m/passet';
 import { SwapSlice } from '.';
 import { sendSimulateTradeRequest } from './helpers';

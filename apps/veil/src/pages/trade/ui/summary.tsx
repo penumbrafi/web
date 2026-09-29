@@ -10,7 +10,7 @@ import { TICK_ARROW, TICK_TEXT_COLOR, useTickDirection } from '../model/use-tick
 import { DurationWindow, isDurationWindow } from '@/shared/utils/duration';
 import { tradeFormStore } from './order-form/store/OrderFormStore';
 import { ValueViewComponent } from '@penumbra-zone/ui/ValueView';
-import { round } from '@penumbra-zone/types/round';
+import { round } from '@penumbrafi/types/round';
 import { Density } from '@penumbra-zone/ui/Density';
 import { BlockchainError } from '@/shared/ui/blockchain-error';
 import { useGetMetadata } from '@/shared/api/assets';

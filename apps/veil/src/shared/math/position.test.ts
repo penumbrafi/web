@@ -7,7 +7,7 @@ import {
   getPositionWeights,
   simpleLiquidityLadder,
 } from './position';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { Position } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
 
 const ASSET_A = new AssetId({ inner: new Uint8Array(Array(32).fill(0xaa)) });

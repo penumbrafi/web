@@ -19,7 +19,7 @@ import { unpackIbcRelay } from '@penumbra-zone/perspective/action-view/ibc';
 import { GetMetadata } from '../ActionView/types';
 import { isMetadata } from '../AssetSelector';
 import { adaptEffects, SummaryEffect } from './adapt-effects';
-import { fromString } from '@penumbra-zone/types/amount';
+import { fromString } from '@penumbrafi/types/amount';
 import { addressFromBech32m } from '@penumbra-zone/bech32m/penumbra';
 import { TransactionSummary_Effects } from '@penumbra-zone/protobuf/penumbra/core/transaction/v1/transaction_pb';
 

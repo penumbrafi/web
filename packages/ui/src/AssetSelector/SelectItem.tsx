@@ -1,6 +1,6 @@
 import { AssetIcon } from '../AssetIcon';
 import { Text } from '../Text';
-import { getFormattedAmtFromValueView } from '@penumbra-zone/types/value-view';
+import { getFormattedAmtFromValueView } from '@penumbrafi/types/value-view';
 import {
   getAddressIndex,
   getBalanceView,

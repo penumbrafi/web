@@ -13,7 +13,7 @@ import {
 } from '@penumbra-zone/protobuf/penumbra/core/component/auction/v1/auction_pb';
 import { bech32mAuctionId } from '@penumbra-zone/bech32m/pauctid';
 import { ViewService } from '@penumbra-zone/protobuf';
-import { ServicesInterface } from '@penumbra-zone/types/services';
+import { ServicesInterface } from '@penumbrafi/types/services';
 import { HandlerContext, createContextValues, createHandlerContext } from '@connectrpc/connect';
 import { servicesCtx } from '../ctx/prax.js';
 import { mockIndexedDb, MockQuerier, MockServices } from '../test-utils.js';

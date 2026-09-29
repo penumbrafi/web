@@ -11,7 +11,7 @@ import {
   WheelEvent,
 } from 'react';
 import { useComponentSize } from 'react-use-size';
-import { round } from '@penumbra-zone/types/round';
+import { round } from '@penumbrafi/types/round';
 import { Icon } from '@penumbra-zone/ui/Icon';
 import { InfoIcon } from 'lucide-react';
 import { Tooltip } from '@penumbra-zone/ui/Tooltip';

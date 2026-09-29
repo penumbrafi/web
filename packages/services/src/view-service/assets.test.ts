@@ -3,7 +3,7 @@ import { AssetsRequest, AssetsResponse } from '@penumbra-zone/protobuf/penumbra/
 import { ViewService } from '@penumbra-zone/protobuf';
 import { createContextValues, createHandlerContext, HandlerContext } from '@connectrpc/connect';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import type { ServicesInterface } from '@penumbra-zone/types/services';
+import type { ServicesInterface } from '@penumbrafi/types/services';
 import { servicesCtx } from '../ctx/prax.js';
 import { assets } from './assets.js';
 import { mockIndexedDb, MockServices } from '../test-utils.js';

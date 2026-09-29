@@ -47,6 +47,13 @@
       ]
     },
     {
+      "label": "@penumbrafi/* published peers: ranges, not workspace:* (pnpm publish would pin exact versions)",
+      "dependencies": ["$LOCAL"],
+      "dependencyTypes": ["peer"],
+      "packages": ["@penumbrafi/**"],
+      "isIgnored": true
+    },
+    {
       "label": "Use workspace protocol for local packages",
       "dependencies": [
         "$LOCAL"
@@ -90,7 +97,8 @@
         "@buf/*"
       ],
       "packages": [
-        "@penumbra-zone/**"
+        "@penumbra-zone/**",
+        "@penumbrafi/**"
       ],
       "isBanned": true
     }

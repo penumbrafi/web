@@ -1,6 +1,6 @@
 import type { Impl } from '../index.js';
 import { servicesCtx } from '../../ctx/prax.js';
-import { planTransaction } from '@rotko/penumbra-wasm/planner';
+import { planTransaction } from '@penumbrafi/wasm/planner';
 import { Code, ConnectError } from '@connectrpc/connect';
 import { assertSwapAssetsAreNotTheSame } from './assert-swap-assets-are-not-the-same.js';
 import { TransactionPlannerRequest } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
@@ -9,7 +9,7 @@ import { extractAltFee } from '../fees.js';
 import { assertTransactionSource } from './assert-transaction-source.js';
 import { TransactionPlan } from '@penumbra-zone/protobuf/penumbra/core/transaction/v1/transaction_pb';
 import { assertSpendMax } from './assert-max-spends.js';
-import { IndexedDbInterface } from '@penumbra-zone/types/indexed-db';
+import { IndexedDbInterface } from '@penumbrafi/types/indexed-db';
 
 export const transactionPlanner: Impl['transactionPlanner'] = async (req, ctx) => {
   // Pre-checks before the transaction planning process begins.

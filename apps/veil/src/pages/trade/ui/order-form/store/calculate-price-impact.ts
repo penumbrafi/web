@@ -1,6 +1,6 @@
 import { SwapExecution } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
 import { getAmountFromValue, getAssetIdFromValue } from '@penumbra-zone/getters/value';
-import { divideAmounts } from '@penumbra-zone/types/amount';
+import { divideAmounts } from '@penumbrafi/types/amount';
 import { AssetId, Value } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { Amount } from '@penumbra-zone/protobuf/penumbra/core/num/v1/num_pb';
 

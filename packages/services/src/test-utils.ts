@@ -11,7 +11,7 @@ import {
   IndexedDbInterface,
   PenumbraDb,
   PenumbraStoreNames,
-} from '@penumbra-zone/types/indexed-db';
+} from '@penumbrafi/types/indexed-db';
 import { expect, Mock, Mocked, vi } from 'vitest';
 
 /**

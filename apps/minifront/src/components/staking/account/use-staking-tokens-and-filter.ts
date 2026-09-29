@@ -7,7 +7,7 @@ import {
 } from '../../../state/shared';
 import { Metadata, ValueView } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { getDisplayDenomFromView } from '@penumbra-zone/getters/value-view';
-import { assetPatterns } from '@penumbra-zone/types/assets';
+import { assetPatterns } from '@penumbrafi/types/assets';
 
 /**
  * Function to use with `reduce()` over an array of `BalancesByAccount` objects.

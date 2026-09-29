@@ -2,7 +2,7 @@ import { useLoaderData } from 'react-router-dom';
 import { Card } from '@penumbra-zone/ui-deprecated/components/ui/card';
 import { Identicon } from '@penumbra-zone/ui-deprecated/components/ui/identicon';
 import { IndexLoaderResponse } from '../fetching/loader';
-import { uint8ArrayToString } from '@penumbra-zone/types/string';
+import { uint8ArrayToString } from '@penumbrafi/types/string';
 
 export const NodeInfo = () => {
   const {

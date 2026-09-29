@@ -14,8 +14,8 @@ import {
   getRateData,
 } from '@penumbra-zone/getters/validator-info';
 import { bech32mIdentityKey } from '@penumbra-zone/bech32m/penumbravalid';
-import { joinLoHiAmount } from '@penumbra-zone/types/amount';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { joinLoHiAmount } from '@penumbrafi/types/amount';
+import { pnum } from '@penumbrafi/types/pnum';
 import { Button } from '@penumbra-zone/ui/Button';
 import { connectionStore } from '@/shared/model/connection';
 import { useBalances } from '@/shared/api/balances';

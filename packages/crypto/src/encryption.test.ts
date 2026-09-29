@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { Key, KeyPrint } from './encryption.js';
-import { Box } from '@penumbra-zone/types/box';
+import { Box } from '@penumbrafi/types/box';
 
 // NOTE: To have the most accurate representation, these the web crypto API tests run in a browser environment
 

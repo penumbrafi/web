@@ -7,8 +7,8 @@ import { Loader2 } from 'lucide-react';
 import { Text } from '@penumbra-zone/ui/Text';
 import { Button } from '@penumbra-zone/ui/Button';
 import { getDisplayDenomExponentFromValueView, getMetadata } from '@penumbra-zone/getters/value-view';
-import { pnum } from '@penumbra-zone/types/pnum';
-import { uint8ArrayToHex } from '@penumbra-zone/types/hex';
+import { pnum } from '@penumbrafi/types/pnum';
+import { uint8ArrayToHex } from '@penumbrafi/types/hex';
 
 import type { Chain } from '@penumbrafi/registry';
 import { sendIbcOut } from '@/pages/portfolio/withdraw/lib/ics20-withdraw';

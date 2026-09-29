@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto'; // Instanitating ViewServer requires opening up In
 import { describe, expect, it } from 'vitest';
 import { generateSpendKey, getFullViewingKey } from './keys.js';
 import { ViewServer } from '../wasm/index.js';
-import { IDB_TABLES, IdbConstants } from '@penumbra-zone/types/indexed-db';
+import { IDB_TABLES, IdbConstants } from '@penumbrafi/types/indexed-db';
 import { initWasm } from './init.js';
 
 describe('wasmViewServer', () => {

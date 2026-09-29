@@ -9,7 +9,7 @@ import { servicesCtx } from '../ctx/prax.js';
 import { mockIndexedDb, MockServices } from '../test-utils.js';
 import { FmdParameters } from '@penumbra-zone/protobuf/penumbra/core/component/shielded_pool/v1/shielded_pool_pb';
 import { fMDParameters } from './fmd-parameters.js';
-import type { ServicesInterface } from '@penumbra-zone/types/services';
+import type { ServicesInterface } from '@penumbrafi/types/services';
 
 describe('FmdParameters request handler', () => {
   let mockServices: MockServices;

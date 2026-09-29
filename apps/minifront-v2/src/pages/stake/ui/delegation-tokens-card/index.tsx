@@ -7,7 +7,7 @@ import { ValidatorRow, ValidatorRowSkeleton } from '../validator-row';
 import { getValidatorInfoFromValueView } from '@penumbra-zone/getters/value-view';
 import { getIdentityKeyFromValidatorInfo } from '@penumbra-zone/getters/validator-info';
 import { bech32mIdentityKey } from '@penumbra-zone/bech32m/penumbravalid';
-import { assetPatterns } from '@penumbra-zone/types/assets';
+import { assetPatterns } from '@penumbrafi/types/assets';
 
 export interface DelegationTokensCardProps {
   title?: string;

@@ -5,7 +5,7 @@
  * Parallel wasm (wasm-parallel/) is built with --target web and needs explicit init.
  *
  * Usage:
- *   import { initWasm, initWasmWithParallel } from '@rotko/penumbra-wasm/init';
+ *   import { initWasm, initWasmWithParallel } from '@penumbrafi/wasm/init';
  *
  *   // For standard builds (no-op, wasm auto-initializes):
  *   await initWasm();

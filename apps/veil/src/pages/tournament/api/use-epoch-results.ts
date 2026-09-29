@@ -6,7 +6,7 @@ import { useRefetchOnNewBlock } from '@/shared/api/compact-block';
 import { EpochResultsRequest, EpochResultsApiResponse } from '../server/epoch-results';
 import type { MappedGauge } from '@/pages/tournament/server/previous-epochs';
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { assetPatterns } from '@penumbra-zone/types/assets';
+import { assetPatterns } from '@penumbrafi/types/assets';
 
 /**
  * Requests voting results of a given epoch. Returns percentages of each

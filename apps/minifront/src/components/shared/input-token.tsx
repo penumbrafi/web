@@ -4,7 +4,7 @@ import { cn } from '@penumbra-zone/ui-deprecated/lib/utils';
 import BalanceSelector from './selectors/balance-selector';
 import { Validation } from './validation-result';
 import { InputBlock } from './input-block';
-import { getFormattedAmtFromValueView } from '@penumbra-zone/types/value-view';
+import { getFormattedAmtFromValueView } from '@penumbrafi/types/value-view';
 import { NumberInput } from './number-input';
 
 interface InputTokenProps {

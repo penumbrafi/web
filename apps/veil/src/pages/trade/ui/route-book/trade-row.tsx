@@ -4,7 +4,7 @@ import { ChevronRight } from 'lucide-react';
 import { Text } from '@penumbra-zone/ui/Text';
 import { Trace } from '@/shared/api/server/book/types.ts';
 import { pluralize } from '@/shared/utils/pluralize';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 
 // MEXC-style depth: saturated bars filling from the right edge of the row
 // (where the cumulative totals sit) inward, leaving the price column on

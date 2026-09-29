@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Address } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys_pb';
-import { uint8ArrayToBase64 } from '@penumbra-zone/types/base64';
+import { uint8ArrayToBase64 } from '@penumbrafi/types/base64';
 import { ViewService } from '@penumbra-zone/protobuf';
 import { connectionStore } from '@/shared/model/connection';
 import { penumbra } from '@/shared/const/penumbra';

@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import { ArrowRight } from 'lucide-react';
-import { isZero } from '@penumbra-zone/types/amount';
-import { shorten } from '@penumbra-zone/types/string';
-import { uint8ArrayToHex } from '@penumbra-zone/types/hex';
+import { isZero } from '@penumbrafi/types/amount';
+import { shorten } from '@penumbrafi/types/string';
+import { uint8ArrayToHex } from '@penumbrafi/types/hex';
 import {
   getAmount,
   getMetadata as getMetadataFromValueView,

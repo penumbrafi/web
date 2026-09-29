@@ -3,7 +3,7 @@ import {
   BroadcastTransactionRequest,
   BroadcastTransactionResponse,
 } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
-import { uint8ArrayToHex } from '@penumbra-zone/types/hex';
+import { uint8ArrayToHex } from '@penumbrafi/types/hex';
 import { ViewService } from '@penumbra-zone/protobuf';
 import { penumbra } from '@/shared/const/penumbra';
 import { txToId } from '../model/tx-to-id';

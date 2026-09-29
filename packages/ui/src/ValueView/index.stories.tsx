@@ -3,7 +3,7 @@ import {
   ValueView,
   ValueView_KnownAssetId,
 } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { ValueViewComponent } from '.';
 import { TableCell } from '../TableCell';
 import {

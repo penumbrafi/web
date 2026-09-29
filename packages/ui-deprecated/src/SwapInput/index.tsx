@@ -3,7 +3,7 @@ import { ArrowLeftRight } from 'lucide-react';
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { BalancesResponse } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
 import { getBalanceView } from '@penumbra-zone/getters/balances-response';
-import { fromValueView } from '@penumbra-zone/types/amount';
+import { fromValueView } from '@penumbrafi/types/amount';
 import { TextInput } from '../TextInput';
 import { FormField } from '../FormField';
 import { WalletBalance } from '../WalletBalance';

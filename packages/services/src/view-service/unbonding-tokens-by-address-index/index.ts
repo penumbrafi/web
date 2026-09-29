@@ -10,7 +10,7 @@ import { getIsClaimable, isUnbondingTokenBalance } from './helpers.js';
 import { Any } from '@bufbuild/protobuf';
 import { stakeClientCtx } from '../../ctx/stake-client.js';
 import { getValidatorInfo } from '@penumbra-zone/getters/get-validator-info-response';
-import { assetPatterns } from '@penumbra-zone/types/assets';
+import { assetPatterns } from '@penumbrafi/types/assets';
 import {
   getBalanceView,
   getDisplayFromBalancesResponse,

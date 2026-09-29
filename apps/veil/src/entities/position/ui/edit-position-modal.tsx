@@ -8,7 +8,7 @@ import { AssetId } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb
 import { Dialog } from '@penumbra-zone/ui/Dialog';
 import { Button } from '@penumbra-zone/ui/Button';
 import { Text } from '@penumbra-zone/ui/Text';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { getDisplayDenomExponent } from '@penumbra-zone/getters/metadata';
 import { bech32mPositionId } from '@penumbra-zone/bech32m/plpid';
 import { useGetMetadata } from '@/shared/api/assets';

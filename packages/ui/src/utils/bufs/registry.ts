@@ -8,7 +8,7 @@ import {
   DELEGATE_ACTION_DELEGATION_DENOM,
   DELEGATE_ACTION_DELEGATION_METADATA,
 } from './metadata';
-import { uint8ArrayToBase64 } from '@penumbra-zone/types/base64';
+import { uint8ArrayToBase64 } from '@penumbrafi/types/base64';
 
 const METADATA_MAP: Record<string, Metadata> = {
   /* eslint-disable @typescript-eslint/no-non-null-assertion -- it's only for storybook purposes */

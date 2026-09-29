@@ -1,4 +1,4 @@
-import { uint8ArrayToHex } from '@penumbra-zone/types/hex';
+import { uint8ArrayToHex } from '@penumbrafi/types/hex';
 import { SliceCreator, useStore } from '.';
 import { ViewService } from '@penumbra-zone/protobuf';
 import { getTransactionClassificationLabel } from '@penumbra-zone/perspective/transaction/classify';

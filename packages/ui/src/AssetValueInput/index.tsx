@@ -6,7 +6,7 @@ import { Text } from '../Text';
 import { WalletMinimal, Info } from 'lucide-react';
 import { Density } from '../Density';
 import { ValueViewComponent } from '../ValueView';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { getMetadata } from '@penumbra-zone/getters/value-view';
 import { getDisplayDenomExponent } from '@penumbra-zone/getters/metadata';
 

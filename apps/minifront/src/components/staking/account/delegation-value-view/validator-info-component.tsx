@@ -12,7 +12,7 @@ import {
   getValidator,
   getValidatorState,
 } from '@penumbra-zone/getters/validator-info';
-import { calculateCommissionAsPercentage } from '@penumbra-zone/types/staking';
+import { calculateCommissionAsPercentage } from '@penumbrafi/types/staking';
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { AssetIcon } from '@penumbra-zone/ui-deprecated/components/ui/asset-icon';
 import { ValidatorStateLabel } from './validator-state-label.tsx';

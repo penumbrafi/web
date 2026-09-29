@@ -8,7 +8,7 @@ import { SegmentedControl } from '@penumbra-zone/ui/SegmentedControl';
 import { ValueViewComponent } from '@penumbra-zone/ui/ValueView';
 import { getAmount } from '@penumbra-zone/getters/value-view';
 import { Skeleton } from '@penumbra-zone/ui/Skeleton';
-import { isZero } from '@penumbra-zone/types/amount';
+import { isZero } from '@penumbrafi/types/amount';
 import { Density } from '@penumbra-zone/ui/Density';
 import { Tooltip } from '@penumbra-zone/ui/Tooltip';
 import { Button } from '@penumbra-zone/ui/Button';
@@ -20,7 +20,7 @@ import { useCurrentEpoch } from '../api/use-current-epoch';
 import { useLpRewards } from '../api/use-lp-rewards';
 import { usePersonalRewards } from '../api/use-personal-rewards';
 import { ValueView } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { useStakingTokenMetadata } from '@/shared/api/registry';
 
 // Outer component that handles the connection check. If the wallet isn't connected,

@@ -4,13 +4,13 @@ import {
   getAssetIdFromValueView,
   getDisplayDenomExponentFromValueView,
 } from '@penumbra-zone/getters/value-view';
-import { divideAmounts, fromString } from '@penumbra-zone/types/amount';
+import { divideAmounts, fromString } from '@penumbrafi/types/amount';
 import { DutchAuctionSlice } from '.';
 import { ViewService } from '@penumbra-zone/protobuf';
 import { GDA_RECIPES, GdaRecipe, STEP_COUNT } from '../constants';
 import { BLOCKS_PER_MINUTE } from '../../constants';
 import { timeUntilNextEvent } from './time-until-next-event';
-import { splitLoHi } from '@penumbra-zone/types/lo-hi';
+import { splitLoHi } from '@penumbrafi/types/lo-hi';
 import { Amount } from '@penumbra-zone/protobuf/penumbra/core/num/v1/num_pb';
 import BigNumber from 'bignumber.js';
 import { SwapSlice } from '..';

@@ -9,7 +9,7 @@ import { servicesCtx } from '../ctx/prax.js';
 import { mockIndexedDb, MockServices } from '../test-utils.js';
 import { GasPrices } from '@penumbra-zone/protobuf/penumbra/core/component/fee/v1/fee_pb';
 import { gasPrices } from './gas-prices.js';
-import type { ServicesInterface } from '@penumbra-zone/types/services';
+import type { ServicesInterface } from '@penumbrafi/types/services';
 
 describe('GasPrices request handler', () => {
   let mockServices: MockServices;

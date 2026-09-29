@@ -8,7 +8,7 @@ import {
 import { AssetId, Value } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { SimulationService } from '@penumbra-zone/protobuf';
 import { Client } from '@connectrpc/connect';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { createClient } from '@/shared/utils/protos/utils';
 import { getCachedRegistry } from '@/shared/api/fetch-registry';
 import { referencePriceFor } from '@/shared/const/reference-price';

@@ -18,7 +18,7 @@ import {
   BalancesResponse,
   TransactionPlannerRequest,
 } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
-import { toBaseUnit } from '@penumbra-zone/types/lo-hi';
+import { toBaseUnit } from '@penumbrafi/types/lo-hi';
 import BigNumber from 'bignumber.js';
 import { ViewService } from '@penumbra-zone/protobuf/penumbra/view/v1/view_connect';
 import { getAddressIndex } from '@penumbra-zone/getters/balances-response';
@@ -28,7 +28,7 @@ import { IbcChannelService, IbcClientService, IbcConnectionService } from '@penu
 import { Height } from '@penumbra-zone/protobuf/ibc/core/client/v1/client_pb';
 import { bech32, bech32m } from 'bech32';
 import { Chain } from '@penumbrafi/registry';
-import { fromValueView } from '@penumbra-zone/types/amount';
+import { fromValueView } from '@penumbrafi/types/amount';
 
 import { penumbra } from '@/shared/const/penumbra';
 import { planBuildBroadcast } from '@/entities/transaction';

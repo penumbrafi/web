@@ -4,9 +4,9 @@ import {
   PositionState_PositionStateEnum,
 } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
 import { positionIdFromBech32 } from '@penumbra-zone/bech32m/plpid';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { GetMetadata } from '@/shared/api/assets';
-import { isZero } from '@penumbra-zone/types/amount';
+import { isZero } from '@penumbrafi/types/amount';
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { isNumeraireSymbol, isStablecoinSymbol } from '@/shared/utils/is-symbol';
 import { PositionStats } from '@/shared/api/server/position/stats/types';

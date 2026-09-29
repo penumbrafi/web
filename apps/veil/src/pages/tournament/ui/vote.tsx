@@ -1,7 +1,7 @@
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { AssetIcon } from '@penumbra-zone/ui/AssetIcon';
 import { Text } from '@penumbra-zone/ui/Text';
-import { round } from '@penumbra-zone/types/round';
+import { round } from '@penumbrafi/types/round';
 
 export interface VoteProps {
   asset: Metadata;

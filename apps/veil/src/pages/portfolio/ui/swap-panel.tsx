@@ -15,8 +15,8 @@ import { AddressIndex } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { getMetadataFromBalancesResponse } from '@penumbra-zone/getters/balances-response';
 import { getMetadata } from '@penumbra-zone/getters/value-view';
-import { assetPatterns } from '@penumbra-zone/types/assets';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { assetPatterns } from '@penumbrafi/types/assets';
+import { pnum } from '@penumbrafi/types/pnum';
 import { useBalances } from '@/shared/api/balances';
 import { useRegistryAssets } from '@/shared/api/registry';
 import { connectionStore } from '@/shared/model/connection';

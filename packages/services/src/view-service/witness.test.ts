@@ -9,7 +9,7 @@ import {
   TransactionPlan,
   WitnessData,
 } from '@penumbra-zone/protobuf/penumbra/core/transaction/v1/transaction_pb';
-import type { ServicesInterface } from '@penumbra-zone/types/services';
+import type { ServicesInterface } from '@penumbrafi/types/services';
 
 describe('Witness request handler', () => {
   let mockServices: MockServices;

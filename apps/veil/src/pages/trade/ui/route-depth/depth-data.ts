@@ -1,5 +1,5 @@
 import type { UTCTimestamp } from 'lightweight-charts';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import type { Trace } from '@/shared/api/server/book/types';
 
 export interface DepthPoint {

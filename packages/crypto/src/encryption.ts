@@ -1,5 +1,5 @@
-import { Base64Str, base64ToUint8Array, uint8ArrayToBase64 } from '@penumbra-zone/types/base64';
-import { Box } from '@penumbra-zone/types/box';
+import { Base64Str, base64ToUint8Array, uint8ArrayToBase64 } from '@penumbrafi/types/base64';
+import { Box } from '@penumbrafi/types/box';
 
 /**
  * ==== Internal ====

@@ -1,8 +1,8 @@
 import { Text } from '@penumbra-zone/ui/Text';
 import { InfoCard } from '../../../shared/ui/info-card';
 import { pluralizeAndShortify } from '@/shared/utils/pluralize';
-import { shortify } from '@penumbra-zone/types/shortify';
-import { getFormattedAmtFromValueView } from '@penumbra-zone/types/value-view';
+import { shortify } from '@penumbrafi/types/shortify';
+import { getFormattedAmtFromValueView } from '@penumbrafi/types/value-view';
 import { Value, ValueView } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { DirectedTradingPair } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
 import { Registry } from '@penumbrafi/registry';

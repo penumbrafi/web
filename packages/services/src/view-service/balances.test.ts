@@ -12,7 +12,7 @@ import {
 
 import { createContextValues, createHandlerContext, HandlerContext } from '@connectrpc/connect';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import type { ServicesInterface } from '@penumbra-zone/types/services';
+import type { ServicesInterface } from '@penumbrafi/types/services';
 import { mockIndexedDb, MockServices, TendermintMock, testFullViewingKey } from '../test-utils.js';
 import {
   AssetId,
@@ -27,8 +27,8 @@ import {
   getMetadata,
 } from '@penumbra-zone/getters/value-view';
 import { getAddressIndex } from '@penumbra-zone/getters/address-view';
-import { base64ToUint8Array } from '@penumbra-zone/types/base64';
-import { multiplyAmountByNumber } from '@penumbra-zone/types/amount';
+import { base64ToUint8Array } from '@penumbrafi/types/base64';
+import { multiplyAmountByNumber } from '@penumbrafi/types/amount';
 import { fvkCtx } from '../ctx/full-viewing-key.js';
 import { AppParameters } from '@penumbra-zone/protobuf/penumbra/core/app/v1/app_pb';
 

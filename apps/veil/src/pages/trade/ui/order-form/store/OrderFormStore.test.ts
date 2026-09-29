@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { runInAction } from 'mobx';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { AssetId, Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { AssetInfo } from '@/pages/trade/model/AssetInfo';
 import { Address, AddressIndex } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys_pb';

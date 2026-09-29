@@ -1,9 +1,9 @@
 import type { LqtSummary } from '@/shared/database/schema';
-import { pnum } from '@penumbra-zone/types/pnum';
-import { round } from '@penumbra-zone/types/round';
+import { pnum } from '@penumbrafi/types/pnum';
+import { round } from '@penumbrafi/types/round';
 import { Skeleton } from '@penumbra-zone/ui/Skeleton';
 import { Text } from '@penumbra-zone/ui/Text';
-import { shortify } from '@penumbra-zone/types/shortify';
+import { shortify } from '@penumbrafi/types/shortify';
 import { useStakingTokenMetadata } from '@/shared/api/registry';
 import { getDisplayDenomExponent } from '@penumbra-zone/getters/metadata';
 import { useLqtStatus } from '@/shared/api/use-lqt-status';

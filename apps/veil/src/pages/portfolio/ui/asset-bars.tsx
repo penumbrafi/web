@@ -7,15 +7,15 @@ import {
   getValueViewCaseFromBalancesResponse,
 } from '@penumbra-zone/getters/balances-response';
 import { getDisplayDenomExponent } from '@penumbra-zone/getters/metadata';
-import { formatAmount } from '@penumbra-zone/types/amount';
+import { formatAmount } from '@penumbrafi/types/amount';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { useBalances } from '@/shared/api/balances';
 import { useBalances as useCosmosBalances } from '@/features/cosmos/use-augmented-balances';
 import { Metadata, ValueView } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { assetPatterns } from '@penumbra-zone/types/assets';
+import { assetPatterns } from '@penumbrafi/types/assets';
 import { Asset } from '@chain-registry/types';
 import { AssetPrice, useAssetPrices } from '@/pages/portfolio/api/use-asset-prices.ts';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { shouldFilterAsset } from '@/pages/portfolio/api/use-unified-assets.ts';
 import { observer } from 'mobx-react-lite';
 import { connectionStore } from '@/shared/model/connection';

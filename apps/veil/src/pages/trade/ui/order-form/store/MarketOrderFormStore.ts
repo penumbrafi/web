@@ -1,11 +1,11 @@
 import debounce from 'lodash/debounce';
 import { makeAutoObservable, reaction, runInAction } from 'mobx';
 import { AssetId, Value, ValueView } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { parseNumber } from '@/shared/utils/num';
 import { AssetInfo } from '../../../model/AssetInfo';
 import { estimateAmount } from './estimate-amount';
-import { formatNumber } from '@penumbra-zone/types/amount';
+import { formatNumber } from '@penumbrafi/types/amount';
 import { getMetadata } from '@penumbra-zone/getters/value-view';
 import { Direction } from './types';
 

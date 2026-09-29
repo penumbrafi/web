@@ -25,11 +25,11 @@ import { HandlerContext } from '@connectrpc/connect';
 import { assetMetadataById } from './asset-metadata-by-id.js';
 import { addressByIndex } from './address-by-index.js';
 import { Amount } from '@penumbra-zone/protobuf/penumbra/core/num/v1/num_pb';
-import { Base64Str, uint8ArrayToBase64 } from '@penumbra-zone/types/base64';
-import { addLoHi } from '@penumbra-zone/types/lo-hi';
-import { IndexedDbInterface } from '@penumbra-zone/types/indexed-db';
-import { isZero, multiplyAmountByNumber } from '@penumbra-zone/types/amount';
-import { Stringified } from '@penumbra-zone/types/jsonified';
+import { Base64Str, uint8ArrayToBase64 } from '@penumbrafi/types/base64';
+import { addLoHi } from '@penumbrafi/types/lo-hi';
+import { IndexedDbInterface } from '@penumbrafi/types/indexed-db';
+import { isZero, multiplyAmountByNumber } from '@penumbrafi/types/amount';
+import { Stringified } from '@penumbrafi/types/jsonified';
 
 // Handles aggregating amounts and filtering by account number/asset id
 export const balances: Impl['balances'] = async function* (req, ctx) {

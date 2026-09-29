@@ -8,9 +8,9 @@ import { Text } from '../Text';
 import { AssetIcon } from '../AssetIcon';
 import { Density, useDensity } from '../utils/density';
 import cn from 'clsx';
-import { shortify } from '@penumbra-zone/types/shortify';
+import { shortify } from '@penumbrafi/types/shortify';
 import { detailTechnical, technical } from '../utils/typography.ts';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { ThemeColor, getThemeColorClass } from '../utils/color';
 
 type Context = 'default' | 'table';

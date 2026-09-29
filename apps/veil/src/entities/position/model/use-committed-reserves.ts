@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { PositionState_PositionStateEnum } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
 import { AssetId } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { joinLoHiAmount } from '@penumbra-zone/types/amount';
+import { joinLoHiAmount } from '@penumbrafi/types/amount';
 import { connectionStore } from '@/shared/model/connection';
 import { usePositions } from '@/entities/position/api/use-positions';
 

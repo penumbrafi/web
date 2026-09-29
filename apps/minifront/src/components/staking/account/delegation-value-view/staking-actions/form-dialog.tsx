@@ -11,7 +11,7 @@ import { Validator } from '@penumbra-zone/protobuf/penumbra/core/component/stake
 import { ValueView } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { FormEvent } from 'react';
 import { getIdentityKey } from '@penumbra-zone/getters/validator';
-import { getFormattedAmtFromValueView } from '@penumbra-zone/types/value-view';
+import { getFormattedAmtFromValueView } from '@penumbrafi/types/value-view';
 import { BalanceValueView } from '@penumbra-zone/ui-deprecated/components/ui/balance-value-view';
 import { NumberInput } from '../../../../shared/number-input';
 import { CircleAlert } from 'lucide-react';

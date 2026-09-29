@@ -2,7 +2,7 @@ import type { MouseEventHandler } from 'react';
 import { styled, type DefaultTheme } from 'styled-components';
 import { Wallet } from 'lucide-react';
 import type { BalancesResponse } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
-import { getFormattedAmtFromValueView } from '@penumbra-zone/types/value-view';
+import { getFormattedAmtFromValueView } from '@penumbrafi/types/value-view';
 import {
   getAddressIndex,
   getBalanceView,

@@ -3,7 +3,7 @@ import cn from 'clsx';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { observer } from 'mobx-react-lite';
 import { BlockchainError } from '@/shared/ui/blockchain-error';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { usePathSymbols } from '../../model/use-path';
 import { useBookV2 } from '../../api/book-v2';
 import { bucketPrice, levelPriceString } from '@/shared/api/server/book/v2/levels';

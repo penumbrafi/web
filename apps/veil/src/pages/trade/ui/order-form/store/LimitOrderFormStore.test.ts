@@ -3,7 +3,7 @@ import { runInAction } from 'mobx';
 import { LimitOrderFormStore } from './LimitOrderFormStore';
 import { AssetInfo } from '@/pages/trade/model/AssetInfo';
 import { AssetId, Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import type { Trace } from '@/shared/api/server/book/types';
 
 const row = (price: number, amount = 5): Trace => ({

@@ -14,7 +14,7 @@ import {
   Metadata,
 } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { unpackIbcRelay } from '@penumbra-zone/perspective/action-view/ibc';
-import { fromString } from '@penumbra-zone/types/amount';
+import { fromString } from '@penumbrafi/types/amount';
 import { useDensity } from '../../utils/density';
 import { ActionWrapper } from '../shared/wrapper';
 import { ActionViewBaseProps } from '../types';

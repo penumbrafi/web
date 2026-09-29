@@ -10,7 +10,7 @@ import { servicesCtx } from '../ctx/prax.js';
 import { mockIndexedDb, MockServices, createUpdates } from '../test-utils.js';
 import { StateCommitment } from '@penumbra-zone/protobuf/penumbra/crypto/tct/v1/tct_pb';
 import { noteByCommitment } from './note-by-commitment.js';
-import type { ServicesInterface } from '@penumbra-zone/types/services';
+import type { ServicesInterface } from '@penumbrafi/types/services';
 
 describe('NoteByCommitment request handler', () => {
   let mockServices: MockServices;

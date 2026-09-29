@@ -10,7 +10,7 @@ import { servicesCtx } from '../ctx/prax.js';
 import { mockIndexedDb, MockServices, TendermintMock, testFullViewingKey } from '../test-utils.js';
 import { transactionInfoByHash } from './transaction-info-by-hash.js';
 import { TransactionId } from '@penumbra-zone/protobuf/penumbra/core/txhash/v1/txhash_pb';
-import type { ServicesInterface } from '@penumbra-zone/types/services';
+import type { ServicesInterface } from '@penumbrafi/types/services';
 import {
   Transaction,
   TransactionPerspective,
@@ -19,7 +19,7 @@ import { fvkCtx } from '../ctx/full-viewing-key.js';
 
 const mockTransactionInfo = vi.hoisted(() => vi.fn());
 const mockTransactionSummary = vi.hoisted(() => vi.fn());
-vi.mock('@rotko/penumbra-wasm/transaction', () => ({
+vi.mock('@penumbrafi/wasm/transaction', () => ({
   generateTransactionInfo: mockTransactionInfo,
   generateTransactionSummary: mockTransactionSummary,
 }));

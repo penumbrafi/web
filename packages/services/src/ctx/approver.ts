@@ -1,7 +1,7 @@
 import { AuthorizeRequest } from '@penumbra-zone/protobuf/penumbra/custody/v1/custody_pb';
 import { Code, ConnectError, createContextKey } from '@connectrpc/connect';
 import { PartialMessage } from '@bufbuild/protobuf';
-import { UserChoice } from '@penumbra-zone/types/user-choice';
+import { UserChoice } from '@penumbrafi/types/user-choice';
 
 export type TxApprovalFn = (
   authorizeRequest: PartialMessage<AuthorizeRequest>,

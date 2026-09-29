@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { AssetId, Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import type { Registry } from '@penumbrafi/registry';
-import { uint8ArrayToBase64 } from '@penumbra-zone/types/base64';
+import { uint8ArrayToBase64 } from '@penumbrafi/types/base64';
 import { referencePriceFor } from '@/shared/const/reference-price';
 import { calculateDisplayPrice } from '@/shared/utils/price-conversion';
 import { getDisplayDenomExponent } from '@penumbra-zone/getters/metadata';

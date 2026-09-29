@@ -1,5 +1,5 @@
 import { PositionWithdraw } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
-import { shorten } from '@penumbra-zone/types/string';
+import { shorten } from '@penumbrafi/types/string';
 import { bech32mPositionId } from '@penumbra-zone/bech32m/plpid';
 import { ActionWrapper } from '../shared/wrapper';
 import { ActionRow } from '../shared/action-row';

@@ -8,9 +8,9 @@ import {
   getIdentityKeyFromValidatorInfo,
   getStateEnumFromValidatorInfo,
 } from '@penumbra-zone/getters/validator-info';
-import { calculateCommissionAsPercentage } from '@penumbra-zone/types/staking';
+import { calculateCommissionAsPercentage } from '@penumbrafi/types/staking';
 import { bech32mIdentityKey } from '@penumbra-zone/bech32m/penumbravalid';
-import { shorten } from '@penumbra-zone/types/string';
+import { shorten } from '@penumbrafi/types/string';
 
 const stateLabel = (state: ValidatorState_ValidatorStateEnum): string => {
   switch (state) {

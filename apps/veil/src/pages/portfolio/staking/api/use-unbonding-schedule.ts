@@ -6,7 +6,7 @@ import {
   getDisplayDenomFromView,
   getValidatorIdentityKeyFromValueView,
 } from '@penumbra-zone/getters/value-view';
-import { assetPatterns } from '@penumbra-zone/types/assets';
+import { assetPatterns } from '@penumbrafi/types/assets';
 import { penumbra } from '@/shared/const/penumbra';
 import { connectionStore } from '@/shared/model/connection';
 import { useLatestBlockHeight } from '@/shared/api/compact-block';

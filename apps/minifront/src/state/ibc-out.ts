@@ -12,10 +12,10 @@ import {
   getMetadata,
 } from '@penumbra-zone/getters/value-view';
 import { getAddressIndex } from '@penumbra-zone/getters/address-view';
-import { toBaseUnit } from '@penumbra-zone/types/lo-hi';
+import { toBaseUnit } from '@penumbrafi/types/lo-hi';
 import { amountMoreThanBalance, isIncorrectDecimal, planBuildBroadcast } from './helpers';
 import { getAssetId } from '@penumbra-zone/getters/metadata';
-import { assetPatterns } from '@penumbra-zone/types/assets';
+import { assetPatterns } from '@penumbrafi/types/assets';
 import { bech32, bech32m } from 'bech32';
 import { errorToast } from '@penumbra-zone/ui-deprecated/lib/toast/presets';
 import { Chain } from '@penumbrafi/registry';

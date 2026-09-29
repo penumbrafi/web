@@ -2,8 +2,8 @@ import { useLoaderData } from 'react-router-dom';
 import { Card } from '@penumbra-zone/ui-deprecated/components/ui/card';
 import { IndexLoaderResponse } from '../fetching/loader';
 import { PublicKey } from '@penumbra-zone/protobuf/tendermint/crypto/keys_pb';
-import { uint8ArrayToHex } from '@penumbra-zone/types/hex';
-import { uint8ArrayToString } from '@penumbra-zone/types/string';
+import { uint8ArrayToHex } from '@penumbrafi/types/hex';
+import { uint8ArrayToString } from '@penumbrafi/types/string';
 
 const PublicKeyComponent = ({ publicKey }: { publicKey: PublicKey | undefined }) => {
   if (!publicKey) {

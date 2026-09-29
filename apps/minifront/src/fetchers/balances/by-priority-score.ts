@@ -4,7 +4,7 @@ import {
   getAmount,
   getAddressIndex,
 } from '@penumbra-zone/getters/balances-response';
-import { multiplyAmountByNumber, joinLoHiAmount } from '@penumbra-zone/types/amount';
+import { multiplyAmountByNumber, joinLoHiAmount } from '@penumbrafi/types/amount';
 
 export const sortByPriorityScore = (a: BalancesResponse, b: BalancesResponse) => {
   const aScore = getMetadataFromBalancesResponse.optional(a)?.priorityScore ?? 1n;

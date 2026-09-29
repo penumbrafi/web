@@ -1,5 +1,5 @@
 import { Position } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { AssetInfo } from '@/pages/trade/model/AssetInfo';
 import type { LiquidityRung } from '@/shared/math/position';
 import type { OffMidWarningKind } from './LPFormStore';

@@ -2,7 +2,7 @@ import cn from 'clsx';
 import { ReactNode } from 'react';
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { getDisplay } from '@penumbra-zone/getters/metadata';
-import { assetPatterns } from '@penumbra-zone/types/assets';
+import { assetPatterns } from '@penumbrafi/types/assets';
 import { Identicon } from '../Identicon';
 import { DelegationTokenIcon } from './delegation-token';
 import { UnbondingTokenIcon } from './unbonding-token';

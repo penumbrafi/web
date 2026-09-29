@@ -4,7 +4,7 @@ import { ViewService } from '@penumbra-zone/protobuf';
 import { servicesCtx } from '../ctx/prax.js';
 
 import { createContextValues, createHandlerContext, HandlerContext } from '@connectrpc/connect';
-import type { ServicesInterface } from '@penumbra-zone/types/services';
+import type { ServicesInterface } from '@penumbrafi/types/services';
 
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -15,7 +15,7 @@ import {
   SwapRecord,
 } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
 import { mockIndexedDb, MockServices, createUpdates } from '../test-utils.js';
-import { stringToUint8Array } from '@penumbra-zone/types/string';
+import { stringToUint8Array } from '@penumbrafi/types/string';
 
 describe('nullifierStatus', () => {
   let mockServices: MockServices;

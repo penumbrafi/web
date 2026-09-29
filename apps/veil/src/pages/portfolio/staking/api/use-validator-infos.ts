@@ -4,9 +4,9 @@ import { ValidatorInfo } from '@penumbra-zone/protobuf/penumbra/core/component/s
 import {
   getVotingPowerByValidatorInfo,
   VotingPowerAsIntegerPercentage,
-} from '@penumbra-zone/types/staking';
+} from '@penumbrafi/types/staking';
 import { getVotingPowerFromValidatorInfo } from '@penumbra-zone/getters/validator-info';
-import { joinLoHiAmount } from '@penumbra-zone/types/amount';
+import { joinLoHiAmount } from '@penumbrafi/types/amount';
 import { penumbra } from '@/shared/const/penumbra';
 import { connectionStore } from '@/shared/model/connection';
 

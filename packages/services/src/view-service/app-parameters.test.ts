@@ -9,7 +9,7 @@ import { servicesCtx } from '../ctx/prax.js';
 import { AppParameters } from '@penumbra-zone/protobuf/penumbra/core/app/v1/app_pb';
 import { appParameters } from './app-parameters.js';
 import { mockIndexedDb, MockServices, createUpdates } from '../test-utils.js';
-import type { ServicesInterface } from '@penumbra-zone/types/services';
+import type { ServicesInterface } from '@penumbrafi/types/services';
 
 describe('AppParameters request handler', () => {
   let mockServices: MockServices;

@@ -1,5 +1,5 @@
 import { ValueView } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 
 export const getValueViewLength = (valueView: ValueView): number => {
   return pnum(valueView).toFormattedString({ trailingZeros: true }).length;

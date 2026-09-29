@@ -1,5 +1,5 @@
 import { getMetadata } from '@penumbra-zone/getters/value-view';
-import { getFormattedAmtFromValueView } from '@penumbra-zone/types/value-view';
+import { getFormattedAmtFromValueView } from '@penumbrafi/types/value-view';
 import { Metadata, ValueView } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { Fee } from '@penumbra-zone/protobuf/penumbra/core/component/fee/v1/fee_pb';
 import type { SwapActionProps } from './swap';

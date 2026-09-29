@@ -4,7 +4,7 @@ import {
   specificDelegatorSummary,
   DelegatorStreaksResponse,
 } from '../server/specific-delegator-summary';
-import { lqtAddressIndex } from '@penumbra-zone/types/address';
+import { lqtAddressIndex } from '@penumbrafi/types/address';
 import { ViewService } from '@penumbra-zone/protobuf';
 import { penumbra } from '@/shared/const/penumbra';
 

@@ -9,8 +9,8 @@ import {
 import { Epoch } from '@penumbra-zone/protobuf/penumbra/core/component/sct/v1/sct_pb';
 import { TransactionId } from '@penumbra-zone/protobuf/penumbra/core/txhash/v1/txhash_pb';
 import { Transaction } from '@penumbra-zone/protobuf/penumbra/core/transaction/v1/transaction_pb';
-import type { ScanBlockResult } from '@penumbra-zone/types/state-commitment-tree';
-import { base64ToUint8Array } from '@penumbra-zone/types/base64';
+import type { ScanBlockResult } from '@penumbrafi/types/state-commitment-tree';
+import { base64ToUint8Array } from '@penumbrafi/types/base64';
 import { StateCommitment } from '@penumbra-zone/protobuf/penumbra/crypto/tct/v1/tct_pb';
 import { AddressIndex } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys_pb';
 

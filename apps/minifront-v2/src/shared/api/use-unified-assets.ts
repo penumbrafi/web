@@ -3,8 +3,8 @@ import { Metadata, ValueView } from '@penumbra-zone/protobuf/penumbra/core/asset
 import { useMemo, useEffect } from 'react';
 import { useWallet } from '@cosmos-kit/react';
 import { WalletStatus } from '@cosmos-kit/core';
-import { pnum } from '@penumbra-zone/types/pnum';
-import { assetPatterns } from '@penumbra-zone/types/assets';
+import { pnum } from '@penumbrafi/types/pnum';
+import { assetPatterns } from '@penumbrafi/types/assets';
 import { BalancesResponse } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
 import { useBalancesStore } from '../stores/store-context';
 import {

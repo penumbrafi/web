@@ -7,7 +7,7 @@ import { AddressIcon } from './AddressIcon';
 import { Text } from '../Text';
 import { TextVariant } from '../Text/types';
 import { useDensity, Density as DensityType } from '../utils/density';
-import { isLqtAddressIndex } from '@penumbra-zone/types/address';
+import { isLqtAddressIndex } from '@penumbrafi/types/address';
 import { Density } from '../Density';
 
 const textVariantByDensity = (density: DensityType): TextVariant => {

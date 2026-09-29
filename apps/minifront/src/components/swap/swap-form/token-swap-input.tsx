@@ -2,12 +2,12 @@ import { BalanceValueView } from '@penumbra-zone/ui-deprecated/components/ui/bal
 import { BalancesResponse } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { Box } from '@penumbra-zone/ui-deprecated/components/ui/box';
-import { joinLoHiAmount } from '@penumbra-zone/types/amount';
+import { joinLoHiAmount } from '@penumbrafi/types/amount';
 import { getAmount, getBalanceView } from '@penumbra-zone/getters/balances-response';
 import { ArrowRight } from 'lucide-react';
 import { AllSlices } from '../../../state';
 import { useStoreShallow } from '../../../utils/use-store-shallow';
-import { getFormattedAmtFromValueView } from '@penumbra-zone/types/value-view';
+import { getFormattedAmtFromValueView } from '@penumbrafi/types/value-view';
 import { getAddressIndex } from '@penumbra-zone/getters/address-view';
 import { AssetSelector } from '../../shared/selectors/asset-selector';
 import BalanceSelector from '../../shared/selectors/balance-selector';

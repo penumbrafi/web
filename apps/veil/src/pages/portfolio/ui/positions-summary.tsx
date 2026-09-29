@@ -16,7 +16,7 @@ import { PositionState_PositionStateEnum } from '@penumbra-zone/protobuf/penumbr
 import { connectionStore } from '@/shared/model/connection';
 import { useGetMetadata } from '@/shared/api/assets';
 import { AssetTotal, usePositionsSummary } from '../api/use-positions-summary';
-import { splitLoHi } from '@penumbra-zone/types/lo-hi';
+import { splitLoHi } from '@penumbrafi/types/lo-hi';
 
 const toValueView = (total: AssetTotal, metadata: Metadata | undefined): ValueView => {
   const { lo, hi } = splitLoHi(total.amount);

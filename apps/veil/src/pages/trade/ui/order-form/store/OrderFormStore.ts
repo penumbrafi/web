@@ -18,7 +18,7 @@ import { useBalances } from '@/shared/api/balances';
 import { connectionStore } from '@/shared/model/connection';
 import { useSubaccounts } from '@/widgets/header/api/subaccounts';
 import { useMarketPrice } from '@/pages/trade/model/useMarketPrice';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import debounce from 'lodash/debounce';
 import { useStakingTokenMetadata } from '@/shared/api/registry';
 import { planTransaction, planBuildBroadcast } from '@/entities/transaction';

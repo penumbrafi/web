@@ -10,7 +10,7 @@ import { GasPrices } from '@penumbra-zone/protobuf/penumbra/core/component/fee/v
 import { checkSendMaxInvariants, SpendOrOutput } from './helpers.js';
 import { Amount } from '@penumbra-zone/protobuf/penumbra/core/num/v1/num_pb';
 import { getAssetIdFromValueView } from '@penumbra-zone/getters/value-view';
-import { base64ToUint8Array } from '@penumbra-zone/types/base64';
+import { base64ToUint8Array } from '@penumbrafi/types/base64';
 import { Address } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys_pb';
 
 describe('sendMax', () => {

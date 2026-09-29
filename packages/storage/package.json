@@ -29,8 +29,8 @@
     "@bufbuild/protobuf": "^1.10.0",
     "@penumbra-zone/bech32m": "workspace:*",
     "@penumbra-zone/getters": "workspace:*",
-    "@penumbra-zone/types": "workspace:*",
-    "@rotko/penumbra-wasm": "workspace:*",
+    "@penumbrafi/types": "workspace:*",
+    "@penumbrafi/wasm": "workspace:*",
     "idb": "^8.0.0"
   },
   "devDependencies": {
@@ -43,8 +43,8 @@
     "@penumbra-zone/bech32m": "workspace:*",
     "@penumbra-zone/getters": "workspace:*",
     "@penumbra-zone/protobuf": "workspace:*",
-    "@penumbra-zone/types": "workspace:*",
-    "@rotko/penumbra-wasm": "workspace:*",
+    "@penumbrafi/types": "workspace:*",
+    "@penumbrafi/wasm": "workspace:*",
     "@penumbrafi/registry": "^13.0.0"
   }
 }

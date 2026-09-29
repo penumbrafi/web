@@ -3,7 +3,7 @@ import { AssetMetadataByIdRequest } from '@penumbra-zone/protobuf/penumbra/view/
 import { penumbra } from '../const/penumbra';
 import { ViewService } from '@penumbra-zone/protobuf';
 import { queryClient } from '../const/queryClient';
-import { uint8ArrayToBase64 } from '@penumbra-zone/types/base64';
+import { uint8ArrayToBase64 } from '@penumbrafi/types/base64';
 
 const assetMetadataQueryFn = async (assetId: AssetId) => {
   const req = new AssetMetadataByIdRequest({ assetId });

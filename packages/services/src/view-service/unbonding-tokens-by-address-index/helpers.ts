@@ -5,7 +5,7 @@ import {
 } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
 import { PartialMessage } from '@bufbuild/protobuf';
 import { HandlerContext } from '@connectrpc/connect';
-import { assetPatterns } from '@penumbra-zone/types/assets';
+import { assetPatterns } from '@penumbrafi/types/assets';
 import { getDisplayFromBalancesResponse } from '@penumbra-zone/getters/balances-response';
 import { status } from '../status.js';
 import { appParameters } from '../app-parameters.js';

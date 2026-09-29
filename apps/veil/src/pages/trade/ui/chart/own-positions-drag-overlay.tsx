@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, FC } from 'react';
 import { observer } from 'mobx-react-lite';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import {
   Position,
   PositionId,

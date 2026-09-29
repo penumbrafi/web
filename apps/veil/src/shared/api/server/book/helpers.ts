@@ -7,8 +7,8 @@ import {
 import { ServerTrace, TraceIndex } from '@/shared/api/server/book/types.ts';
 import { getAssetIdFromValueView } from '@penumbra-zone/getters/value-view';
 import { Value, ValueView } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { removeTrailingZeros } from '@penumbra-zone/types/shortify';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { removeTrailingZeros } from '@penumbrafi/types/shortify';
+import { pnum } from '@penumbrafi/types/pnum';
 import { registryView } from '@/shared/utils/value-view';
 
 // Build an index for this trace based on the price and the hops.

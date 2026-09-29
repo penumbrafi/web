@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useRegistry, useRegistryAssets } from '@/shared/api/registry';
 import { AssetId, Metadata, Denom } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { uint8ArrayToBase64 } from '@penumbra-zone/types/base64';
+import { uint8ArrayToBase64 } from '@penumbrafi/types/base64';
 import { useWalletAssetsMap } from '@/shared/api/wallet-assets';
 
 /**

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { AssetId, Value } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { PositionId } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
 import { positionIdFromBech32 } from '@penumbra-zone/bech32m/plpid';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { pindexer } from '@/shared/database';
 import { serialize } from '@/shared/utils/serializer.ts';
 import { PositionsStatsApiResponse, PositionsStatsResponse } from './types';

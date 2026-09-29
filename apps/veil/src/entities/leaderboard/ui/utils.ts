@@ -1,6 +1,6 @@
 import { AssetSelectorValue, isBalancesResponse } from '@penumbra-zone/ui/AssetSelector';
 import { getMetadataFromBalancesResponse } from '@penumbra-zone/getters/balances-response';
-import { uint8ArrayToHex } from '@penumbra-zone/types/hex';
+import { uint8ArrayToHex } from '@penumbrafi/types/hex';
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { formatDistanceToNowStrict } from 'date-fns';
 

@@ -12,7 +12,7 @@ import { AddressViewComponent } from '@penumbra-zone/ui/AddressView';
 import { ValueViewComponent } from '@penumbra-zone/ui/ValueView';
 import { Pagination } from '@penumbra-zone/ui/Pagination';
 import { TableCell } from '@penumbra-zone/ui/TableCell';
-import { splitLoHi } from '@penumbra-zone/types/lo-hi';
+import { splitLoHi } from '@penumbrafi/types/lo-hi';
 import { Density } from '@penumbra-zone/ui/Density';
 import { Button } from '@penumbra-zone/ui/Button';
 import { Text } from '@penumbra-zone/ui/Text';

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pindexer } from '@/shared/database';
 import { TransactionApiResponse } from './types';
-import { uint8ArrayToHex } from '@penumbra-zone/types/hex';
+import { uint8ArrayToHex } from '@penumbrafi/types/hex';
 import {
   withApiFallback,
   withTimeout,

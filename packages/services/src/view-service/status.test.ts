@@ -5,7 +5,7 @@ import { ViewService } from '@penumbra-zone/protobuf';
 import { servicesCtx } from '../ctx/prax.js';
 import { mockIndexedDb, MockServices, TendermintMock } from '../test-utils.js';
 import { status } from './status.js';
-import type { ServicesInterface } from '@penumbra-zone/types/services';
+import type { ServicesInterface } from '@penumbrafi/types/services';
 
 describe('Status request handler', () => {
   let mockServices: MockServices;

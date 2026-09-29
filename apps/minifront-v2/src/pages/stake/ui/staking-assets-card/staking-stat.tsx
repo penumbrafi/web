@@ -4,7 +4,7 @@ import { Tooltip } from '@penumbra-zone/ui/Tooltip';
 import { Skeleton } from '@penumbra-zone/ui/Skeleton';
 import { Info } from 'lucide-react';
 import { AssetIcon } from '@penumbra-zone/ui/AssetIcon';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 
 import { useStakingStore } from '@/shared/stores/store-context';
 

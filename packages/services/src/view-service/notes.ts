@@ -2,7 +2,7 @@ import type { Impl } from './index.js';
 import { servicesCtx } from '../ctx/prax.js';
 
 import { Amount } from '@penumbra-zone/protobuf/penumbra/core/num/v1/num_pb';
-import { addAmounts, joinLoHiAmount } from '@penumbra-zone/types/amount';
+import { addAmounts, joinLoHiAmount } from '@penumbrafi/types/amount';
 
 export const notes: Impl['notes'] = async function* (req, ctx) {
   const services = await ctx.values.get(servicesCtx)();

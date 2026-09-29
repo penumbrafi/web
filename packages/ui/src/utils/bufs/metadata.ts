@@ -1,6 +1,6 @@
 import { bech32mIdentityKey } from '@penumbra-zone/bech32m/penumbravalid';
 import { AssetId, Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { base64ToUint8Array } from '@penumbra-zone/types/base64';
+import { base64ToUint8Array } from '@penumbrafi/types/base64';
 
 const u8 = (length: number) => Uint8Array.from({ length }, () => Math.floor(Math.random() * 256));
 const validatorIk = { ik: u8(32) };

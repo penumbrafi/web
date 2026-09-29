@@ -1,4 +1,4 @@
-# @penumbra-zone/wasm
+# @penumbrafi/wasm
 
 The Penumbra core repo has a ton of utilities and functions that are critical to
 developing an app that interacts with the Penumbra chain. However, it is written
@@ -13,7 +13,7 @@ If you're reading this, you're probably trying to use the package. **[Next.js / 
 ### install
 
 ```sh
-pnpm add @penumbra-zone/wasm
+pnpm add @penumbrafi/wasm
 ```
 
 If you intend to build transactions yourself or conduct other cryptographic
@@ -27,7 +27,7 @@ pnpm add @penumbra-zone/keys
 ### import and use
 
 ```tsx
-import { generateSpendKey } from '@penumbra-zone/wasm/keys';
+import { generateSpendKey } from '@penumbrafi/wasm/keys';
 import { useState, useMemo } from 'react';
 
 export const SpendKeyCat = () => {

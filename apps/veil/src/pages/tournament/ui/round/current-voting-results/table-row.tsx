@@ -2,7 +2,7 @@ import cn from 'clsx';
 import { TableCell } from '@penumbra-zone/ui/TableCell';
 import { AssetIcon } from '@penumbra-zone/ui/AssetIcon';
 import { Text } from '@penumbra-zone/ui/Text';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import type { MappedGauge } from '../../../server/previous-epochs';
 import { ProvideLiquidityButton } from '../../shared/provide-liquidity-button';
 import { VoteButton } from './vote-button';

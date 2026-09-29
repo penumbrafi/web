@@ -6,8 +6,8 @@ import {
   getAddressIndex,
   getValueViewCaseFromBalancesResponse,
 } from '@penumbra-zone/getters/balances-response';
-import { joinLoHiAmount, multiplyAmountByNumber } from '@penumbra-zone/types/amount';
-import { assetPatterns } from '@penumbra-zone/types/assets';
+import { joinLoHiAmount, multiplyAmountByNumber } from '@penumbrafi/types/amount';
+import { assetPatterns } from '@penumbrafi/types/assets';
 import { getDisplay } from '@penumbra-zone/getters/metadata';
 
 const nonSwappableAssetPatterns = [

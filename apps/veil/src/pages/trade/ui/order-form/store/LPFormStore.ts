@@ -13,7 +13,7 @@ import {
 } from '@/shared/math/position';
 import { parseNumber } from '@/shared/utils/num';
 import { makeAutoObservable } from 'mobx';
-import { round } from '@penumbra-zone/types/round';
+import { round } from '@penumbrafi/types/round';
 
 const DEFAULT_POSITION_COUNT = 10;
 export const DEFAULT_PRICE_SPREAD = 0.05;

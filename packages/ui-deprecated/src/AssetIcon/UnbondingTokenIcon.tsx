@@ -1,4 +1,4 @@
-import { assetPatterns } from '@penumbra-zone/types/assets';
+import { assetPatterns } from '@penumbrafi/types/assets';
 import { styled } from 'styled-components';
 
 const Svg = styled.svg.attrs({

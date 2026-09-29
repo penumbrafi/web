@@ -6,7 +6,7 @@ import {
   TransactionPlan,
   WitnessData,
 } from '@penumbra-zone/protobuf/penumbra/core/transaction/v1/transaction_pb';
-import type { StateCommitmentTree } from '@penumbra-zone/types/state-commitment-tree';
+import type { StateCommitmentTree } from '@penumbrafi/types/state-commitment-tree';
 import {
   authorize,
   build_action,

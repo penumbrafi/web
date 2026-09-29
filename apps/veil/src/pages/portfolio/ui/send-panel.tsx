@@ -15,8 +15,8 @@ import { Address, AddressIndex } from '@penumbra-zone/protobuf/penumbra/core/key
 import { isAddress, addressFromBech32m } from '@penumbra-zone/bech32m/penumbra';
 import { getMetadataFromBalancesResponse } from '@penumbra-zone/getters/balances-response';
 import { getMetadata } from '@penumbra-zone/getters/value-view';
-import { assetPatterns } from '@penumbra-zone/types/assets';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { assetPatterns } from '@penumbrafi/types/assets';
+import { pnum } from '@penumbrafi/types/pnum';
 import { useBalances } from '@/shared/api/balances';
 import { connectionStore } from '@/shared/model/connection';
 import { balanceMatchesSubaccount, sendShielded, sendValidationErrors } from '../api/send-shielded';

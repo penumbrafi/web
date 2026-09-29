@@ -29,7 +29,7 @@
     "@penumbra-zone/perspective": "workspace:*",
     "@penumbra-zone/protobuf": "workspace:*",
     "@penumbra-zone/transport-dom": "workspace:*",
-    "@penumbra-zone/types": "workspace:*",
+    "@penumbrafi/types": "workspace:*",
     "@penumbra-zone/ui-deprecated": "workspace:*",
     "@penumbra-zone/zquery": "workspace:*",
     "@penumbrafi/registry": "^13.0.0",

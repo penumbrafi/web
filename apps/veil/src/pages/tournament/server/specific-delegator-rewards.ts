@@ -8,7 +8,7 @@ import { sql } from 'kysely';
 import { DelegatorReward } from '../model/rewards';
 import { AssetId, Value } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { STAKING_TOKEN_ASSET_ID } from '@/shared/api/fetch-registry';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 
 export type SortKey = 'epoch' | 'reward';
 

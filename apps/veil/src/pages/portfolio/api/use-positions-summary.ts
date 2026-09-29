@@ -10,8 +10,8 @@ import { AddressIndex } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys
 import { AssetId } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { penumbra } from '@/shared/const/penumbra';
 import { connectionStore } from '@/shared/model/connection';
-import { uint8ArrayToBase64 } from '@penumbra-zone/types/base64';
-import { joinLoHi } from '@penumbra-zone/types/lo-hi';
+import { uint8ArrayToBase64 } from '@penumbrafi/types/base64';
+import { joinLoHi } from '@penumbrafi/types/lo-hi';
 
 export interface AssetTotal {
   assetId: AssetId;

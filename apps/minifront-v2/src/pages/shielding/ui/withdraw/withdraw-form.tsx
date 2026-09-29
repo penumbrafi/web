@@ -8,14 +8,14 @@ import { useRegistry } from '@/shared/api/use-registry';
 import { IbcChainProvider } from '@/shared/api/chain-provider';
 import { BalancesResponse } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
 import { AddressView } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys_pb';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { getAddressIndex } from '@penumbra-zone/getters/address-view';
 import { ChainSelector } from '../chain-selector';
 import { AssetValueInput } from '@penumbra-zone/ui/AssetValueInput';
 import { Density } from '@penumbra-zone/ui/Density';
 import { LogOut } from 'lucide-react';
 import { TextInput } from '@penumbra-zone/ui/TextInput';
-import { assetPatterns } from '@penumbra-zone/types/assets';
+import { assetPatterns } from '@penumbrafi/types/assets';
 import { useChain } from '@cosmos-kit/react';
 import { Wallet2 } from 'lucide-react';
 

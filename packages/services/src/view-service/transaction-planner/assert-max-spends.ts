@@ -1,8 +1,8 @@
 import { ConnectError } from '@connectrpc/connect';
 import { TransactionPlan } from '@penumbra-zone/protobuf/penumbra/core/transaction/v1/transaction_pb';
 import { TransactionPlannerRequest } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
-import { IndexedDbInterface } from '@penumbra-zone/types/indexed-db';
-import { addLoHi } from '@penumbra-zone/types/lo-hi';
+import { IndexedDbInterface } from '@penumbrafi/types/indexed-db';
+import { addLoHi } from '@penumbrafi/types/lo-hi';
 
 export const assertSpendMax = async (
   req: TransactionPlannerRequest,

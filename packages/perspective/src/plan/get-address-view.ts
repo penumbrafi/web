@@ -3,7 +3,7 @@ import {
   AddressView,
   FullViewingKey,
 } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys_pb';
-import { getAddressIndexByAddress } from '@rotko/penumbra-wasm/address';
+import { getAddressIndexByAddress } from '@penumbrafi/wasm/address';
 
 export const getAddressView = (address: Address, fullViewingKey: FullViewingKey): AddressView => {
   const index = getAddressIndexByAddress(fullViewingKey, address);

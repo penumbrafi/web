@@ -1,6 +1,6 @@
 import type { Impl } from './index.js';
 import { fvkCtx } from '../ctx/full-viewing-key.js';
-import { getTransparentAddress } from '@rotko/penumbra-wasm/keys';
+import { getTransparentAddress } from '@penumbrafi/wasm/keys';
 
 export const transparentAddress: Impl['transparentAddress'] = async (_, ctx) => {
   const fvk = await ctx.values.get(fvkCtx)();

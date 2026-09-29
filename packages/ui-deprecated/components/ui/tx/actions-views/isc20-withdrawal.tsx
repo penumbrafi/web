@@ -1,7 +1,7 @@
 import { Ics20Withdrawal } from '@penumbra-zone/protobuf/penumbra/core/component/ibc/v1/ibc_pb';
 import { ViewBox } from '../viewbox';
 import { ActionDetails } from './action-details';
-import { joinLoHiAmount } from '@penumbra-zone/types/amount';
+import { joinLoHiAmount } from '@penumbrafi/types/amount';
 import { bech32mAddress } from '@penumbra-zone/bech32m/penumbra';
 
 // Converts nanoseconds timestamp to UTC timestamp string

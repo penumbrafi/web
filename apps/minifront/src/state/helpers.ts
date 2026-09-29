@@ -18,8 +18,8 @@ import { TransactionId } from '@penumbra-zone/protobuf/penumbra/core/txhash/v1/t
 import { PartialMessage } from '@bufbuild/protobuf';
 import { TransactionToast } from '@penumbra-zone/ui-deprecated/lib/toast/transaction-toast';
 import { TransactionClassification } from '@penumbra-zone/perspective/transaction/classification';
-import { uint8ArrayToHex } from '@penumbra-zone/types/hex';
-import { fromValueView } from '@penumbra-zone/types/amount';
+import { uint8ArrayToHex } from '@penumbrafi/types/hex';
+import { fromValueView } from '@penumbrafi/types/amount';
 import BigNumber from 'bignumber.js';
 import {
   getMetadataFromBalancesResponse,

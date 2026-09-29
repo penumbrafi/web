@@ -1,4 +1,4 @@
-import { shortify } from '@penumbra-zone/types/shortify';
+import { shortify } from '@penumbrafi/types/shortify';
 
 /**
  * Concatenates a number with a pluralized word based on this number in English.

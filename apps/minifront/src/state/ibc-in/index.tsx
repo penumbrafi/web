@@ -5,7 +5,7 @@ import { AllSlices, SliceCreator } from '..';
 import { getAddrByIndex } from '../../fetchers/address';
 import { bech32mAddress } from '@penumbra-zone/bech32m/penumbra';
 import { Toast } from '@penumbra-zone/ui-deprecated/lib/toast/toast';
-import { shorten } from '@penumbra-zone/types/string';
+import { shorten } from '@penumbrafi/types/string';
 import { calculateFee, GasPrice, SigningStargateClient } from '@cosmjs/stargate';
 import { chains } from 'chain-registry';
 import { getChainId } from '../../fetchers/chain-id';

@@ -17,7 +17,7 @@ import {
 import { useCurrentEpoch } from './use-current-epoch';
 import { useQuery } from '@tanstack/react-query';
 import { useRefetchOnNewBlock } from '@/shared/api/compact-block';
-import { addAmounts } from '@penumbra-zone/types/amount';
+import { addAmounts } from '@penumbrafi/types/amount';
 import { useStakingTokenMetadata } from '@/shared/api/registry';
 
 export interface VotingAbility {

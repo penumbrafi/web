@@ -1,7 +1,7 @@
 import type { Impl } from './index.js';
 import { servicesCtx } from '../ctx/prax.js';
 
-import { getWitness } from '@rotko/penumbra-wasm/build';
+import { getWitness } from '@penumbrafi/wasm/build';
 
 import { Code, ConnectError } from '@connectrpc/connect';
 

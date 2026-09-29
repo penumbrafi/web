@@ -8,7 +8,7 @@ import { ValueView, Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset
 import { getValidatorInfoFromValueView } from '@penumbra-zone/getters/value-view';
 import { getIdentityKeyFromValidatorInfo, getValidator } from '@penumbra-zone/getters/validator-info';
 import { bech32mIdentityKey } from '@penumbra-zone/bech32m/penumbravalid';
-import { VotingPowerAsIntegerPercentage } from '@penumbra-zone/types/staking';
+import { VotingPowerAsIntegerPercentage } from '@penumbrafi/types/staking';
 import { ValidatorInfoCell } from './validator-info-cell';
 import { StakingActions } from './staking-actions';
 import { StakingFormDialog } from './form-dialog';

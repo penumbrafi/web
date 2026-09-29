@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { styled } from 'styled-components';
 import { ValueView } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { getMetadata } from '@penumbra-zone/getters/value-view';
-import { getFormattedAmtFromValueView } from '@penumbra-zone/types/value-view';
+import { getFormattedAmtFromValueView } from '@penumbrafi/types/value-view';
 import { ConditionalWrap } from '../ConditionalWrap';
 import { Pill, PillProps } from '../Pill';
 import { Text } from '../Text';

@@ -10,8 +10,8 @@ import { useAssetPrices } from './use-asset-prices.ts';
 import { useWallet } from '@cosmos-kit/react';
 import { WalletStatus } from '@cosmos-kit/core';
 import { useBalances as usePenumbraBalances } from '@/shared/api/balances';
-import { pnum } from '@penumbra-zone/types/pnum';
-import { assetPatterns } from '@penumbra-zone/types/assets';
+import { pnum } from '@penumbrafi/types/pnum';
+import { assetPatterns } from '@penumbrafi/types/assets';
 import { BalancesResponse } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
 
 /**

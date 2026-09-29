@@ -9,7 +9,7 @@ import { useChain } from '@cosmos-kit/react';
 import { Button } from '@penumbra-zone/ui/Button';
 import { Text } from '@penumbra-zone/ui/Text';
 import { TextInput } from '@penumbra-zone/ui/TextInput';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 
 import type { CexAsset, CexConfig } from '@/features/deposit/cex-config';
 import { useIbcShield } from '@/features/deposit/use-ibc-shield';

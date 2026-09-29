@@ -28,7 +28,7 @@ import {
   SwapRecord,
   TransactionInfo,
 } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
-import { assetPatterns, PRICE_RELEVANCE_THRESHOLDS } from '@penumbra-zone/types/assets';
+import { assetPatterns, PRICE_RELEVANCE_THRESHOLDS } from '@penumbrafi/types/assets';
 import { IDBPDatabase, openDB, StoreNames } from 'idb';
 import { IbdUpdater, IbdUpdates } from './updater.js';
 
@@ -46,21 +46,18 @@ import { bech32mIdentityKey, identityKeyFromBech32m } from '@penumbra-zone/bech3
 import { bech32mWalletId } from '@penumbra-zone/bech32m/penumbrawalletid';
 import { getAssetId } from '@penumbra-zone/getters/metadata';
 import { getIdentityKeyFromValidatorInfo } from '@penumbra-zone/getters/validator-info';
-import { base64ToUint8Array, uint8ArrayToBase64 } from '@penumbra-zone/types/base64';
-import { uint8ArrayToHex } from '@penumbra-zone/types/hex';
+import { base64ToUint8Array, uint8ArrayToBase64 } from '@penumbrafi/types/base64';
+import { uint8ArrayToHex } from '@penumbrafi/types/hex';
 import {
   IDB_TABLES,
   IdbConstants,
   IdbUpdate,
   IndexedDbInterface,
   PenumbraDb,
-} from '@penumbra-zone/types/indexed-db';
-import type { Jsonified } from '@penumbra-zone/types/jsonified';
-import type {
-  ScanBlockResult,
-  StateCommitmentTree,
-} from '@penumbra-zone/types/state-commitment-tree';
-import { sctPosition } from '@rotko/penumbra-wasm/tree';
+} from '@penumbrafi/types/indexed-db';
+import type { Jsonified } from '@penumbrafi/types/jsonified';
+import type { ScanBlockResult, StateCommitmentTree } from '@penumbrafi/types/state-commitment-tree';
+import { sctPosition } from '@penumbrafi/wasm/tree';
 import {
   AuctionId,
   DutchAuctionDescription,
@@ -68,9 +65,9 @@ import {
 import { ChainRegistryClient } from '@penumbrafi/registry';
 import { PartialMessage, PlainMessage } from '@bufbuild/protobuf';
 import { getAmountFromRecord } from '@penumbra-zone/getters/spendable-note-record';
-import { isZero } from '@penumbra-zone/types/amount';
+import { isZero } from '@penumbrafi/types/amount';
 import { IDB_VERSION } from './config.js';
-import { addLoHi } from '@penumbra-zone/types/lo-hi';
+import { addLoHi } from '@penumbrafi/types/lo-hi';
 import { Amount } from '@penumbra-zone/protobuf/penumbra/core/num/v1/num_pb';
 import { typeRegistry } from '@penumbra-zone/protobuf';
 

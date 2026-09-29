@@ -1,6 +1,6 @@
 import type { Impl } from './index.js';
 import { servicesCtx } from '../ctx/prax.js';
-import { assetPatterns, RegexMatcher } from '@penumbra-zone/types/assets';
+import { assetPatterns, RegexMatcher } from '@penumbrafi/types/assets';
 import { getAssetPriorityScore } from './util/asset-priority-score.js';
 
 export const assets: Impl['assets'] = async function* (req, ctx) {

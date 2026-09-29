@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { Text } from '@penumbra-zone/ui/Text';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { BlockchainError } from '@/shared/ui/blockchain-error';
 import { useBookV2 } from '../../api/book-v2';
 import { usePathSymbols } from '../../model/use-path';

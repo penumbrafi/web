@@ -18,7 +18,7 @@
     "@connectrpc/connect-web": "^1.6.1",
     "@penumbra-zone/crypto-web": "workspace:*",
     "@penumbra-zone/protobuf": "workspace:*",
-    "@penumbra-zone/types": "workspace:*",
+    "@penumbrafi/types": "workspace:*",
     "@penumbra-zone/ui-deprecated": "workspace:*",
     "date-fns": "^4.1.0",
     "react": "^19.0.0",

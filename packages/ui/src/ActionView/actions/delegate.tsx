@@ -5,7 +5,7 @@ import { ActionRow } from '../shared/action-row';
 import { ValueView, Denom } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { ValueViewComponent } from '../../ValueView';
 import { Density } from '../../Density';
-import { shorten } from '@penumbra-zone/types/string';
+import { shorten } from '@penumbrafi/types/string';
 import { ArrowRight } from 'lucide-react';
 import { ActionViewBaseProps } from '../types';
 

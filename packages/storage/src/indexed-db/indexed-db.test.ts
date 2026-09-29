@@ -44,7 +44,7 @@ import {
   Metadata,
   Value,
 } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import type { IdbUpdate, PenumbraDb } from '@penumbra-zone/types/indexed-db';
+import type { IdbUpdate, PenumbraDb } from '@penumbrafi/types/indexed-db';
 import {
   AuctionId,
   DutchAuctionDescription,
@@ -52,7 +52,7 @@ import {
 import { StateCommitment } from '@penumbra-zone/protobuf/penumbra/crypto/tct/v1/tct_pb';
 import { ChainRegistryClient, Registry } from '@penumbrafi/registry';
 import fetchMock from 'fetch-mock';
-import { uint8ArrayToBase64 } from '@penumbra-zone/types/base64';
+import { uint8ArrayToBase64 } from '@penumbrafi/types/base64';
 import { JsonValue } from '@bufbuild/protobuf';
 
 const inner0123 = Uint8Array.from({ length: 32 }, () => Math.floor(Math.random() * 256));

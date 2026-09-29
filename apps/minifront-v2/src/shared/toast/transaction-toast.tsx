@@ -2,7 +2,7 @@ import { openToast, Toast } from '@penumbra-zone/ui/Toast';
 import { ReactNode } from 'react';
 import { TransactionClassification } from '@penumbra-zone/perspective/transaction/classification';
 import { TRANSACTION_LABEL_BY_CLASSIFICATION } from '@penumbra-zone/perspective/transaction/classify';
-import { shorten } from '@penumbra-zone/types/string';
+import { shorten } from '@penumbrafi/types/string';
 
 import { Progress } from '@penumbra-zone/ui/Progress';
 

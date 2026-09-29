@@ -12,7 +12,7 @@ import {
 import { getBondingState } from '@penumbra-zone/getters/validator-status';
 import { penumbra } from '../../penumbra';
 import { AppService, SctService, StakeService, ViewService } from '@penumbra-zone/protobuf';
-import { assetPatterns } from '@penumbra-zone/types/assets';
+import { assetPatterns } from '@penumbrafi/types/assets';
 import {
   BondingState,
   BondingState_BondingStateEnum,

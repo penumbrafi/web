@@ -2,7 +2,7 @@ import { TransactionPlan } from '@penumbra-zone/protobuf/penumbra/core/transacti
 import { TransactionPlannerRequest } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
 import { JsonValue } from '@bufbuild/protobuf';
 import { plan_transaction } from '../wasm/index.js';
-import type { IdbConstants } from '@penumbra-zone/types/indexed-db';
+import type { IdbConstants } from '@penumbrafi/types/indexed-db';
 import { FullViewingKey } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys_pb';
 import { AssetId } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 

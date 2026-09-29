@@ -7,7 +7,7 @@ import { createContextValues, createHandlerContext, HandlerContext } from '@conn
 import { ViewService } from '@penumbra-zone/protobuf';
 import { servicesCtx } from '../../ctx/prax.js';
 import { mockIndexedDb, MockServices, testFullViewingKey } from '../../test-utils.js';
-import type { ServicesInterface } from '@penumbra-zone/types/services';
+import type { ServicesInterface } from '@penumbrafi/types/services';
 import { FmdParameters } from '@penumbra-zone/protobuf/penumbra/core/component/shielded_pool/v1/shielded_pool_pb';
 import { AppParameters } from '@penumbra-zone/protobuf/penumbra/core/app/v1/app_pb';
 import { SctParameters } from '@penumbra-zone/protobuf/penumbra/core/component/sct/v1/sct_pb';
@@ -19,7 +19,7 @@ import { AddressIndex } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys
 import { TransactionPlan } from '@penumbra-zone/protobuf/penumbra/core/transaction/v1/transaction_pb';
 
 const mockPlanTransaction = vi.hoisted(() => vi.fn());
-vi.mock('@rotko/penumbra-wasm/planner', () => ({
+vi.mock('@penumbrafi/wasm/planner', () => ({
   planTransaction: mockPlanTransaction,
 }));
 describe('TransactionPlanner request handler', () => {

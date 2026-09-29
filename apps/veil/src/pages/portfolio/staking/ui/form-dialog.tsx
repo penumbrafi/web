@@ -12,9 +12,9 @@ import { ValueView, Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset
 import { getIdentityKey } from '@penumbra-zone/getters/validator';
 import { getIdentityKeyFromValidatorInfo } from '@penumbra-zone/getters/validator-info';
 import { bech32mIdentityKey } from '@penumbra-zone/bech32m/penumbravalid';
-import { getFormattedAmtFromValueView } from '@penumbra-zone/types/value-view';
+import { getFormattedAmtFromValueView } from '@penumbrafi/types/value-view';
 import { stakingStore } from '../model/staking-store';
-import { shorten } from '@penumbra-zone/types/string';
+import { shorten } from '@penumbrafi/types/string';
 
 export interface StakingFormDialogProps {
   validator: Validator;

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { fromDisplayAmount, toDisplayAmount } from './asset-utils';
-import { bigNumConfig } from '@penumbra-zone/types/lo-hi';
+import { bigNumConfig } from '@penumbrafi/types/lo-hi';
 import BigNumber from 'bignumber.js';
 import { Asset } from '@chain-registry/types';
 

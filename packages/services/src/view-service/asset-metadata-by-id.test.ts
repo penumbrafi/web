@@ -9,7 +9,7 @@ import { servicesCtx } from '../ctx/prax.js';
 import { mockIndexedDb, MockServices, ShieldedPoolMock } from '../test-utils.js';
 import { AssetId, Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { assetMetadataById } from './asset-metadata-by-id.js';
-import type { ServicesInterface } from '@penumbra-zone/types/services';
+import type { ServicesInterface } from '@penumbrafi/types/services';
 
 describe('AssetMetadataById request handler', () => {
   let mockServices: MockServices;

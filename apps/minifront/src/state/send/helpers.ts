@@ -2,7 +2,7 @@ import { Metadata, Value } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/
 import { BalancesResponse } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
 import { getDisplay } from '@penumbra-zone/getters/metadata';
 import { getAmount, getMetadata } from '@penumbra-zone/getters/value-view';
-import { assetPatterns } from '@penumbra-zone/types/assets';
+import { assetPatterns } from '@penumbrafi/types/assets';
 import { isKnown } from '../helpers';
 import { AbridgedZQueryState } from '@penumbra-zone/zquery/src/types';
 import { chainRegistryClient } from '../../fetchers/registry';

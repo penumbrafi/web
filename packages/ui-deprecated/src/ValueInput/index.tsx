@@ -7,7 +7,7 @@ import { ActionType } from '../utils/ActionType.ts';
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { BalancesResponse } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
 import { getBalanceView } from '@penumbra-zone/getters/balances-response';
-import { fromValueView } from '@penumbra-zone/types/amount';
+import { fromValueView } from '@penumbrafi/types/amount';
 import { Density } from '../Density';
 import { styled } from 'styled-components';
 

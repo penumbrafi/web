@@ -15,7 +15,7 @@ import {
   PositionState_PositionStateEnum,
 } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
 import { pindexerDb } from './client';
-import { hexToUint8Array } from '@penumbra-zone/types/hex';
+import { hexToUint8Array } from '@penumbrafi/types/hex';
 
 export interface ExecutionWithReserves {
   execution: Selectable<DexExPositionExecutions>;

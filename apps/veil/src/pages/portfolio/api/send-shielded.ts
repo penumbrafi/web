@@ -11,8 +11,8 @@ import {
 } from '@penumbra-zone/getters/value-view';
 import { getAddress, getAddressIndex } from '@penumbra-zone/getters/address-view';
 import { getBalanceView } from '@penumbra-zone/getters/balances-response';
-import { toBaseUnit } from '@penumbra-zone/types/lo-hi';
-import { fromValueView } from '@penumbra-zone/types/amount';
+import { toBaseUnit } from '@penumbrafi/types/lo-hi';
+import { fromValueView } from '@penumbrafi/types/amount';
 import BigNumber from 'bignumber.js';
 import { planBuildBroadcast } from '@/entities/transaction';
 

@@ -12,7 +12,7 @@ import { useDebounce } from '@/shared/utils/use-debounce';
 import { deserialize, Serialized } from '@/shared/utils/serializer';
 import { isPairMarked } from '@/shared/config/bridge-health';
 import { usePausedChannels } from '@/shared/api/ibc-bridge';
-import { joinLoHi } from '@penumbra-zone/types/lo-hi';
+import { joinLoHi } from '@penumbrafi/types/lo-hi';
 
 // Ten per page: the list is sorted working-pairs-first, so page one is the
 // markets you can actually move money in and out of, and the long tail on

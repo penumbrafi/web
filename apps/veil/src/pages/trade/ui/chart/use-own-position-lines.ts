@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { autorun } from 'mobx';
 import { observer } from 'mobx-react-lite';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { PositionState_PositionStateEnum } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
 import { connectionStore } from '@/shared/model/connection';
 import { usePositions } from '@/entities/position/api/use-positions';

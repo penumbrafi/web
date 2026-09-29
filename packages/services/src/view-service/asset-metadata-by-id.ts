@@ -1,8 +1,8 @@
 import type { Impl } from './index.js';
 import { servicesCtx } from '../ctx/prax.js';
-import { assetPatterns } from '@penumbra-zone/types/assets';
+import { assetPatterns } from '@penumbrafi/types/assets';
 import { getAssetPriorityScore } from './util/asset-priority-score.js';
-import { customizeSymbol } from '@rotko/penumbra-wasm/metadata';
+import { customizeSymbol } from '@penumbrafi/wasm/metadata';
 import { getAssetId } from '@penumbra-zone/getters/metadata';
 
 export const assetMetadataById: Impl['assetMetadataById'] = async ({ assetId }, ctx) => {

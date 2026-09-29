@@ -1,7 +1,7 @@
 import cn from 'clsx';
 import { useMemo } from 'react';
 import { AssetIcon } from '@penumbra-zone/ui/AssetIcon';
-import { round } from '@penumbra-zone/types/round';
+import { round } from '@penumbrafi/types/round';
 import { Dialog } from '@penumbra-zone/ui/Dialog';
 import { Text } from '@penumbra-zone/ui/Text';
 import type { MappedGauge } from '../../server/previous-epochs';

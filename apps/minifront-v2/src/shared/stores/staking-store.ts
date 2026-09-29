@@ -31,10 +31,10 @@ import {
   getAddressIndex,
 } from '@penumbra-zone/getters/balances-response';
 import { getDisplay, getDisplayDenomExponent } from '@penumbra-zone/getters/metadata';
-import { getVotingPowerByValidatorInfo } from '@penumbra-zone/types/staking';
+import { getVotingPowerByValidatorInfo } from '@penumbrafi/types/staking';
 import { RootStore } from './root-store';
-import { toBaseUnit, fromBaseUnit } from '@penumbra-zone/types/lo-hi';
-import { assetPatterns } from '@penumbra-zone/types/assets';
+import { toBaseUnit, fromBaseUnit } from '@penumbrafi/types/lo-hi';
+import { assetPatterns } from '@penumbrafi/types/assets';
 import { bech32mIdentityKey } from '@penumbra-zone/bech32m/penumbravalid';
 import BigNumber from 'bignumber.js';
 import { penumbra } from '@/shared/lib/penumbra';

@@ -5,7 +5,7 @@ import { AssetId, Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v
 import { serialize, Serialized } from '@/shared/utils/serializer';
 import { LqtGauge } from '@/shared/database/schema';
 import { pindexerDb } from '@/shared/database/client';
-import { base64ToUint8Array } from '@penumbra-zone/types/base64';
+import { base64ToUint8Array } from '@penumbrafi/types/base64';
 import {
   withApiFallback,
   withTimeout,

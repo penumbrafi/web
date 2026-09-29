@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import BigNumber from 'bignumber.js';
 import { Metadata, Value } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { Amount } from '@penumbra-zone/protobuf/penumbra/core/num/v1/num_pb';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { computePositionStats } from './get-position-stats';
 import type { CalculatedAsset } from './types';
 import type { PositionStats } from '@/shared/api/server/position/stats/types';

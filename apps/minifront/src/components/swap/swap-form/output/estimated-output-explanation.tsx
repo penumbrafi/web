@@ -1,6 +1,6 @@
 import { AllSlices } from '../../../../state';
 import { useStoreShallow } from '../../../../utils/use-store-shallow';
-import { formatAmount, isZero } from '@penumbra-zone/types/amount';
+import { formatAmount, isZero } from '@penumbrafi/types/amount';
 import { getDisplayDenomExponent } from '@penumbra-zone/getters/metadata';
 import { getSymbolFromValueView } from '@penumbra-zone/getters/value-view';
 

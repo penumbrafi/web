@@ -15,7 +15,7 @@ import { LogOut } from 'lucide-react';
 import { useUnifiedAssets, UnifiedAsset } from '@/shared/api/use-unified-assets';
 import { useRegistry } from '@/shared/api/use-registry';
 import { IbcChainProvider } from '@/shared/api/chain-provider';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 
 // Internal form component that uses cosmos-kit hooks

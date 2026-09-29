@@ -4,7 +4,7 @@ import {
   PositionState_PositionStateEnum,
 } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
 import { AssetId } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import type { BookSide, RawOrder } from './levels.ts';
 
 // Division precision: the default 20 decimal places truncates raw prices on

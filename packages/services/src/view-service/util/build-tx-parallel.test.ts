@@ -22,7 +22,7 @@ vi.mock('../../offscreen-client.js', () => ({
   },
 }));
 
-vi.mock('@rotko/penumbra-wasm/build', () => ({
+vi.mock('@penumbrafi/wasm/build', () => ({
   buildParallel: mocks.buildParallel,
 }));
 

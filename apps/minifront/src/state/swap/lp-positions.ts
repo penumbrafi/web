@@ -11,7 +11,7 @@ import { isValidAmount, planBuildBroadcast } from '../helpers.ts';
 import { getAddressIndex } from '@penumbra-zone/getters/address-view';
 import { getAssetIdFromValueView } from '@penumbra-zone/getters/value-view';
 import { PositionState_PositionStateEnum } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
-import { base64ToUint8Array } from '@penumbra-zone/types/base64';
+import { base64ToUint8Array } from '@penumbrafi/types/base64';
 
 export const { ownedPositions, useOwnedPositions } = createZQuery({
   name: 'ownedPositions',

@@ -1,10 +1,10 @@
 import BigNumber from 'bignumber.js';
-import { round } from '@penumbra-zone/types/round';
-import { LoHi, joinLoHi, splitLoHi } from '@penumbra-zone/types/lo-hi';
+import { round } from '@penumbrafi/types/round';
+import { LoHi, joinLoHi, splitLoHi } from '@penumbrafi/types/lo-hi';
 import { Amount } from '@penumbra-zone/protobuf/penumbra/core/num/v1/num_pb';
 import { Metadata, ValueView } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { getAmount, getDisplayDenomExponentFromValueView } from '@penumbra-zone/getters/value-view';
-import { removeTrailingZeros } from '@penumbra-zone/types/shortify';
+import { removeTrailingZeros } from '@penumbrafi/types/shortify';
 
 /**
  * pnum (penumbra number)

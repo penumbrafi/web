@@ -3,7 +3,7 @@ import { Asset, DenomUnit } from '@chain-registry/types';
 import BigNumber from 'bignumber.js';
 import { CosmosAssetBalance } from './hooks.ts';
 import { ChainRegistryClient } from '@penumbrafi/registry';
-import { bigNumConfig } from '@penumbra-zone/types/lo-hi';
+import { bigNumConfig } from '@penumbrafi/types/lo-hi';
 import { Coin } from '@cosmjs/stargate';
 
 // Searches for corresponding denom in asset registry and returns the metadata

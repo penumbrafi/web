@@ -2,10 +2,10 @@ import { pindexer } from '@/shared/database';
 import { ChainRegistryClient } from '@penumbrafi/registry';
 import { AssetId, Value } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { PositionId } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { PositionStateResponse } from '@/shared/api/server/position/timeline/types.ts';
 import { getDisplayDenomExponent } from '@penumbra-zone/getters/metadata';
-import { uint8ArrayToHex } from '@penumbra-zone/types/hex';
+import { uint8ArrayToHex } from '@penumbrafi/types/hex';
 
 export const getPositionState = async (id: PositionId): Promise<PositionStateResponse> => {
   const result = await pindexer.getPositionState(id);

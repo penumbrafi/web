@@ -1,4 +1,4 @@
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { GetMetadata } from '@/shared/api/assets';
 import { CalculatedAsset, ExecutedPosition } from './types';
 import { getDisplayDenomExponent } from '@penumbra-zone/getters/metadata';

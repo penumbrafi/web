@@ -4,7 +4,7 @@ import { pindexerDb } from '@/shared/database/client';
 import { AssetId, Metadata, Value } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { sql } from 'kysely';
 import { indexingAsset } from './indexing-asset';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { deserialize, serialize, Serialized } from '@/shared/utils/serializer';
 import { getCachedRegistry } from '../fetch-registry';
 import { getClientSideEnv } from '../env/getClientSideEnv';

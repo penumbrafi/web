@@ -7,7 +7,7 @@ import {
   TableRow,
 } from '@penumbra-zone/ui-deprecated/components/ui/table';
 import { Link } from 'react-router-dom';
-import { shorten } from '@penumbra-zone/types/string';
+import { shorten } from '@penumbrafi/types/string';
 import { memo } from 'react';
 import { TransactionSummary, useSummaries } from '../../state/transactions';
 

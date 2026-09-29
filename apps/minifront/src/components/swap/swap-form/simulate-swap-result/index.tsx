@@ -2,7 +2,7 @@ import { ValueViewComponent } from '@penumbra-zone/ui-deprecated/components/ui/v
 import { PriceImpact } from './price-impact';
 import { motion } from 'framer-motion';
 import { SimulateSwapResult as TSimulateSwapResult } from '../../../../state/swap';
-import { joinLoHiAmount } from '@penumbra-zone/types/amount';
+import { joinLoHiAmount } from '@penumbrafi/types/amount';
 import {
   getAmount,
   getDisplayDenomExponentFromValueView,
@@ -11,7 +11,7 @@ import {
 import { Traces } from './traces';
 import { AllSlices } from '../../../../state';
 import { ValueView } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { toBaseUnit } from '@penumbra-zone/types/lo-hi';
+import { toBaseUnit } from '@penumbrafi/types/lo-hi';
 import BigNumber from 'bignumber.js';
 import { useStoreShallow } from '../../../../utils/use-store-shallow';
 

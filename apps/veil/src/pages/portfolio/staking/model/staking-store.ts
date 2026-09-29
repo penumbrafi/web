@@ -21,9 +21,9 @@ import {
   getValidatorIdentityKeyFromValueView,
 } from '@penumbra-zone/getters/value-view';
 import { getDisplayDenomExponent } from '@penumbra-zone/getters/metadata';
-import { assetPatterns } from '@penumbra-zone/types/assets';
-import { isDelegationTokenForValidator } from '@penumbra-zone/types/staking';
-import { toBaseUnit } from '@penumbra-zone/types/lo-hi';
+import { assetPatterns } from '@penumbrafi/types/assets';
+import { isDelegationTokenForValidator } from '@penumbrafi/types/staking';
+import { toBaseUnit } from '@penumbrafi/types/lo-hi';
 import { openToast } from '@penumbra-zone/ui/Toast';
 import { connectionStore } from '@/shared/model/connection';
 import { planBuildBroadcast } from '@/entities/transaction';

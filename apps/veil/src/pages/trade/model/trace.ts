@@ -1,5 +1,5 @@
 import { Trace } from '@/shared/api/server/book/types.ts';
-import { round } from '@penumbra-zone/types/round';
+import { round } from '@penumbrafi/types/round';
 
 export const calculateSpread = (sellOrders: Trace[], buyOrders: Trace[]) => {
   if (!sellOrders.length || !buyOrders.length) {

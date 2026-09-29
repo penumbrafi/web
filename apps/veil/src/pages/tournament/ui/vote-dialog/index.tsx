@@ -7,7 +7,7 @@ import { Button } from '@penumbra-zone/ui/Button';
 import { Density } from '@penumbra-zone/ui/Density';
 import { Checkbox } from '@penumbra-zone/ui/Checkbox';
 import { TextInput } from '@penumbra-zone/ui/TextInput';
-import { lqtAddressIndex } from '@penumbra-zone/types/address';
+import { lqtAddressIndex } from '@penumbrafi/types/address';
 import { voteTournament } from '@/entities/tournament/api/vote';
 import { useEpochResults } from '../../api/use-epoch-results';
 import { MappedGauge } from '../../server/previous-epochs';

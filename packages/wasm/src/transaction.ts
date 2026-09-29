@@ -5,7 +5,7 @@ import {
   TransactionSummary,
   TransactionView,
 } from '@penumbra-zone/protobuf/penumbra/core/transaction/v1/transaction_pb';
-import type { IdbConstants } from '@penumbra-zone/types/indexed-db';
+import type { IdbConstants } from '@penumbrafi/types/indexed-db';
 import { FullViewingKey } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys_pb';
 
 export const generateTransactionInfo = async (

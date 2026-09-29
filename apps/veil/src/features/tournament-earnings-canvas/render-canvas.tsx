@@ -1,7 +1,7 @@
 import { dpi, drawText, getTextWidth, scaleCanvas } from '@/shared/ui/canvas-toolkit';
 import { TournamentParams } from './types';
-import { pnum } from '@penumbra-zone/types/pnum';
-import { shortify } from '@penumbra-zone/types/shortify';
+import { pnum } from '@penumbrafi/types/pnum';
+import { shortify } from '@penumbrafi/types/shortify';
 
 const baseUrl = process.env['BASE_URL'] ?? 'http://localhost:3000';
 

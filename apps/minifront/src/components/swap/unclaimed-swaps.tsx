@@ -4,7 +4,7 @@ import { AssetIcon } from '@penumbra-zone/ui-deprecated/components/ui/asset-icon
 import { AllSlices } from '../../state';
 import { useUnclaimedSwaps } from '../../state/unclaimed-swaps';
 import { getSwapRecordCommitment } from '@penumbra-zone/getters/swap-record';
-import { uint8ArrayToBase64 } from '@penumbra-zone/types/base64';
+import { uint8ArrayToBase64 } from '@penumbrafi/types/base64';
 import { GradientHeader } from '@penumbra-zone/ui-deprecated/components/ui/gradient-header';
 import { useStoreShallow } from '../../utils/use-store-shallow';
 import { useState } from 'react';

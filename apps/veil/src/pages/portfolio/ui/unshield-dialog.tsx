@@ -7,7 +7,7 @@ import { TextInput } from '@penumbra-zone/ui/TextInput';
 import { WalletBalance } from '@penumbra-zone/ui/WalletBalance';
 import { AssetSelector } from '@penumbra-zone/ui/AssetSelector';
 import { Density } from '@penumbra-zone/ui/Density';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { ShieldOff } from 'lucide-react';
 import { useRegistry } from '@/shared/api/registry.tsx';
 import Image from 'next/image';

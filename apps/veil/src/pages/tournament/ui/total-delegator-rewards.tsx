@@ -9,7 +9,7 @@ import { ValueViewComponent } from '@penumbra-zone/ui/ValueView';
 import { TableCell } from '@penumbra-zone/ui/TableCell';
 import { Density } from '@penumbra-zone/ui/Density';
 import { Button } from '@penumbra-zone/ui/Button';
-import { round } from '@penumbra-zone/types/round';
+import { round } from '@penumbrafi/types/round';
 import { connectionStore } from '@/shared/model/connection';
 import { useStakingTokenMetadata } from '@/shared/api/registry';
 import { getValueViewLength } from '@/shared/utils/get-max-padstart';

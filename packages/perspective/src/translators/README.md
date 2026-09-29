@@ -11,7 +11,7 @@ Files are named and organized by the type of **input** that the translator accep
 Translator functions should start with the word `as` and end with the type which they are returning. For example, a translator that takes a `MemoView` and returns an opaque `MemoView` should be called `asOpaqueMemoView`. That will prevent naming collisions and make each function's purpose clearer when you're importing multiple translators at once:
 
 ```TS
-import { asOpaqueAddressView, asOpaqueMemoView } from '@penumbra-zone/types';
+import { asOpaqueAddressView, asOpaqueMemoView } from '@penumbrafi/types';
 ```
 
 ## Delegation

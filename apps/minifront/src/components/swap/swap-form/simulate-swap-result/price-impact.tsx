@@ -1,4 +1,4 @@
-import { formatNumber } from '@penumbra-zone/types/amount';
+import { formatNumber } from '@penumbrafi/types/amount';
 import { Pill } from '@penumbra-zone/ui-deprecated/components/ui/pill';
 import { cn } from '@penumbra-zone/ui-deprecated/lib/utils';
 

@@ -1,10 +1,7 @@
 import type { Impl } from './index.js';
 import { servicesCtx } from '../ctx/prax.js';
 import { Code, ConnectError } from '@connectrpc/connect';
-import {
-  generateTransactionInfo,
-  generateTransactionSummary,
-} from '@rotko/penumbra-wasm/transaction';
+import { generateTransactionInfo, generateTransactionSummary } from '@penumbrafi/wasm/transaction';
 import { TransactionInfo } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
 import { fvkCtx } from '../ctx/full-viewing-key.js';
 import { txvTranslator } from './util/transaction-view.js';

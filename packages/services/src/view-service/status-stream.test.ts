@@ -8,7 +8,7 @@ import { ViewService } from '@penumbra-zone/protobuf';
 import { servicesCtx } from '../ctx/prax.js';
 import { createUpdates, mockIndexedDb, MockServices, TendermintMock } from '../test-utils.js';
 import { statusStream } from './status-stream.js';
-import type { ServicesInterface } from '@penumbra-zone/types/services';
+import type { ServicesInterface } from '@penumbrafi/types/services';
 
 describe('Status stream request handler', () => {
   let mockServices: MockServices;

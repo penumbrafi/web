@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link2 } from 'lucide-react';
-import { uint8ArrayToHex } from '@penumbra-zone/types/hex';
+import { uint8ArrayToHex } from '@penumbrafi/types/hex';
 import { SectionComponentProps } from './TransactionView';
 import { CopyToClipboardButton } from '@penumbra-zone/ui/CopyToClipboardButton';
 import { Button } from '@penumbra-zone/ui/Button';

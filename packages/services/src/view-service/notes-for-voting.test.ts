@@ -8,7 +8,7 @@ import { ViewService } from '@penumbra-zone/protobuf';
 import { servicesCtx } from '../ctx/prax.js';
 import { mockIndexedDb, MockServices } from '../test-utils.js';
 import { notesForVoting } from './notes-for-voting.js';
-import type { ServicesInterface } from '@penumbra-zone/types/services';
+import type { ServicesInterface } from '@penumbrafi/types/services';
 
 describe('NotesForVoting request handler', () => {
   let mockServices: MockServices;

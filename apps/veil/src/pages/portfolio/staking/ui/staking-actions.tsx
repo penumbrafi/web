@@ -5,7 +5,7 @@ import { Button } from '@penumbra-zone/ui/Button';
 import { ValidatorInfo } from '@penumbra-zone/protobuf/penumbra/core/component/stake/v1/stake_pb';
 import { ValueView } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { getAmount } from '@penumbra-zone/getters/value-view';
-import { joinLoHiAmount } from '@penumbra-zone/types/amount';
+import { joinLoHiAmount } from '@penumbrafi/types/amount';
 import { stakingStore } from '../model/staking-store';
 
 export interface StakingActionsProps {

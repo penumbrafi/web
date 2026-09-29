@@ -62,7 +62,7 @@
     "@emotion/styled": "^11.13.5",
     "@penumbra-zone/bech32m": "workspace:*",
     "@penumbra-zone/perspective": "workspace:*",
-    "@penumbra-zone/types": "workspace:*",
+    "@penumbrafi/types": "workspace:*",
     "@radix-ui/react-avatar": "^1.0.4",
     "@radix-ui/react-checkbox": "1.1.4",
     "@radix-ui/react-dialog": "^1.1.14",

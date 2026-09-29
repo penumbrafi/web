@@ -1,7 +1,7 @@
 import { ValueView } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { WalletIcon } from '../icons/wallet';
 import { getAmount, getDisplayDenomExponentFromValueView } from '@penumbra-zone/getters/value-view';
-import { formatAmount } from '@penumbra-zone/types/amount';
+import { formatAmount } from '@penumbrafi/types/amount';
 import { Amount } from '@penumbra-zone/protobuf/penumbra/core/num/v1/num_pb';
 import { cn } from '../../../lib/utils';
 

@@ -6,7 +6,7 @@ import { TransactionInfo } from '@penumbra-zone/protobuf/penumbra/view/v1/view_p
 import { TransactionSummary } from '@penumbra-zone/ui/TransactionSummary';
 import { Skeleton } from '@penumbra-zone/ui/Skeleton';
 import { Text } from '@penumbra-zone/ui/Text';
-import { uint8ArrayToHex } from '@penumbra-zone/types/hex';
+import { uint8ArrayToHex } from '@penumbrafi/types/hex';
 import { connectionStore } from '@/shared/model/connection';
 import { useGetMetadata } from '@/shared/api/assets';
 import { useLatestBlockHeight } from '@/shared/api/compact-block';

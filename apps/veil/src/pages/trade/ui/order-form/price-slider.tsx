@@ -3,13 +3,13 @@ import { ScaleLinear, scaleLinear } from 'd3-scale';
 import { Text } from '@penumbra-zone/ui/Text';
 import { TextInput } from '@penumbra-zone/ui/TextInput';
 import { Density } from '@penumbra-zone/ui/Density';
-import { round } from '@penumbra-zone/types/round';
+import { round } from '@penumbrafi/types/round';
 import { useWidth } from '@/shared/utils/use-width';
 import { AssetInfo } from '../../model/AssetInfo';
 import { TICK_ARROW, TICK_TEXT_COLOR, useTickDirection } from '../../model/use-tick-direction';
 import DepthChart from './price-slider-depth-chart';
 
-// Usually, `round` from `@penumbra-zone/types/round` is sufficient, but here we need number to be returned, not formatted string.
+// Usually, `round` from `@penumbrafi/types/round` is sufficient, but here we need number to be returned, not formatted string.
 export const roundToDecimals = (num: number, decimals: number) => {
   const decimalLength = num.toString().split('.')[1]?.length ?? 0;
   if (decimalLength <= decimals) {

@@ -10,7 +10,7 @@ import {
   ValidatorState_ValidatorStateEnum,
 } from '@penumbra-zone/protobuf/penumbra/core/component/stake/v1/stake_pb';
 import { PartialMessage } from '@bufbuild/protobuf';
-import type { ServicesInterface } from '@penumbra-zone/types/services';
+import type { ServicesInterface } from '@penumbrafi/types/services';
 
 describe('ValidatorInfo request handler', () => {
   let mockServices: MockServices;

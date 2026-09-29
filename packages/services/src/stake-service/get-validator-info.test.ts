@@ -8,7 +8,7 @@ import {
   GetValidatorInfoResponse,
   ValidatorState_ValidatorStateEnum,
 } from '@penumbra-zone/protobuf/penumbra/core/component/stake/v1/stake_pb';
-import type { ServicesInterface } from '@penumbra-zone/types/services';
+import type { ServicesInterface } from '@penumbrafi/types/services';
 import { getValidatorInfo } from './get-validator-info.js';
 
 describe('GetValidatorInfo request handler', () => {

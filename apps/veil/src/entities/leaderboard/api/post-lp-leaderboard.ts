@@ -8,7 +8,7 @@ import {
 import { AssetId } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { bech32mPositionId, positionIdFromBech32 } from '@penumbra-zone/bech32m/plpid';
 import { LpLeaderboardRequest, LpLeaderboardResponse, LpLeaderboardErrorResponse } from './utils';
-import { hexToUint8Array } from '@penumbra-zone/types/hex';
+import { hexToUint8Array } from '@penumbrafi/types/hex';
 import { DexService } from '@penumbra-zone/protobuf';
 import { createClient } from '@/shared/utils/protos/utils.ts';
 import {

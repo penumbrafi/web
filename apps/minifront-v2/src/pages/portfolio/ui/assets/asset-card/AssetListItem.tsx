@@ -4,7 +4,7 @@ import { Button } from '@penumbra-zone/ui/Button';
 import { Text } from '@penumbra-zone/ui/Text';
 import type { AssetData } from './types';
 import { ArrowUpFromDot, ArrowRightLeft, MoonStar } from 'lucide-react';
-import { assetPatterns } from '@penumbra-zone/types/assets';
+import { assetPatterns } from '@penumbrafi/types/assets';
 import { getDisplay } from '@penumbra-zone/getters/metadata';
 
 export interface AssetListItemProps {

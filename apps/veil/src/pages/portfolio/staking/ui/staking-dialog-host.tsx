@@ -5,7 +5,7 @@ import { observer } from 'mobx-react-lite';
 import { useQueryClient } from '@tanstack/react-query';
 import { getValidator, getIdentityKeyFromValidatorInfo } from '@penumbra-zone/getters/validator-info';
 import { bech32mIdentityKey } from '@penumbra-zone/bech32m/penumbravalid';
-import { isDelegationTokenForValidator } from '@penumbra-zone/types/staking';
+import { isDelegationTokenForValidator } from '@penumbrafi/types/staking';
 import { connectionStore } from '@/shared/model/connection';
 import { useStakingTokenMetadata } from '@/shared/api/registry';
 import { useBalances } from '@/shared/api/balances';

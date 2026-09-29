@@ -13,9 +13,9 @@ import {
   getDisplayDenomExponentFromValueView,
 } from '@penumbra-zone/getters/value-view';
 import { getAddress, getAddressIndex } from '@penumbra-zone/getters/address-view';
-import { toBaseUnit } from '@penumbra-zone/types/lo-hi';
+import { toBaseUnit } from '@penumbrafi/types/lo-hi';
 import { isAddress, bech32mAddress } from '@penumbra-zone/bech32m/penumbra';
-import { uint8ArrayToBase64 } from '@penumbra-zone/types/base64';
+import { uint8ArrayToBase64 } from '@penumbrafi/types/base64';
 import BigNumber from 'bignumber.js';
 import { ViewService } from '@penumbra-zone/protobuf';
 import { penumbra } from '../lib/penumbra';

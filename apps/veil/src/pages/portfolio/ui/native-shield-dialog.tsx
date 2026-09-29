@@ -7,7 +7,7 @@ import { Dialog } from '@penumbra-zone/ui/Dialog';
 import { Button } from '@penumbra-zone/ui/Button';
 import { Text } from '@penumbra-zone/ui/Text';
 import { TextInput } from '@penumbra-zone/ui/TextInput';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 
 import type { UnifiedAsset } from '@/pages/portfolio/api/use-unified-assets.ts';
 import { useIbcShield } from '@/features/deposit/use-ibc-shield';

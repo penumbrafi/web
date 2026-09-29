@@ -1,4 +1,4 @@
-import { assetPatterns } from '@penumbra-zone/types/assets';
+import { assetPatterns } from '@penumbrafi/types/assets';
 import { getDisplay } from '@penumbra-zone/getters/metadata';
 import { BalancesResponse } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
 import { getMetadata } from '@penumbra-zone/getters/value-view';

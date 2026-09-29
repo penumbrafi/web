@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { getDisplayDenomExponent } from '@penumbra-zone/getters/metadata';
 import { PositionStats } from '@/shared/api/server/position/stats/types';
 import { CalculatedAsset, PositionDerivedStats } from './types';

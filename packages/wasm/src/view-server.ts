@@ -7,9 +7,9 @@ import {
   ScanBlockResult,
   SctUpdatesSchema,
   StateCommitmentTree,
-} from '@penumbra-zone/types/state-commitment-tree';
-import type { IdbConstants } from '@penumbra-zone/types/indexed-db';
-import type { ViewServerInterface } from '@penumbra-zone/types/servers';
+} from '@penumbrafi/types/state-commitment-tree';
+import type { IdbConstants } from '@penumbrafi/types/indexed-db';
+import type { ViewServerInterface } from '@penumbrafi/types/servers';
 import { Address, FullViewingKey } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys_pb';
 import { isControlledAddress } from './address.js';
 import { SctFrontierResponse } from '@penumbra-zone/protobuf/penumbra/core/component/sct/v1/sct_pb';

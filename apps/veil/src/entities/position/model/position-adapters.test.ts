@@ -10,7 +10,7 @@ import {
   DenomUnit,
 } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { compareAssetId } from '@/shared/math/position';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { ExecutedPosition } from './types';
 import { GetMetadata, isDenom } from '@/shared/api/assets';
 import { getCalculatedAssets } from './get-calculated-assets';

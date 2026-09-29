@@ -1,8 +1,8 @@
 import type { Impl } from './index.js';
 import { approverCtx } from '../ctx/approver.js';
-import { authorizePlan } from '@rotko/penumbra-wasm/build';
+import { authorizePlan } from '@penumbrafi/wasm/build';
 import { Code, ConnectError } from '@connectrpc/connect';
-import { UserChoice } from '@penumbra-zone/types/user-choice';
+import { UserChoice } from '@penumbrafi/types/user-choice';
 import { fvkCtx } from '../ctx/full-viewing-key.js';
 import { skCtx } from '../ctx/spend-key.js';
 import { assertValidAuthorizeRequest } from './validation/authorize.js';

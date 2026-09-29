@@ -7,11 +7,11 @@ import {
   getClaimFeeFromSwapView,
   getClaimTx,
 } from '@penumbra-zone/getters/swap-view';
-import { getOneWaySwapValues, isOneWaySwap } from '@penumbra-zone/types/swap';
+import { getOneWaySwapValues, isOneWaySwap } from '@penumbrafi/types/swap';
 import { getAmount } from '@penumbra-zone/getters/value-view';
-import { isZero } from '@penumbra-zone/types/amount';
-import { uint8ArrayToHex } from '@penumbra-zone/types/hex';
-import { shorten } from '@penumbra-zone/types/string';
+import { isZero } from '@penumbrafi/types/amount';
+import { uint8ArrayToHex } from '@penumbrafi/types/hex';
+import { shorten } from '@penumbrafi/types/string';
 import { ActionViewBaseProps } from '../types';
 import { ValueViewComponent } from '../../ValueView';
 import { useDensity } from '../../utils/density';

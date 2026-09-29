@@ -4,7 +4,7 @@ import {
   TransactionViewComponent,
 } from '@penumbra-zone/ui-deprecated/components/ui/tx';
 import { TransactionInfo } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
-import type { Jsonified } from '@penumbra-zone/types/jsonified';
+import type { Jsonified } from '@penumbrafi/types/jsonified';
 import { useState } from 'react';
 import { SegmentedPicker } from '@penumbra-zone/ui-deprecated/components/ui/segmented-picker';
 import { asPublicTransactionView } from '@penumbra-zone/perspective/translators/transaction-view';
@@ -12,7 +12,7 @@ import { typeRegistry, ViewService } from '@penumbra-zone/protobuf';
 import { useQuery } from '@tanstack/react-query';
 import fetchReceiverView from './hooks';
 import { classifyTransaction } from '@penumbra-zone/perspective/transaction/classify';
-import { uint8ArrayToHex } from '@penumbra-zone/types/hex';
+import { uint8ArrayToHex } from '@penumbrafi/types/hex';
 import { ChainRegistryClient } from '@penumbrafi/registry';
 import { penumbra } from '../../penumbra';
 

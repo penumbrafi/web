@@ -30,10 +30,10 @@
     "crypto-js": "^4.2.0"
   },
   "devDependencies": {
-    "@penumbra-zone/types": "workspace:*",
+    "@penumbrafi/types": "workspace:*",
     "@types/crypto-js": "^4.2.2"
   },
   "peerDependencies": {
-    "@penumbra-zone/types": "workspace:*"
+    "@penumbrafi/types": "workspace:*"
   }
 }

@@ -1,6 +1,6 @@
 import { AssetId, Value } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { Selectable } from 'kysely';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import {
   PositionStateResponse,
   PositionWithdrawal,

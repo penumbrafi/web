@@ -20,7 +20,7 @@ import {
   getMetadata,
 } from '@penumbra-zone/getters/value-view';
 import { getAddressIndex } from '@penumbra-zone/getters/address-view';
-import { toBaseUnit } from '@penumbra-zone/types/lo-hi';
+import { toBaseUnit } from '@penumbrafi/types/lo-hi';
 import { Height } from '@penumbra-zone/protobuf/ibc/core/client/v1/client_pb';
 import { ClientState } from '@penumbra-zone/protobuf/ibc/lightclients/tendermint/v1/tendermint_pb';
 

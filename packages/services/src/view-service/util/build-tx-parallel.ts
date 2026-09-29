@@ -28,7 +28,7 @@ import {
 } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
 import { PartialMessage } from '@bufbuild/protobuf';
 import { Code, ConnectError } from '@connectrpc/connect';
-import { buildParallel } from '@rotko/penumbra-wasm/build';
+import { buildParallel } from '@penumbrafi/wasm/build';
 import { FullViewingKey } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys_pb';
 import { offscreenClient } from '../../offscreen-client.js';
 

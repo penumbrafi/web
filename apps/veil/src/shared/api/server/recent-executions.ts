@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Registry } from '@penumbrafi/registry';
 import { getCachedRegistry } from '@/shared/api/fetch-registry';
 import { AssetId } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { serialize, Serialized } from '@/shared/utils/serializer';
 import { pindexer } from '@/shared/database';
 import { getDisplayDenomExponent } from '@penumbra-zone/getters/metadata';

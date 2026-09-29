@@ -4,8 +4,8 @@ import { ValueView, Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset
 import { AddressIndex } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys_pb';
 import { getValueView as getValueViewFromUnbondingTokensByAddressIndexResponse } from '@penumbra-zone/getters/unbonding-tokens-by-address-index-response';
 import { getAmount } from '@penumbra-zone/getters/value-view';
-import { joinLoHiAmount } from '@penumbra-zone/types/amount';
-import { splitLoHi } from '@penumbra-zone/types/lo-hi';
+import { joinLoHiAmount } from '@penumbrafi/types/amount';
+import { splitLoHi } from '@penumbrafi/types/lo-hi';
 import { penumbra } from '@/shared/const/penumbra';
 import { connectionStore } from '@/shared/model/connection';
 import { useStakingTokenMetadata } from '@/shared/api/registry';

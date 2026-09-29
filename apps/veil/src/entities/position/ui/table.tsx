@@ -12,7 +12,7 @@ import { ValueViewComponent } from '@penumbra-zone/ui/ValueView';
 import { Density } from '@penumbra-zone/ui/Density';
 import { Tooltip } from '@penumbra-zone/ui/Tooltip';
 import { TableCell } from '@penumbra-zone/ui/TableCell';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { connectionStore } from '@/shared/model/connection';
 import { useGetMetadata } from '@/shared/api/assets';
 import { bech32mPositionId } from '@penumbra-zone/bech32m/plpid';

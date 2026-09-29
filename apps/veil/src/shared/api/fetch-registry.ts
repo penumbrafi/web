@@ -1,6 +1,6 @@
 import { ChainRegistryClient, Registry } from '@penumbrafi/registry';
 import { AssetId } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { uint8ArrayToBase64 } from '@penumbra-zone/types/base64';
+import { uint8ArrayToBase64 } from '@penumbrafi/types/base64';
 
 /*
  * Represents a registry in a nicely serializable package.

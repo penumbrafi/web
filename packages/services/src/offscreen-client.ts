@@ -13,9 +13,9 @@ import {
   ParallelBuildMessage,
   ParallelProveMessage,
   OffscreenMessage,
-} from '@penumbra-zone/types/internal-msg/offscreen';
-import { InternalRequest, InternalResponse } from '@penumbra-zone/types/internal-msg/shared';
-import type { Jsonified } from '@penumbra-zone/types/jsonified';
+} from '@penumbrafi/types/internal-msg/offscreen';
+import { InternalRequest, InternalResponse } from '@penumbrafi/types/internal-msg/shared';
+import type { Jsonified } from '@penumbrafi/types/jsonified';
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 

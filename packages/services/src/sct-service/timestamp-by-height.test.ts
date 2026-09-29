@@ -3,7 +3,7 @@ import { MockServices } from '../test-utils.js';
 import { createContextValues, createHandlerContext, HandlerContext } from '@connectrpc/connect';
 import { SctService } from '@penumbra-zone/protobuf';
 import { servicesCtx } from '../ctx/prax.js';
-import type { ServicesInterface } from '@penumbra-zone/types/services';
+import type { ServicesInterface } from '@penumbrafi/types/services';
 import {
   TimestampByHeightRequest,
   TimestampByHeightResponse,

@@ -1,4 +1,4 @@
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { DisplayPosition } from './types';
 
 export interface PriceRange {

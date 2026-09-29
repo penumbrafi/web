@@ -1,6 +1,6 @@
 import { Transaction } from '@penumbra-zone/protobuf/penumbra/core/transaction/v1/transaction_pb';
-import { uint8ArrayToBase64 } from '@penumbra-zone/types/base64';
-import { uint8ArrayToHex, hexToUint8Array } from '@penumbra-zone/types/hex';
+import { uint8ArrayToBase64 } from '@penumbrafi/types/base64';
+import { uint8ArrayToHex, hexToUint8Array } from '@penumbrafi/types/hex';
 import type {
   BroadcastApiResponse,
   BroadcastApiSuccess,

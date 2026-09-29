@@ -1,13 +1,13 @@
 import { Search, Ban } from 'lucide-react';
 import { observer } from 'mobx-react-lite';
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { getFormattedAmtFromValueView } from '@penumbra-zone/types/value-view';
+import { getFormattedAmtFromValueView } from '@penumbrafi/types/value-view';
 import { Text } from '@penumbra-zone/ui/Text';
 import { Dialog } from '@penumbra-zone/ui/Dialog';
 import { Tooltip } from '@penumbra-zone/ui/Tooltip';
 import { AssetIcon } from '@penumbra-zone/ui/AssetIcon';
 import { usePairs } from '@/pages/trade/api/use-pairs';
-import { shortify } from '@penumbra-zone/types/shortify';
+import { shortify } from '@penumbrafi/types/shortify';
 import { Skeleton } from '@/shared/ui/skeleton';
 import { useIsLqtEligible } from '@/shared/utils/is-lqt-eligible';
 import { Pair, StarButton, starStore } from '@/features/star-pair';

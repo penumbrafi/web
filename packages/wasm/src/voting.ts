@@ -1,8 +1,8 @@
-import { IdbConstants } from '@penumbra-zone/types/indexed-db';
+import { IdbConstants } from '@penumbrafi/types/indexed-db';
 import { AddressIndex, IdentityKey } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys_pb';
 import { get_voting_notes } from '../wasm/index.js';
 import { SpendableNoteRecord } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
-import { Jsonified } from '@penumbra-zone/types/jsonified';
+import { Jsonified } from '@penumbrafi/types/jsonified';
 
 /**
  * Utility that returns delegation voting notes to be used in the liquidity tournament.

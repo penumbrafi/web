@@ -11,7 +11,7 @@ import { Address, AddressView } from '@penumbra-zone/protobuf/penumbra/core/keys
 import { TransactionView as PbTransactionView } from '@penumbra-zone/protobuf/penumbra/core/transaction/v1/transaction_pb';
 import { TransactionInfo as GrpcTransactionInfo } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
 import { typeRegistry } from '@penumbra-zone/protobuf';
-import { uint8ArrayToHex } from '@penumbra-zone/types/hex';
+import { uint8ArrayToHex } from '@penumbrafi/types/hex';
 
 import { Button } from '@penumbra-zone/ui/Button';
 import { CopyToClipboardButton } from '@penumbra-zone/ui/CopyToClipboardButton';

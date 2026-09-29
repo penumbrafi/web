@@ -10,7 +10,7 @@ import { AssetValueInput } from '@penumbra-zone/ui/AssetValueInput';
 import { getMetadataFromBalancesResponse } from '@penumbra-zone/getters/balances-response';
 import { BalancesResponse } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
 import { useState, useEffect, useMemo } from 'react';
-import { assetPatterns } from '@penumbra-zone/types/assets';
+import { assetPatterns } from '@penumbrafi/types/assets';
 import { getDisplay } from '@penumbra-zone/getters/metadata';
 import { bech32mIdentityKey } from '@penumbra-zone/bech32m/penumbravalid';
 import { getIdentityKeyFromValidatorInfo } from '@penumbra-zone/getters/validator-info';

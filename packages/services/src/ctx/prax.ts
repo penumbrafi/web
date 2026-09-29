@@ -4,7 +4,7 @@
  */
 
 import { ConnectError, createContextKey } from '@connectrpc/connect';
-import type { ServicesInterface } from '@penumbra-zone/types/services';
+import type { ServicesInterface } from '@penumbrafi/types/services';
 
 export const servicesCtx = createContextKey<() => Promise<ServicesInterface>>(() =>
   Promise.reject(new ConnectError('No prax services interface available')),

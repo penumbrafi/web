@@ -12,12 +12,12 @@ import {
   SwapRecord,
 } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
 import { mockIndexedDb, MockServices, testFullViewingKey } from '../test-utils.js';
-import type { ServicesInterface } from '@penumbra-zone/types/services';
+import type { ServicesInterface } from '@penumbrafi/types/services';
 import { latestSwaps } from './latest-swaps.js';
 import { CommitmentSource } from '@penumbra-zone/protobuf/penumbra/core/component/sct/v1/sct_pb';
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { getAddressByIndex } from '@rotko/penumbra-wasm/keys';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { getAddressByIndex } from '@penumbrafi/wasm/keys';
+import { pnum } from '@penumbrafi/types/pnum';
 import { getDisplayDenomExponent } from '@penumbra-zone/getters/metadata';
 import { SHITMOS_METADATA, UM_METADATA, USDC_METADATA } from './util/data.js';
 import { AddressIndex } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys_pb';

@@ -19,7 +19,7 @@ import {
   OsmoIbcRelayMsgRecvPacketAction,
   DelegateAction,
 } from './action-view';
-import { base64ToUint8Array } from '@penumbra-zone/types/base64';
+import { base64ToUint8Array } from '@penumbrafi/types/base64';
 import { PENUMBRA_VALUE_VIEW, USDC_VALUE_VIEW } from './value-view';
 import { PositionState_PositionStateEnum } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
 

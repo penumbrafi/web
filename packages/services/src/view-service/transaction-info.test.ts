@@ -11,14 +11,14 @@ import {
   TransactionInfoResponse,
 } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
 import { mockIndexedDb, MockServices, testFullViewingKey } from '../test-utils.js';
-import type { ServicesInterface } from '@penumbra-zone/types/services';
+import type { ServicesInterface } from '@penumbrafi/types/services';
 import { transactionInfo } from './transaction-info.js';
 import { fvkCtx } from '../ctx/full-viewing-key.js';
 
 const mockTransactionInfo = vi.hoisted(() => vi.fn());
 const mockTransactionSummary = vi.hoisted(() => vi.fn());
 const mockSaveTransactionInfo = vi.hoisted(() => vi.fn());
-vi.mock('@rotko/penumbra-wasm/transaction', () => ({
+vi.mock('@penumbrafi/wasm/transaction', () => ({
   generateTransactionInfo: mockTransactionInfo,
   generateTransactionSummary: mockTransactionSummary,
   saveTransactionInfo: mockSaveTransactionInfo,

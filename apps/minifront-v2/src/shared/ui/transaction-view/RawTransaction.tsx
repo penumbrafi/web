@@ -1,7 +1,7 @@
 import React from 'react';
 import { JsonViewer } from '@penumbra-zone/ui/JsonViewer';
 import { typeRegistry } from '@penumbra-zone/protobuf';
-import type { Jsonified } from '@penumbra-zone/types/jsonified';
+import type { Jsonified } from '@penumbrafi/types/jsonified';
 import { TransactionView as PbTransactionView } from '@penumbra-zone/protobuf/penumbra/core/transaction/v1/transaction_pb';
 import { SectionComponentProps } from './TransactionView';
 

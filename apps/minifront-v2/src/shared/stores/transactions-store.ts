@@ -7,7 +7,7 @@
 
 import { makeAutoObservable, runInAction } from 'mobx';
 import { TransactionInfo } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
-import { uint8ArrayToHex } from '@penumbra-zone/types/hex';
+import { uint8ArrayToHex } from '@penumbrafi/types/hex';
 import { classifyTransaction } from '@penumbra-zone/perspective/transaction/classify';
 import { RootStore } from './root-store';
 import { penumbra } from '../lib/penumbra';

@@ -1,5 +1,5 @@
 import { BalancesResponse } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
-import { fromValueView } from '@penumbra-zone/types/amount';
+import { fromValueView } from '@penumbrafi/types/amount';
 import BigNumber from 'bignumber.js';
 import {
   getMetadataFromBalancesResponse,

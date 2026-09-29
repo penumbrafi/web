@@ -3,7 +3,7 @@ import { ActionViewBaseProps } from '../types';
 import { ActionWrapper } from '../shared/wrapper';
 import { ActionRow } from '../shared/action-row';
 import { bech32mPositionId } from '@penumbra-zone/bech32m/plpid';
-import { shorten } from '@penumbra-zone/types/string';
+import { shorten } from '@penumbrafi/types/string';
 
 export interface PositionCloseActionProps extends ActionViewBaseProps {
   value: PositionClose;

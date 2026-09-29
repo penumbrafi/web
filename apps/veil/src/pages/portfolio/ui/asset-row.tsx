@@ -1,6 +1,6 @@
 import { observer } from 'mobx-react-lite';
 import { UnifiedAsset } from '@/pages/portfolio/api/use-unified-assets.ts';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { ShieldButton, UnshieldButton } from '@/pages/portfolio/ui/shield-unshield.tsx';
 import { Sensitive } from '@/shared/ui/sensitive';
 import { ShieldedAssetActions } from '@/pages/portfolio/ui/asset-actions.tsx';

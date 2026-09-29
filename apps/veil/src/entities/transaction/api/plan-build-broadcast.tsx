@@ -11,8 +11,8 @@ import {
   TransactionClassification,
   TRANSACTION_LABEL_BY_CLASSIFICATION,
 } from '@/shared/utils/transaction-classify';
-import { uint8ArrayToHex } from '@penumbra-zone/types/hex';
-import { shorten } from '@penumbra-zone/types/string';
+import { uint8ArrayToHex } from '@penumbrafi/types/hex';
+import { shorten } from '@penumbrafi/types/string';
 import { penumbra } from '@/shared/const/penumbra';
 import { txToId } from '../model/tx-to-id';
 import { getBroadcastStatusMessage, getBuildStatusDescription } from '../model/status';

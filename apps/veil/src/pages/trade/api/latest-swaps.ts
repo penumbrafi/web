@@ -12,7 +12,7 @@ import { useRefetchOnNewBlock } from '@/shared/api/compact-block';
 import { useOnPindexerTick } from '@/shared/api/pindexer-stream';
 import { apiPostFetch } from '@/shared/utils/api-fetch';
 import { usePathToMetadata } from '../model/use-path';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 
 const fetchQuery = async (
   subaccount = 0,

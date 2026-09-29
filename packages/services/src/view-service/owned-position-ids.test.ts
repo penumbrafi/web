@@ -10,7 +10,7 @@ import {
   OwnedPositionIdsResponse,
 } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
 import { mockIndexedDb, MockServices } from '../test-utils.js';
-import type { ServicesInterface } from '@penumbra-zone/types/services';
+import type { ServicesInterface } from '@penumbrafi/types/services';
 import { PositionId } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
 import { ownedPositionIds } from './owned-position-ids.js';
 

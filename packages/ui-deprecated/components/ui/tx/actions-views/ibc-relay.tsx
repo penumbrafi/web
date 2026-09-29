@@ -12,7 +12,7 @@ import {
 } from '@penumbra-zone/protobuf/ibc/core/channel/v1/tx_pb';
 import { MsgUpdateClient } from '@penumbra-zone/protobuf/ibc/core/client/v1/tx_pb';
 import { UnimplementedView } from './unimplemented-view.tsx';
-import { uint8ArrayToBase64 } from '@penumbra-zone/types/base64';
+import { uint8ArrayToBase64 } from '@penumbrafi/types/base64';
 import { ReactElement } from 'react';
 import { Packet } from '@penumbra-zone/protobuf/ibc/core/channel/v1/channel_pb';
 import { getUtcTime } from './isc20-withdrawal.tsx';

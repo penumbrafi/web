@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import { round } from '@penumbra-zone/types/round';
+import { round } from '@penumbrafi/types/round';
 import { Button } from '@penumbra-zone/ui/Button';
 import { Text } from '@penumbra-zone/ui/Text';
 import { Tooltip } from '@penumbra-zone/ui/Tooltip';

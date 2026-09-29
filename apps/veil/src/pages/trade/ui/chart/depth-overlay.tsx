@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 import { theme } from '@penumbra-zone/ui/theme';
 import { useBook } from '../../api/book';
 import { tradeFormStore } from '../order-form/store/OrderFormStore';

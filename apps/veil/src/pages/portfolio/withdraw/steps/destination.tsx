@@ -8,7 +8,7 @@ import { Text } from '@penumbra-zone/ui/Text';
 import { Button } from '@penumbra-zone/ui/Button';
 import { TextInput } from '@penumbra-zone/ui/TextInput';
 import { getMetadata } from '@penumbra-zone/getters/value-view';
-import { pnum } from '@penumbra-zone/types/pnum';
+import { pnum } from '@penumbrafi/types/pnum';
 
 import type { Chain } from '@penumbrafi/registry';
 import { useRegistry } from '@/shared/api/registry.tsx';

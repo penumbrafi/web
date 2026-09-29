@@ -10,9 +10,9 @@ import {
   AuthorizationData,
   TransactionPlan,
 } from '@penumbra-zone/protobuf/penumbra/core/transaction/v1/transaction_pb';
-import type { ServicesInterface } from '@penumbra-zone/types/services';
+import type { ServicesInterface } from '@penumbrafi/types/services';
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
-import { UserChoice } from '@penumbra-zone/types/user-choice';
+import { UserChoice } from '@penumbrafi/types/user-choice';
 import { fvkCtx } from '../ctx/full-viewing-key.js';
 import { skCtx } from '../ctx/spend-key.js';
 

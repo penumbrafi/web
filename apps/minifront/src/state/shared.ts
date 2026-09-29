@@ -8,7 +8,7 @@ import { SliceCreator, useStore } from '.';
 import { getStakingTokenMetadata } from '../fetchers/registry';
 import { getBalancesStream } from '../fetchers/balances';
 import { getAllAssets } from '../fetchers/assets';
-import { uint8ArrayToHex } from '@penumbra-zone/types/hex';
+import { uint8ArrayToHex } from '@penumbrafi/types/hex';
 import { GasPrices } from '@penumbra-zone/protobuf/penumbra/core/component/fee/v1/fee_pb';
 import { getGasPrices } from '../fetchers/gas-prices';
 
