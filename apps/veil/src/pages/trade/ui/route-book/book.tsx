@@ -47,19 +47,19 @@ const emptySideCopy = (
 ): { title: string; text: string } => {
   if (side === 'buy') {
     return {
-      title: `No bids yet for ${base} — post a buy limit order to become the first bid.`,
-      text: `No bids yet · be the first to buy ${base}`,
+      title: `No direct bids for ${base} (routed liquidity may still fill a market sell) — post a buy limit order to become the first bid.`,
+      text: `No direct bids · be the first to buy ${base}`,
     };
   }
   if (side === 'sell') {
     return {
-      title: `No asks yet for ${base} — post a sell limit order to become the first ask.`,
-      text: `No asks yet · be the first to sell ${base}`,
+      title: `No direct asks for ${base} (routed liquidity may still fill a market buy) — post a sell limit order to become the first ask.`,
+      text: `No direct asks · be the first to sell ${base}`,
     };
   }
   return {
-    title: `No liquidity yet on ${base}/${quote} — provide the first LP to bootstrap the pair.`,
-    text: `No liquidity · be the first LP on ${base}/${quote}`,
+    title: `No direct positions on ${base}/${quote} (multi-hop routes may still trade it) — provide the first LP to bootstrap the pair.`,
+    text: `No direct liquidity · be the first LP on ${base}/${quote}`,
   };
 };
 
