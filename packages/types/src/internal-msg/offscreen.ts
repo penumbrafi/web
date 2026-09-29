@@ -21,7 +21,18 @@ export type ParallelBuildMessage = InternalMessage<
   ParallelBuildResponse
 >;
 
-export type OffscreenMessage = ActionBuildMessage | ParallelBuildMessage;
+/**
+ * Prove all actions of a plan with rayon, without authorization data. The
+ * response is the list of unauthorized actions (plan order); the caller must
+ * assemble them with the AuthorizationData after user approval.
+ */
+export type ParallelProveMessage = InternalMessage<
+  'PROVE_PARALLEL',
+  ParallelProveRequest,
+  ParallelProveResponse
+>;
+
+export type OffscreenMessage = ActionBuildMessage | ParallelBuildMessage | ParallelProveMessage;
 export type OffscreenRequest = InternalRequest<OffscreenMessage>;
 export type OffscreenResponse = InternalResponse<OffscreenMessage>;
 
@@ -40,6 +51,13 @@ export interface ParallelBuildRequest {
   authData: Jsonified<AuthorizationData>;
 }
 export type ParallelBuildResponse = Jsonified<Transaction>;
+
+export interface ParallelProveRequest {
+  transactionPlan: Jsonified<TransactionPlan>;
+  witness: Jsonified<WitnessData>;
+  fullViewingKey: Jsonified<FullViewingKey>;
+}
+export type ParallelProveResponse = Jsonified<Action>[];
 
 export const isActionBuildRequest = (req: unknown): req is ActionBuildRequest =>
   req != null &&
@@ -74,9 +92,26 @@ export const isParallelBuildRequest = (req: unknown): req is ParallelBuildReques
   typeof req.authData === 'object' &&
   !('actionPlanIndex' in req);
 
+export const isParallelProveRequest = (req: unknown): req is ParallelProveRequest =>
+  req != null &&
+  typeof req === 'object' &&
+  'transactionPlan' in req &&
+  req.transactionPlan != null &&
+  typeof req.transactionPlan === 'object' &&
+  'actions' in req.transactionPlan &&
+  Array.isArray(req.transactionPlan.actions) &&
+  'witness' in req &&
+  req.witness != null &&
+  typeof req.witness === 'object' &&
+  'fullViewingKey' in req &&
+  typeof req.fullViewingKey === 'object' &&
+  // must not carry auth data: proving never needs (or sees) it
+  !('authData' in req) &&
+  !('actionPlanIndex' in req);
+
 export const isOffscreenRequest = (req: unknown): req is OffscreenRequest =>
   req != null &&
   typeof req === 'object' &&
   'type' in req &&
   typeof req.type === 'string' &&
-  (req.type === 'BUILD_ACTION' || req.type === 'BUILD_PARALLEL');
+  (req.type === 'BUILD_ACTION' || req.type === 'BUILD_PARALLEL' || req.type === 'PROVE_PARALLEL');

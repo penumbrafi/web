@@ -19,6 +19,10 @@
     "dist"
   ],
   "exports": {
+    "./offscreen-client": {
+      "types": "./dist/offscreen-client.d.ts",
+      "default": "./dist/offscreen-client.js"
+    },
     "./ctx/*": {
       "types": "./dist/ctx/*.d.ts",
       "default": "./dist/ctx/*.js"

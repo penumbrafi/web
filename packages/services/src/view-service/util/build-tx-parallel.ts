@@ -16,6 +16,7 @@
  */
 
 import {
+  Action,
   AuthorizationData,
   Transaction,
   TransactionPlan,
@@ -26,7 +27,8 @@ import {
   WitnessAndBuildResponse,
 } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
 import { PartialMessage } from '@bufbuild/protobuf';
-import { ConnectError } from '@connectrpc/connect';
+import { Code, ConnectError } from '@connectrpc/connect';
+import { buildParallel } from '@rotko/penumbra-wasm/build';
 import { FullViewingKey } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys_pb';
 import { offscreenClient } from '../../offscreen-client.js';
 
@@ -51,8 +53,58 @@ export const isParallelBuildAvailable = (): boolean => {
   return typeof SharedArrayBuffer !== 'undefined';
 };
 
+type BuildResponse = PartialMessage<AuthorizeAndBuildResponse | WitnessAndBuildResponse>;
+
+const TICK_MS = 50;
+const tick = () =>
+  new Promise<void>(r => {
+    setTimeout(r, TICK_MS);
+  });
+
+const logDuration = (label: string, start: number) =>
+  console.debug(`[Build] ${label}: ${(performance.now() - start).toFixed(0)}ms`);
+
+/** Progress curve: from `from` towards `to`, ~halfway after `halfMs`. */
+const ease = (elapsed: number, from: number, to: number, halfMs: number) =>
+  from + (to - from) * (1 - 1 / (1 + elapsed / halfMs));
+
+const progress = (value: number): BuildResponse => ({
+  status: { case: 'buildProgress', value: { progress: value } },
+});
+
+/** The offscreen document or its wasm build can't prove without auth data. */
+const isProveUnsupported = (e: unknown) => ConnectError.from(e).code === Code.Unimplemented;
+
+interface Settled<T> {
+  done: boolean;
+  value?: T;
+  error?: unknown;
+}
+
+/** Track a promise's outcome without ever leaving a rejection unhandled. */
+const track = <T>(p: PromiseLike<T>): Settled<T> => {
+  const s: Settled<T> = { done: false };
+  Promise.resolve(p).then(
+    value => {
+      s.value = value;
+      s.done = true;
+    },
+    (error: unknown) => {
+      s.error = error;
+      s.done = true;
+    },
+  );
+  return s;
+};
+
 /**
  * Optimistic parallel build using rayon via offscreen worker.
+ *
+ * Proving starts immediately, concurrently with the approval prompt: proofs
+ * need only the FVK and witness. The AuthorizationData (spend-auth signatures)
+ * is applied afterwards, only once `authorizationRequest` resolves, so no
+ * signed transaction can exist without explicit approval. If approval is
+ * denied the proofs are discarded.
  *
  * @param transactionPlan - The transaction plan
  * @param witnessData - The witness data
@@ -64,116 +116,81 @@ export const optimisticParallelBuild = async function* (
   witnessData: WitnessData,
   authorizationRequest: PromiseLike<AuthorizationData>,
   fvk: FullViewingKey,
-): AsyncGenerator<PartialMessage<AuthorizeAndBuildResponse | WitnessAndBuildResponse>> {
-  // Cancel promise for auth denial
-  const cancel = new Promise<never>(
-    (_, reject) =>
-      void Promise.resolve(authorizationRequest).catch((r: unknown) =>
-        reject(ConnectError.from(r)),
-      ),
+): AsyncGenerator<BuildResponse> {
+  const start = performance.now();
+
+  // Phase 1: prove now, while the user is looking at the approval prompt.
+  // The offscreen client holds its refcount until the job actually settles,
+  // even if we stop waiting for it (rejection), so it is never torn down mid-job.
+  const proving = track<Action[]>(
+    offscreenClient.proveParallelWithRayon(transactionPlan, witnessData, fvk),
   );
+  const auth = track<AuthorizationData>(authorizationRequest);
 
-  // Track phases: auth -> build
-  let authComplete = false;
-  let authData: AuthorizationData | undefined;
-  let buildComplete = false;
-  let buildTransaction: Transaction | undefined;
-  let buildError: unknown;
-
-  // Start auth and track completion
-  Promise.race([cancel, authorizationRequest])
-    .then(data => {
-      authData = data;
-      authComplete = true;
-    })
-    .catch(() => {
-      // cancel will handle rejection
-    });
-
-  const startTime = Date.now();
-  const minAnimationMs = 500;
-
-  // Helper to calculate progress based on phase and elapsed time
-  // Phase 1 (auth): 0.05 -> 0.20 over ~2s
-  // Phase 2 (build): 0.20 -> 0.90 over ~4s (WASM init + key loading + proof)
-  const getProgress = (elapsed: number, phase: 'auth' | 'build'): number => {
-    if (phase === 'auth') {
-      // Slow rise from 5% to 20% - user is approving
-      return 0.05 + 0.15 * (1 - 1 / (1 + elapsed / 2000));
+  let proofsLogged = false;
+  const logProofs = () => {
+    if (proving.done && !proofsLogged) {
+      proofsLogged = true;
+      logDuration(proving.error ? 'proving failed after' : 'proofs ready', start);
     }
-    // Build phase: 20% to 90% with slower curve for init-heavy first build
-    // 3000ms time constant means ~50% at 3 seconds
-    return 0.2 + 0.7 * (1 - 1 / (1 + elapsed / 3000));
   };
 
-  // Phase 1: Animate while waiting for auth
-  while (!authComplete) {
-    const elapsed = Date.now() - startTime;
-    yield {
-      status: {
-        case: 'buildProgress',
-        value: { progress: getProgress(elapsed, 'auth') },
-      },
-    };
-    await new Promise<void>(r => setTimeout(r, 50));
+  // Wait for approval, animating on proving progress.
+  while (!auth.done) {
+    logProofs();
+    yield progress(
+      proving.done && !proving.error ? 0.9 : ease(performance.now() - start, 0.05, 0.85, 3000),
+    );
+    await tick();
+  }
+  logDuration('approval received', start);
+
+  if (auth.error !== undefined || !auth.value) {
+    // Denied / cancelled: discard whatever the prover produces.
+    throw ConnectError.from(
+      auth.error ?? new Error('No authorization data'),
+      Code.PermissionDenied,
+    );
+  }
+  const authData = auth.value;
+
+  // Proofs may still be running if the user approved quickly.
+  while (!proving.done) {
+    yield progress(ease(performance.now() - start, 0.05, 0.9, 3000));
+    await tick();
+  }
+  logProofs();
+
+  let transaction: Transaction;
+  if (proving.error !== undefined || !proving.value) {
+    if (!isProveUnsupported(proving.error)) {
+      throw ConnectError.from(proving.error ?? new Error('Proving produced no actions'));
+    }
+    // Older offscreen document / wasm without prove-only support: fall back to
+    // the combined build, which needs auth up front.
+    console.warn('[Build] prove-before-approval unsupported, falling back to BUILD_PARALLEL');
+    yield progress(0.2);
+    const build = track(
+      offscreenClient.buildParallelWithRayon(transactionPlan, witnessData, fvk, authData),
+    );
+    const buildStart = performance.now();
+    while (!build.done) {
+      yield progress(ease(performance.now() - buildStart, 0.2, 0.9, 3000));
+      await tick();
+    }
+    if (build.error !== undefined || !build.value) {
+      throw ConnectError.from(build.error ?? new Error('Build produced no transaction'));
+    }
+    transaction = build.value;
+  } else {
+    // Phase 2: apply authorization and assemble (cheap: no proving).
+    yield progress(0.95);
+    const assembleStart = performance.now();
+    transaction = await buildParallel(proving.value, transactionPlan, witnessData, authData);
+    logDuration('assembly (apply auth)', assembleStart);
   }
 
-  // Auth complete - start build
-  if (!authData) {
-    // Auth was cancelled/rejected
-    await Promise.race([cancel, authorizationRequest]); // will throw
-    return;
-  }
-
-  // Yield 20% to mark auth complete
-  yield {
-    status: {
-      case: 'buildProgress',
-      value: { progress: 0.2 },
-    },
-  };
-
-  // Build all actions in parallel using rayon via offscreen worker
-  // The worker handles WASM initialization and proving key loading
-  const buildPromise = offscreenClient.buildParallelWithRayon(
-    transactionPlan,
-    witnessData,
-    fvk,
-    authData,
-  );
-
-  buildPromise
-    .then(tx => {
-      buildTransaction = tx;
-      buildComplete = true;
-    })
-    .catch(e => {
-      buildError = e;
-      buildComplete = true;
-    });
-
-  // Phase 2: Animate while building
-  const buildStartTime = Date.now();
-  while (!buildComplete || Date.now() - buildStartTime < minAnimationMs) {
-    const elapsed = Date.now() - buildStartTime;
-    const progress = buildComplete ? 0.95 : Math.min(0.9, getProgress(elapsed, 'build'));
-
-    yield {
-      status: {
-        case: 'buildProgress',
-        value: { progress },
-      },
-    };
-
-    await new Promise<void>(r => setTimeout(r, 50));
-  }
-
-  // Check for build error
-  if (buildError) {
-    throw ConnectError.from(buildError);
-  }
-
-  const transaction = buildTransaction ?? (await Promise.race([cancel, buildPromise]));
+  logDuration('total build', start);
 
   yield {
     status: {

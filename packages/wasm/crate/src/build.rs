@@ -131,12 +131,76 @@ pub fn build_parallel_inner(
     Ok(tx)
 }
 
+/// Build (prove) every action of a transaction plan concurrently with rayon,
+/// WITHOUT authorization data.
+///
+/// This is the expensive part of transaction building (one ZK proof per
+/// action) and needs only the full viewing key and witness, so callers can
+/// start it as soon as the plan is ready -- e.g. while the user is still
+/// looking at the approval prompt. The result carries no spend authorization;
+/// it must be assembled with [`build_parallel`] (which applies the
+/// `AuthorizationData`) before it is a valid transaction.
+///
+/// Requires the `parallel` feature and `initThreadPool()` to be called first.
+///
+/// Arguments:
+///     full_viewing_key: `FullViewingKey`
+///     transaction_plan: `TransactionPlan`
+///     witness_data: `WitnessData`
+/// Returns: `TransactionBody` bytes whose `actions` field holds the built
+///     actions in plan order (all other fields are unset). A proto container
+///     is used so the result survives the JSON hops between worker, offscreen
+///     document and service worker without serde/JsValue representation issues.
+#[cfg(feature = "parallel")]
+#[wasm_bindgen]
+pub fn build_actions_native(
+    full_viewing_key: &[u8],
+    transaction_plan: &[u8],
+    witness_data: &[u8],
+) -> WasmResult<Vec<u8>> {
+    utils::set_panic_hook();
+
+    let plan = TransactionPlan::decode(transaction_plan)?;
+    let witness = WitnessData::decode(witness_data)?;
+    let fvk = FullViewingKey::decode(full_viewing_key)?;
+
+    let actions = build_actions_native_inner(&plan, &witness, &fvk)?;
+
+    let body = penumbra_proto::core::transaction::v1::TransactionBody {
+        actions: actions.into_iter().map(Into::into).collect(),
+        ..Default::default()
+    };
+
+    Ok(prost::Message::encode_to_vec(&body))
+}
+
+#[cfg(feature = "parallel")]
+pub fn build_actions_native_inner(
+    plan: &TransactionPlan,
+    witness: &WitnessData,
+    fvk: &FullViewingKey,
+) -> WasmResult<Vec<Action>> {
+    let memo_key = plan.memo.as_ref().map(|memo_plan| memo_plan.key);
+
+    // Build all actions in parallel using rayon; collect preserves plan order.
+    let actions = plan
+        .actions
+        .par_iter()
+        .map(|action_plan| ActionPlan::build_unauth(action_plan.clone(), fvk, witness, memo_key))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(actions)
+}
+
 /// Build transaction with rayon parallel action building.
 /// Requires the `parallel` feature and `initThreadPool()` to be called first.
 ///
 /// This builds all actions concurrently using rayon's par_iter(), which is
 /// significantly faster for transactions with multiple actions (e.g., swaps,
 /// multi-output sends) because ZK proof generation happens in parallel.
+///
+/// Prefer [`build_actions_native`] + [`build_parallel`] when authorization
+/// arrives later than the plan (it lets proving overlap user approval).
 ///
 /// Arguments:
 ///     full_viewing_key: `FullViewingKey`
@@ -159,20 +223,10 @@ pub fn build_parallel_native(
     let auth = AuthorizationData::decode(auth_data)?;
     let fvk = FullViewingKey::decode(full_viewing_key)?;
 
-    let memo_key = plan.memo.as_ref().map(|memo_plan| memo_plan.key.clone());
-
-    // Build all actions in parallel using rayon
-    let actions: Vec<Action> = plan
-        .actions
-        .par_iter()
-        .map(|action_plan| {
-            ActionPlan::build_unauth(action_plan.clone(), &fvk, &witness, memo_key.clone())
-        })
-        .collect::<Result<Vec<_>, _>>()?;
+    let actions = build_actions_native_inner(&plan, &witness, &fvk)?;
 
     // Assemble the final transaction
-    let transaction = plan.clone().build_unauth_with_actions(actions, &witness)?;
-    let tx = plan.apply_auth_data(&auth, transaction)?;
+    let tx = build_parallel_inner(actions, plan, witness, auth)?;
 
     Ok(tx.encode_to_vec())
 }

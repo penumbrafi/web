@@ -2,6 +2,7 @@ import {
   Action,
   AuthorizationData,
   Transaction,
+  TransactionBody,
   TransactionPlan,
   WitnessData,
 } from '@penumbra-zone/protobuf/penumbra/core/transaction/v1/transaction_pb';
@@ -144,4 +145,29 @@ export const buildWithRayon = async (
   );
 
   return Transaction.fromBinary(result);
+};
+
+/**
+ * Prove every action of a transaction plan concurrently with rayon, WITHOUT
+ * authorization data. Requires SharedArrayBuffer and initWasmWithParallel().
+ *
+ * Proofs only need the FVK and witness, so this can run while the user is
+ * still reviewing the approval prompt. The returned actions carry no spend
+ * authorization: assemble them with {@link buildParallel}, which applies the
+ * AuthorizationData, once approval has been granted.
+ */
+export const buildActionsWithRayon = async (
+  fullViewingKey: FullViewingKey,
+  txPlan: TransactionPlan,
+  witnessData: WitnessData,
+): Promise<Action[]> => {
+  const parallelWasm = await import('../wasm-parallel/index.js');
+
+  const result = parallelWasm.build_actions_native(
+    fullViewingKey.toBinary(),
+    txPlan.toBinary(),
+    witnessData.toBinary(),
+  );
+
+  return TransactionBody.fromBinary(result).actions;
 };
