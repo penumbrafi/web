@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { Text } from '@penumbra-zone/ui/Text';
 import { pnum } from '@penumbra-zone/types/pnum';
 import { BlockchainError } from '@/shared/ui/blockchain-error';
-import { useBook } from '../../api/book';
+import { useBookV2 } from '../../api/book-v2';
 import { usePathSymbols } from '../../model/use-path';
 import { tradeFormStore } from '../order-form/store/OrderFormStore';
 import { buildDepthData } from './depth-data';
@@ -36,6 +36,12 @@ const ZOOM_STEP_FACTOR = 0.15;
 // keeps small jitter from firing spurious zoom steps.
 const PINCH_THRESHOLD = 0.02;
 
+// Depth is bucketed server-side at about this many buckets per zoom
+// half-window, so any zoom gets a smooth curve from one or two pages
+// instead of a 100-row simulate. "All" buckets as if at ±ZOOM_ALL_BASELINE.
+const BUCKETS_PER_HALF_WINDOW = 40;
+const DEPTH_LEVELS_PER_PAGE = 50;
+
 const formatVolume = (v: number): string => {
   if (!Number.isFinite(v)) {
     return '-';
@@ -61,11 +67,15 @@ const prefillFromDepthClick = (price: string, side: 'bid' | 'ask') => {
 };
 
 export const RouteDepth = observer(() => {
-  // Fetch a deeper book than the route-book default so a wide zoom (All /
-  // ±10%) still has plausible tails to draw.
-  const { data, isLoading, error } = useBook({ traceLimit: 100 });
   const { baseSymbol, quoteSymbol } = usePathSymbols();
   const [zoomPct, setZoomPct] = useState<number | null>(DEFAULT_ZOOM);
+  // Levels around the touch, paged outward on demand ("Load more" at each
+  // edge). The bucket width follows the zoom; it's snapped, so wheel-zoom
+  // in-between values mostly land on an already-cached width.
+  const { data, isLoading, error, loadMore, isFetchingMore } = useBookV2({
+    stepPct: (zoomPct ?? ZOOM_ALL_BASELINE) / BUCKETS_PER_HALF_WINDOW,
+    levels: DEPTH_LEVELS_PER_PAGE,
+  });
 
   useEffect(() => {
     try {
@@ -200,10 +210,10 @@ export const RouteDepth = observer(() => {
   }, []);
 
   const depth = useMemo(() => {
-    if (!data?.multiHops) {
+    if (!data) {
       return undefined;
     }
-    const { buy, sell } = data.multiHops;
+    const { bids: buy, asks: sell } = data;
     if (zoomPct === null) {
       return buildDepthData(buy, sell);
     }
@@ -394,10 +404,37 @@ export const RouteDepth = observer(() => {
       <div className='relative flex-1'>
         <div className='absolute inset-0' ref={setWheelZoomRef} />
         {hover && <DepthTooltip hover={hover} quoteSymbol={quoteSymbol} mid={depth.mid} />}
+        {data.hasMoreBids && (
+          <LoadMoreButton side='bid' onClick={loadMore} loading={isFetchingMore} />
+        )}
+        {data.hasMoreAsks && (
+          <LoadMoreButton side='ask' onClick={loadMore} loading={isFetchingMore} />
+        )}
       </div>
     </div>
   );
 });
+
+// Sits at the outer edge of its side: bids extend left, asks right.
+const LoadMoreButton = ({
+  side,
+  onClick,
+  loading,
+}: {
+  side: 'bid' | 'ask';
+  onClick: () => void;
+  loading: boolean;
+}) => (
+  <button
+    type='button'
+    onClick={onClick}
+    disabled={loading}
+    className={`absolute top-2 z-10 rounded-sm bg-other-tonal-fill5 px-1.5 py-0.5 text-[10px] leading-none text-text-secondary transition-colors hover:bg-action-hover-overlay hover:text-text-primary disabled:opacity-60 ${side === 'bid' ? 'left-2' : 'right-2'}`}
+    title={side === 'bid' ? 'Load bids further from the price' : 'Load asks further from the price'}
+  >
+    {loading ? 'Loading…' : `Load more ${side === 'bid' ? 'bids' : 'asks'}`}
+  </button>
+);
 
 const DepthTooltip = ({
   hover,
