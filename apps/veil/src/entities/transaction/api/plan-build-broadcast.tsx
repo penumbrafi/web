@@ -65,6 +65,17 @@ export interface PlanBuildBroadcastResult {
 }
 
 /**
+ * One wallet, one set of notes. The planner treats a note as spendable until
+ * the wallet has scanned the block that spends it, so an order planned while
+ * an earlier one is still in flight can pick the same notes (the UM fee note
+ * almost always) and be rejected as a double spend. Rather than lock the UI
+ * for the blocks that takes, each transaction waits its turn here: planning
+ * starts once the previous one has landed or failed.
+ */
+let lane: Promise<void> = Promise.resolve();
+let inFlight = 0;
+
+/**
  * Handles the common use case of planning, building, and broadcasting a
  * transaction, along with the appropriate toasts. Throws with the
  * mapped `DescribedError` shape when something fails (only cancellations
@@ -110,7 +121,18 @@ export const planBuildBroadcast = async (
     ? penumbra.service(ViewService).witnessAndBuild
     : penumbra.service(ViewService).authorizeAndBuild;
 
+  const previous = lane;
+  let releaseLane!: () => void;
+  lane = new Promise<void>(resolve => {
+    releaseLane = resolve;
+  });
+  if (inFlight > 0) {
+    toast.update({ description: 'Queued behind your previous transaction' });
+  }
+  inFlight++;
+
   try {
+    await previous;
     const transactionPlan = await planTransaction(req);
     options?.validatePlan?.(transactionPlan);
 
@@ -232,6 +254,9 @@ export const planBuildBroadcast = async (
       (withDescribed as Error & { described?: typeof described }).described = described;
       throw withDescribed;
     }
+  } finally {
+    inFlight--;
+    releaseLane();
   }
 
   return undefined;

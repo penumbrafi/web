@@ -145,6 +145,24 @@ export class LimitOrderFormStore {
     this._priceInputOption = undefined;
   };
 
+  /** What `clearAfterSwap` is about to blank, so a cancelled order can put it back. */
+  snapshot = () => ({
+    a: this._input.inputA,
+    b: this._input.inputB,
+    price: this._priceInput,
+    option: this._priceInputOption,
+  });
+
+  /** Put a cancelled order back, unless the trader has started typing a new one. */
+  restore = (s: ReturnType<LimitOrderFormStore['snapshot']>) => {
+    if (this._input.inputA || this._input.inputB || this._priceInput) {
+      return;
+    }
+    this._input.setPair(s.a, s.b);
+    this._priceInput = s.price;
+    this._priceInputOption = s.option;
+  };
+
   setDirection = (x: Direction) => {
     this.direction = x;
   };
