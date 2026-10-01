@@ -1,6 +1,6 @@
 {
   "name": "@penumbrafi/types",
-  "version": "37.0.0",
+  "version": "38.0.0",
   "license": "(MIT OR Apache-2.0)",
   "description": "Penumbra types with async API support (fork of @penumbra-zone/types). Published from penumbrafi/web.",
   "repository": {

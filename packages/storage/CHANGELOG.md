@@ -1,5 +1,16 @@
 # @penumbra-zone/storage
 
+## 63.0.0
+
+### Patch Changes
+
+- c675735: correctly applies subaccount filtering in storage layer for LQT voting logic
+- Updated dependencies [d429c87]
+- Updated dependencies [8920434]
+- Updated dependencies [1f2d5d6]
+  - @penumbrafi/wasm@56.0.0
+  - @penumbrafi/types@38.0.0
+
 ## 62.0.0
 
 ### Patch Changes

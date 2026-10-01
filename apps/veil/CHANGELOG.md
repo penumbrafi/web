@@ -1,5 +1,36 @@
 # penumbra-veil
 
+## 0.2.4
+
+### Patch Changes
+
+- 277ee5b: Add a "take" mode to the limit order form: type the price you want the market to reach, and the form sizes a market order that stops there.
+
+  - The limit form gains a Take/Rest toggle. In Take mode the price field becomes a target: the side is derived from the target against mid (above buys, below sells), and pinning a side is still allowed. On-chain this submits a swap, not a resting liquidity position - it fills against the book at the batch auction's clearing price right now and opens no position, so there is nothing to close afterwards.
+  - Sizing walks the visible order book from the top of the pair's ladder towards the target and fills the two amount inputs with what that costs, stopping at the level the target sits in. A target beyond the deepest level in view takes every level shown and says so; a target costing more than the balance spends the balance and warns that it moves the market only part of the way. Editing an amount by hand detaches it from the target and the form says that too.
+  - Take mode withholds the ±% chips (they place a _resting_ order relative to mid) and the "crosses the spread" warning, since a take is a taker by construction. No on-chain limit price caps the fill if the book moves before the transaction lands; the summary line and the confirm modal state that plainly.
+
+- 335f89c: Draw a live `1b` (one chain block) candle view on the trade chart, straight from the block stream.
+
+  - New `1b` timeframe: one bar per block, keyed by the block header's time. Each block first appends a flat bar at the pair's current mid, then the block's own swap traces (from the CometBFT `NewBlock` event) replace it in place with a bar carrying the real executed price and volume. Blocks with no trade for the pair keep the flat mid bar, so the chart advances at the chain's ~6s rhythm even when pindexer's tick is late or its stream is down.
+  - `1b` is a live view, not an archive: the window is not pageable (an idle block stores nothing), so infinite scroll is disabled for it and the server serves only the last ~15 minutes of block buckets, capped at 150 traded heights - the cap alone would reach back months on a pair that trades rarely.
+  - `DurationWindow` gains `1b`, and the calendar-step helpers (`addDurationWindow`, gap/tail fill) are typed against `WallClockWindow` so block time can never be stepped by a fixed increment.
+
+- ab18ac0: Correct the staking-APY model on the tokenomics page and add measured per-validator yields to the explorer.
+
+  - Tokenomics: read staking and LQT issuance from the chain's own `distributions_params` (app gRPC) and annualize with the empirically measured block cadence, instead of inferring issuance from indexed supply deltas with a hard-coded block time. Staking APY is stated as gross issuance over active bonded stake: the per-block budget is fixed, so the per-staker rate falls as more UM is bonded rather than scaling with participation.
+  - Explorer validators: add `Est. APY (net)` (budget APY less validator commission) and `Realized (30d)` (annualized exchange-rate growth measured from indexed snapshots) columns, both sortable, and a per-validator yield panel that compares the two against UM supply growth — the return over simply holding UM. Unmeasurable history renders as "no indexed history" instead of a fabricated number.
+  - Degrade reads against unreachable or partially indexed databases instead of failing the page, and cover the snapshot math with a fixture-backed regression test.
+
+- Updated dependencies [d170339]
+- Updated dependencies [8920434]
+- Updated dependencies [a05953a]
+- Updated dependencies [a6b95be]
+- Updated dependencies [1f2d5d6]
+  - @penumbra-zone/ui@16.0.4
+  - @penumbrafi/types@38.0.0
+  - @penumbra-zone/perspective@61.1.2
+
 ## 0.2.3
 
 ### Patch Changes
