@@ -18,6 +18,7 @@ import { getMetadata } from '@penumbra-zone/getters/value-view';
 import { assetPatterns } from '@penumbrafi/types/assets';
 import { pnum } from '@penumbrafi/types/pnum';
 import { useBalances } from '@/shared/api/balances';
+import { useStakingTokenMetadata } from '@/shared/api/registry';
 import { connectionStore } from '@/shared/model/connection';
 import { balanceMatchesSubaccount, sendShielded, sendValidationErrors } from '../api/send-shielded';
 
@@ -48,6 +49,7 @@ interface SendPanelProps {
 export const SendPanel = observer(({ initialBalance, onSent }: SendPanelProps) => {
   const { subaccount } = connectionStore;
   const { data: balances, isLoading } = useBalances(subaccount);
+  const { data: stakingToken } = useStakingTokenMetadata();
 
   const transferable = useMemo(
     () => balances?.filter(b => balanceMatchesSubaccount(b, subaccount) && isTransferable(b)) ?? [],
@@ -59,6 +61,13 @@ export const SendPanel = observer(({ initialBalance, onSent }: SendPanelProps) =
   const [amount, setAmount] = useState('');
   const [memo, setMemo] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // Max was clicked and the amount not edited since: send the whole balance
+  // via the spend-all planner path, leaving no dust change note.
+  const [maxMode, setMaxMode] = useState(false);
+  const setAmountTyped = (v: string) => {
+    setMaxMode(false);
+    setAmount(v);
+  };
 
   // Subaccount changes invalidate the existing selection because balances are scoped per account.
   // Skip the mount run so an `initialBalance` survives.
@@ -67,6 +76,7 @@ export const SendPanel = observer(({ initialBalance, onSent }: SendPanelProps) =
     if (lastSubaccount.current !== subaccount) {
       lastSubaccount.current = subaccount;
       setSelection(undefined);
+      setMaxMode(false);
     }
   }, [subaccount]);
 
@@ -103,9 +113,12 @@ export const SendPanel = observer(({ initialBalance, onSent }: SendPanelProps) =
         recipient: new Address(addressFromBech32m(recipient)),
         memo,
         source: new AddressIndex({ account: subaccount }),
+        spendAll: maxMode,
+        stakingAssetId: stakingToken.penumbraAssetId,
       });
       setAmount('');
       setMemo('');
+      setMaxMode(false);
       // planBuildBroadcast resolves undefined on failure; keep the form open then.
       if (result) {
         onSent?.();
@@ -165,7 +178,7 @@ export const SendPanel = observer(({ initialBalance, onSent }: SendPanelProps) =
             if (Number(value) < 0) {
               return;
             }
-            setAmount(value);
+            setAmountTyped(value);
           }}
           endAdornment={
             <Density compact>
@@ -175,6 +188,7 @@ export const SendPanel = observer(({ initialBalance, onSent }: SendPanelProps) =
                 onChange={value => {
                   if (isBalancesResponse(value)) {
                     setSelection(value);
+                    setMaxMode(false);
                   }
                 }}
               />
@@ -195,7 +209,10 @@ export const SendPanel = observer(({ initialBalance, onSent }: SendPanelProps) =
         {selection && (
           <div
             className='w-fit cursor-pointer'
-            onClick={() => setAmount(pnum(selection.balanceView).toString())}
+            onClick={() => {
+              setAmount(pnum(selection.balanceView).toString());
+              setMaxMode(true);
+            }}
           >
             <WalletBalance balance={selection} />
           </div>
