@@ -6,6 +6,7 @@ import { pindexerDb } from '@/shared/database/client';
 import { getCachedRegistry, STAKING_TOKEN_ASSET_ID } from '@/shared/api/fetch-registry';
 import { indexingAsset } from '@/shared/api/server/indexing-asset';
 import { referencePriceFor } from '@/shared/const/reference-price';
+import { derivedUsdForSymbol } from '@/shared/api/server/derived-usd-price';
 import { withTimeout, DEFAULT_TIMEOUT_MS } from '@/shared/api/server/with-api-fallback.ts';
 import { aggregateLevels } from '@/shared/api/server/book/v2/levels.ts';
 import { readBookSnapshot, readTouch } from '@/shared/api/server/book/v2';
@@ -113,6 +114,30 @@ const mapLimited = async <T, R>(items: T[], limit: number, fn: (t: T) => Promise
   return out;
 };
 
+/**
+ * UM in indexing-denom base units per UM base unit, from the depth-gated
+ * on-chain anchor the header chip uses, rather than UM/USDC's last trade,
+ * which is days old whenever that book is quiet. Undefined when the anchor
+ * has nothing; the caller then falls back to the last trade.
+ */
+const stakingIndexingPrice = async (
+  registry: Registry,
+  indexingExponent: number | undefined,
+): Promise<number | undefined> => {
+  const staking = registry.tryGetMetadata(STAKING_TOKEN_ASSET_ID);
+  if (!staking || indexingExponent === undefined) {
+    return undefined;
+  }
+  const derived = await derivedUsdForSymbol(
+    staking.symbol,
+    AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
+  ).catch(() => null);
+  if (!derived || !(derived.usd > 0)) {
+    return undefined;
+  }
+  return derived.usd * 10 ** (indexingExponent - exponentOf(staking));
+};
+
 const computeMarkets = async (chainId: string, grpcEndpoint?: string): Promise<MarketsSnapshot> => {
   const registry = await loadRegistry(chainId);
   const [rows, indexing] = await Promise.all([
@@ -127,6 +152,7 @@ const computeMarkets = async (chainId: string, grpcEndpoint?: string): Promise<M
     rows,
     Buffer.from(indexing.inner).toString('hex'),
     rules.stakingHex,
+    await stakingIndexingPrice(registry, indexingExponent),
   );
 
   // The touch is recommended, not required: a pair whose scan fails or times
@@ -150,17 +176,31 @@ const computeMarkets = async (chainId: string, grpcEndpoint?: string): Promise<M
   return { markets, tickers };
 };
 
-// One compute at a time, refreshed after MARKETS_TTL_MS; a failed refresh
-// keeps the previous snapshot.
-const memo: { value?: MarketsSnapshot; at: number; inflight?: Promise<MarketsSnapshot> } = {
+// A crawl never waits on pd or pindexer: the markets are computed at server
+// start (instrumentation.ts), refreshed in the background every
+// MARKETS_TTL_MS while crawlers keep asking, and a request always gets the
+// last good copy. Only a request that beats the first compute waits.
+//
+// Kept on globalThis because instrumentation.ts and the route handlers are
+// separate bundles: module-level state would give each its own copy.
+interface MarketsMemo {
+  value?: MarketsSnapshot;
+  at: number;
+  inflight?: Promise<MarketsSnapshot>;
+  lastRequestAt: number;
+  timer?: ReturnType<typeof setInterval>;
+}
+const MEMO_KEY = Symbol.for('veil.coingecko.markets');
+const memo = ((globalThis as Record<symbol, unknown>)[MEMO_KEY] ??= {
   at: 0,
-};
+  lastRequestAt: 0,
+}) as MarketsMemo;
 
-const getMarkets = async (chainId: string, grpcEndpoint?: string): Promise<MarketsSnapshot> => {
-  const fresh = memo.value && Date.now() - memo.at < MARKETS_TTL_MS;
-  if (fresh && memo.value) {
-    return memo.value;
-  }
+// With no request for this long, stop refreshing; the next request is
+// served the stale copy and restarts the loop.
+const IDLE_STOP_MS = 15 * 60_000;
+
+const refresh = (chainId: string, grpcEndpoint?: string): Promise<MarketsSnapshot> => {
   memo.inflight ??= computeMarkets(chainId, grpcEndpoint)
     .then(value => {
       memo.value = value;
@@ -170,15 +210,48 @@ const getMarkets = async (chainId: string, grpcEndpoint?: string): Promise<Marke
     .finally(() => {
       memo.inflight = undefined;
     });
-  try {
-    return await memo.inflight;
-  } catch (err) {
-    if (memo.value) {
-      console.warn('[coingecko] refresh failed, serving the previous markets', err);
-      return memo.value;
-    }
-    throw err;
+  return memo.inflight;
+};
+
+const refreshQuietly = (chainId: string, grpcEndpoint?: string) => {
+  refresh(chainId, grpcEndpoint).catch((err: unknown) =>
+    console.warn('[coingecko] refresh failed, keeping the previous markets', err),
+  );
+};
+
+const keepWarm = (chainId: string, grpcEndpoint?: string) => {
+  if (memo.timer) {
+    return;
   }
+  memo.timer = setInterval(() => {
+    if (Date.now() - memo.lastRequestAt > IDLE_STOP_MS) {
+      clearInterval(memo.timer);
+      memo.timer = undefined;
+      return;
+    }
+    refreshQuietly(chainId, grpcEndpoint);
+  }, MARKETS_TTL_MS);
+  memo.timer.unref();
+};
+
+/** Compute the markets ahead of the first crawl. Called from instrumentation.ts. */
+export const warmMarkets = () => {
+  const { chainId, grpcEndpoint } = env();
+  if (chainId) {
+    refreshQuietly(chainId, grpcEndpoint);
+  }
+};
+
+const getMarkets = async (chainId: string, grpcEndpoint?: string): Promise<MarketsSnapshot> => {
+  memo.lastRequestAt = Date.now();
+  keepWarm(chainId, grpcEndpoint);
+  if (memo.value) {
+    if (Date.now() - memo.at >= MARKETS_TTL_MS) {
+      refreshQuietly(chainId, grpcEndpoint);
+    }
+    return memo.value;
+  }
+  return refresh(chainId, grpcEndpoint);
 };
 
 const withMarkets = async (
@@ -259,28 +332,46 @@ export const getOrderbook = async (req: NextRequest): Promise<NextResponse> => {
       return fail('order book unavailable for this ticker_id (ambiguous symbol)', 404);
     }
 
-    const outcome = await readBookSnapshot(
-      grpcEndpoint,
-      chainId,
-      market.base.symbol,
-      market.target.symbol,
-      req.signal,
-    );
-    if (outcome.status === 'empty') {
-      return fail('order book is temporarily unavailable', 503);
-    }
-
     // depth=N is N/2 levels a side; 0 or absent is the whole book.
     const depth = intParam(searchParams.get('depth')) ?? 0;
     const perSide = depth > 0 ? Math.max(1, Math.floor(depth / 2)) : Infinity;
+    const read = (full: boolean) =>
+      readBookSnapshot(
+        grpcEndpoint,
+        chainId,
+        market.base.symbol,
+        market.target.symbol,
+        req.signal,
+        { full },
+      );
+
+    // The capped snapshot the trade page uses is a best-first prefix of the
+    // book, so it answers any depth it holds. Only when a side was cut off
+    // short of the levels asked for is the whole book read.
+    let outcome = await read(false);
+    if (outcome.status !== 'empty') {
+      const snap = outcome.entry.data;
+      const short = (orders: typeof snap.bids, truncated: boolean, side: 'bid' | 'ask') =>
+        truncated && aggregateLevels(orders, 0, side).length < perSide;
+      if (
+        short(snap.bids, snap.bidsTruncated, 'bid') ||
+        short(snap.asks, snap.asksTruncated, 'ask')
+      ) {
+        outcome = await read(true);
+      }
+    }
+    if (outcome.status === 'empty') {
+      return fail('order book is temporarily unavailable', 503);
+    }
+    const { data, computedAt } = outcome.entry;
     const levels = (side: 'bid' | 'ask') =>
-      aggregateLevels(side === 'bid' ? outcome.entry.data.bids : outcome.entry.data.asks, 0, side)
+      aggregateLevels(side === 'bid' ? data.bids : data.asks, 0, side)
         .slice(0, perSide)
         .map(l => [dec(l.price), dec(l.amount)]);
 
     return json({
       ticker_id: market.tickerId,
-      timestamp: String(outcome.entry.computedAt),
+      timestamp: String(computedAt),
       bids: levels('bid'),
       asks: levels('ask'),
     });
@@ -315,8 +406,9 @@ export const getHistoricalTrades = async (req: NextRequest): Promise<NextRespons
   if (type !== null && type !== 'buy' && type !== 'sell') {
     return fail('type must be buy or sell', 400);
   }
-  const limit =
-    Math.min(intParam(searchParams.get('limit')) ?? DEFAULT_TRADES, MAX_TRADES) || DEFAULT_TRADES;
+  // limit=0 asks for everything, as depth=0 does; it is served at the cap.
+  const rawLimit = intParam(searchParams.get('limit')) ?? DEFAULT_TRADES;
+  const limit = rawLimit === 0 ? MAX_TRADES : Math.min(rawLimit, MAX_TRADES);
   const startTime = intParam(searchParams.get('start_time'));
   const endTime = intParam(searchParams.get('end_time'));
   const from = startTime !== undefined ? new Date(startTime * 1000) : undefined;

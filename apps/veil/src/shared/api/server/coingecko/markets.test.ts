@@ -142,9 +142,14 @@ describe('toTicker', () => {
     expect(t.bid).toBeUndefined();
   });
 
-  it('quotes the mid for a pair that has never traded, and no stale high/low', () => {
-    const [m] = buildMarkets([row(OSMO, UM, { high: 9, low: 1, liquidity: 5e6 })], lookup, rules);
-    const t = toTicker(m!, { bid: 1.9, ask: 2.1 });
+  it('leaves out a book that has never traded, and quotes no stale high/low', () => {
+    expect(buildMarkets([row(OSMO, UM, { liquidity: 5e6 })], lookup, rules)).toEqual([]);
+    const [m] = buildMarkets(
+      [row(OSMO, UM, { price: 2, high: 9, low: 1, liquidity: 5e6 })],
+      lookup,
+      rules,
+    );
+    const t = toTicker(m!);
     expect(t.last_price).toBe('2');
     expect(t.high).toBeUndefined();
     expect(t.low).toBeUndefined();
@@ -169,6 +174,17 @@ describe('indexingPrices', () => {
     // A direct price wins over the staking-token route.
     expect(prices.get(hex(ATOM))).toBe(8);
     expect(prices.has(hex(ETH))).toBe(false);
+  });
+
+  it('prices the staking token, and everything quoted in it, from the override', () => {
+    const prices = indexingPrices(
+      [row(UM, USDC, { price: 0.25 }), row(OSMO, UM, { price: 2 })],
+      hex(USDC),
+      rules.stakingHex,
+      0.2,
+    );
+    expect(prices.get(hex(UM))).toBe(0.2);
+    expect(prices.get(hex(OSMO))).toBeCloseTo(0.4);
   });
 });
 

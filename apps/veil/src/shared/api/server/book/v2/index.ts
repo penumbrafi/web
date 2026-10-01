@@ -71,9 +71,16 @@ export interface BookSnapshot {
    */
   asOf: string;
   fingerprint: string;
+  /** The scan stopped at its position limit, so there is more book beyond. */
+  bidsTruncated: boolean;
+  asksTruncated: boolean;
 }
 
 const gate = createOncePerBlockCache<BookSnapshot>('book-v2');
+// Unlimited scans, for callers that need the whole book (CoinGecko's
+// depth=0). Separate key space so it never replaces the capped snapshot the
+// ladder pages from.
+const fullGate = createOncePerBlockCache<BookSnapshot>('book-v2-full');
 
 let cachedClient: Client<typeof DexService> | undefined;
 const getDexClient = (endpoint: string): Client<typeof DexService> => {
@@ -135,15 +142,26 @@ export const readBookSnapshot = async (
   baseSymbol: string,
   quoteSymbol: string,
   signal: AbortSignal,
+  { full = false }: { full?: boolean } = {},
 ): Promise<GateOutcome<BookSnapshot>> => {
   const pairKey = `${baseSymbol.toLowerCase()}|${quoteSymbol.toLowerCase()}`;
   const height = await getLatestHeight(grpcEndpoint);
-  return gate.get(
+  const cache = full ? fullGate : gate;
+  // pd reads a limit of 0 as "no limit".
+  const positionLimit = full ? 0 : POSITION_LIMIT;
+  return cache.get(
     pairKey,
     height,
     computeSignal =>
-      computeSnapshot(grpcEndpoint, chainId, baseSymbol, quoteSymbol, computeSignal).then(snap => {
-        const prev = gate.peek(pairKey)?.data;
+      computeSnapshot(
+        grpcEndpoint,
+        chainId,
+        baseSymbol,
+        quoteSymbol,
+        computeSignal,
+        positionLimit,
+      ).then(snap => {
+        const prev = cache.peek(pairKey)?.data;
         const asOf =
           prev && prev.fingerprint === snap.fingerprint
             ? prev.asOf
@@ -185,7 +203,13 @@ async function handleGet(req: NextRequest): Promise<NextResponse<BookV2ApiRespon
   const cursorAsk = parsePositive(searchParams.get('cursorAsk'));
 
   const pairKey = `${baseSymbol.toLowerCase()}|${quoteSymbol.toLowerCase()}`;
-  const outcome = await readBookSnapshot(grpcEndpoint, chainId, baseSymbol, quoteSymbol, req.signal);
+  const outcome = await readBookSnapshot(
+    grpcEndpoint,
+    chainId,
+    baseSymbol,
+    quoteSymbol,
+    req.signal,
+  );
 
   if (outcome.status === 'empty') {
     return NextResponse.json(emptyResponse(baseSymbol, quoteSymbol), {
@@ -267,6 +291,7 @@ async function computeSnapshot(
   baseSymbol: string,
   quoteSymbol: string,
   cancel: AbortSignal,
+  positionLimit: number,
 ): Promise<Omit<BookSnapshot, 'asOf'>> {
   const registry = await getCachedRegistry(chainId);
   const allAssets = registry.getAllAssets();
@@ -292,7 +317,7 @@ async function computeSnapshot(
     const stream = client.liquidityPositionsByPrice(
       {
         tradingPair: new DirectedTradingPair({ start, end }),
-        limit: BigInt(POSITION_LIMIT),
+        limit: BigInt(positionLimit),
       },
       { signal, timeoutMs: PD_TIMEOUT_MS },
     );
@@ -327,6 +352,8 @@ async function computeSnapshot(
     bids,
     asks,
     fingerprint: fingerprintOf(bids, asks),
+    bidsTruncated: positionLimit > 0 && bidPositions.length >= positionLimit,
+    asksTruncated: positionLimit > 0 && askPositions.length >= positionLimit,
   };
 }
 

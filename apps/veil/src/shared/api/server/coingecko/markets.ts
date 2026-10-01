@@ -145,10 +145,11 @@ export const buildMarkets = (
     byKey.set(tickerId, market);
   }
   // A remembered price alone isn't a market: it needs open liquidity or a
-  // trade in the window.
+  // trade in the window. Nor is a book that has never traded: CoinGecko's
+  // last_price is the last transacted price, and there is none to give.
   const active = (r?: MarketRow) => !!r && (r.liquidity > 0 || r.direct_volume_over_window > 0);
   return [...byKey.values()]
-    .filter(m => active(m.forward) || active(m.reverse))
+    .filter(m => (active(m.forward) || active(m.reverse)) && lastPrice(m) > 0)
     .sort((a, b) => a.tickerId.localeCompare(b.tickerId));
 };
 
@@ -182,6 +183,12 @@ export const indexingPrices = (
   rows: MarketRow[],
   indexingHex: string,
   stakingHex: string,
+  /**
+   * The staking token's price from a better source than its own last trade
+   * against the indexing denom, which goes stale when that pair is quiet.
+   * Every staking-quoted asset is priced through it.
+   */
+  stakingPrice?: number,
 ): Map<string, number> => {
   const direct = new Map<string, number>();
   const viaStaking = new Map<string, number>();
@@ -198,6 +205,9 @@ export const indexingPrices = (
     }
   }
   const out = new Map<string, number>([[indexingHex, 1], ...direct]);
+  if (stakingPrice !== undefined && stakingPrice > 0) {
+    out.set(stakingHex, stakingPrice);
+  }
   const staking = out.get(stakingHex);
   if (staking !== undefined) {
     for (const [hex, p] of viaStaking) {
@@ -221,12 +231,7 @@ export interface TickerExtras {
 export const toTicker = (m: Market, extras: TickerExtras = {}): Ticker => {
   const baseExp = exponentOf(m.base);
   const targetExp = exponentOf(m.target);
-  // A pair that has never traded has no last price; quote the mid of the
-  // book instead when both sides are there.
-  const traded = lastPrice(m);
-  const mid =
-    extras.bid !== undefined && extras.ask !== undefined ? (extras.bid + extras.ask) / 2 : 0;
-  const price = traded > 0 ? traded : mid;
+  const price = lastPrice(m);
 
   // Each direction's row carries one side's volume. If a direction has no
   // row, its side is converted from the other at the last price.
