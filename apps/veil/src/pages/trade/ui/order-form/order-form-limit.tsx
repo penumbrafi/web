@@ -194,7 +194,7 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
         value: `${deltaPct > 0 ? '+' : ''}${deltaPct.toFixed(2)}%`,
       });
     }
-    if (takesNow && split) {
+    if (takesNow) {
       rows.push({
         label: 'Fills now',
         value: `${round({ value: split.takeInput, decimals: 6 })} ${inputSym} → ~${round({
@@ -203,7 +203,7 @@ export const LimitOrderForm = observer(({ parentStore }: { parentStore: OrderFor
         })} ${isBuy ? baseSym : quoteSym}`,
       });
     }
-    if (rests && split) {
+    if (rests) {
       rows.push({
         label: 'Rests at limit',
         value: `${round({ value: split.restInput, decimals: 6 })} ${inputSym}`,
