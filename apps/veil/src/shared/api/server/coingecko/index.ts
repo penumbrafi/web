@@ -1,0 +1,533 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { Registry } from '@penumbrafi/registry';
+import { AssetId, Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
+import { assetIdFromBech32m, isAssetId } from '@penumbra-zone/bech32m/passet';
+import { pindexerDb } from '@/shared/database/client';
+import { getCachedRegistry, STAKING_TOKEN_ASSET_ID } from '@/shared/api/fetch-registry';
+import { indexingAsset } from '@/shared/api/server/indexing-asset';
+import { referencePriceFor } from '@/shared/const/reference-price';
+import { derivedUsdForSymbol } from '@/shared/api/server/derived-usd-price';
+import { withTimeout, DEFAULT_TIMEOUT_MS } from '@/shared/api/server/with-api-fallback.ts';
+import { aggregateLevels } from '@/shared/api/server/book/v2/levels.ts';
+import { readBookSnapshot, readTouch } from '@/shared/api/server/book/v2';
+import {
+  HistoricalTrade,
+  Market,
+  MarketRow,
+  OrientRules,
+  buildMarkets,
+  dec,
+  exponentOf,
+  indexingPrices,
+  orient,
+  parseTickerId,
+  tickerIdOf,
+  toPair,
+  toTicker,
+  toTrade,
+  Ticker,
+  PairEntry,
+} from './markets';
+
+// CoinGecko exchange integration (issue #32): /pairs, /tickers, /orderbook
+// and /historical_trades under /api/coingecko, in the shape of CoinGecko's
+// "Integration Ideal API Endpoints" document, so the DEX can be listed and
+// UM gets a live price again.
+//
+// Public, unauthenticated, CORS-open. Market data is cached in process for
+// MARKETS_TTL_MS; on an upstream failure the last good copy keeps being
+// served. These routes never answer an empty list on failure: to a crawler
+// that reads as "the exchange has no markets", so they 503 instead.
+
+const MARKETS_TTL_MS = 30_000;
+const TOUCH_TIMEOUT_MS = 4_000;
+const TOUCH_CONCURRENCY = 4;
+const DEFAULT_TRADES = 200;
+const MAX_TRADES = 1_000;
+
+const HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Cache-Control': 'public, max-age=60, stale-while-revalidate=60',
+};
+
+const json = <T>(body: T, status = 200, extra: Record<string, string> = {}) =>
+  NextResponse.json(body, { status, headers: { ...HEADERS, ...extra } });
+
+const fail = (error: string, status: number) =>
+  NextResponse.json({ error }, { status, headers: { ...HEADERS, 'Cache-Control': 'no-store' } });
+
+export const OPTIONS = () => new NextResponse(null, { status: 204, headers: HEADERS });
+
+const env = () => {
+  const chainId = process.env['PENUMBRA_CHAIN_ID'];
+  const grpcEndpoint =
+    process.env['PENUMBRA_GRPC_ENDPOINT_INTERNAL'] ?? process.env['PENUMBRA_GRPC_ENDPOINT'];
+  return { chainId, grpcEndpoint };
+};
+
+const loadRegistry = (chainId: string) =>
+  withTimeout(getCachedRegistry(chainId), DEFAULT_TIMEOUT_MS, 'coingecko registry.get');
+
+const rulesFor = (): OrientRules => ({
+  isStable: (m: Metadata) => {
+    const src = referencePriceFor(m.symbol);
+    return src?.kind === 'fixed' && src.usd === 1;
+  },
+  stakingHex: Buffer.from(STAKING_TOKEN_ASSET_ID.inner).toString('hex'),
+});
+
+const lookupIn = (registry: Registry) => (id: Buffer) =>
+  registry.tryGetMetadata(new AssetId({ inner: Uint8Array.from(id) }));
+
+/** Both directions of every pair over the last day. */
+const readMarketRows = (): Promise<MarketRow[]> =>
+  pindexerDb
+    .selectFrom('dex_ex_pairs_summary')
+    .select([
+      'asset_start',
+      'asset_end',
+      'price',
+      'high',
+      'low',
+      'direct_volume_over_window',
+      'liquidity',
+    ])
+    .where('the_window', '=', '1d')
+    .execute();
+
+interface MarketsSnapshot {
+  markets: Market[];
+  tickers: Ticker[];
+}
+
+/** Runs `fn` over `items`, at most `limit` at a time. */
+const mapLimited = async <T, R>(items: T[], limit: number, fn: (t: T) => Promise<R>) => {
+  const out: R[] = new Array<R>(items.length);
+  let next = 0;
+  const worker = async () => {
+    for (let i = next++; i < items.length; i = next++) {
+      out[i] = await fn(items[i] as T);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
+};
+
+/**
+ * UM in indexing-denom base units per UM base unit, from the depth-gated
+ * on-chain anchor the header chip uses, rather than UM/USDC's last trade,
+ * which is days old whenever that book is quiet. Undefined when the anchor
+ * has nothing; the caller then falls back to the last trade.
+ */
+const stakingIndexingPrice = async (
+  registry: Registry,
+  indexingExponent: number | undefined,
+): Promise<number | undefined> => {
+  const staking = registry.tryGetMetadata(STAKING_TOKEN_ASSET_ID);
+  if (!staking || indexingExponent === undefined) {
+    return undefined;
+  }
+  const derived = await derivedUsdForSymbol(
+    staking.symbol,
+    AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
+  ).catch(() => null);
+  if (!derived || !(derived.usd > 0)) {
+    return undefined;
+  }
+  return derived.usd * 10 ** (indexingExponent - exponentOf(staking));
+};
+
+const computeMarkets = async (chainId: string, grpcEndpoint?: string): Promise<MarketsSnapshot> => {
+  const registry = await loadRegistry(chainId);
+  const [rows, indexing] = await Promise.all([
+    withTimeout(readMarketRows(), DEFAULT_TIMEOUT_MS, 'coingecko market rows'),
+    withTimeout(indexingAsset(), DEFAULT_TIMEOUT_MS, 'coingecko indexing asset'),
+  ]);
+  const rules = rulesFor();
+  const markets = buildMarkets(rows, lookupIn(registry), rules);
+  const indexingMeta = registry.tryGetMetadata(indexing);
+  const indexingExponent = indexingMeta ? exponentOf(indexingMeta) : undefined;
+  const prices = indexingPrices(
+    rows,
+    Buffer.from(indexing.inner).toString('hex'),
+    rules.stakingHex,
+    await stakingIndexingPrice(registry, indexingExponent),
+  );
+
+  // The touch is recommended, not required: a pair whose scan fails or times
+  // out is still listed, just without bid/ask.
+  const tickers = await mapLimited(markets, TOUCH_CONCURRENCY, async m => {
+    let touch: { bid?: number; ask?: number } = {};
+    if (grpcEndpoint && m.base.penumbraAssetId && m.target.penumbraAssetId) {
+      touch = await readTouch(
+        grpcEndpoint,
+        {
+          base: m.base.penumbraAssetId,
+          quote: m.target.penumbraAssetId,
+          baseExponent: exponentOf(m.base),
+          quoteExponent: exponentOf(m.target),
+        },
+        TOUCH_TIMEOUT_MS,
+      ).catch(() => ({}));
+    }
+    return toTicker(m, { ...touch, prices, indexingExponent });
+  });
+  return { markets, tickers };
+};
+
+// A crawl never waits on pd or pindexer: the markets are computed at server
+// start (instrumentation.ts), refreshed in the background every
+// MARKETS_TTL_MS while crawlers keep asking, and a request always gets the
+// last good copy. Only a request that beats the first compute waits.
+//
+// Kept on globalThis because instrumentation.ts and the route handlers are
+// separate bundles: module-level state would give each its own copy.
+interface MarketsMemo {
+  value?: MarketsSnapshot;
+  at: number;
+  inflight?: Promise<MarketsSnapshot>;
+  lastRequestAt: number;
+  timer?: ReturnType<typeof setInterval>;
+}
+const MEMO_KEY = Symbol.for('veil.coingecko.markets');
+const memo = ((globalThis as Record<symbol, unknown>)[MEMO_KEY] ??= {
+  at: 0,
+  lastRequestAt: 0,
+}) as MarketsMemo;
+
+// With no request for this long, stop refreshing; the next request is
+// served the stale copy and restarts the loop.
+const IDLE_STOP_MS = 15 * 60_000;
+
+const refresh = (chainId: string, grpcEndpoint?: string): Promise<MarketsSnapshot> => {
+  memo.inflight ??= computeMarkets(chainId, grpcEndpoint)
+    .then(value => {
+      memo.value = value;
+      memo.at = Date.now();
+      return value;
+    })
+    .finally(() => {
+      memo.inflight = undefined;
+    });
+  return memo.inflight;
+};
+
+const refreshQuietly = (chainId: string, grpcEndpoint?: string) => {
+  refresh(chainId, grpcEndpoint).catch((err: unknown) =>
+    console.warn('[coingecko] refresh failed, keeping the previous markets', err),
+  );
+};
+
+const keepWarm = (chainId: string, grpcEndpoint?: string) => {
+  if (memo.timer) {
+    return;
+  }
+  memo.timer = setInterval(() => {
+    if (Date.now() - memo.lastRequestAt > IDLE_STOP_MS) {
+      clearInterval(memo.timer);
+      memo.timer = undefined;
+      return;
+    }
+    refreshQuietly(chainId, grpcEndpoint);
+  }, MARKETS_TTL_MS);
+  memo.timer.unref();
+};
+
+/** Compute the markets ahead of the first crawl. Called from instrumentation.ts. */
+export const warmMarkets = () => {
+  const { chainId, grpcEndpoint } = env();
+  if (chainId) {
+    refreshQuietly(chainId, grpcEndpoint);
+  }
+};
+
+const getMarkets = async (chainId: string, grpcEndpoint?: string): Promise<MarketsSnapshot> => {
+  memo.lastRequestAt = Date.now();
+  keepWarm(chainId, grpcEndpoint);
+  if (memo.value) {
+    if (Date.now() - memo.at >= MARKETS_TTL_MS) {
+      refreshQuietly(chainId, grpcEndpoint);
+    }
+    return memo.value;
+  }
+  return refresh(chainId, grpcEndpoint);
+};
+
+const withMarkets = async (
+  tag: string,
+  pick: (s: MarketsSnapshot) => PairEntry[] | Ticker[],
+): Promise<NextResponse> => {
+  const { chainId, grpcEndpoint } = env();
+  if (!chainId) {
+    return fail('PENUMBRA_CHAIN_ID is not set', 500);
+  }
+  try {
+    return json(pick(await getMarkets(chainId, grpcEndpoint)));
+  } catch (err) {
+    console.error(`[coingecko/${tag}]`, err);
+    return fail('market data is temporarily unavailable', 503);
+  }
+};
+
+export const getPairs = (): Promise<NextResponse> =>
+  withMarkets('pairs', s => s.markets.map(toPair));
+
+export const getTickers = (): Promise<NextResponse> => withMarkets('tickers', s => s.tickers);
+
+/**
+ * Resolve a ticker id to its two assets, and insist it is the canonical
+ * orientation: `B_A` for a market listed as `A_B` is not a market.
+ */
+const resolveTicker = (
+  registry: Registry,
+  tickerId: string | null,
+): { base: Metadata; target: Metadata; tickerId: string } | { error: string } => {
+  const ids = tickerId ? parseTickerId(tickerId) : undefined;
+  if (!tickerId || !ids || !isAssetId(ids[0]) || !isAssetId(ids[1])) {
+    return { error: 'ticker_id must be <base passet1…>_<target passet1…>' };
+  }
+  const base = registry.tryGetMetadata(new AssetId(assetIdFromBech32m(ids[0])));
+  const target = registry.tryGetMetadata(new AssetId(assetIdFromBech32m(ids[1])));
+  if (!base || !target) {
+    return { error: 'unknown asset in ticker_id' };
+  }
+  const [b, t] = orient(base, target, rulesFor());
+  if (b !== base || tickerIdOf(ids[0], ids[1]) !== tickerId) {
+    return { error: `not a canonical ticker_id; try ${ids[1]}_${ids[0]}` };
+  }
+  return { base: b, target: t, tickerId };
+};
+
+/** Optional non-negative integer query param. */
+const intParam = (raw: string | null): number | undefined => {
+  if (raw === null || raw === '') {
+    return undefined;
+  }
+  const n = Number(raw);
+  return Number.isInteger(n) && n >= 0 ? n : undefined;
+};
+
+export const getOrderbook = async (req: NextRequest): Promise<NextResponse> => {
+  const { chainId, grpcEndpoint } = env();
+  if (!chainId || !grpcEndpoint) {
+    return fail('PENUMBRA_CHAIN_ID or PENUMBRA_GRPC_ENDPOINT is not set', 500);
+  }
+  const { searchParams } = new URL(req.url);
+  try {
+    const registry = await loadRegistry(chainId);
+    const market = resolveTicker(registry, searchParams.get('ticker_id'));
+    if ('error' in market) {
+      return fail(market.error, 400);
+    }
+
+    // The book snapshot is keyed by symbol; a registry with two assets
+    // sharing a symbol would hand back the other one's book.
+    const all = registry.getAllAssets();
+    const bySymbol = (s: string) => all.find(a => a.symbol.toLowerCase() === s.toLowerCase());
+    if (
+      !bySymbol(market.base.symbol)?.penumbraAssetId?.equals(market.base.penumbraAssetId) ||
+      !bySymbol(market.target.symbol)?.penumbraAssetId?.equals(market.target.penumbraAssetId)
+    ) {
+      return fail('order book unavailable for this ticker_id (ambiguous symbol)', 404);
+    }
+
+    // depth=N is N/2 levels a side; 0 or absent is the whole book.
+    const depth = intParam(searchParams.get('depth')) ?? 0;
+    const perSide = depth > 0 ? Math.max(1, Math.floor(depth / 2)) : Infinity;
+    const read = (full: boolean) =>
+      readBookSnapshot(
+        grpcEndpoint,
+        chainId,
+        market.base.symbol,
+        market.target.symbol,
+        req.signal,
+        { full },
+      );
+
+    // The capped snapshot the trade page uses is a best-first prefix of the
+    // book, so it answers any depth it holds. Only when a side was cut off
+    // short of the levels asked for is the whole book read.
+    let outcome = await read(false);
+    if (outcome.status !== 'empty') {
+      const snap = outcome.entry.data;
+      const short = (orders: typeof snap.bids, truncated: boolean, side: 'bid' | 'ask') =>
+        truncated && aggregateLevels(orders, 0, side).length < perSide;
+      if (
+        short(snap.bids, snap.bidsTruncated, 'bid') ||
+        short(snap.asks, snap.asksTruncated, 'ask')
+      ) {
+        outcome = await read(true);
+      }
+    }
+    if (outcome.status === 'empty') {
+      return fail('order book is temporarily unavailable', 503);
+    }
+    const { data, computedAt } = outcome.entry;
+    const levels = (side: 'bid' | 'ask') =>
+      aggregateLevels(side === 'bid' ? data.bids : data.asks, 0, side)
+        .slice(0, perSide)
+        .map(l => [dec(l.price), dec(l.amount)]);
+
+    return json({
+      ticker_id: market.tickerId,
+      timestamp: String(computedAt),
+      bids: levels('bid'),
+      asks: levels('ask'),
+    });
+  } catch (err) {
+    console.error('[coingecko/orderbook]', err);
+    return fail('order book is temporarily unavailable', 503);
+  }
+};
+
+const readTrades = (start: AssetId, end: AssetId, limit: number, from?: Date, to?: Date) => {
+  let q = pindexerDb
+    .selectFrom('dex_ex_batch_swap_traces')
+    .select(['rowid', 'input', 'output', 'time'])
+    .where('asset_start', '=', Buffer.from(start.inner))
+    .where('asset_end', '=', Buffer.from(end.inner));
+  if (from) {
+    q = q.where('time', '>=', from);
+  }
+  if (to) {
+    q = q.where('time', '<=', to);
+  }
+  return q.orderBy('time', 'desc').orderBy('rowid', 'desc').limit(limit).execute();
+};
+
+export const getHistoricalTrades = async (req: NextRequest): Promise<NextResponse> => {
+  const { chainId } = env();
+  if (!chainId) {
+    return fail('PENUMBRA_CHAIN_ID is not set', 500);
+  }
+  const { searchParams } = new URL(req.url);
+  const type = searchParams.get('type');
+  if (type !== null && type !== 'buy' && type !== 'sell') {
+    return fail('type must be buy or sell', 400);
+  }
+  // limit=0 asks for everything, as depth=0 does; it is served at the cap.
+  const rawLimit = intParam(searchParams.get('limit')) ?? DEFAULT_TRADES;
+  const limit = rawLimit === 0 ? MAX_TRADES : Math.min(rawLimit, MAX_TRADES);
+  const startTime = intParam(searchParams.get('start_time'));
+  const endTime = intParam(searchParams.get('end_time'));
+  const from = startTime !== undefined ? new Date(startTime * 1000) : undefined;
+  const to = endTime !== undefined ? new Date(endTime * 1000) : undefined;
+
+  try {
+    const registry = await loadRegistry(chainId);
+    const market = resolveTicker(registry, searchParams.get('ticker_id'));
+    if ('error' in market) {
+      return fail(market.error, 400);
+    }
+    const baseId = market.base.penumbraAssetId;
+    const targetId = market.target.penumbraAssetId;
+    if (!baseId || !targetId) {
+      return fail('unknown asset in ticker_id', 400);
+    }
+    const baseExp = exponentOf(market.base);
+    const targetExp = exponentOf(market.target);
+
+    // `type` is mandatory in CoinGecko's spec; without it, answer both.
+    const side = async (t: 'buy' | 'sell'): Promise<HistoricalTrade[]> => {
+      if (type !== null && type !== t) {
+        return [];
+      }
+      const rows = await withTimeout(
+        t === 'sell'
+          ? readTrades(baseId, targetId, limit, from, to)
+          : readTrades(targetId, baseId, limit, from, to),
+        DEFAULT_TIMEOUT_MS,
+        `coingecko historical_trades ${t}`,
+      );
+      return rows.map(r =>
+        toTrade(
+          {
+            rowid: r.rowid,
+            input: String(r.input),
+            output: String(r.output),
+            time: new Date(r.time),
+          },
+          t,
+          baseExp,
+          targetExp,
+        ),
+      );
+    };
+    const [buy, sell] = await Promise.all([side('buy'), side('sell')]);
+    return json({ buy, sell });
+  } catch (err) {
+    console.error('[coingecko/historical_trades]', err);
+    return fail('trade history is temporarily unavailable', 503);
+  }
+};
+
+/**
+ * GET /api/coingecko: what this API serves and how to call it, for the
+ * aggregator reviewing the listing and for anyone integrating by hand.
+ */
+export const getIndex = (): NextResponse => {
+  // Relative on purpose: behind the proxy, the request's own origin can be
+  // the internal upstream rather than the public host.
+  const base = '/api/coingecko';
+  const tickerId = '<base passet1…>_<target passet1…>';
+  return json({
+    name: 'Penumbra DEX market data',
+    description:
+      "Penumbra's shielded DEX in CoinGecko's exchange integration format. Prices come from on-chain batch swaps and liquidity positions.",
+    spec: 'https://docs.google.com/document/d/1v27QFoQq1SKT3Priq3aqPgB70Xd_PnDzbOCiuoCyixw',
+    conventions: {
+      ticker_id:
+        'base and target asset ids (bech32m passet1…) joined by "_"; stable in the pair is always the target, else UM, else the lower asset id. pool_id equals ticker_id: liquidity is many concentrated positions, not one pool.',
+      symbols: 'base_symbol / target_symbol are given alongside the ids for readability.',
+      numbers: 'decimal strings in display units, never exponent notation',
+      markets:
+        'a pair is listed while it has open liquidity or volume in the last 24h and has traded at least once',
+      volume: 'rolling 24h, each side in its own asset',
+      liquidity_in_usd: 'both reserves priced in USDC, UM through its on-chain USD price',
+      cache: 'responses may be up to ~60s old',
+      cors: 'open to any origin',
+    },
+    endpoints: [
+      {
+        path: '/pairs',
+        url: `${base}/pairs`,
+        returns: '[{ ticker_id, base, target, pool_id, base_symbol, target_symbol }]',
+      },
+      {
+        path: '/tickers',
+        url: `${base}/tickers`,
+        returns:
+          '[{ ticker_id, base_currency, target_currency, base_symbol, target_symbol, pool_id, last_price, base_volume, target_volume, liquidity_in_usd, bid?, ask?, high?, low? }]',
+        notes:
+          'bid/ask are the best positions on each side; high/low only when the 24h window had volume',
+      },
+      {
+        path: '/orderbook',
+        url: `${base}/orderbook?ticker_id=${tickerId}&depth=100`,
+        params: {
+          ticker_id: 'required',
+          depth: 'optional; N returns N/2 levels a side, 0 or absent the whole book',
+        },
+        returns:
+          '{ ticker_id, timestamp (unix ms), bids: [[price, quantity]], asks: [[price, quantity]] }',
+        notes: 'quantity is in the base asset; levels are best-first',
+      },
+      {
+        path: '/historical_trades',
+        url: `${base}/historical_trades?ticker_id=${tickerId}&type=buy&limit=200`,
+        params: {
+          ticker_id: 'required',
+          type: 'buy or sell; absent returns both',
+          limit: `optional, default ${DEFAULT_TRADES}, max ${MAX_TRADES}; 0 means the max`,
+          start_time: 'optional, unix seconds',
+          end_time: 'optional, unix seconds',
+        },
+        returns:
+          '{ buy: [{ trade_id, price, base_volume, target_volume, trade_timestamp (unix s), type }], sell: [...] }',
+        notes:
+          'buy = target swapped into base, sell = base into target; a multi-hop swap is one trade between its two ends',
+      },
+    ],
+  });
+};

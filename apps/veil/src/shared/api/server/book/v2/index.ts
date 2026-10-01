@@ -59,7 +59,7 @@ const PD_TIMEOUT_MS = 10_000;
 const DEFAULT_LEVELS = 20;
 const MAX_LEVELS = 200;
 
-interface BookSnapshot {
+export interface BookSnapshot {
   base: BookV2Asset;
   quote: BookV2Asset;
   bids: RawOrder[];
@@ -71,9 +71,16 @@ interface BookSnapshot {
    */
   asOf: string;
   fingerprint: string;
+  /** The scan stopped at its position limit, so there is more book beyond. */
+  bidsTruncated: boolean;
+  asksTruncated: boolean;
 }
 
 const gate = createOncePerBlockCache<BookSnapshot>('book-v2');
+// Unlimited scans, for callers that need the whole book (CoinGecko's
+// depth=0). Separate key space so it never replaces the capped snapshot the
+// ladder pages from.
+const fullGate = createOncePerBlockCache<BookSnapshot>('book-v2-full');
 
 let cachedClient: Client<typeof DexService> | undefined;
 const getDexClient = (endpoint: string): Client<typeof DexService> => {
@@ -124,6 +131,47 @@ export const parseStep = (raw: string | null): number | undefined => {
   return Number.isFinite(n) && n >= 0 ? n : undefined;
 };
 
+/**
+ * The pair's per-block snapshot through the shared gate, so any route that
+ * needs the book (this one, the CoinGecko orderbook) costs pd at most one
+ * pair of scans per block between them.
+ */
+export const readBookSnapshot = async (
+  grpcEndpoint: string,
+  chainId: string,
+  baseSymbol: string,
+  quoteSymbol: string,
+  signal: AbortSignal,
+  { full = false }: { full?: boolean } = {},
+): Promise<GateOutcome<BookSnapshot>> => {
+  const pairKey = `${baseSymbol.toLowerCase()}|${quoteSymbol.toLowerCase()}`;
+  const height = await getLatestHeight(grpcEndpoint);
+  const cache = full ? fullGate : gate;
+  // pd reads a limit of 0 as "no limit".
+  const positionLimit = full ? 0 : POSITION_LIMIT;
+  return cache.get(
+    pairKey,
+    height,
+    computeSignal =>
+      computeSnapshot(
+        grpcEndpoint,
+        chainId,
+        baseSymbol,
+        quoteSymbol,
+        computeSignal,
+        positionLimit,
+      ).then(snap => {
+        const prev = cache.peek(pairKey)?.data;
+        const asOf =
+          prev && prev.fingerprint === snap.fingerprint
+            ? prev.asOf
+            : (height?.toString() ?? `t${Date.now()}`);
+        return { ...snap, asOf };
+      }),
+    signal,
+  );
+};
+
 export const GET = withApiFallback<[NextRequest], BookV2ApiResponse>(handleGet, {
   emptyResponse: emptyResponse(),
   logTag: 'book-v2',
@@ -155,19 +203,11 @@ async function handleGet(req: NextRequest): Promise<NextResponse<BookV2ApiRespon
   const cursorAsk = parsePositive(searchParams.get('cursorAsk'));
 
   const pairKey = `${baseSymbol.toLowerCase()}|${quoteSymbol.toLowerCase()}`;
-  const height = await getLatestHeight(grpcEndpoint);
-  const outcome = await gate.get(
-    pairKey,
-    height,
-    signal =>
-      computeSnapshot(grpcEndpoint, chainId, baseSymbol, quoteSymbol, signal).then(snap => {
-        const prev = gate.peek(pairKey)?.data;
-        const asOf =
-          prev && prev.fingerprint === snap.fingerprint
-            ? prev.asOf
-            : (height?.toString() ?? `t${Date.now()}`);
-        return { ...snap, asOf };
-      }),
+  const outcome = await readBookSnapshot(
+    grpcEndpoint,
+    chainId,
+    baseSymbol,
+    quoteSymbol,
     req.signal,
   );
 
@@ -251,6 +291,7 @@ async function computeSnapshot(
   baseSymbol: string,
   quoteSymbol: string,
   cancel: AbortSignal,
+  positionLimit: number,
 ): Promise<Omit<BookSnapshot, 'asOf'>> {
   const registry = await getCachedRegistry(chainId);
   const allAssets = registry.getAllAssets();
@@ -276,7 +317,7 @@ async function computeSnapshot(
     const stream = client.liquidityPositionsByPrice(
       {
         tradingPair: new DirectedTradingPair({ start, end }),
-        limit: BigInt(POSITION_LIMIT),
+        limit: BigInt(positionLimit),
       },
       { signal, timeoutMs: PD_TIMEOUT_MS },
     );
@@ -311,5 +352,44 @@ async function computeSnapshot(
     bids,
     asks,
     fingerprint: fingerprintOf(bids, asks),
+    bidsTruncated: positionLimit > 0 && bidPositions.length >= positionLimit,
+    asksTruncated: positionLimit > 0 && askPositions.length >= positionLimit,
   };
 }
+
+// A handful is enough to find the touch: pd streams best price first, and
+// the few behind it only matter when fees reorder near-equal positions.
+const TOUCH_SCAN_LIMIT = 8n;
+
+/**
+ * Best bid and ask only, from two short price-index scans. For callers that
+ * need the touch of many pairs at once (CoinGecko /tickers) without pulling
+ * each pair's full snapshot.
+ */
+export const readTouch = async (
+  grpcEndpoint: string,
+  assets: PairAssets,
+  timeoutMs: number,
+): Promise<{ bid?: number; ask?: number }> => {
+  const client = getDexClient(grpcEndpoint);
+  const signal = AbortSignal.timeout(timeoutMs);
+  const scan = async (start: AssetId, end: AssetId, side: 'bid' | 'ask') => {
+    const orders: RawOrder[] = [];
+    const stream = client.liquidityPositionsByPrice(
+      { tradingPair: new DirectedTradingPair({ start, end }), limit: TOUCH_SCAN_LIMIT },
+      { signal, timeoutMs },
+    );
+    for await (const res of stream) {
+      const order = res.data && positionToOrder(res.data, side, assets);
+      if (order) {
+        orders.push(order);
+      }
+    }
+    return touchPrice(orders, side);
+  };
+  const [ask, bid] = await withHardStop(
+    Promise.all([scan(assets.quote, assets.base, 'ask'), scan(assets.base, assets.quote, 'bid')]),
+    timeoutMs + 1_000,
+  );
+  return { bid, ask };
+};
