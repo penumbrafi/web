@@ -30,9 +30,9 @@ export const isParallelSupported = (): boolean => {
  * With --target bundler, WASM auto-initializes on import - this is a no-op.
  * Kept for backwards compatibility.
  */
-export const initWasm = async (): Promise<void> => {
+export const initWasm = (): Promise<void> => {
   // No-op: bundler target auto-initializes WASM on import
-  return;
+  return Promise.resolve();
 };
 
 /**
@@ -44,8 +44,12 @@ export const initWasm = async (): Promise<void> => {
 export const initWasmWithParallel = async (
   numThreads: number = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 4 : 4,
 ): Promise<void> => {
-  if (parallelWasmInitialized) return;
-  if (parallelWasmInitPromise) return parallelWasmInitPromise;
+  if (parallelWasmInitialized) {
+    return;
+  }
+  if (parallelWasmInitPromise) {
+    return parallelWasmInitPromise;
+  }
 
   if (!isParallelSupported()) {
     throw new Error(
@@ -78,7 +82,7 @@ export const initWasmWithParallel = async (
     await parallelWasm.initThreadPool(numThreads);
 
     parallelWasmInitialized = true;
-    console.log(`[WASM] Initialized with ${numThreads} parallel threads`);
+    console.debug(`[WASM] Initialized with ${numThreads} parallel threads`);
   })();
 
   return parallelWasmInitPromise;

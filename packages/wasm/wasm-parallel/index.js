@@ -249,20 +249,20 @@ if (cachedTextEncoder) {
 
 let WASM_VECTOR_LEN = 0;
 
-function wasm_bindgen__convert__closures_____invoke__h8a10323cabe87b21(arg0, arg1, arg2) {
-    wasm.wasm_bindgen__convert__closures_____invoke__h8a10323cabe87b21(arg0, arg1, arg2);
+function wasm_bindgen__convert__closures_____invoke__hc6c97ac99e9f3718(arg0, arg1) {
+    wasm.wasm_bindgen__convert__closures_____invoke__hc6c97ac99e9f3718(arg0, arg1);
 }
 
-function wasm_bindgen__convert__closures_____invoke__hda9d3021b82b7444(arg0, arg1) {
-    wasm.wasm_bindgen__convert__closures_____invoke__hda9d3021b82b7444(arg0, arg1);
+function wasm_bindgen__convert__closures_____invoke__h7dcf9c60e9f2743a(arg0, arg1, arg2) {
+    wasm.wasm_bindgen__convert__closures_____invoke__h7dcf9c60e9f2743a(arg0, arg1, arg2);
 }
 
-function wasm_bindgen__convert__closures_____invoke__h0d93e73c6dfa9d82(arg0, arg1, arg2) {
-    wasm.wasm_bindgen__convert__closures_____invoke__h0d93e73c6dfa9d82(arg0, arg1, arg2);
+function wasm_bindgen__convert__closures_____invoke__h11dfe1dc9182c2f0(arg0, arg1, arg2) {
+    wasm.wasm_bindgen__convert__closures_____invoke__h11dfe1dc9182c2f0(arg0, arg1, arg2);
 }
 
-function wasm_bindgen__convert__closures_____invoke__h1baa629bcfd2c65a(arg0, arg1, arg2, arg3) {
-    wasm.wasm_bindgen__convert__closures_____invoke__h1baa629bcfd2c65a(arg0, arg1, arg2, arg3);
+function wasm_bindgen__convert__closures_____invoke__h46399c5042f18d2c(arg0, arg1, arg2, arg3) {
+    wasm.wasm_bindgen__convert__closures_____invoke__h46399c5042f18d2c(arg0, arg1, arg2, arg3);
 }
 
 const __wbindgen_enum_IdbCursorDirection = ["next", "nextunique", "prev", "prevunique"];
@@ -412,7 +412,7 @@ export class TransparentAddrResponse {
     set address(arg0) {
         const ptr0 = passArray8ToWasm0(arg0, wasm.__wbindgen_malloc);
         const len0 = WASM_VECTOR_LEN;
-        wasm.__wbg_set_forwardingaddrresponse_noble_addr_bech32(this.__wbg_ptr, ptr0, len0);
+        wasm.__wbg_set_transparentaddrresponse_address(this.__wbg_ptr, ptr0, len0);
     }
     /**
      * The t-address encoding of the transparent address
@@ -437,7 +437,7 @@ export class TransparentAddrResponse {
     set encoding(arg0) {
         const ptr0 = passStringToWasm0(arg0, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        wasm.__wbg_set_forwardingaddrresponse_noble_addr_bytes(this.__wbg_ptr, ptr0, len0);
+        wasm.__wbg_set_transparentaddrresponse_encoding(this.__wbg_ptr, ptr0, len0);
     }
 }
 if (Symbol.dispose) TransparentAddrResponse.prototype[Symbol.dispose] = TransparentAddrResponse.prototype.free;
@@ -475,7 +475,7 @@ export class TxpAndTxvBytes {
     set txp(arg0) {
         const ptr0 = passArray8ToWasm0(arg0, wasm.__wbindgen_malloc);
         const len0 = WASM_VECTOR_LEN;
-        wasm.__wbg_set_txpandtxvbytes_txp(this.__wbg_ptr, ptr0, len0);
+        wasm.__wbg_set_transparentaddrresponse_address(this.__wbg_ptr, ptr0, len0);
     }
     /**
      * @returns {Uint8Array}
@@ -492,7 +492,7 @@ export class TxpAndTxvBytes {
     set txv(arg0) {
         const ptr0 = passArray8ToWasm0(arg0, wasm.__wbindgen_malloc);
         const len0 = WASM_VECTOR_LEN;
-        wasm.__wbg_set_txpandtxvbytes_txv(this.__wbg_ptr, ptr0, len0);
+        wasm.__wbg_set_forwardingaddrresponse_noble_addr_bytes(this.__wbg_ptr, ptr0, len0);
     }
 }
 if (Symbol.dispose) TxpAndTxvBytes.prototype[Symbol.dispose] = TxpAndTxvBytes.prototype.free;
@@ -516,104 +516,6 @@ export class ViewServer {
         wasm.__wbg_viewserver_free(ptr, 0);
     }
     /**
-     * Scans block for notes, swaps
-     * Returns true if the block contains new notes, swaps or false if the block is empty for us
-     *     compact_block: `v1::CompactBlock`
-     * Scan results are saved in-memory rather than returned
-     * Use `flush_updates()` to get the scan results
-     * Returns: `bool`
-     * @param {Uint8Array} compact_block
-     * @param {boolean} skip_trial_decrypt
-     * @returns {Promise<boolean>}
-     */
-    scan_block(compact_block, skip_trial_decrypt) {
-        const ptr0 = passArray8ToWasm0(compact_block, wasm.__wbindgen_malloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.viewserver_scan_block(this.__wbg_ptr, ptr0, len0, skip_trial_decrypt);
-        return ret;
-    }
-    /**
-     * SCT root can be compared with the root obtained by GRPC and verify that there is no divergence
-     * Returns: `Uint8Array representing a Root`
-     * @returns {Uint8Array}
-     */
-    get_sct_root() {
-        const ret = wasm.viewserver_get_sct_root(this.__wbg_ptr);
-        if (ret[3]) {
-            throw takeFromExternrefTable0(ret[2]);
-        }
-        var v1 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-        return v1;
-    }
-    /**
-     * Create new instances of `ViewServer` from SCT frontier snapshot.
-     * @param {Uint8Array} full_viewing_key
-     * @param {any} idb_constants
-     * @param {Uint8Array} compact_frontier
-     * @returns {Promise<ViewServer>}
-     */
-    static new_snapshot(full_viewing_key, idb_constants, compact_frontier) {
-        const ptr0 = passArray8ToWasm0(full_viewing_key, wasm.__wbindgen_malloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passArray8ToWasm0(compact_frontier, wasm.__wbindgen_malloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.viewserver_new_snapshot(ptr0, len0, idb_constants, ptr1, len1);
-        return ret;
-    }
-    /**
-     * Get new notes, swaps, SCT state updates
-     * Function also clears state
-     * Returns: `ScanBlockResult`
-     * @returns {any}
-     */
-    flush_updates() {
-        const ret = wasm.viewserver_flush_updates(this.__wbg_ptr);
-        if (ret[2]) {
-            throw takeFromExternrefTable0(ret[1]);
-        }
-        return takeFromExternrefTable0(ret[0]);
-    }
-    /**
-     * Reconstructs the state commitment tree (SCT) from the full genesis block using
-     * the genesis advice.
-     * @param {Uint8Array} full_compact_block
-     * @returns {Promise<boolean>}
-     */
-    genesis_advice(full_compact_block) {
-        const ptr0 = passArray8ToWasm0(full_compact_block, wasm.__wbindgen_malloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.viewserver_genesis_advice(this.__wbg_ptr, ptr0, len0);
-        return ret;
-    }
-    /**
-     * Scans a chunk of the genesis block for notes that can be trial decrypted with the viewing key.
-     * @param {bigint} start
-     * @param {Uint8Array} partial_compact_block
-     * @param {boolean} skip_trial_decrypt
-     * @returns {Promise<void>}
-     */
-    scan_genesis_chunk(start, partial_compact_block, skip_trial_decrypt) {
-        const ptr0 = passArray8ToWasm0(partial_compact_block, wasm.__wbindgen_malloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.viewserver_scan_genesis_chunk(this.__wbg_ptr, start, ptr0, len0, skip_trial_decrypt);
-        return ret;
-    }
-    /**
-     * Checks if address is controlled by view server full viewing key
-     * @param {Uint8Array} address
-     * @returns {boolean}
-     */
-    is_controlled_address(address) {
-        const ptr0 = passArray8ToWasm0(address, wasm.__wbindgen_malloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.viewserver_is_controlled_address(this.__wbg_ptr, ptr0, len0);
-        if (ret[2]) {
-            throw takeFromExternrefTable0(ret[1]);
-        }
-        return ret[0] !== 0;
-    }
-    /**
      * Create new instances of `ViewServer`
      * Function opens a connection to indexedDb
      * Arguments:
@@ -632,6 +534,104 @@ export class ViewServer {
         const len0 = WASM_VECTOR_LEN;
         const ret = wasm.viewserver_new(ptr0, len0, stored_tree, idb_constants);
         return ret;
+    }
+    /**
+     * Create new instances of `ViewServer` from SCT frontier snapshot.
+     * @param {Uint8Array} full_viewing_key
+     * @param {any} idb_constants
+     * @param {Uint8Array} compact_frontier
+     * @returns {Promise<ViewServer>}
+     */
+    static new_snapshot(full_viewing_key, idb_constants, compact_frontier) {
+        const ptr0 = passArray8ToWasm0(full_viewing_key, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passArray8ToWasm0(compact_frontier, wasm.__wbindgen_malloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.viewserver_new_snapshot(ptr0, len0, idb_constants, ptr1, len1);
+        return ret;
+    }
+    /**
+     * Scans a chunk of the genesis block for notes that can be trial decrypted with the viewing key.
+     * @param {bigint} start
+     * @param {Uint8Array} partial_compact_block
+     * @param {boolean} skip_trial_decrypt
+     * @returns {Promise<void>}
+     */
+    scan_genesis_chunk(start, partial_compact_block, skip_trial_decrypt) {
+        const ptr0 = passArray8ToWasm0(partial_compact_block, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.viewserver_scan_genesis_chunk(this.__wbg_ptr, start, ptr0, len0, skip_trial_decrypt);
+        return ret;
+    }
+    /**
+     * Reconstructs the state commitment tree (SCT) from the full genesis block using
+     * the genesis advice.
+     * @param {Uint8Array} full_compact_block
+     * @returns {Promise<boolean>}
+     */
+    genesis_advice(full_compact_block) {
+        const ptr0 = passArray8ToWasm0(full_compact_block, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.viewserver_genesis_advice(this.__wbg_ptr, ptr0, len0);
+        return ret;
+    }
+    /**
+     * Scans block for notes, swaps
+     * Returns true if the block contains new notes, swaps or false if the block is empty for us
+     *     compact_block: `v1::CompactBlock`
+     * Scan results are saved in-memory rather than returned
+     * Use `flush_updates()` to get the scan results
+     * Returns: `bool`
+     * @param {Uint8Array} compact_block
+     * @param {boolean} skip_trial_decrypt
+     * @returns {Promise<boolean>}
+     */
+    scan_block(compact_block, skip_trial_decrypt) {
+        const ptr0 = passArray8ToWasm0(compact_block, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.viewserver_scan_block(this.__wbg_ptr, ptr0, len0, skip_trial_decrypt);
+        return ret;
+    }
+    /**
+     * Get new notes, swaps, SCT state updates
+     * Function also clears state
+     * Returns: `ScanBlockResult`
+     * @returns {any}
+     */
+    flush_updates() {
+        const ret = wasm.viewserver_flush_updates(this.__wbg_ptr);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        return takeFromExternrefTable0(ret[0]);
+    }
+    /**
+     * SCT root can be compared with the root obtained by GRPC and verify that there is no divergence
+     * Returns: `Uint8Array representing a Root`
+     * @returns {Uint8Array}
+     */
+    get_sct_root() {
+        const ret = wasm.viewserver_get_sct_root(this.__wbg_ptr);
+        if (ret[3]) {
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        var v1 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+        return v1;
+    }
+    /**
+     * Checks if address is controlled by view server full viewing key
+     * @param {Uint8Array} address
+     * @returns {boolean}
+     */
+    is_controlled_address(address) {
+        const ptr0 = passArray8ToWasm0(address, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.viewserver_is_controlled_address(this.__wbg_ptr, ptr0, len0);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        return ret[0] !== 0;
     }
 }
 if (Symbol.dispose) ViewServer.prototype[Symbol.dispose] = ViewServer.prototype.free;
@@ -694,6 +694,48 @@ export function build_action(transaction_plan, action_plan, full_viewing_key, wi
 }
 
 /**
+ * Build (prove) every action of a transaction plan concurrently with rayon,
+ * WITHOUT authorization data.
+ *
+ * This is the expensive part of transaction building (one ZK proof per
+ * action) and needs only the full viewing key and witness, so callers can
+ * start it as soon as the plan is ready -- e.g. while the user is still
+ * looking at the approval prompt. The result carries no spend authorization;
+ * it must be assembled with [`build_parallel`] (which applies the
+ * `AuthorizationData`) before it is a valid transaction.
+ *
+ * Requires the `parallel` feature and `initThreadPool()` to be called first.
+ *
+ * Arguments:
+ *     full_viewing_key: `FullViewingKey`
+ *     transaction_plan: `TransactionPlan`
+ *     witness_data: `WitnessData`
+ * Returns: `TransactionBody` bytes whose `actions` field holds the built
+ *     actions in plan order (all other fields are unset). A proto container
+ *     is used so the result survives the JSON hops between worker, offscreen
+ *     document and service worker without serde/JsValue representation issues.
+ * @param {Uint8Array} full_viewing_key
+ * @param {Uint8Array} transaction_plan
+ * @param {Uint8Array} witness_data
+ * @returns {Uint8Array}
+ */
+export function build_actions_native(full_viewing_key, transaction_plan, witness_data) {
+    const ptr0 = passArray8ToWasm0(full_viewing_key, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArray8ToWasm0(transaction_plan, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ptr2 = passArray8ToWasm0(witness_data, wasm.__wbindgen_malloc);
+    const len2 = WASM_VECTOR_LEN;
+    const ret = wasm.build_actions_native(ptr0, len0, ptr1, len1, ptr2, len2);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v4 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v4;
+}
+
+/**
  * Build parallel tx –
  * building a transaction may take some time,
  * depending on CPU performance and number of
@@ -733,6 +775,9 @@ export function build_parallel(actions, transaction_plan, witness_data, auth_dat
  * This builds all actions concurrently using rayon's par_iter(), which is
  * significantly faster for transactions with multiple actions (e.g., swaps,
  * multi-output sends) because ZK proof generation happens in parallel.
+ *
+ * Prefer [`build_actions_native`] + [`build_parallel`] when authorization
+ * arrives later than the plan (it lets proving overlap user approval).
  *
  * Arguments:
  *     full_viewing_key: `FullViewingKey`
@@ -797,6 +842,32 @@ export function build_serial(full_viewing_key, transaction_plan, witness_data, a
     var v5 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
     wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     return v5;
+}
+
+/**
+ * Compute the effect hash for a transaction plan using the full viewing key.
+ * Does NOT require the spend key — used for airgap signing where the spend key
+ * lives on a separate device (Zigner).
+ * Arguments:
+ *     full_viewing_key: `byte representation inner FullViewingKey`
+ *     transaction_plan: `pb::TransactionPlan`
+ * Returns: `EffectHash` (64 bytes)
+ * @param {Uint8Array} full_viewing_key
+ * @param {Uint8Array} transaction_plan
+ * @returns {Uint8Array}
+ */
+export function compute_effect_hash(full_viewing_key, transaction_plan) {
+    const ptr0 = passArray8ToWasm0(full_viewing_key, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArray8ToWasm0(transaction_plan, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.compute_effect_hash(ptr0, len0, ptr1, len1);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v3 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v3;
 }
 
 /**
@@ -1309,15 +1380,15 @@ export class wbg_rayon_PoolBuilder {
         const ret = wasm.wbg_rayon_poolbuilder_numThreads(this.__wbg_ptr);
         return ret >>> 0;
     }
-    build() {
-        wasm.wbg_rayon_poolbuilder_build(this.__wbg_ptr);
-    }
     /**
      * @returns {number}
      */
     receiver() {
         const ret = wasm.wbg_rayon_poolbuilder_receiver(this.__wbg_ptr);
         return ret >>> 0;
+    }
+    build() {
+        wasm.wbg_rayon_poolbuilder_build(this.__wbg_ptr);
     }
 }
 if (Symbol.dispose) wbg_rayon_PoolBuilder.prototype[Symbol.dispose] = wbg_rayon_PoolBuilder.prototype.free;
@@ -1673,7 +1744,7 @@ function __wbg_get_imports(memory) {
                 const a = state0.a;
                 state0.a = 0;
                 try {
-                    return wasm_bindgen__convert__closures_____invoke__h1baa629bcfd2c65a(a, state0.b, arg0, arg1);
+                    return wasm_bindgen__convert__closures_____invoke__h46399c5042f18d2c(a, state0.b, arg0, arg1);
                 } finally {
                     state0.a = a;
                 }
@@ -1896,11 +1967,6 @@ function __wbg_get_imports(memory) {
         const ret = window.window;
         return ret;
     }, arguments) };
-    imports.wbg.__wbindgen_cast_172bdd491b194510 = function(arg0, arg1) {
-        // Cast intrinsic for `Closure(Closure { dtor_idx: 370, function: Function { arguments: [NamedExternref("MessageEvent")], shim_idx: 371, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-        const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__h1361dc4d505b1d88, wasm_bindgen__convert__closures_____invoke__h0d93e73c6dfa9d82);
-        return ret;
-    };
     imports.wbg.__wbindgen_cast_2241b6af4c4b2941 = function(arg0, arg1) {
         // Cast intrinsic for `Ref(String) -> Externref`.
         const ret = getStringFromWasm0(arg0, arg1);
@@ -1918,14 +1984,24 @@ function __wbg_get_imports(memory) {
         const ret = v0;
         return ret;
     };
-    imports.wbg.__wbindgen_cast_7eff13749b0f2ede = function(arg0, arg1) {
-        // Cast intrinsic for `Closure(Closure { dtor_idx: 391, function: Function { arguments: [NamedExternref("Event")], shim_idx: 412, ret: Unit, inner_ret: Some(Unit) }, mutable: false }) -> Externref`.
-        const ret = makeClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__h4854ee0cbe20292e, wasm_bindgen__convert__closures_____invoke__h8a10323cabe87b21);
-        return ret;
-    };
     imports.wbg.__wbindgen_cast_9ae0607507abb057 = function(arg0) {
         // Cast intrinsic for `I64 -> Externref`.
         const ret = arg0;
+        return ret;
+    };
+    imports.wbg.__wbindgen_cast_a74541775b3296de = function(arg0, arg1) {
+        // Cast intrinsic for `Closure(Closure { dtor_idx: 552, function: Function { arguments: [NamedExternref("MessageEvent")], shim_idx: 553, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+        const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__h216793dce1995a54, wasm_bindgen__convert__closures_____invoke__h7dcf9c60e9f2743a);
+        return ret;
+    };
+    imports.wbg.__wbindgen_cast_c263e0ea45996a7d = function(arg0, arg1) {
+        // Cast intrinsic for `Closure(Closure { dtor_idx: 655, function: Function { arguments: [NamedExternref("Event")], shim_idx: 656, ret: Unit, inner_ret: Some(Unit) }, mutable: false }) -> Externref`.
+        const ret = makeClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__h17034578121f47bb, wasm_bindgen__convert__closures_____invoke__h11dfe1dc9182c2f0);
+        return ret;
+    };
+    imports.wbg.__wbindgen_cast_d1dd07120553c180 = function(arg0, arg1) {
+        // Cast intrinsic for `Closure(Closure { dtor_idx: 552, function: Function { arguments: [Externref], shim_idx: 553, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+        const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__h216793dce1995a54, wasm_bindgen__convert__closures_____invoke__h7dcf9c60e9f2743a);
         return ret;
     };
     imports.wbg.__wbindgen_cast_d6cd19b81560fd6e = function(arg0) {
@@ -1933,14 +2009,9 @@ function __wbg_get_imports(memory) {
         const ret = arg0;
         return ret;
     };
-    imports.wbg.__wbindgen_cast_f5c6fabb752f0257 = function(arg0, arg1) {
-        // Cast intrinsic for `Closure(Closure { dtor_idx: 370, function: Function { arguments: [Externref], shim_idx: 371, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-        const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__h1361dc4d505b1d88, wasm_bindgen__convert__closures_____invoke__h0d93e73c6dfa9d82);
-        return ret;
-    };
-    imports.wbg.__wbindgen_cast_fcf72980622937f3 = function(arg0, arg1) {
-        // Cast intrinsic for `Closure(Closure { dtor_idx: 391, function: Function { arguments: [], shim_idx: 411, ret: Unit, inner_ret: Some(Unit) }, mutable: false }) -> Externref`.
-        const ret = makeClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__h4854ee0cbe20292e, wasm_bindgen__convert__closures_____invoke__hda9d3021b82b7444);
+    imports.wbg.__wbindgen_cast_e5a08d2a3ea81a35 = function(arg0, arg1) {
+        // Cast intrinsic for `Closure(Closure { dtor_idx: 655, function: Function { arguments: [], shim_idx: 658, ret: Unit, inner_ret: Some(Unit) }, mutable: false }) -> Externref`.
+        const ret = makeClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__h17034578121f47bb, wasm_bindgen__convert__closures_____invoke__hc6c97ac99e9f3718);
         return ret;
     };
     imports.wbg.__wbindgen_init_externref_table = function() {
@@ -1966,7 +2037,7 @@ function __wbg_get_imports(memory) {
         getDataViewMemory0().setInt32(arg0 + 4 * 1, len1, true);
         getDataViewMemory0().setInt32(arg0 + 4 * 0, ptr1, true);
     };
-    imports.wbg.memory = memory || new WebAssembly.Memory({initial:34,maximum:65536,shared:true});
+    imports.wbg.memory = memory || new WebAssembly.Memory({initial:31,maximum:65536,shared:true});
 
     return imports;
 }

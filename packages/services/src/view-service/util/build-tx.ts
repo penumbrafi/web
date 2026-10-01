@@ -13,10 +13,7 @@ import {
 import { PartialMessage } from '@bufbuild/protobuf';
 import { ConnectError } from '@connectrpc/connect';
 import { FullViewingKey } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys_pb';
-import {
-  isParallelBuildAvailable,
-  optimisticParallelBuild,
-} from './build-tx-parallel.js';
+import { isParallelBuildAvailable, optimisticParallelBuild } from './build-tx-parallel.js';
 
 export const optimisticBuild = async function* (
   transactionPlan: TransactionPlan,
@@ -101,12 +98,12 @@ export const buildTransaction = async function* (
 ): AsyncGenerator<PartialMessage<AuthorizeAndBuildResponse | WitnessAndBuildResponse>> {
   // Use rayon parallel build if enabled and SharedArrayBuffer is available
   if (useRayonParallel && isParallelBuildAvailable()) {
-    console.log('[Build] Using rayon parallel build');
+    console.debug('[Build] Using rayon parallel build');
     yield* optimisticParallelBuild(transactionPlan, witnessData, authorizationRequest, fvk);
     return;
   }
 
   // Fall back to offscreen-based JS worker build
-  console.log('[Build] Using offscreen JS worker build');
+  console.debug('[Build] Using offscreen JS worker build');
   yield* optimisticBuild(transactionPlan, witnessData, authorizationRequest, fvk);
 };

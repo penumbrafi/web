@@ -25,10 +25,10 @@ describe('getAddressView()', () => {
 
   describe('when the address is controlled by the user represented by the full viewing key', () => {
     beforeEach(() => {
-      mockGetAddressIndexByAddress.mockImplementation(() => new AddressIndex({ account: 123 }));
+      mockGetAddressIndexByAddress.mockResolvedValue(new AddressIndex({ account: 123 }));
     });
 
-    test('returns a visible `AddressView`', () => {
+    test('returns a visible `AddressView`', async () => {
       const expected = new AddressView({
         addressView: {
           case: 'decoded',
@@ -41,16 +41,16 @@ describe('getAddressView()', () => {
         },
       });
 
-      expect(getAddressView(address, new FullViewingKey()).equals(expected)).toBe(true);
+      expect((await getAddressView(address, new FullViewingKey())).equals(expected)).toBe(true);
     });
   });
 
   describe('when the address is not controlled by the user represented by the full viewing key', () => {
     beforeEach(() => {
-      mockGetAddressIndexByAddress.mockImplementation(() => undefined);
+      mockGetAddressIndexByAddress.mockResolvedValue(undefined);
     });
 
-    test('returns an opaque `AddressView`', () => {
+    test('returns an opaque `AddressView`', async () => {
       const expected = new AddressView({
         addressView: {
           case: 'opaque',
@@ -60,7 +60,7 @@ describe('getAddressView()', () => {
         },
       });
 
-      expect(getAddressView(address, new FullViewingKey()).equals(expected)).toBe(true);
+      expect((await getAddressView(address, new FullViewingKey())).equals(expected)).toBe(true);
     });
   });
 });

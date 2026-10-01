@@ -47,43 +47,6 @@ export class ViewServer {
   free(): void;
   [Symbol.dispose](): void;
   /**
-   * Scans block for notes, swaps
-   * Returns true if the block contains new notes, swaps or false if the block is empty for us
-   *     compact_block: `v1::CompactBlock`
-   * Scan results are saved in-memory rather than returned
-   * Use `flush_updates()` to get the scan results
-   * Returns: `bool`
-   */
-  scan_block(compact_block: Uint8Array, skip_trial_decrypt: boolean): Promise<boolean>;
-  /**
-   * SCT root can be compared with the root obtained by GRPC and verify that there is no divergence
-   * Returns: `Uint8Array representing a Root`
-   */
-  get_sct_root(): Uint8Array;
-  /**
-   * Create new instances of `ViewServer` from SCT frontier snapshot.
-   */
-  static new_snapshot(full_viewing_key: Uint8Array, idb_constants: any, compact_frontier: Uint8Array): Promise<ViewServer>;
-  /**
-   * Get new notes, swaps, SCT state updates
-   * Function also clears state
-   * Returns: `ScanBlockResult`
-   */
-  flush_updates(): any;
-  /**
-   * Reconstructs the state commitment tree (SCT) from the full genesis block using
-   * the genesis advice.
-   */
-  genesis_advice(full_compact_block: Uint8Array): Promise<boolean>;
-  /**
-   * Scans a chunk of the genesis block for notes that can be trial decrypted with the viewing key.
-   */
-  scan_genesis_chunk(start: bigint, partial_compact_block: Uint8Array, skip_trial_decrypt: boolean): Promise<void>;
-  /**
-   * Checks if address is controlled by view server full viewing key
-   */
-  is_controlled_address(address: Uint8Array): boolean;
-  /**
    * Create new instances of `ViewServer`
    * Function opens a connection to indexedDb
    * Arguments:
@@ -94,6 +57,43 @@ export class ViewServer {
    * Returns: `ViewServer`
    */
   static new(full_viewing_key: Uint8Array, stored_tree: any, idb_constants: any): Promise<ViewServer>;
+  /**
+   * Create new instances of `ViewServer` from SCT frontier snapshot.
+   */
+  static new_snapshot(full_viewing_key: Uint8Array, idb_constants: any, compact_frontier: Uint8Array): Promise<ViewServer>;
+  /**
+   * Scans a chunk of the genesis block for notes that can be trial decrypted with the viewing key.
+   */
+  scan_genesis_chunk(start: bigint, partial_compact_block: Uint8Array, skip_trial_decrypt: boolean): Promise<void>;
+  /**
+   * Reconstructs the state commitment tree (SCT) from the full genesis block using
+   * the genesis advice.
+   */
+  genesis_advice(full_compact_block: Uint8Array): Promise<boolean>;
+  /**
+   * Scans block for notes, swaps
+   * Returns true if the block contains new notes, swaps or false if the block is empty for us
+   *     compact_block: `v1::CompactBlock`
+   * Scan results are saved in-memory rather than returned
+   * Use `flush_updates()` to get the scan results
+   * Returns: `bool`
+   */
+  scan_block(compact_block: Uint8Array, skip_trial_decrypt: boolean): Promise<boolean>;
+  /**
+   * Get new notes, swaps, SCT state updates
+   * Function also clears state
+   * Returns: `ScanBlockResult`
+   */
+  flush_updates(): any;
+  /**
+   * SCT root can be compared with the root obtained by GRPC and verify that there is no divergence
+   * Returns: `Uint8Array representing a Root`
+   */
+  get_sct_root(): Uint8Array;
+  /**
+   * Checks if address is controlled by view server full viewing key
+   */
+  is_controlled_address(address: Uint8Array): boolean;
 }
 
 /**
@@ -118,6 +118,30 @@ export function authorize(spend_key: Uint8Array, transaction_plan: Uint8Array): 
 export function build_action(transaction_plan: Uint8Array, action_plan: Uint8Array, full_viewing_key: Uint8Array, witness_data: Uint8Array): Uint8Array;
 
 /**
+ * Build (prove) every action of a transaction plan concurrently with rayon,
+ * WITHOUT authorization data.
+ *
+ * This is the expensive part of transaction building (one ZK proof per
+ * action) and needs only the full viewing key and witness, so callers can
+ * start it as soon as the plan is ready -- e.g. while the user is still
+ * looking at the approval prompt. The result carries no spend authorization;
+ * it must be assembled with [`build_parallel`] (which applies the
+ * `AuthorizationData`) before it is a valid transaction.
+ *
+ * Requires the `parallel` feature and `initThreadPool()` to be called first.
+ *
+ * Arguments:
+ *     full_viewing_key: `FullViewingKey`
+ *     transaction_plan: `TransactionPlan`
+ *     witness_data: `WitnessData`
+ * Returns: `TransactionBody` bytes whose `actions` field holds the built
+ *     actions in plan order (all other fields are unset). A proto container
+ *     is used so the result survives the JSON hops between worker, offscreen
+ *     document and service worker without serde/JsValue representation issues.
+ */
+export function build_actions_native(full_viewing_key: Uint8Array, transaction_plan: Uint8Array, witness_data: Uint8Array): Uint8Array;
+
+/**
  * Build parallel tx –
  * building a transaction may take some time,
  * depending on CPU performance and number of
@@ -138,6 +162,9 @@ export function build_parallel(actions: any, transaction_plan: Uint8Array, witne
  * This builds all actions concurrently using rayon's par_iter(), which is
  * significantly faster for transactions with multiple actions (e.g., swaps,
  * multi-output sends) because ZK proof generation happens in parallel.
+ *
+ * Prefer [`build_actions_native`] + [`build_parallel`] when authorization
+ * arrives later than the plan (it lets proving overlap user approval).
  *
  * Arguments:
  *     full_viewing_key: `FullViewingKey`
@@ -161,6 +188,17 @@ export function build_parallel_native(full_viewing_key: Uint8Array, transaction_
  * Returns: `Transaction`
  */
 export function build_serial(full_viewing_key: Uint8Array, transaction_plan: Uint8Array, witness_data: Uint8Array, auth_data: Uint8Array): Uint8Array;
+
+/**
+ * Compute the effect hash for a transaction plan using the full viewing key.
+ * Does NOT require the spend key — used for airgap signing where the spend key
+ * lives on a separate device (Zigner).
+ * Arguments:
+ *     full_viewing_key: `byte representation inner FullViewingKey`
+ *     transaction_plan: `pb::TransactionPlan`
+ * Returns: `EffectHash` (64 bytes)
+ */
+export function compute_effect_hash(full_viewing_key: Uint8Array, transaction_plan: Uint8Array): Uint8Array;
 
 /**
  * compute position id
@@ -347,8 +385,8 @@ export class wbg_rayon_PoolBuilder {
   free(): void;
   [Symbol.dispose](): void;
   numThreads(): number;
-  build(): void;
   receiver(): number;
+  build(): void;
 }
 
 export function wbg_rayon_start_worker(receiver: number): void;
@@ -366,74 +404,76 @@ export function witness(transaction_plan: Uint8Array, stored_tree: any): Uint8Ar
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
-  readonly __wbg_forwardingaddrresponse_free: (a: number, b: number) => void;
-  readonly __wbg_get_forwardingaddrresponse_noble_addr_bech32: (a: number) => [number, number];
-  readonly __wbg_get_forwardingaddrresponse_noble_addr_bytes: (a: number) => [number, number];
-  readonly __wbg_get_forwardingaddrresponse_penumbra_addr_bytes: (a: number) => [number, number];
-  readonly __wbg_get_transparentaddrresponse_address: (a: number) => [number, number];
-  readonly __wbg_get_transparentaddrresponse_encoding: (a: number) => [number, number];
-  readonly __wbg_set_forwardingaddrresponse_noble_addr_bech32: (a: number, b: number, c: number) => void;
-  readonly __wbg_set_forwardingaddrresponse_noble_addr_bytes: (a: number, b: number, c: number) => void;
-  readonly __wbg_set_forwardingaddrresponse_penumbra_addr_bytes: (a: number, b: number, c: number) => void;
-  readonly __wbg_transparentaddrresponse_free: (a: number, b: number) => void;
-  readonly generate_spend_key: (a: number, b: number) => [number, number, number, number];
-  readonly get_address_by_index: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
   readonly get_asset_id: (a: number, b: number) => [number, number, number, number];
-  readonly get_delegation_asset: (a: number, b: number) => [number, number, number, number];
-  readonly get_ephemeral_address: (a: number, b: number, c: number) => [number, number, number, number];
-  readonly get_full_viewing_key: (a: number, b: number) => [number, number, number, number];
-  readonly get_index_by_address: (a: number, b: number, c: number, d: number) => [number, number, number];
-  readonly get_noble_forwarding_addr: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
-  readonly get_transmission_key_by_address: (a: number, b: number) => [number, number, number, number];
-  readonly get_transparent_address: (a: number, b: number) => [number, number, number];
-  readonly get_wallet_id: (a: number, b: number) => [number, number, number, number];
-  readonly is_controlled_address: (a: number, b: number, c: number, d: number) => [number, number, number];
-  readonly load_proving_key: (a: number, b: number, c: number, d: number) => [number, number];
-  readonly __wbg_set_transparentaddrresponse_address: (a: number, b: number, c: number) => void;
-  readonly __wbg_set_transparentaddrresponse_encoding: (a: number, b: number, c: number) => void;
-  readonly compute_position_id: (a: number, b: number) => [number, number, number, number];
-  readonly customize_symbol: (a: number, b: number) => [number, number, number, number];
-  readonly decrypt_position_metadata: (a: number, b: number, c: number, d: number) => [number, number, number, number];
   readonly get_auction_id: (a: number, b: number) => [number, number, number, number];
   readonly get_auction_nft_metadata: (a: number, b: number, c: bigint) => [number, number, number, number];
-  readonly get_lpnft_asset: (a: number, b: number, c: number, d: number) => [number, number, number, number];
-  readonly sct_position: (a: bigint, b: number, c: number) => [bigint, number, number];
-  readonly __wbg_get_txpandtxvbytes_txp: (a: number) => [number, number];
-  readonly __wbg_get_txpandtxvbytes_txv: (a: number) => [number, number];
-  readonly __wbg_set_txpandtxvbytes_txp: (a: number, b: number, c: number) => void;
-  readonly __wbg_set_txpandtxvbytes_txv: (a: number, b: number, c: number) => void;
-  readonly __wbg_txpandtxvbytes_free: (a: number, b: number) => void;
-  readonly __wbg_viewserver_free: (a: number, b: number) => void;
-  readonly authorize: (a: number, b: number, c: number, d: number) => [number, number, number, number];
   readonly build_action: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number, number, number];
-  readonly build_parallel: (a: any, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number, number];
-  readonly build_parallel_native: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number, number, number];
   readonly build_serial: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number, number, number];
-  readonly get_voting_notes: (a: number, b: number, c: bigint, d: any) => any;
+  readonly build_parallel: (a: any, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number, number];
+  readonly build_actions_native: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
+  readonly build_parallel_native: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number, number, number];
+  readonly compute_position_id: (a: number, b: number) => [number, number, number, number];
+  readonly get_lpnft_asset: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+  readonly decrypt_position_metadata: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+  readonly load_proving_key: (a: number, b: number, c: number, d: number) => [number, number];
+  readonly generate_spend_key: (a: number, b: number) => [number, number, number, number];
+  readonly get_full_viewing_key: (a: number, b: number) => [number, number, number, number];
+  readonly get_wallet_id: (a: number, b: number) => [number, number, number, number];
+  readonly get_address_by_index: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
+  readonly get_ephemeral_address: (a: number, b: number, c: number) => [number, number, number, number];
+  readonly get_index_by_address: (a: number, b: number, c: number, d: number) => [number, number, number];
+  readonly is_controlled_address: (a: number, b: number, c: number, d: number) => [number, number, number];
+  readonly __wbg_forwardingaddrresponse_free: (a: number, b: number) => void;
+  readonly __wbg_get_forwardingaddrresponse_noble_addr_bech32: (a: number) => [number, number];
+  readonly __wbg_set_forwardingaddrresponse_noble_addr_bech32: (a: number, b: number, c: number) => void;
+  readonly __wbg_get_forwardingaddrresponse_noble_addr_bytes: (a: number) => [number, number];
+  readonly __wbg_set_forwardingaddrresponse_noble_addr_bytes: (a: number, b: number, c: number) => void;
+  readonly __wbg_get_forwardingaddrresponse_penumbra_addr_bytes: (a: number) => [number, number];
+  readonly __wbg_set_forwardingaddrresponse_penumbra_addr_bytes: (a: number, b: number, c: number) => void;
+  readonly get_noble_forwarding_addr: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number];
+  readonly __wbg_transparentaddrresponse_free: (a: number, b: number) => void;
+  readonly __wbg_get_transparentaddrresponse_address: (a: number) => [number, number];
+  readonly __wbg_set_transparentaddrresponse_address: (a: number, b: number, c: number) => void;
+  readonly __wbg_get_transparentaddrresponse_encoding: (a: number) => [number, number];
+  readonly __wbg_set_transparentaddrresponse_encoding: (a: number, b: number, c: number) => void;
+  readonly get_transparent_address: (a: number, b: number) => [number, number, number];
+  readonly get_transmission_key_by_address: (a: number, b: number) => [number, number, number, number];
+  readonly customize_symbol: (a: number, b: number) => [number, number, number, number];
+  readonly plan_transaction: (a: any, b: number, c: number, d: number, e: number, f: number, g: number) => any;
+  readonly get_delegation_asset: (a: number, b: number) => [number, number, number, number];
+  readonly sct_position: (a: bigint, b: number, c: number) => [bigint, number, number];
+  readonly authorize: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+  readonly compute_effect_hash: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+  readonly witness: (a: number, b: number, c: any) => [number, number, number, number];
+  readonly __wbg_txpandtxvbytes_free: (a: number, b: number) => void;
   readonly transaction_perspective_and_view: (a: number, b: number, c: number, d: number, e: any) => any;
   readonly transaction_summary: (a: number, b: number) => any;
-  readonly viewserver_flush_updates: (a: number) => [number, number, number];
-  readonly viewserver_genesis_advice: (a: number, b: number, c: number) => any;
-  readonly viewserver_get_sct_root: (a: number) => [number, number, number, number];
-  readonly viewserver_is_controlled_address: (a: number, b: number, c: number) => [number, number, number];
+  readonly __wbg_viewserver_free: (a: number, b: number) => void;
   readonly viewserver_new: (a: number, b: number, c: any, d: any) => any;
   readonly viewserver_new_snapshot: (a: number, b: number, c: any, d: number, e: number) => any;
-  readonly viewserver_scan_block: (a: number, b: number, c: number, d: number) => any;
   readonly viewserver_scan_genesis_chunk: (a: number, b: bigint, c: number, d: number, e: number) => any;
-  readonly witness: (a: number, b: number, c: any) => [number, number, number, number];
-  readonly plan_transaction: (a: any, b: number, c: number, d: number, e: number, f: number, g: number) => any;
+  readonly viewserver_genesis_advice: (a: number, b: number, c: number) => any;
+  readonly viewserver_scan_block: (a: number, b: number, c: number, d: number) => any;
+  readonly viewserver_flush_updates: (a: number) => [number, number, number];
+  readonly viewserver_get_sct_root: (a: number) => [number, number, number, number];
+  readonly viewserver_is_controlled_address: (a: number, b: number, c: number) => [number, number, number];
+  readonly get_voting_notes: (a: number, b: number, c: bigint, d: any) => any;
+  readonly __wbg_set_txpandtxvbytes_txp: (a: number, b: number, c: number) => void;
+  readonly __wbg_set_txpandtxvbytes_txv: (a: number, b: number, c: number) => void;
+  readonly __wbg_get_txpandtxvbytes_txp: (a: number) => [number, number];
+  readonly __wbg_get_txpandtxvbytes_txv: (a: number) => [number, number];
   readonly __wbg_wbg_rayon_poolbuilder_free: (a: number, b: number) => void;
-  readonly initThreadPool: (a: number) => any;
-  readonly wbg_rayon_poolbuilder_build: (a: number) => void;
   readonly wbg_rayon_poolbuilder_numThreads: (a: number) => number;
   readonly wbg_rayon_poolbuilder_receiver: (a: number) => number;
+  readonly wbg_rayon_poolbuilder_build: (a: number) => void;
+  readonly initThreadPool: (a: number) => any;
   readonly wbg_rayon_start_worker: (a: number) => void;
-  readonly wasm_bindgen__convert__closures_____invoke__h8a10323cabe87b21: (a: number, b: number, c: any) => void;
-  readonly wasm_bindgen__closure__destroy__h4854ee0cbe20292e: (a: number, b: number) => void;
-  readonly wasm_bindgen__convert__closures_____invoke__hda9d3021b82b7444: (a: number, b: number) => void;
-  readonly wasm_bindgen__convert__closures_____invoke__h0d93e73c6dfa9d82: (a: number, b: number, c: any) => void;
-  readonly wasm_bindgen__closure__destroy__h1361dc4d505b1d88: (a: number, b: number) => void;
-  readonly wasm_bindgen__convert__closures_____invoke__h1baa629bcfd2c65a: (a: number, b: number, c: any, d: any) => void;
+  readonly wasm_bindgen__convert__closures_____invoke__hc6c97ac99e9f3718: (a: number, b: number) => void;
+  readonly wasm_bindgen__closure__destroy__h17034578121f47bb: (a: number, b: number) => void;
+  readonly wasm_bindgen__convert__closures_____invoke__h7dcf9c60e9f2743a: (a: number, b: number, c: any) => void;
+  readonly wasm_bindgen__closure__destroy__h216793dce1995a54: (a: number, b: number) => void;
+  readonly wasm_bindgen__convert__closures_____invoke__h11dfe1dc9182c2f0: (a: number, b: number, c: any) => void;
+  readonly wasm_bindgen__convert__closures_____invoke__h46399c5042f18d2c: (a: number, b: number, c: any, d: any) => void;
   readonly memory: WebAssembly.Memory;
   readonly __wbindgen_malloc: (a: number, b: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

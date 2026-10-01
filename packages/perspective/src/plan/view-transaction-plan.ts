@@ -39,7 +39,7 @@ export const viewTransactionPlan = async (
           value: {
             plaintext: {
               returnAddress: returnAddress
-                ? getAddressView(returnAddress, fullViewingKey)
+                ? await getAddressView(returnAddress, fullViewingKey)
                 : undefined,
               text: txPlan.memo?.plaintext?.text ?? '',
             },

@@ -43,8 +43,8 @@
     "@penumbra-zone/bech32m": "workspace:*",
     "@penumbra-zone/getters": "workspace:*",
     "@penumbra-zone/protobuf": "workspace:*",
+    "@penumbrafi/registry": "^13.0.0",
     "@penumbrafi/types": "workspace:*",
-    "@penumbrafi/wasm": "workspace:*",
-    "@penumbrafi/registry": "^13.0.0"
+    "@penumbrafi/wasm": "workspace:*"
   }
 }

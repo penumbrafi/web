@@ -5,8 +5,11 @@ import {
 } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys_pb';
 import { getAddressIndexByAddress } from '@penumbrafi/wasm/address';
 
-export const getAddressView = (address: Address, fullViewingKey: FullViewingKey): AddressView => {
-  const index = getAddressIndexByAddress(fullViewingKey, address);
+export const getAddressView = async (
+  address: Address,
+  fullViewingKey: FullViewingKey,
+): Promise<AddressView> => {
+  const index = await getAddressIndexByAddress(fullViewingKey, address);
 
   if (index) {
     return new AddressView({

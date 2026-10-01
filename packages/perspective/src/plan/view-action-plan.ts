@@ -84,7 +84,7 @@ const getNoteView = async (
   }
 
   return new NoteView({
-    address: getAddressView(note.address, fullViewingKey),
+    address: await getAddressView(note.address, fullViewingKey),
     value: await getValueView(note.value, denomMetadataByAssetId),
   });
 };
@@ -124,7 +124,7 @@ const getOutputView = async (
       value: {
         note: {
           value: await getValueView(outputPlan.value, denomMetadataByAssetId),
-          address: getAddressView(outputPlan.destAddress, fullViewingKey),
+          address: await getAddressView(outputPlan.destAddress, fullViewingKey),
         },
       },
     },
@@ -193,7 +193,7 @@ const getSwapClaimView = async (
       value: {
         output1: {
           address: swapClaimPlan.swapPlaintext?.claimAddress
-            ? getAddressView(swapClaimPlan.swapPlaintext.claimAddress, fullViewingKey)
+            ? await getAddressView(swapClaimPlan.swapPlaintext.claimAddress, fullViewingKey)
             : undefined,
           value: swapClaimPlan.outputData?.lambda1
             ? await getValueView(
@@ -207,7 +207,7 @@ const getSwapClaimView = async (
         },
         output2: {
           address: swapClaimPlan.swapPlaintext?.claimAddress
-            ? getAddressView(swapClaimPlan.swapPlaintext.claimAddress, fullViewingKey)
+            ? await getAddressView(swapClaimPlan.swapPlaintext.claimAddress, fullViewingKey)
             : undefined,
           value: swapClaimPlan.outputData?.lambda2
             ? await getValueView(

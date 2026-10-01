@@ -45,6 +45,7 @@ import { offscreenClient } from '../../offscreen-client.js';
 export const isParallelBuildAvailable = (): boolean => {
   // In Chrome extension context, always return true - the offscreen document
   // has cross-origin isolation and SharedArrayBuffer support
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- `chrome` exists without `runtime` on ordinary web pages in Chromium
   if (typeof chrome !== 'undefined' && chrome.runtime?.id) {
     return true;
   }
