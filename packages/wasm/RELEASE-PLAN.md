@@ -1,19 +1,21 @@
 # Release plan: zafu's wasm/JS packages
 
-Status (2026-09-30): the `@penumbrafi` rename, the CI release workflow and the zafu migration
-are prepared on local branches. Nothing has been published, pushed or deprecated yet.
+Status (2026-10-02): the `@penumbrafi` rename is on penumbra-web `main`. Nothing has been
+published or deprecated yet. Releases are **manual only**: the npm key is not given to GitHub
+Actions, so there is no release workflow (see [Releasing](#releasing)). zafu's
+prove-before-approval and its `@penumbrafi/*` dependency bump wait on the first publish (zafu
+branch `perf/penumbra-prover` notes where the bump goes).
 
-- penumbra-web `release/penumbrafi-scope`, based on `beta/prover-20260929`
 - zafu `release/penumbrafi-deps`, based on `beta/prover-20260929`
 
 ## Naming
 
-| was (npm, published by hand from 3 repos) | now (npm, published from `penumbrafi/web` CI) | source                   | first version |
-| ----------------------------------------- | --------------------------------------------- | ------------------------ | ------------- |
-| `@rotko/penumbra-wasm@55.0.2`             | **`@penumbrafi/wasm`**                        | `packages/wasm`          | 56.0.0        |
-| `@rotko/penumbra-types@37.0.0`            | **`@penumbrafi/types`**                       | `packages/types`         | 38.0.0        |
-| `@rotko/penumbra-services@70.0.0`         | **`@penumbrafi/services`**                    | `packages/services`      | 71.0.0        |
-| `@repo/zcash-wasm` (vendored in zafu)     | `@rotko/zcash-wasm`: **not** under penumbrafi | zcli `crates/zcash-wasm` | 0.2.0         |
+| was (npm, published by hand from 3 repos) | now (npm, published by hand from `penumbrafi/web`) | source                   | first version |
+| ----------------------------------------- | -------------------------------------------------- | ------------------------ | ------------- |
+| `@rotko/penumbra-wasm@55.0.2`             | **`@penumbrafi/wasm`**                             | `packages/wasm`          | 56.0.0        |
+| `@rotko/penumbra-types@37.0.0`            | **`@penumbrafi/types`**                            | `packages/types`         | 38.0.0        |
+| `@rotko/penumbra-services@70.0.0`         | **`@penumbrafi/services`**                         | `packages/services`      | 71.0.0        |
+| `@repo/zcash-wasm` (vendored in zafu)     | `@rotko/zcash-wasm`: **not** under penumbrafi      | zcli `crates/zcash-wasm` | 0.2.0         |
 
 Versions carry on from each `@rotko/*` line so the numbers keep meaning something. Each gets a
 major bump, because the import specifier changes. The base versions were reset to the npm
@@ -34,8 +36,9 @@ pinned `ZCLI_REV`, applies the Chrome `workerHelpers.js` patch as a scripted ste
   `services` and `wasm` now import the fork's types instead of upstream's. zafu already
   aliased `@penumbra-zone/types` to the fork in webpack, so its runtime behaviour doesn't change.
 - `repository` has `url: git+https://github.com/penumbrafi/web.git` and a `directory` per
-  package. npm provenance rejects a package whose repository doesn't match the repo that built it.
-- `publishConfig: { access: public, provenance: true }`.
+  package.
+- `publishConfig: { access: public }`. No provenance: npm can only generate it inside a CI
+  runner, and these packages are published from a maintainer's machine.
 - Peers on upstream `@penumbra-zone/*` packages are `>=` ranges, the same ones the beta tarballs
   used. Peers between the three packages are `workspace:^`, which is published as `^<version>`.
   `@rotko/penumbra-wasm@55.0.2` was published with raw `npm publish` and shipped literal
@@ -54,40 +57,44 @@ pinned `ZCLI_REV`, applies the Chrome `workerHelpers.js` patch as a scripted ste
 - `.syncpackrc`: the `>=` peer ranges of `@penumbrafi/**` are exempt from the workspace-protocol
   rule, and the ban on depending on BSR packages covers `@penumbrafi/**`.
 - `scripts/publish-penumbrafi.sh` publishes **only** the three `@penumbrafi/*` packages, in
-  order types → wasm → services. It uses `pnpm publish` (npm does the provenance signing) and
-  skips any version that is already on npm. `changeset publish` is not used, because it would
-  also try to publish every public `@penumbra-zone/*` workspace package.
-- `.github/workflows/release.yml` is new. `packages-release.yml` is removed; main had already
-  removed it.
-  - job `version`: when a push to main has pending changesets, it opens or updates the
-    "Version @penumbrafi packages" PR.
-  - job `publish`: runs after that PR is merged and no changesets are left, and only if some
-    version is not on npm yet. It installs Rust 1.83 with rust-src, wasm-pack 0.13.1,
-    wasm-bindgen-cli 0.2.106 (checked against Cargo.lock) and binaryen 117 (sha256 pinned; the
-    same wasm-opt the beta used). Then it runs `compile:parallel`, `turbo build` + `test` for
-    `@penumbrafi/*`, the verify gate and `npm pack --dry-run`. Finally it publishes with OIDC
-    provenance (`id-token: write`, `NPM_CONFIG_PROVENANCE`), and changesets/action creates the
-    tags and GitHub releases.
+  order types → wasm → services, as the npm user that is logged in. It uses `pnpm publish`,
+  skips any version that is already on npm, and tags each published version locally.
+  `changeset publish` is not used, because it would also try to publish every public
+  `@penumbra-zone/*` workspace package.
+- There is no release workflow. `packages-release.yml` is gone, and the CI `release.yml` that
+  briefly existed was removed: it needed an npm token as a GitHub secret.
 
-## Operator steps (in order)
+## Releasing
 
-1. **npm**: the `penumbrafi` org already exists, owner `rotko`, and holds `@penumbrafi/registry`.
-   Add maintainers with `npm org set penumbrafi <user> developer`. Create a **granular access
-   token** with read+write on `@penumbrafi/*` (all packages in the scope; they don't exist
-   yet) and "bypass 2FA".
-2. **GitHub** `penumbrafi/web` → Settings → Secrets → Actions: add `NPM_TOKEN`. The workflow uses
-   environment `npm`. GitHub creates it on first run; add required reviewers to it if a manual
-   gate before publish is wanted.
-3. Push `release/penumbrafi-scope` and open a PR into `main`. `main` is ~570 commits ahead of
-   the beta base, so expect conflicts in lockfile, workflows and apps. Resolve them keeping the
-   `@penumbrafi` names. The rename is mechanical: after the merge, re-run the sed over new files:
-   `s#@penumbra-zone/(types|services)\b#@penumbrafi/\1#; s#@rotko/penumbra-wasm\b#@penumbrafi/wasm#`,
-   but don't touch `@penumbra-zone/services-context`. Then run `pnpm install` and commit the lockfile.
-4. Merge → CI opens "Version @penumbrafi packages" → merge that → CI publishes 56.0.0 / 38.0.0 /
-   71.0.0 with provenance. Check with `npm view @penumbrafi/wasm@56.0.0 dist.attestations`.
-5. Optional hardening: once the packages exist, configure npm **trusted publishing** for
-   `penumbrafi/web` / `release.yml` on each package, then delete `NPM_TOKEN`.
-6. Deprecate the old names (the operator runs this, logged in as `rotko`):
+Done by hand by a maintainer of the `penumbrafi` npm org (owner `rotko`; add maintainers with
+`npm org set penumbrafi <user> developer`). Run everything from an up-to-date `main` checkout.
+
+1. **Version.** `pnpm changeset version` consumes the pending `.changeset/*.md`, bumps the three
+   packages (first time: 56.0.0 / 38.0.0 / 71.0.0) and writes their changelogs. Check that only
+   `@penumbrafi/*` versions moved, then `pnpm install` and commit as
+   `chore(release): version @penumbrafi packages`.
+2. **Toolchain.** The pins the parallel build was validated with: Rust 1.83 with `rust-src` and
+   the `wasm32-unknown-unknown` target, wasm-pack 0.13.1, wasm-bindgen-cli 0.2.106 (must equal
+   the `wasm-bindgen` version in `packages/wasm/crate/Cargo.lock`) and binaryen 117 (`wasm-opt`, and `wasm-dis` for the verify gate).
+3. **Build and test.**
+
+   ```sh
+   TOOLCHAIN=1.83 pnpm --filter @penumbrafi/wasm compile:parallel   # parallel first: src imports it
+   pnpm turbo build --filter "@penumbrafi/*"
+   pnpm turbo test --filter "@penumbrafi/*"
+   bash packages/wasm/crate/scripts/verify-wasm-parallel.sh
+   DRY_RUN=1 bash scripts/publish-penumbrafi.sh                     # pnpm publish --dry-run
+   ```
+
+   In the dry run, `wasm-parallel/` must be in the `@penumbrafi/wasm` file list.
+
+4. **Publish.** `npm login`, then `bash scripts/publish-penumbrafi.sh`. npm asks for the 2FA
+   one-time password once per package. Versions already on npm are skipped, so a failed run can
+   simply be repeated.
+5. **Tags.** Push the tags the script prints (`git push origin @penumbrafi/types@38.0.0 …`), push
+   the version commit, and optionally create GitHub releases from the tags. Check with
+   `npm view @penumbrafi/wasm@56.0.0`.
+6. **Deprecate** the old names (the operator runs this, logged in as `rotko`):
 
    ```sh
    npm deprecate @rotko/penumbra-wasm@"*"     "moved to @penumbrafi/wasm"
@@ -155,5 +162,5 @@ extension (647), wallet (72) and query (31) tests pass; `bundle:prod` builds and
   `feat/tx-queue` / the old repo first.
 - Pre-existing on the beta base and not touched here: `@penumbra-zone/perspective` doesn't
   typecheck against the async wasm API (`get-address-view.ts`), so a full `turbo build` of all
-  packages fails. The release workflow builds only `@penumbrafi/*` and their dependencies.
+  packages fails. The release steps build only `@penumbrafi/*` and their dependencies.
   `eslint --max-warnings 0` also reports 4 (wasm) and 3 (services) existing errors.
