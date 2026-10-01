@@ -461,3 +461,73 @@ export const getHistoricalTrades = async (req: NextRequest): Promise<NextRespons
     return fail('trade history is temporarily unavailable', 503);
   }
 };
+
+/**
+ * GET /api/coingecko: what this API serves and how to call it, for the
+ * aggregator reviewing the listing and for anyone integrating by hand.
+ */
+export const getIndex = (): NextResponse => {
+  // Relative on purpose: behind the proxy, the request's own origin can be
+  // the internal upstream rather than the public host.
+  const base = '/api/coingecko';
+  const tickerId = '<base passet1…>_<target passet1…>';
+  return json({
+    name: 'Penumbra DEX market data',
+    description:
+      "Penumbra's shielded DEX in CoinGecko's exchange integration format. Prices come from on-chain batch swaps and liquidity positions.",
+    spec: 'https://docs.google.com/document/d/1v27QFoQq1SKT3Priq3aqPgB70Xd_PnDzbOCiuoCyixw',
+    conventions: {
+      ticker_id:
+        'base and target asset ids (bech32m passet1…) joined by "_"; stable in the pair is always the target, else UM, else the lower asset id. pool_id equals ticker_id: liquidity is many concentrated positions, not one pool.',
+      symbols: 'base_symbol / target_symbol are given alongside the ids for readability.',
+      numbers: 'decimal strings in display units, never exponent notation',
+      markets:
+        'a pair is listed while it has open liquidity or volume in the last 24h and has traded at least once',
+      volume: 'rolling 24h, each side in its own asset',
+      liquidity_in_usd: 'both reserves priced in USDC, UM through its on-chain USD price',
+      cache: 'responses may be up to ~60s old',
+      cors: 'open to any origin',
+    },
+    endpoints: [
+      {
+        path: '/pairs',
+        url: `${base}/pairs`,
+        returns: '[{ ticker_id, base, target, pool_id, base_symbol, target_symbol }]',
+      },
+      {
+        path: '/tickers',
+        url: `${base}/tickers`,
+        returns:
+          '[{ ticker_id, base_currency, target_currency, base_symbol, target_symbol, pool_id, last_price, base_volume, target_volume, liquidity_in_usd, bid?, ask?, high?, low? }]',
+        notes:
+          'bid/ask are the best positions on each side; high/low only when the 24h window had volume',
+      },
+      {
+        path: '/orderbook',
+        url: `${base}/orderbook?ticker_id=${tickerId}&depth=100`,
+        params: {
+          ticker_id: 'required',
+          depth: 'optional; N returns N/2 levels a side, 0 or absent the whole book',
+        },
+        returns:
+          '{ ticker_id, timestamp (unix ms), bids: [[price, quantity]], asks: [[price, quantity]] }',
+        notes: 'quantity is in the base asset; levels are best-first',
+      },
+      {
+        path: '/historical_trades',
+        url: `${base}/historical_trades?ticker_id=${tickerId}&type=buy&limit=200`,
+        params: {
+          ticker_id: 'required',
+          type: 'buy or sell; absent returns both',
+          limit: `optional, default ${DEFAULT_TRADES}, max ${MAX_TRADES}; 0 means the max`,
+          start_time: 'optional, unix seconds',
+          end_time: 'optional, unix seconds',
+        },
+        returns:
+          '{ buy: [{ trade_id, price, base_volume, target_volume, trade_timestamp (unix s), type }], sell: [...] }',
+        notes:
+          'buy = target swapped into base, sell = base into target; a multi-hop swap is one trade between its two ends',
+      },
+    ],
+  });
+};
