@@ -183,6 +183,14 @@ export const usePositions = (subaccount = 0, stateFilter?: PositionState_Positio
   return { ...query, data };
 };
 
+/**
+ * Current on-chain state of specific positions, read directly rather than from
+ * the per-block cache. Used between the close and withdraw phases of a bulk
+ * removal, which must see the CLOSED state before building the withdraws.
+ */
+export const fetchPositionsById = async (ids: PositionId[]): Promise<Map<string, Position>> =>
+  new Map(await fetchInParallel(ids));
+
 export const updatePositionsQuery = async () => {
   // Invalidate, not refetch. `refetchQueries` forcibly re-runs every query
   // whose key starts with 'positions' — including inactive portfolio

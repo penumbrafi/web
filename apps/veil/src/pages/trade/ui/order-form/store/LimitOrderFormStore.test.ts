@@ -21,174 +21,97 @@ const MID = 11;
 
 const asset = (symbol: string, fill: number, balance?: number): AssetInfo => {
   const id = new AssetId({ inner: new Uint8Array(Array(32).fill(fill)) });
-  return new AssetInfo(
-    new Metadata({ symbol, penumbraAssetId: id }),
-    id,
-    6,
-    symbol,
-    balance,
-  );
+  return new AssetInfo(new Metadata({ symbol, penumbraAssetId: id }), id, 6, symbol, balance);
 };
 
-const makeStore = (baseBalance?: number, quoteBalance?: number) => {
+const makeStore = ({ book = true } = {}) => {
   const store = new LimitOrderFormStore();
-  store.setAssets(asset('UM', 0xaa, baseBalance), asset('USDC', 0xbb, quoteBalance));
+  store.setAssets(asset('UM', 0xaa, 1000), asset('USDC', 0xbb, 1000));
   runInAction(() => (store.marketPrice = MID));
-  store.setBookRows(BIDS, ASKS);
-  store.setMode('take');
+  if (book) {
+    store.setBookRows(BIDS, ASKS);
+  }
   return store;
 };
 
-describe('LimitOrderFormStore take mode', () => {
-  it('derives the side from the target price against the mid', () => {
+const buy = (store: LimitOrderFormStore, price: string, quote: string) => {
+  store.setDirection('buy');
+  store.setPriceInput(price);
+  store.setQuoteInput(quote);
+};
+
+const sell = (store: LimitOrderFormStore, price: string, base: string) => {
+  store.setDirection('sell');
+  store.setPriceInput(price);
+  store.setBaseInput(base);
+};
+
+describe('LimitOrderFormStore hybrid limit order', () => {
+  it('takes what crosses and rests the remainder at the limit', () => {
     const store = makeStore();
-    store.setPriceInput('11.5');
-    expect(store.direction).toBe('buy');
-
-    store.setPriceInput('10.5');
-    expect(store.direction).toBe('sell');
-  });
-
-  it('sizes a buy to the last level at or below the target', () => {
-    const store = makeStore(undefined, 1000);
-    store.setPriceInput('11.5');
-    expect(store.takeSizeStatus).toBe('sized');
-    expect(store.baseInput).toBe('5');
-    expect(store.quoteInput).toBe('50');
-
-    store.setPriceInput('12.5');
-    expect(store.baseInput).toBe('10');
-    expect(store.quoteInput).toBe('110');
-    expect(store.hasPlan).toBe(true);
-    expect(store.takePlan).toBeDefined();
-    expect(pnum(store.takePlan?.value.amount, 6).toNumber()).toBe(110);
-  });
-
-  it('sizes a sell down through the bids', () => {
-    const store = makeStore(undefined, 1000);
-    store.setPriceInput('10.5');
-    expect(store.direction).toBe('sell');
-    expect(store.takeSizeStatus).toBe('sized');
-    expect(store.baseInput).toBe('5');
-    expect(store.quoteInput).toBe('60');
-
-    store.setPriceInput('9');
-    expect(store.baseInput).toBe('10');
-    expect(store.quoteInput).toBe('110');
-    // The base side is the exact input of a sell swap.
-    expect(pnum(store.takePlan?.value.amount, 6).toNumber()).toBe(10);
-  });
-
-  it('spends at most the balance when the target costs more', () => {
-    const store = makeStore(undefined, 30);
-    store.setPriceInput('11.5');
-    expect(store.takeSizeStatus).toBe('capped');
-    expect(store.baseInput).toBe('3');
-    expect(store.quoteInput).toBe('30');
-    expect(store.takeLimit?.cappedSymbol).toBe('USDC');
-
-    const sell = makeStore(2, 1000);
-    sell.setPriceInput('10.5');
-    expect(sell.takeSizeStatus).toBe('capped');
-    expect(sell.baseInput).toBe('2');
-    expect(sell.quoteInput).toBe('24');
-    expect(sell.takeLimit?.cappedSymbol).toBe('UM');
-  });
-
-  it('flags a target past the whole visible book', () => {
-    const store = makeStore(undefined, 1000);
-    store.setPriceInput('25');
-    expect(store.takeSizeStatus).toBe('beyond');
-    expect(store.baseInput).toBe('15');
-    expect(store.quoteInput).toBe('210');
-    expect(store.takeLimit?.worstPrice).toBe(20);
-    // Still submittable — the user is told, not blocked.
-    expect(store.hasPlan).toBe(true);
-  });
-
-  it('always finds a level when the side is derived from the mid', () => {
-    const store = makeStore(undefined, 1000);
-    // Derivation puts the target on the far side of the mid, and the book
-    // straddles it, so a derived side always has something to take — 'empty'
-    // can only come from an explicitly pinned side.
-    const statuses = ['20', '12.5', '11.0001', '10.9999', '9', '5'].map(price => {
-      store.setPriceInput(price);
-      return [price, store.takeSizeStatus] as const;
-    });
-    expect(statuses.filter(([, status]) => status === 'empty')).toEqual([]);
-    store.setPriceInput('5');
-    expect(store.takeSizeStatus).toBe('beyond');
-  });
-
-  it('honours a pinned side instead of the derived one', () => {
-    const store = makeStore(undefined, 1000);
-    // The mid derives 'sell' here, but the trader asked to buy: every ask is
-    // above the target, so there is nothing to take and that is reported
-    // rather than silently flipped.
-    store.setDirection('buy');
-    store.setPriceInput('9.5');
-    expect(store.direction).toBe('buy');
-    expect(store.takeSizeStatus).toBe('empty');
-    expect(store.baseInput).toBe('');
-    expect(store.quoteInput).toBe('');
-    expect(store.hasPlan).toBe(false);
-  });
-
-  it('lets a hand-edited amount win until the target changes', () => {
-    const store = makeStore(undefined, 1000);
-    store.setPriceInput('11.5');
-    store.setBaseInput('2');
-    expect(store.takeSizeStatus).toBe('manual');
-    expect(store.baseInput).toBe('2');
-
-    store.setPriceInput('12.5');
-    expect(store.takeSizeStatus).toBe('sized');
-    expect(store.baseInput).toBe('10');
-  });
-
-  it('waits for the book, then sizes when it lands', () => {
-    const store = new LimitOrderFormStore();
-    store.setAssets(asset('UM', 0xaa), asset('USDC', 0xbb, 1000));
-    runInAction(() => (store.marketPrice = MID));
-    store.setMode('take');
-    store.setPriceInput('11.5');
-    expect(store.takeSizeStatus).toBe('loading');
-    expect(store.baseInput).toBe('');
-
-    store.setBookRows(BIDS, ASKS);
-    expect(store.takeSizeStatus).toBe('sized');
-    expect(store.baseInput).toBe('5');
-  });
-
-  it('blocks without a mid to aim from', () => {
-    const store = makeStore();
-    runInAction(() => (store.marketPrice = 0));
-    store.setPriceInput('11.5');
-    expect(store.takeSizeStatus).toBe('no-mid');
-    expect(store.hasPlan).toBe(false);
-  });
-
-  it('clears the target once a take has been broadcast', () => {
-    const store = makeStore(undefined, 1000);
-    store.setPriceInput('11.5');
-    store.clearTake();
-    expect(store.priceInput).toBe('');
-    expect(store.takeSizeStatus).toBe('idle');
-    expect(store.hasPlan).toBe(false);
-  });
-
-  it('leaves Rest mode alone', () => {
-    const store = makeStore(undefined, 1000);
-    store.setMode('rest');
-    store.setPriceInput('12');
-    store.setQuoteInput('100');
-    expect(store.mode).toBe('rest');
-    expect(store.takeLimit).toBeUndefined();
-    expect(store.takePlan).toBeUndefined();
+    buy(store, '11', '100');
+    // The 10 ask (5 UM = 50 USDC) is at or below 11; the rest waits at 11.
+    expect(store.split?.takeInput).toBe(50);
+    expect(store.split?.takeBase).toBe(5);
+    expect(store.split?.restInput).toBe(50);
+    expect(pnum(store.takePlan?.value.amount, 6).toNumber()).toBe(50);
     expect(store.plan).toBeDefined();
     expect(store.hasPlan).toBe(true);
-    // Rest still clears the amounts when the side flips; take mode does not.
-    store.setDirection('sell');
+  });
+
+  it('walks several levels up to the limit', () => {
+    const store = makeStore();
+    buy(store, '12.5', '200');
+    // 10 × 5 + 12 × 5 = 110 USDC crosses; 90 rests at 12.5.
+    expect(store.split?.takeInput).toBe(110);
+    expect(store.split?.restInput).toBe(90);
+    expect(store.split?.takeWorstPrice).toBe(12);
+  });
+
+  it('only rests when the limit is behind the book', () => {
+    const store = makeStore();
+    buy(store, '9', '100');
+    expect(store.split?.takeInput).toBe(0);
+    expect(store.split?.restInput).toBe(100);
+    expect(store.takePlan).toBeUndefined();
+    expect(store.plan).toBeDefined();
+  });
+
+  it('only takes when the order is smaller than what crosses', () => {
+    const store = makeStore();
+    buy(store, '12.5', '30');
+    expect(store.split?.takeInput).toBe(30);
+    expect(store.split?.restInput).toBe(0);
+    expect(store.plan).toBeUndefined();
+    expect(pnum(store.takePlan?.value.amount, 6).toNumber()).toBe(30);
+  });
+
+  it('splits a sell down through the bids, spending base', () => {
+    const store = makeStore();
+    sell(store, '10.5', '20');
+    // The 12 bid (5 UM) is at or above 10.5; 15 UM rests at 10.5.
+    expect(store.split?.takeInput).toBe(5);
+    expect(store.split?.restInput).toBe(15);
+    expect(pnum(store.takePlan?.value.amount, 6).toNumber()).toBe(5);
+  });
+
+  it('has no plan until the book arrives', () => {
+    const store = makeStore({ book: false });
+    buy(store, '11', '100');
+    expect(store.bookLoaded).toBe(false);
+    expect(store.split).toBeUndefined();
+    expect(store.hasPlan).toBe(false);
+
+    store.setBookRows(BIDS, ASKS);
+    expect(store.hasPlan).toBe(true);
+  });
+
+  it('clears price and amounts after a swap was broadcast', () => {
+    const store = makeStore();
+    buy(store, '11', '100');
+    store.clearAfterSwap();
+    expect(store.priceInput).toBe('');
     expect(store.quoteInput).toBe('');
+    expect(store.hasPlan).toBe(false);
   });
 });

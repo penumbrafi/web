@@ -239,7 +239,9 @@ export class OrderFormStore {
       case 'Market':
         return `${this._market.direction}|${this._market.baseInput}|${this._market.quoteInput}`;
       case 'Limit':
-        return `${this._limit.mode}|${this._limit.direction}|${this._limit.baseInput}|${this._limit.quoteInput}|${this._limit.priceInput}`;
+        // The split moves with the book, and it decides how many opens and
+        // swaps the transaction carries.
+        return `${this._limit.direction}|${this._limit.baseInput}|${this._limit.quoteInput}|${this._limit.priceInput}|${this._limit.split?.takeInput}|${this._limit.split?.restInput}`;
       case 'RangeLP':
         return `${this._range.liquidityTargetInput}|${this._range.lowerPriceInput}|${this._range.upperPriceInput}|${this._range.feeTierPercentInput}`;
       case 'LP':
@@ -547,11 +549,13 @@ export class OrderFormStore {
       return { opens: 0, swaps: 1 };
     }
     if (this._whichForm === 'Limit') {
-      // Take mode submits a swap against the book; Rest mode opens the
-      // one-sided position. Same tab, two transactions.
-      return this._limit.mode === 'take'
-        ? { opens: 0, swaps: 1 }
-        : { opens: 1, swaps: 0 };
+      // What crosses is swapped now, the rest opens a one-sided position;
+      // either half can be empty, both go in one transaction.
+      const split = this._limit.split;
+      return {
+        opens: split && split.restInput > 0 ? 1 : 0,
+        swaps: split && split.takeInput > 0 ? 1 : 0,
+      };
     }
     return { opens: this.activeLpForm.rungs?.length ?? 0, swaps: 0 };
   }
@@ -578,24 +582,18 @@ export class OrderFormStore {
       });
     }
     if (this._whichForm === 'Limit') {
-      if (this._limit.mode === 'take') {
-        const swap = this._limit.takePlan;
-        if (!swap) {
-          return undefined;
-        }
-        return new TransactionPlannerRequest({
-          swaps: [{ targetAsset: swap.targetAsset, value: swap.value, claimAddress: this.address }],
-          source: this.subAccountIndex,
-        });
-      }
-      const plan = this._limit.plan;
-      if (!plan) {
+      const swap = this._limit.takePlan;
+      const rest = this._limit.plan;
+      if (!swap && !rest) {
         return undefined;
       }
       return new TransactionPlannerRequest({
-        positionOpens: [
-          { position: plan.position, positionMeta: { strategy: encodeLiquidityShape(plan.shape) } },
-        ],
+        swaps: swap
+          ? [{ targetAsset: swap.targetAsset, value: swap.value, claimAddress: this.address }]
+          : [],
+        positionOpens: rest
+          ? [{ position: rest.position, positionMeta: { strategy: encodeLiquidityShape(rest.shape) } }]
+          : [],
         source: this.subAccountIndex,
       });
     }
@@ -747,7 +745,8 @@ export class OrderFormStore {
       offMidWarning,
       lowerPrice: rangeBounds.lowerPrice,
       upperPrice: rangeBounds.upperPrice,
-      takeLimit: this._whichForm === 'Limit' ? this._limit.takeLimit : undefined,
+      limitBookLoading:
+        this._whichForm === 'Limit' && !this._limit.bookLoaded && this._limit.price !== undefined,
     });
   }
 
@@ -795,9 +794,10 @@ export class OrderFormStore {
 
   async submit() {
     const plan = this.plan;
-    // Take mode is a market order against the book, so it broadcasts through
-    // the swap path even though it lives on the Limit tab.
-    const limitTake = this.whichForm === 'Limit' && this._limit.mode === 'take';
+    // A limit order whose price crosses the book carries a swap, so it
+    // broadcasts through the swap path (and its double-submit guard) even
+    // when it also opens a resting position.
+    const limitTake = this.whichForm === 'Limit' && this._limit.takePlan !== undefined;
     const wasSwap = this.whichForm === 'Market' || limitTake;
     const source = this.subAccountIndex;
     // Redundant, but makes typescript happier.
@@ -852,7 +852,7 @@ export class OrderFormStore {
         this._market.setBaseInput('');
         this._market.setQuoteInput('');
         if (limitTake) {
-          this._limit.clearTake();
+          this._limit.clearAfterSwap();
         }
         this._submitting = false;
       });
@@ -895,7 +895,7 @@ export class OrderFormStore {
             // Take mode's priced-but-unsized state has nothing to submit, so
             // it is already safe to leave in place — but the sized amounts
             // would let the same swap be rebuilt, so drop the whole target.
-            this._limit.clearTake();
+            this._limit.clearAfterSwap();
           }
         });
         return;

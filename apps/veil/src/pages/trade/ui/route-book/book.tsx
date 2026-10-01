@@ -5,7 +5,8 @@ import { observer } from 'mobx-react-lite';
 import { BlockchainError } from '@/shared/ui/blockchain-error';
 import { pnum } from '@penumbra-zone/types/pnum';
 import { usePathSymbols } from '../../model/use-path';
-import { useBook } from '../../api/book';
+import { useBookV2 } from '../../api/book-v2';
+import { bucketPrice, levelPriceString } from '@/shared/api/server/book/v2/levels';
 import type { Trace } from '@/shared/api/server/book/types';
 import { calculateCumulativeDepthByPrice } from './utils';
 import { simulateMarketBase } from './simulation';
@@ -22,20 +23,7 @@ const VIEW_KEY = 'veil-route-book-view';
 
 // null = raw (no bucketing). Values are percent-of-mid bucket widths.
 type AggPct = number | null;
-const AGG_OPTIONS: readonly AggPct[] = [
-  null,
-  0.01,
-  0.05,
-  0.1,
-  0.25,
-  0.5,
-  1,
-  2.5,
-  5,
-  10,
-  25,
-  50,
-];
+const AGG_OPTIONS: readonly AggPct[] = [null, 0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 25, 50];
 const AGG_LABEL = (v: AggPct) => (v === null ? 'raw' : `${v}%`);
 
 type ViewMode = 'both' | 'bids' | 'asks';
@@ -75,76 +63,41 @@ const emptySideCopy = (
   };
 };
 
-// Hard cap on rows the trader sees. Beyond that the panel doesn't fit and
-// bucketing is the right lever to compress info instead of scrolling.
+// Rows the trader sees per side by default. Beyond that the panel doesn't
+// fit and bucketing is the right lever to compress info; "Load more" at the
+// outer end of a side grows it on demand.
 const CAP_PER_SIDE = 10;
 const CAP_ONE_SIDE = 20;
+const LOAD_MORE_ROWS = 10;
+// Levels per side per /api/book/v2 page. One page covers the default view
+// (and the one-side view); more pages load only when asked for.
+const LEVELS_PER_PAGE = 20;
 
 const readCumulativePref = (): boolean => {
-  if (typeof window === 'undefined') {return false;}
+  if (typeof window === 'undefined') {
+    return false;
+  }
   return window.localStorage.getItem(CUMULATIVE_KEY) === '1';
 };
 
 const readAggPref = (): AggPct => {
-  if (typeof window === 'undefined') {return null;}
+  if (typeof window === 'undefined') {
+    return null;
+  }
   const raw = window.localStorage.getItem(AGG_KEY);
-  if (raw === null || raw === 'raw') {return null;}
+  if (raw === null || raw === 'raw') {
+    return null;
+  }
   const n = Number(raw);
   return Number.isFinite(n) && AGG_OPTIONS.includes(n) ? n : null;
 };
 
 const readViewPref = (): ViewMode => {
-  if (typeof window === 'undefined') {return 'both';}
+  if (typeof window === 'undefined') {
+    return 'both';
+  }
   const raw = window.localStorage.getItem(VIEW_KEY);
   return raw === 'bids' || raw === 'asks' ? raw : 'both';
-};
-
-// Aggregate adjacent traces whose prices round to the same bucket. `hops`
-// on the merged row is taken from the shortest-path trace in the bucket
-// so the Direct/Hop label stays truthful for the bulk of the liquidity.
-const bucketTraces = (rows: Trace[], bucketSize: number): Trace[] => {
-  if (!bucketSize || bucketSize <= 0) {return rows;}
-  interface Bucket {
-    price: number;
-    amount: number;
-    total: number;
-    hops: Trace['hops'];
-    minHopLen: number;
-  }
-  const buckets = new Map<number, Bucket>();
-  for (const r of rows) {
-    const p = pnum(r.price).toNumber();
-    if (!Number.isFinite(p) || p <= 0) {continue;}
-    const key = Math.round(p / bucketSize) * bucketSize;
-    const amt = pnum(r.amount).toNumber();
-    const tot = pnum(r.total).toNumber();
-    const existing = buckets.get(key);
-    if (!existing) {
-      buckets.set(key, {
-        price: key,
-        amount: amt,
-        total: tot,
-        hops: r.hops,
-        minHopLen: r.hops.length,
-      });
-    } else {
-      existing.amount += amt;
-      existing.total += tot;
-      if (r.hops.length < existing.minHopLen) {
-        existing.hops = r.hops;
-        existing.minHopLen = r.hops.length;
-      }
-    }
-  }
-  // Preserve DESCENDING price order (matches the raw traces).
-  return [...buckets.values()]
-    .sort((a, b) => b.price - a.price)
-    .map(b => ({
-      price: String(b.price),
-      amount: String(b.amount),
-      total: String(b.total),
-      hops: b.hops,
-    }));
 };
 
 // Click on a sell row → user wants to buy at the asking price.
@@ -216,13 +169,19 @@ const accumulate = (rows: Trace[], side: 'sell' | 'buy'): Trace[] => {
 };
 
 export const RouteBook = observer(() => {
-  // Fetch a deep book (100 rows/side) so aggregation buckets always have
-  // enough underlying levels to summarize, and so RouteDepth's cache
-  // shares the same key.
-  const { data, isLoading, error: bookErr } = useBook({ traceLimit: 100 });
   const [cumulative, setCumulative] = useState(false);
   const [agg, setAgg] = useState<AggPct>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('both');
+  // Levels around the touch, bucketed server-side at the Agg width, paged
+  // outward on demand. (It used to be a 100-row full-book simulate per
+  // block, bucketed here.)
+  const {
+    data: book,
+    isLoading,
+    error: bookErr,
+    loadMore,
+    isFetchingMore,
+  } = useBookV2({ stepPct: agg, levels: LEVELS_PER_PAGE });
 
   useEffect(() => {
     setCumulative(readCumulativePref());
@@ -260,56 +219,59 @@ export const RouteBook = observer(() => {
     }
   }, []);
 
-  const multiHops = data?.multiHops;
   const pair = usePathSymbols();
 
-  // Compute mid from the raw traces (highest bid + lowest ask / 2) so the
-  // aggregation bucket has a scale to work with even when the visible
-  // sell side happens to be empty after slicing.
-  const mid = useMemo<number | undefined>(() => {
-    if (!multiHops?.buy.length || !multiHops.sell.length) {return undefined;}
-    let hi = 0;
-    let lo = Infinity;
-    for (const t of multiHops.buy) {
-      const p = pnum(t.price).toNumber();
-      if (Number.isFinite(p) && p > hi) {hi = p;}
-    }
-    for (const t of multiHops.sell) {
-      const p = pnum(t.price).toNumber();
-      if (Number.isFinite(p) && p > 0 && p < lo) {lo = p;}
-    }
-    if (!Number.isFinite(hi) || !Number.isFinite(lo) || hi <= 0) {return undefined;}
-    return (hi + lo) / 2;
-  }, [multiHops]);
+  // Bucket width the server actually used (0 = raw). Rows arrive already
+  // aggregated, bids best-first and asks best-LAST (v1's order).
+  const bucketSize = book?.step ?? 0;
+  const bucketedSell = useMemo<Trace[]>(() => book?.asks ?? [], [book]);
+  const bucketedBuy = useMemo<Trace[]>(() => book?.bids ?? [], [book]);
 
-  const bucketSize = useMemo(() => {
-    if (agg === null || mid === undefined) {return 0;}
-    return mid * (agg / 100);
-  }, [agg, mid]);
-
-  const bucketedSell = useMemo(() => {
-    if (!multiHops) {return [];}
-    return bucketSize > 0 ? bucketTraces(multiHops.sell, bucketSize) : multiHops.sell;
-  }, [multiHops, bucketSize]);
-  const bucketedBuy = useMemo(() => {
-    if (!multiHops) {return [];}
-    return bucketSize > 0 ? bucketTraces(multiHops.buy, bucketSize) : multiHops.buy;
-  }, [multiHops, bucketSize]);
+  const baseCap = viewMode === 'both' ? CAP_PER_SIDE : CAP_ONE_SIDE;
+  const [sellCap, setSellCap] = useState(baseCap);
+  const [buyCap, setBuyCap] = useState(baseCap);
+  // Back to the default depth whenever what the ladder shows changes.
+  useEffect(() => {
+    setSellCap(baseCap);
+    setBuyCap(baseCap);
+  }, [baseCap, agg, pair.baseSymbol, pair.quoteSymbol]);
 
   // Cap the visible rows so the panel always fits. `sellRows` needs the
   // rows CLOSEST to the spread — those sit at the END of a DESC-sorted
   // list (lowest ask is last). `buyRows` needs those closest to spread
   // at the TOP, which is the START of a DESC-sorted list (highest bid).
   const sellDisplay = useMemo<Trace[]>(() => {
-    if (viewMode === 'bids') {return [];}
-    const cap = viewMode === 'asks' ? CAP_ONE_SIDE : CAP_PER_SIDE;
-    return bucketedSell.slice(-cap);
-  }, [bucketedSell, viewMode]);
+    if (viewMode === 'bids') {
+      return [];
+    }
+    return bucketedSell.slice(-sellCap);
+  }, [bucketedSell, viewMode, sellCap]);
   const buyDisplay = useMemo<Trace[]>(() => {
-    if (viewMode === 'asks') {return [];}
-    const cap = viewMode === 'bids' ? CAP_ONE_SIDE : CAP_PER_SIDE;
-    return bucketedBuy.slice(0, cap);
-  }, [bucketedBuy, viewMode]);
+    if (viewMode === 'asks') {
+      return [];
+    }
+    return bucketedBuy.slice(0, buyCap);
+  }, [bucketedBuy, viewMode, buyCap]);
+
+  // "Load more" at the outer end of a side: show rows already loaded
+  // first, and fetch the next page (both sides advance together) when the
+  // grown cap runs past what is loaded.
+  const canMoreSell = viewMode !== 'bids' && (bucketedSell.length > sellCap || !!book?.hasMoreAsks);
+  const canMoreBuy = viewMode !== 'asks' && (bucketedBuy.length > buyCap || !!book?.hasMoreBids);
+  const moreSell = () => {
+    const next = sellCap + LOAD_MORE_ROWS;
+    setSellCap(next);
+    if (next > bucketedSell.length && book?.hasMoreAsks) {
+      loadMore();
+    }
+  };
+  const moreBuy = () => {
+    const next = buyCap + LOAD_MORE_ROWS;
+    setBuyCap(next);
+    if (next > bucketedBuy.length && book?.hasMoreBids) {
+      loadMore();
+    }
+  };
 
   const sellRows = useMemo(
     () => (cumulative ? accumulate(sellDisplay, 'sell') : sellDisplay),
@@ -329,7 +291,7 @@ export const RouteBook = observer(() => {
   // mapping doesn't drift when bucketing rounds two rows to the same
   // total.
   //
-  // Memoize on the row arrays — useBook polls every block (~5s), so on
+  // Memoize on the row arrays — useBookV2 polls every block (~5s), so on
   // pairs with deep books this iterates 30+ rows twice per refetch. The
   // map identity also matters: stable references mean child <TradeRow>
   // memoization doesn't bust on every block.
@@ -342,69 +304,67 @@ export const RouteBook = observer(() => {
     [buyDisplay],
   );
 
-  // Simulate the current draft order against the raw book (pre-bucketing)
-  // so the fill walks real per-position inventory, not summarized totals.
-  // Then bin the fills onto whatever level (raw or bucketed) is being
-  // rendered so the highlight lands on the visible row.
+  // Simulate the current draft order against the loaded levels. They are
+  // already bucketed server-side, so the fill keys are the rendered row
+  // prices directly (a bucket's inventory is the sum of its positions).
   //
   // mobx tracking note: reads MUST happen in the render body — an observed
   // read inside a `useMemo` callback that skips because its deps are equal
   // never registers with mobx, so the store observer drops the dep and the
-  // fill highlight only updates when `multiHops` changes (once per block).
+  // fill highlight only updates when the book changes (once per block).
   // Pull the values out here so mobx sees them on every render, then feed
   // them to the memo as explicit deps.
   const whichForm = tradeFormStore.whichForm;
   const marketDirection = tradeFormStore.marketForm.direction;
   const marketBaseInput = tradeFormStore.marketForm.baseInputAmount;
   const limitPriceInput = tradeFormStore.limitForm.priceInput;
-  const marketSim = useMemo(() => {
-    if (
-      whichForm !== 'Market' ||
-      !multiHops?.buy.length ||
-      !multiHops.sell.length
-    ) {
+  const fillByRenderedPrice = useMemo<Map<string, number>>(() => {
+    const none = new Map<string, number>();
+    if (whichForm !== 'Market' || !bucketedBuy.length || !bucketedSell.length) {
+      return none;
+    }
+    if (!marketBaseInput || marketBaseInput <= 0) {
+      return none;
+    }
+    return (
+      simulateMarketBase(marketDirection, marketBaseInput, bucketedBuy, bucketedSell)?.fills ?? none
+    );
+  }, [bucketedBuy, bucketedSell, whichForm, marketDirection, marketBaseInput]);
+
+  // Limit form: highlight the row (bucket) the resting price sits in, keyed
+  // exactly as the server buckets that side (bids floor, asks ceil).
+  // Same mobx-in-useMemo hazard as above — reads happen in the render body
+  // so the observer registers them every render.
+  const limitFillPrice = useMemo<{ sell: string; buy: string } | undefined>(() => {
+    if (whichForm !== 'Limit') {
       return undefined;
     }
-    if (!marketBaseInput || marketBaseInput <= 0) {return undefined;}
-    return simulateMarketBase(marketDirection, marketBaseInput, multiHops.buy, multiHops.sell);
-  }, [multiHops, whichForm, marketDirection, marketBaseInput]);
-
-  // Project the fill fractions from raw prices onto the currently rendered
-  // (possibly bucketed) rows. When bucketing is on, a bucket row is
-  // marked filled at the max fill fraction of any raw level inside it.
-  const fillByRenderedPrice = useMemo<Map<string, number>>(() => {
-    if (!marketSim || !multiHops) {return new Map();}
-    // Fast path — no bucketing means visible rows use the raw price keys.
-    if (bucketSize <= 0) {return marketSim.fills;}
-    const consumed: { price: number; fraction: number }[] = [];
-    for (const [rawPriceStr, fraction] of marketSim.fills) {
-      const p = pnum(rawPriceStr).toNumber();
-      if (Number.isFinite(p) && fraction > 0) {consumed.push({ price: p, fraction });}
-    }
-    const out = new Map<string, number>();
-    // Map each raw fill to its bucket key exactly the way bucketTraces did.
-    for (const c of consumed) {
-      const key = Math.round(c.price / bucketSize) * bucketSize;
-      const bucketKey = String(key);
-      const prior = out.get(bucketKey) ?? 0;
-      if (c.fraction > prior) {out.set(bucketKey, c.fraction);}
-    }
-    return out;
-  }, [marketSim, multiHops, bucketSize]);
-
-  // Limit form: highlight the row (bucket) the resting price sits in.
-  // Same mobx-in-useMemo hazard as `marketSim` — reads happen in the render
-  // body above so the observer registers them every render.
-  const limitFillPrice = useMemo<string | undefined>(() => {
-    if (whichForm !== 'Limit') {return undefined;}
     const p = limitPriceInput ? Number(limitPriceInput) : NaN;
-    if (!Number.isFinite(p) || p <= 0) {return undefined;}
-    if (bucketSize > 0) {
-      const key = Math.round(p / bucketSize) * bucketSize;
-      return String(key);
+    if (!Number.isFinite(p) || p <= 0) {
+      return undefined;
     }
-    return String(p);
+    return {
+      sell: levelPriceString(bucketPrice(p, bucketSize, 'ask')),
+      buy: levelPriceString(bucketPrice(p, bucketSize, 'bid')),
+    };
   }, [bucketSize, whichForm, limitPriceInput]);
+
+  // The spread reads the raw touch, not the (conservatively widened)
+  // bucketed rows.
+  const touchSell = useMemo<Trace[]>(
+    () =>
+      book?.bestAsk !== undefined
+        ? [{ price: levelPriceString(book.bestAsk), amount: '0', total: '0', hops: [] }]
+        : [],
+    [book?.bestAsk],
+  );
+  const touchBuy = useMemo<Trace[]>(
+    () =>
+      book?.bestBid !== undefined
+        ? [{ price: levelPriceString(book.bestBid), amount: '0', total: '0', hops: [] }]
+        : [],
+    [book?.bestBid],
+  );
 
   // Stable click handlers — without useCallback these would be fresh
   // function references on every render, busting any future memo() on
@@ -437,7 +397,9 @@ export const RouteBook = observer(() => {
   const aggIdx = AGG_OPTIONS.indexOf(agg);
   const stepAgg = (delta: number) => {
     const next = AGG_OPTIONS[Math.max(0, Math.min(AGG_OPTIONS.length - 1, aggIdx + delta))];
-    if (next !== undefined) {chooseAgg(next);}
+    if (next !== undefined) {
+      chooseAgg(next);
+    }
   };
   const controls = (
     <div className='flex flex-wrap items-center justify-between gap-2 px-4 pt-2 text-[10px] leading-none text-text-secondary'>
@@ -512,7 +474,7 @@ export const RouteBook = observer(() => {
     </div>
   );
 
-  if (isLoading || !multiHops) {
+  if (isLoading || !book) {
     return (
       <div>
         {controls}
@@ -541,11 +503,12 @@ export const RouteBook = observer(() => {
   // side hint in place of the missing SpreadRow instead.
   const bothSidesPresent = sellRows.length > 0 && buyRows.length > 0;
 
-  // Grid-row bookkeeping for the DepthCurve SVGs. Row 1 = header;
-  // sells start at 2 and take n_sells rows; the spread row or its
+  // Grid-row bookkeeping for the DepthCurve SVGs. Row 1 = header, then
+  // the asks' "Load more" row when shown; sells start after that and take
+  // n_sells rows; the spread row or its
   // empty-side placeholder then eats one row (when the layout shows
   // both sides); buys follow.
-  const sellGridStart = 2;
+  const sellGridStart = 2 + (canMoreSell ? 1 : 0);
   const buyGridStart = sellGridStart + sellRows.length + (showSpread ? 1 : 0);
   let emptySide: 'buy' | 'sell' | null = null;
   if (showSpread && !bothSidesPresent) {
@@ -555,83 +518,109 @@ export const RouteBook = observer(() => {
   const emptyCopy = emptySideCopy(emptySide, pair.baseSymbol, pair.quoteSymbol);
 
   return (
-      <>
-        {controls}
-        <div className='relative mt-2 grid w-full auto-rows-[32px] grid-cols-[1fr_1fr_1fr_1fr] items-center gap-x-2'>
-          <RouteBookHeader
-            quote={pair.quoteSymbol}
-            base={pair.baseSymbol}
-            cumulative={cumulative}
-            onToggleCumulative={toggleCumulative}
-          />
+    <>
+      {controls}
+      <div className='relative mt-2 grid w-full auto-rows-[32px] grid-cols-[1fr_1fr_1fr_1fr] items-center gap-x-2'>
+        <RouteBookHeader
+          quote={pair.quoteSymbol}
+          base={pair.baseSymbol}
+          cumulative={cumulative}
+          onToggleCumulative={toggleCumulative}
+        />
 
-          {/*
+        {/*
             DepthCurve SVGs sit before the rows in source order so the
             rows paint on top of the fill (keeping click targets and
             hover states intact). Two independent SVGs, one per side,
             each stretched via preserveAspectRatio='none' to match its
             side's block height.
           */}
-          <DepthCurve
-            rows={sellRows}
-            relativeSizes={sellRelativeSizes}
-            side='sell'
-            gridRowStart={sellGridStart}
-          />
-          <DepthCurve
-            rows={buyRows}
-            relativeSizes={buyRelativeSizes}
-            side='buy'
-            gridRowStart={buyGridStart}
-          />
+        <DepthCurve
+          rows={sellRows}
+          relativeSizes={sellRelativeSizes}
+          side='sell'
+          gridRowStart={sellGridStart}
+        />
+        <DepthCurve
+          rows={buyRows}
+          relativeSizes={buyRelativeSizes}
+          side='buy'
+          gridRowStart={buyGridStart}
+        />
 
-          {sellRows.map((trace, idx) => (
-            // Use idx as the key, not price+idx. The Nth sell row stays
-            // the Nth sell row across book updates even when its price
-            // moves — keying on price would unmount/remount the entire
-            // row DOM subtree on every level shift, killing CSS
-            // transitions and triggering paint thrash on each block.
-            <TradeRow
-              key={`sell-${idx}`}
-              trace={trace}
-              isSell={true}
-              relativeSize={sellRelativeSizes.get(trace.price) ?? 0}
-              onClick={onSellClick}
-              fillFraction={
-                fillByRenderedPrice.get(trace.price) ??
-                (limitFillPrice === trace.price ? 1 : undefined)
-              }
-              depthBar={false}
-            />
+        {canMoreSell && <LoadMoreRow side='sell' onClick={moreSell} loading={isFetchingMore} />}
+
+        {sellRows.map((trace, idx) => (
+          // Use idx as the key, not price+idx. The Nth sell row stays
+          // the Nth sell row across book updates even when its price
+          // moves — keying on price would unmount/remount the entire
+          // row DOM subtree on every level shift, killing CSS
+          // transitions and triggering paint thrash on each block.
+          <TradeRow
+            key={`sell-${idx}`}
+            trace={trace}
+            isSell={true}
+            relativeSize={sellRelativeSizes.get(trace.price) ?? 0}
+            onClick={onSellClick}
+            fillFraction={
+              fillByRenderedPrice.get(trace.price) ??
+              (limitFillPrice?.sell === trace.price ? 1 : undefined)
+            }
+            depthBar={false}
+          />
+        ))}
+
+        {showSpread &&
+          (bothSidesPresent ? (
+            <SpreadRow sellOrders={touchSell} buyOrders={touchBuy} />
+          ) : (
+            <div
+              className='col-span-4 flex h-full items-center justify-center px-3 py-3 text-xs text-text-secondary'
+              title={emptyCopy.title}
+            >
+              {emptyCopy.text}
+            </div>
           ))}
 
-          {showSpread &&
-            (bothSidesPresent ? (
-              <SpreadRow sellOrders={multiHops.sell} buyOrders={multiHops.buy} />
-            ) : (
-              <div
-                className='col-span-4 flex h-full items-center justify-center px-3 py-3 text-xs text-text-secondary'
-                title={emptyCopy.title}
-              >
-                {emptyCopy.text}
-              </div>
-            ))}
+        {buyRows.map((trace, idx) => (
+          <TradeRow
+            key={`buy-${idx}`}
+            trace={trace}
+            isSell={false}
+            relativeSize={buyRelativeSizes.get(trace.price) ?? 0}
+            onClick={onBuyClick}
+            fillFraction={
+              fillByRenderedPrice.get(trace.price) ??
+              (limitFillPrice?.buy === trace.price ? 1 : undefined)
+            }
+            depthBar={false}
+          />
+        ))}
 
-          {buyRows.map((trace, idx) => (
-            <TradeRow
-              key={`buy-${idx}`}
-              trace={trace}
-              isSell={false}
-              relativeSize={buyRelativeSizes.get(trace.price) ?? 0}
-              onClick={onBuyClick}
-              fillFraction={
-                fillByRenderedPrice.get(trace.price) ??
-                (limitFillPrice === trace.price ? 1 : undefined)
-              }
-              depthBar={false}
-            />
-          ))}
-        </div>
-      </>
-    );
+        {canMoreBuy && <LoadMoreRow side='buy' onClick={moreBuy} loading={isFetchingMore} />}
+      </div>
+    </>
+  );
 });
+
+const LoadMoreRow = ({
+  side,
+  onClick,
+  loading,
+}: {
+  side: 'buy' | 'sell';
+  onClick: () => void;
+  loading: boolean;
+}) => (
+  <button
+    type='button'
+    onClick={onClick}
+    disabled={loading}
+    className='col-span-4 flex h-full items-center justify-center text-[10px] text-text-secondary transition-colors hover:bg-action-hover-overlay hover:text-text-primary disabled:opacity-60'
+    title={
+      side === 'sell' ? 'Show asks further from the price' : 'Show bids further from the price'
+    }
+  >
+    {loading ? 'Loading…' : `Load more ${side === 'sell' ? 'asks' : 'bids'}`}
+  </button>
+);

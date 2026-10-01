@@ -93,35 +93,28 @@ const render = (store: OrderFormStore) =>
     ),
   );
 
-test('take mode shows the target price and the size that reaches it', () => {
+test('a limit through the market shows what fills now and what rests', () => {
   const store = makeStore();
-  store.limitForm.setMode('take');
+  store.limitForm.setQuoteInput('100');
   const text = render(store);
 
-  // The chips that pick the mode, and the label on the price field.
-  expect(text).toContain('Take');
-  expect(text).toContain('Rest');
-  expect(text).toContain('Move UM to');
-  // The sizer's own account of what the order does, and the amounts it filled
-  // in: 5 UM for 50 USDC, the last level taken at the typed target.
-  expect(text).toContain('Takes 5 UM for 50 USDC — the last level taken sits at 11.5 USDC');
-  expect(text).toContain('Buy | | 5');
-  expect(text).toContain('Pay with | | 50');
-  // Take is a taker by construction, so the crossing warning is replaced by
-  // the line above rather than shown alongside it, and the ±% chips - which
-  // place a *resting* order - are withheld.
-  expect(text).not.toContain('Buy ≥ mid');
-  expect(text).not.toContain('-2%');
-  // Connected with a sized order: the submit button is offered.
+  // No mode switch any more: one price field, and the ±% chips for resting.
+  expect(text).not.toContain('Move UM to');
+  expect(text).toContain('Buy UM at');
+  expect(text).toContain('-2%');
+  // The 10 ask (5 UM, 50 USDC) is at or below 11.5; the other 50 USDC waits.
+  expect(text).toContain('5 UM fills now against the book (worst 10 USDC)');
+  expect(text).toContain('50 USDC rests at 11.5 USDC');
+  // Connected with a complete order: the submit button is offered.
   expect(text).toContain('Buy UM');
 });
 
-test('rest mode keeps the resting-order surface', () => {
+test('a limit behind the book only rests', () => {
   const store = makeStore();
-  store.limitForm.setMode('rest');
+  store.limitForm.setPriceInput('9');
+  store.limitForm.setQuoteInput('90');
   const text = render(store);
 
-  expect(text).toContain('When UM is');
-  expect(text).toContain('-2%');
-  expect(text).not.toContain('Takes 5 UM');
+  expect(text).toContain('90 USDC rests at 9 USDC');
+  expect(text).not.toContain('fills now');
 });

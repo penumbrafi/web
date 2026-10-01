@@ -36,6 +36,7 @@ import { Dash } from './dash';
 import { Pagination } from '@penumbra-zone/ui/Pagination';
 import { PositionState_PositionStateEnum } from '@penumbra-zone/protobuf/penumbra/core/component/dex/v1/dex_pb';
 import { fullyWithdrawn } from '@/shared/utils/position';
+import { PriceRange, inPriceRange, isRangeActive, parseRangeBound } from '../model/price-range';
 
 export interface PositionsTableProps {
   base?: Metadata;
@@ -106,6 +107,65 @@ const PairFilter = ({
     <div className='mb-3 flex gap-2 overflow-x-auto pb-1'>
       {chip(undefined, 'All pairs', total)}
       {options.map(o => chip(o.key, o.label, o.count))}
+    </div>
+  );
+};
+
+/**
+ * Min/max price inputs for one pair's positions. Prices are the rows' own
+ * orientation (quote per base), the same number shown under Effective Price.
+ */
+const PriceRangeFilter = ({
+  min,
+  max,
+  onChange,
+  quoteSymbol,
+  matching,
+  total,
+}: {
+  min: string;
+  max: string;
+  onChange: (next: { min: string; max: string }) => void;
+  quoteSymbol?: string;
+  matching: number;
+  total: number;
+}) => {
+  const input = (value: string, placeholder: string, set: (v: string) => void) => (
+    <input
+      type='text'
+      inputMode='decimal'
+      value={value}
+      placeholder={placeholder}
+      aria-label={`${placeholder} price`}
+      onChange={e => set(e.target.value)}
+      className='w-28 rounded-sm border border-other-tonal-stroke bg-transparent px-2 py-1 text-xs text-text-primary tabular-nums outline-none focus:border-primary-main'
+    />
+  );
+  const active = min.trim() !== '' || max.trim() !== '';
+  return (
+    <div className='mb-3 flex flex-wrap items-center gap-2'>
+      <Text detail color='text.secondary'>
+        Price range{quoteSymbol ? ` (${quoteSymbol})` : ''}
+      </Text>
+      {input(min, 'Min', v => onChange({ min: v, max }))}
+      <Text detail color='text.secondary'>
+        –
+      </Text>
+      {input(max, 'Max', v => onChange({ min, max: v }))}
+      {active && (
+        <>
+          <Text detail color='text.secondary'>
+            {matching} of {total} in range
+          </Text>
+          <button
+            type='button'
+            className='text-xs text-text-secondary hover:underline'
+            onClick={() => onChange({ min: '', max: '' })}
+          >
+            Reset
+          </button>
+        </>
+      )}
     </div>
   );
 };
@@ -576,17 +636,37 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
   // rather than an empty table the user has to figure out.
   const activePairKey = pairKey && pairOptions.some(o => o.key === pairKey) ? pairKey : undefined;
 
-  const sortedPositions = useMemo<DisplayPosition[]>(() => {
-    const rows = activePairKey
-      ? displayPositions.filter(p => pairKeyOf(p) === activePairKey)
-      : displayPositions;
-    return orderBy([...rows], `sortValues.${sortBy.key}`, sortBy.direction);
-  }, [displayPositions, activePairKey, sortBy]);
+  const pairRows = useMemo<DisplayPosition[]>(
+    () =>
+      activePairKey
+        ? displayPositions.filter(p => pairKeyOf(p) === activePairKey)
+        : displayPositions,
+    [displayPositions, activePairKey],
+  );
 
-  // A different pair filter or sort is a different list: start at its top.
-  // Above the early returns below: a hook after them changes the hook count
-  // between renders (React #300).
-  useEffect(() => setPage(1), [activePairKey, sortBy]);
+  // A price range only means something within one pair: on /trade the route
+  // scopes the table, on /portfolio a pair chip has to be picked first.
+  const singlePair = isRoutePair || activePairKey !== undefined;
+  const [rangeInput, setRangeInput] = useState({ min: '', max: '' });
+  const range = useMemo<PriceRange>(
+    () =>
+      singlePair
+        ? { min: parseRangeBound(rangeInput.min), max: parseRangeBound(rangeInput.max) }
+        : {},
+    [singlePair, rangeInput],
+  );
+  // Another pair's prices are a different scale; don't carry the range over.
+  useEffect(() => setRangeInput({ min: '', max: '' }), [activePairKey]);
+
+  const sortedPositions = useMemo<DisplayPosition[]>(() => {
+    const rows = isRangeActive(range) ? pairRows.filter(p => inPriceRange(p, range)) : pairRows;
+    return orderBy([...rows], `sortValues.${sortBy.key}`, sortBy.direction);
+  }, [pairRows, range, sortBy]);
+
+  // A different pair filter, range or sort is a different list: start at its
+  // top. Above the early returns below: a hook after them changes the hook
+  // count between renders (React #300).
+  useEffect(() => setPage(1), [activePairKey, range, sortBy]);
 
   if (!connected) {
     return <NotConnectedNotice />;
@@ -616,9 +696,12 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
     pageActionable.length > 0 && pageActionable.every(p => selected.has(p.idString));
   const pageSomeSelected = pageActionable.some(p => selected.has(p.idString));
 
-  if (!isLoading && !sortedPositions.length) {
+  // Empty because of the range, not because there are no positions: keep the
+  // filter on screen so it can be widened.
+  if (!isLoading && !pairRows.length) {
     return <NoPositions />;
   }
+  const showRangeFilter = singlePair && !isLoading;
 
   return (
     <div
@@ -635,11 +718,24 @@ export const PositionsTable = observer((props: PositionsTableProps) => {
           />
         </div>
       )}
+      {showRangeFilter && (
+        <div className='col-span-7'>
+          <PriceRangeFilter
+            min={rangeInput.min}
+            max={rangeInput.max}
+            onChange={setRangeInput}
+            quoteSymbol={pairRows[0]?.orders[0]?.quoteAsset.asset.symbol}
+            matching={sortedPositions.length}
+            total={pairRows.length}
+          />
+        </div>
+      )}
       <Density slim>
         {selectedPositions.length > 0 && (
           <SelectionBar
             selected={selectedPositions}
             matchingCount={actionable.length}
+            matchingLabel={isRangeActive(range) ? 'in range' : undefined}
             onSelectAllMatching={() => setSelected(new Set(actionable.map(p => p.idString)))}
             onClear={() => setSelected(new Set())}
           />
