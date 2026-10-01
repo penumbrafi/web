@@ -4,7 +4,7 @@
 '@penumbrafi/services': major
 ---
 
-Publish under the `@penumbrafi` npm scope from penumbrafi/web CI, with npm provenance.
+Publish under the `@penumbrafi` npm scope, from penumbrafi/web.
 
 - `@rotko/penumbra-wasm` → `@penumbrafi/wasm` (continues the 55.x line: first release 56.0.0)
 - `@rotko/penumbra-types` → `@penumbrafi/types` (continues 37.x: first release 38.0.0)

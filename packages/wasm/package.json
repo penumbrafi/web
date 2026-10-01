@@ -48,8 +48,7 @@
     }
   },
   "publishConfig": {
-    "access": "public",
-    "provenance": true
+    "access": "public"
   },
   "devDependencies": {
     "@bufbuild/protobuf": "^1.10.0",
