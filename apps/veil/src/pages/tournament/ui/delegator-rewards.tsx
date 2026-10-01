@@ -37,17 +37,18 @@ export const DelegatorTotalRewards = observer(() => {
   const { subaccount } = connectionStore;
 
   const { epoch, isLoading: epochLoading } = useCurrentEpoch();
-  const { data: lpRewards, isLoading: isLpRewardsLoading } = useLpRewards(
-    subaccount,
-    0,
-    Infinity,
-    'rewards',
-    'desc',
-  );
+  const {
+    data: lpRewards,
+    isLoading: isLpRewardsLoading,
+    isError: isLpRewardsError,
+    positionsError,
+    retryPositions,
+    refetch: refetchLpRewards,
+  } = useLpRewards(subaccount, 0, Infinity, 'rewards', 'desc');
 
   const {
     totalRewards,
-    query: { isLoading: isRewardsLoading, status: rewardsStatus },
+    query: { isLoading: isRewardsLoading, status: rewardsStatus, refetch: refetchRewards },
   } = usePersonalRewards(subaccount, epoch, epochLoading);
 
   const { data: stakingToken, isLoading: isTokenLoading } = useStakingTokenMetadata();
@@ -61,6 +62,19 @@ export const DelegatorTotalRewards = observer(() => {
   const isLoading = isLpRewardsLoading || isRewardsLoading || isTokenLoading;
   const isReady =
     !isLoading && lpRewards?.totalRewards !== undefined && rewardsStatus === 'success';
+  // The wallet couldn't answer (locked, or its penumbra services not running).
+  // Without this the panel stays on a skeleton forever.
+  const isError = positionsError || isLpRewardsError || rewardsStatus === 'error';
+  const retry = () => {
+    if (positionsError) {
+      retryPositions();
+    } else if (isLpRewardsError) {
+      void refetchLpRewards();
+    }
+    if (rewardsStatus === 'error') {
+      void refetchRewards();
+    }
+  };
 
   // Memoize the reward view to prevent unnecessary recalculations
   const rewardView = useMemo(() => {
@@ -103,11 +117,26 @@ export const DelegatorTotalRewards = observer(() => {
           </Text>
         </div>
 
-        {!isReady ? (
+        {isError && (
+          <div className='flex items-center gap-3'>
+            <Text small color='text.secondary'>
+              Couldn&apos;t load your rewards from the wallet
+            </Text>
+            <Density compact>
+              <Button priority='secondary' onClick={retry}>
+                Retry
+              </Button>
+            </Density>
+          </div>
+        )}
+
+        {!isError && !isReady && (
           <div className='h-10 w-24'>
             <Skeleton />
           </div>
-        ) : (
+        )}
+
+        {!isError && isReady && (
           <div className='flex w-full items-center justify-between gap-4 desktop:w-auto desktop:[&_span]:text-3xl [&_span]:font-mono'>
             {rewardView && !isTotalZero ? (
               <Density sparse>

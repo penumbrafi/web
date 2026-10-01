@@ -13,6 +13,7 @@ import type {
   LqtDelegatorHistoryData,
 } from '../server/delegator-history';
 import { getIndexByAddress } from './use-index-by-address';
+import { walletQueryRetry } from './wallet-retry';
 
 export const BASE_LIMIT = 10;
 export const BASE_PAGE = 1;
@@ -112,6 +113,7 @@ export const usePersonalRewards = (
       !!blockHeight &&
       subaccount !== undefined &&
       !disabled,
+    ...walletQueryRetry,
     queryFn: async () =>
       fetchRewards(
         {

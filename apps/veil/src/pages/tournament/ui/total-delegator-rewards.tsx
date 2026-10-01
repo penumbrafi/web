@@ -89,7 +89,7 @@ export const VotingRewards = observer(() => {
 
   const { epoch, status: epochStatus } = useCurrentEpoch();
   const {
-    query: { status: rewardsStatus },
+    query: { status: rewardsStatus, refetch: refetchRewards },
     data: rewardsData,
     total,
   } = usePersonalRewards(
@@ -113,7 +113,10 @@ export const VotingRewards = observer(() => {
     epochs.length === 0,
   );
 
-  const loading = epoch === undefined || rewardsStatus !== 'success' || rawSummary === undefined;
+  const rewardsError = rewardsStatus === 'error';
+  const loading =
+    !rewardsError &&
+    (epoch === undefined || rewardsStatus !== 'success' || rawSummary === undefined);
   const summary = useMemo(() => new Map((rawSummary ?? []).map(x => [x.epoch, x])), [rawSummary]);
 
   const mappedData = useMemo(() => {
@@ -166,13 +169,27 @@ export const VotingRewards = observer(() => {
           {loading &&
             new Array(BASE_LIMIT).fill({}).map((_, index) => <LoadingRow cells={4} key={index} />)}
 
-          {!loading && !total && (
+          {rewardsError && (
+            <div className='col-span-4 grid grid-cols-subgrid'>
+              <TableCell cell>
+                <span className='flex items-center gap-3'>
+                  Couldn&apos;t load your votes from the wallet.
+                  <Button priority='secondary' onClick={() => void refetchRewards()}>
+                    Retry
+                  </Button>
+                </span>
+              </TableCell>
+            </div>
+          )}
+
+          {!loading && !rewardsError && !total && (
             <div className='col-span-4 grid grid-cols-subgrid'>
               <TableCell cell>No voting rewards found for this account.</TableCell>
             </div>
           )}
 
           {!loading &&
+            !rewardsError &&
             mappedData.rows.map(row => (
               <VotingRewardsRow
                 key={`epoch-${row.epoch}`}

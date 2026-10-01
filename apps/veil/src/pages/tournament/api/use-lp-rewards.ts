@@ -17,6 +17,7 @@ import { penumbra } from '@/shared/const/penumbra';
 import { AddressIndex } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys_pb';
 import { ViewService } from '@penumbra-zone/protobuf/penumbra/view/v1/view_connect';
 import { DexService } from '@penumbra-zone/protobuf';
+import { walletQueryRetry } from './wallet-retry';
 
 export const BASE_LIMIT = 10;
 export const BASE_PAGE = 1;
@@ -58,9 +59,10 @@ export const useLpRewards = (
   limit = BASE_LIMIT,
   sortKey?: LpRewardsSortKey | '',
   sortDirection?: LpRewardsSortDirection,
-): UseQueryResult<LpRewardsResponse> => {
-  const { data: positionIds } = useQuery({
+): UseQueryResult<LpRewardsResponse> & { positionsError: boolean; retryPositions: () => void } => {
+  const positionsQuery = useQuery({
     queryKey: ['owned-positions', subaccount],
+    ...walletQueryRetry,
     queryFn: async () => {
       const ids: string[] = [];
 
@@ -77,6 +79,7 @@ export const useLpRewards = (
       return ids;
     },
   });
+  const positionIds = positionsQuery.data;
 
   const query = useQuery({
     queryKey: ['lp-rewards', ...(positionIds ?? []), page, limit, sortKey, sortDirection],
@@ -101,5 +104,11 @@ export const useLpRewards = (
     enabled: positionIds !== undefined,
   });
 
-  return query;
+  // While owned positions can't be read from the wallet the rewards query stays
+  // disabled (not loading, no data), so surface that failure separately.
+  return {
+    ...query,
+    positionsError: positionsQuery.isError,
+    retryPositions: () => void positionsQuery.refetch(),
+  };
 };
