@@ -133,7 +133,6 @@ export class OrderFormStore {
   private _range = new RangeOrderFormStore();
   private _lp = new LPFormStore();
   private _whichForm: WhichForm = 'Market';
-  private _submitting = false;
   // Monotonically-increasing token for the debounced gas-fee estimator.
   // Every invocation captures the token at start; only the LATEST
   // invocation's response is allowed to write back to `_gasFee` /
@@ -784,19 +783,16 @@ export class OrderFormStore {
     // flight, `gasFee` is still the previous plan's estimate and
     // MAX-sized orders can slip past the "leaves nothing for fee"
     // clause. Better a briefly-disabled submit than "ran out of notes".
-    return (
-      !this._submitting &&
-      !this._gasFeeLoading &&
-      this.hasPlan &&
-      !this.blockingIssue
-    );
+    //
+    // Nothing here waits on an earlier order: a submitted order runs in the
+    // background and the form is free the moment it is handed off.
+    return !this._gasFeeLoading && this.hasPlan && !this.blockingIssue;
   }
 
   async submit() {
     const plan = this.plan;
     // A limit order whose price crosses the book carries a swap, so it
-    // broadcasts through the swap path (and its double-submit guard) even
-    // when it also opens a resting position.
+    // broadcasts as a swap even when it also opens a resting position.
     const limitTake = this.whichForm === 'Limit' && this._limit.takePlan !== undefined;
     const wasSwap = this.whichForm === 'Market' || limitTake;
     const source = this.subAccountIndex;
@@ -806,9 +802,6 @@ export class OrderFormStore {
       return;
     }
 
-    runInAction(() => {
-      this._submitting = true;
-    });
     // Pick the pair off whichever form was just submitted so the server's
     // /api/book cache gets primed with fresh data before the client
     // invalidations refetch — otherwise the 6s SWR cache reads back the
@@ -828,34 +821,50 @@ export class OrderFormStore {
       quote: activeForm.quoteAsset?.symbol,
     };
 
+    // Hand the order off and free the form now, not when the tx lands. The
+    // plan above is a snapshot, so the next order can be typed straight
+    // away; blanking the amounts is also what stops a stray double-click
+    // rebuilding the same order (empty inputs → no plan → nothing to submit).
+    // Orders that spend the same notes are serialised inside
+    // planBuildBroadcast, out of the trader's way.
+    const form = this._whichForm;
+    const marketSnapshot = { base: this._market.baseInput, quote: this._market.quoteInput };
+    const limitSnapshot = this._limit.snapshot();
+    runInAction(() => {
+      if (form === 'Market') {
+        this._market.setBaseInput('');
+        this._market.setQuoteInput('');
+      } else if (form === 'Limit') {
+        this._limit.clearAfterSwap();
+      }
+    });
+    // A cancelled or failed order goes back into the form so it can be
+    // adjusted and retried — unless the trader has already moved on.
+    const restore = () =>
+      runInAction(() => {
+        if (form === 'Market') {
+          if (!this._market.baseInput && !this._market.quoteInput) {
+            this._market.setBaseInput(marketSnapshot.base);
+            this._market.setQuoteInput(marketSnapshot.quote);
+          }
+        } else if (form === 'Limit') {
+          this._limit.restore(limitSnapshot);
+        }
+      });
+
     try {
-      // Post-swap: full market-data invalidation (book, tape, candles,
-      // summary, balances). Wait for prime + invalidate before firing
-      // the claim so both legs see fresh state.
       const swapResult = await planBuildBroadcast(wasSwap ? 'swap' : 'positionOpen', plan);
+      if (!swapResult) {
+        // Cancelled in the wallet.
+        restore();
+        return;
+      }
       await updatePositionsQuery();
       await invalidateMarketDataQueries(pair);
 
-      if (!wasSwap || !swapResult) {
+      if (!wasSwap) {
         return;
       }
-
-      // The swap is CONFIRMED on-chain. Free the trade UI immediately and clear
-      // the amount inputs — so a stray double-click can't rebuild the SAME swap
-      // (the one corruption this guard exists to prevent). The SwapClaim only
-      // needs the wallet to have scanned the swap's block, and the wallet
-      // finishes it on its own as it syncs — so it must NOT hold the submit
-      // button hostage while the wallet catches up (which can be many blocks,
-      // the reported bad UX). Multiple outstanding claims are fine on Penumbra,
-      // so trading again meanwhile is a legitimate new intent, not corruption.
-      runInAction(() => {
-        this._market.setBaseInput('');
-        this._market.setQuoteInput('');
-        if (limitTake) {
-          this._limit.clearAfterSwap();
-        }
-        this._submitting = false;
-      });
 
       // No claim is issued here. Zafu's `usePenumbraSwapClaim` polls
       // `unclaimedSwaps` and claims every outstanding one (5s after the popup
@@ -868,47 +877,20 @@ export class OrderFormStore {
         type: 'success',
         message: 'Swap confirmed — the wallet will finish the claim',
         description:
-          'Your swap landed on-chain. Zafu claims the output automatically once it has synced the block; no action needed. You can trade again now.',
+          'Your swap landed on-chain. Zafu claims the output automatically once it has synced the block; no action needed.',
       });
-
-      return;
     } catch (e) {
-      // Every planner/build/broadcast failure now propagates here as an
-      // `Error` with the mapped `described` metadata attached
-      // (plan-build-broadcast rethrows with `describe` since we need
-      // the shape here for the double-swap guard). Previously that
-      // catch swallowed everything and returned undefined, which made
-      // the whole "swap-confirmed" flow below UNREACHABLE. The
-      // downstream toast is still shown by planBuildBroadcast so we
-      // don't re-fire one here for the same failure.
+      // planBuildBroadcast has already toasted the described error.
       const attached = (e as { described?: ReturnType<typeof describeTxError> } | undefined)
         ?.described;
       const describe = attached ?? describeTxError(e);
       if (describe.txAlreadyOnChain) {
-        // Wipe the amount fields so a stray double-click on submit
-        // can't rebuild the same swap plan. Prices/pair stay.
-        runInAction(() => {
-          if (this._whichForm === 'Market') {
-            this._market.setBaseInput('');
-            this._market.setQuoteInput('');
-          } else if (limitTake) {
-            // Take mode's priced-but-unsized state has nothing to submit, so
-            // it is already safe to leave in place — but the sized amounts
-            // would let the same swap be rebuilt, so drop the whole target.
-            this._limit.clearAfterSwap();
-          }
-        });
+        // It landed; only a follow-up step failed. Leave the form blank so
+        // the same order is not resubmitted.
         return;
       }
-      // planBuildBroadcast already toasted the described error. We only
-      // rethrow so the caller (if any) knows submit failed; we don't
-      // want to reset the form's input state, so the user can adjust
-      // and retry without re-entering everything.
+      restore();
       throw e;
-    } finally {
-      runInAction(() => {
-        this._submitting = false;
-      });
     }
   }
 }
