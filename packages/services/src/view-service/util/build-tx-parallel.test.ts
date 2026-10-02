@@ -12,7 +12,7 @@ import { FullViewingKey } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/ke
 const mocks = vi.hoisted(() => ({
   proveParallelWithRayon: vi.fn(),
   buildParallelWithRayon: vi.fn(),
-  buildParallel: vi.fn(),
+  assembleTransaction: vi.fn(),
 }));
 
 vi.mock('../../offscreen-client.js', () => ({
@@ -23,7 +23,7 @@ vi.mock('../../offscreen-client.js', () => ({
 }));
 
 vi.mock('@penumbrafi/wasm/build', () => ({
-  buildParallel: mocks.buildParallel,
+  assembleTransaction: mocks.assembleTransaction,
 }));
 
 const { optimisticParallelBuild } = await import('./build-tx-parallel.js');
@@ -53,7 +53,7 @@ describe('optimisticParallelBuild (prove before approval)', () => {
   it('starts proving before approval and applies auth only after it', async () => {
     const auth = Promise.withResolvers<AuthorizationData>();
     mocks.proveParallelWithRayon.mockResolvedValue(actions);
-    mocks.buildParallel.mockResolvedValue(tx);
+    mocks.assembleTransaction.mockResolvedValue(tx);
 
     const gen = optimisticParallelBuild(plan, witness, auth.promise, fvk);
     const first = await gen.next();
@@ -62,12 +62,12 @@ describe('optimisticParallelBuild (prove before approval)', () => {
     // proving was kicked off while approval is still pending
     expect(mocks.proveParallelWithRayon).toHaveBeenCalledWith(plan, witness, fvk);
     // no auth yet -> nothing assembled/signed
-    expect(mocks.buildParallel).not.toHaveBeenCalled();
+    expect(mocks.assembleTransaction).not.toHaveBeenCalled();
 
     auth.resolve(authData);
     const last = await drain(gen);
 
-    expect(mocks.buildParallel).toHaveBeenCalledWith(actions, plan, witness, authData);
+    expect(mocks.assembleTransaction).toHaveBeenCalledWith(actions, plan, witness, authData);
     expect(mocks.buildParallelWithRayon).not.toHaveBeenCalled();
     expect(last).toMatchObject({ status: { case: 'complete', value: { transaction: tx } } });
   });
@@ -79,7 +79,7 @@ describe('optimisticParallelBuild (prove before approval)', () => {
     await expect(drain(optimisticParallelBuild(plan, witness, denied, fvk))).rejects.toThrow(
       'denied',
     );
-    expect(mocks.buildParallel).not.toHaveBeenCalled();
+    expect(mocks.assembleTransaction).not.toHaveBeenCalled();
     expect(mocks.buildParallelWithRayon).not.toHaveBeenCalled();
   });
 
@@ -95,7 +95,7 @@ describe('optimisticParallelBuild (prove before approval)', () => {
     await new Promise(r => {
       setTimeout(r, 0);
     });
-    expect(mocks.buildParallel).not.toHaveBeenCalled();
+    expect(mocks.assembleTransaction).not.toHaveBeenCalled();
   });
 
   it('falls back to the combined build when prove-only is unsupported', async () => {
@@ -109,7 +109,7 @@ describe('optimisticParallelBuild (prove before approval)', () => {
     );
 
     expect(mocks.buildParallelWithRayon).toHaveBeenCalledWith(plan, witness, fvk, authData);
-    expect(mocks.buildParallel).not.toHaveBeenCalled();
+    expect(mocks.assembleTransaction).not.toHaveBeenCalled();
     expect(last).toMatchObject({ status: { case: 'complete', value: { transaction: tx } } });
   });
 
@@ -120,6 +120,6 @@ describe('optimisticParallelBuild (prove before approval)', () => {
       drain(optimisticParallelBuild(plan, witness, Promise.resolve(authData), fvk)),
     ).rejects.toThrow('bad witness');
     expect(mocks.buildParallelWithRayon).not.toHaveBeenCalled();
-    expect(mocks.buildParallel).not.toHaveBeenCalled();
+    expect(mocks.assembleTransaction).not.toHaveBeenCalled();
   });
 });

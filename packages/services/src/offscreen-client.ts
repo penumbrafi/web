@@ -317,7 +317,7 @@ const buildParallelWithRayon = async (
  * Prove all actions of a plan concurrently (rayon) in the offscreen document,
  * WITHOUT authorization data. Proofs need only the FVK and witness, so this
  * can start while the approval prompt is still open. The returned actions are
- * unauthorized; assemble them with `buildParallel(actions, plan, witness,
+ * unauthorized; assemble them with `assembleTransaction(actions, plan, witness,
  * authData)` once approval has produced the AuthorizationData.
  *
  * Rejects with Code.Unimplemented if the offscreen document / wasm build does

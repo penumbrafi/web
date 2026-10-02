@@ -4,7 +4,7 @@ import {
   TransactionPlan,
   WitnessData,
 } from '@penumbra-zone/protobuf/penumbra/core/transaction/v1/transaction_pb';
-import { buildParallel } from '@penumbrafi/wasm/build';
+import { assembleTransaction } from '@penumbrafi/wasm/build';
 import { offscreenClient } from '../../offscreen-client.js';
 import {
   AuthorizeAndBuildResponse,
@@ -37,7 +37,7 @@ export const optimisticBuild = async function* (
   yield* progressStream(offscreenTasks, cancel);
 
   // final build step
-  const transaction: Transaction = await buildParallel(
+  const transaction: Transaction = await assembleTransaction(
     await Promise.all(offscreenTasks),
     transactionPlan,
     witnessData,

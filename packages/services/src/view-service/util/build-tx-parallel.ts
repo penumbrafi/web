@@ -28,7 +28,7 @@ import {
 } from '@penumbra-zone/protobuf/penumbra/view/v1/view_pb';
 import { PartialMessage } from '@bufbuild/protobuf';
 import { Code, ConnectError } from '@connectrpc/connect';
-import { buildParallel } from '@penumbrafi/wasm/build';
+import { assembleTransaction } from '@penumbrafi/wasm/build';
 import { FullViewingKey } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys_pb';
 import { offscreenClient } from '../../offscreen-client.js';
 
@@ -187,7 +187,7 @@ export const optimisticParallelBuild = async function* (
     // Phase 2: apply authorization and assemble (cheap: no proving).
     yield progress(0.95);
     const assembleStart = performance.now();
-    transaction = await buildParallel(proving.value, transactionPlan, witnessData, authData);
+    transaction = await assembleTransaction(proving.value, transactionPlan, witnessData, authData);
     logDuration('assembly (apply auth)', assembleStart);
   }
 
