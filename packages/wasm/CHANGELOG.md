@@ -1,5 +1,17 @@
 # @penumbra-zone/wasm
 
+## 57.0.0
+
+### Major Changes
+
+- One threaded wasm build, nothing else.
+
+  - `@penumbrafi/wasm` ships a single module built with atomics and shared memory. It loads itself once per context on import and needs `SharedArrayBuffer`, i.e. a cross-origin-isolated context (COOP `same-origin` + COEP `require-corp`) or Node; without it the import fails instead of degrading.
+  - Removed: the serial build, the `./wasm-parallel` export, `initWasmWithParallel`, `isParallelSupported`, `ensureWasmReady`. Renamed: `buildWithRayon` → `buildTransaction`, `buildActionsWithRayon` → `proveActions`, `buildParallel` → `assembleTransaction`, `buildActionParallel` → `buildAction`.
+  - `startThreads(n)` (from `@penumbrafi/wasm/init`) starts the thread pool and only runs in a dedicated worker. `authorizePlan` refuses to run in a context that started one.
+  - wasm-bindgen-rayon's worker message listener is registered only in dedicated workers; it used to accept a memory pointer from any message in any context.
+  - Proving: R1CS matrices cached per circuit and the five proof MSMs run concurrently (vendored ark-groth16 0.4.0); proofs are byte-identical.
+
 ## 56.0.0
 
 ### Major Changes

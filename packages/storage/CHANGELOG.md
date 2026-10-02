@@ -1,5 +1,12 @@
 # @penumbra-zone/storage
 
+## 64.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - @penumbrafi/wasm@57.0.0
+
 ## 63.0.0
 
 ### Patch Changes

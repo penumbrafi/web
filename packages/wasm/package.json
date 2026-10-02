@@ -1,6 +1,6 @@
 {
   "name": "@penumbrafi/wasm",
-  "version": "56.0.0",
+  "version": "57.0.0",
   "license": "(MIT OR Apache-2.0)",
   "description": "Penumbra WASM bindings (serial bundler build + parallel rayon build) with async API. Published from penumbrafi/web.",
   "repository": {
