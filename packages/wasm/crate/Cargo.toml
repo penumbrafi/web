@@ -76,3 +76,9 @@ serde_json = "1.0.128"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(wasm_bindgen_unstable_test_coverage)'] }
+
+# ark-groth16 0.4.0 with R1CS matrices cached per circuit and the five proof
+# MSMs run concurrently. Proofs are byte-identical to stock (fixed r, s) and
+# verify against the shipped keys; see patches/ark-groth16/src/prover.rs.
+[patch.crates-io]
+ark-groth16 = { path = "patches/ark-groth16" }
