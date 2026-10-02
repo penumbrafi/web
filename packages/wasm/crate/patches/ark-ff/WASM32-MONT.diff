@@ -1,0 +1,317 @@
+--- /home/alice/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ark-ff-0.4.2/src/fields/models/fp/montgomery_backend.rs	2006-07-24 08:21:28.000000000 +0700
++++ /steam/rotko/prover-research-20261002/patches/ark-ff-57/src/fields/models/fp/montgomery_backend.rs	2026-10-02 14:49:04.106197040 +0700
+@@ -11,6 +11,277 @@
+ /// Manual implementation of this trait is not recommended unless one wishes
+ /// to specialize arithmetic methods. Instead, the
+ /// [`MontConfig`][`ark_ff_macros::MontConfig`] derive macro should be used.
++/// wasm32 has no 64x64->128 multiply, so the u64 CIOS below turns every limb
++/// product into several i64 multiplies. Running CIOS on 32-bit limbs with u64
++/// accumulators uses one native i64.mul per limb product instead. Same
++/// Montgomery radix (2^(64N) = 2^(32*2N)) and a fully reduced result, so the
++/// output limbs are identical to the u64 path's.
++/// wasm32 has no 64x64->128 multiply, so the u64 CIOS below turns every limb
++/// product into several i64 multiplies. Running CIOS on 32-bit limbs with u64
++/// accumulators uses one native i64.mul per limb product instead. Same
++/// Montgomery radix (2^(64N) = 2^(32*2N)) and a fully reduced result, so the
++/// output limbs are identical to the u64 path's.
++#[cfg(target_arch = "wasm32")]
++mod mont32 {
++    use super::{Fp, MontBackend, MontConfig};
++
++    /// `r - p` if `top:r >= p` (r < 2p), else `r`, without branching on the value
++    #[inline(always)]
++    fn reduce_once<const L: usize>(r: &mut [u32; L], top: u32, p: &[u32; L]) {
++        let mut d = [0u32; L];
++        let mut borrow = 0u64;
++        for j in 0..L {
++            let x = (r[j] as u64).wrapping_sub(p[j] as u64).wrapping_sub(borrow);
++            d[j] = x as u32;
++            borrow = x >> 63;
++        }
++        // keep r - p unless the subtraction borrowed past the top limb
++        let below = borrow as u32 & (top == 0) as u32;
++        let keep = 0u32.wrapping_sub(below);
++        for j in 0..L {
++            r[j] = (r[j] & keep) | (d[j] & !keep);
++        }
++    }
++
++    /// fixed-size CIOS so every loop unrolls and indexes are constant
++    macro_rules! cios {
++        ($name:ident, $l:literal) => {
++            #[inline(always)]
++            fn $name(a: &[u32; $l], b: &[u32; $l], p: &[u32; $l], inv: u32) -> [u32; $l] {
++                let mut t = [0u32; $l + 2];
++                for i in 0..$l {
++                    let bi = b[i] as u64;
++                    let mut carry = 0u64;
++                    for j in 0..$l {
++                        let s = t[j] as u64 + a[j] as u64 * bi + carry;
++                        t[j] = s as u32;
++                        carry = s >> 32;
++                    }
++                    let s = t[$l] as u64 + carry;
++                    t[$l] = s as u32;
++                    t[$l + 1] = (s >> 32) as u32;
++                    let m = t[0].wrapping_mul(inv) as u64;
++                    let mut carry = (t[0] as u64 + m * p[0] as u64) >> 32;
++                    for j in 1..$l {
++                        let s = t[j] as u64 + m * p[j] as u64 + carry;
++                        t[j - 1] = s as u32;
++                        carry = s >> 32;
++                    }
++                    let s = t[$l] as u64 + carry;
++                    t[$l - 1] = s as u32;
++                    t[$l] = t[$l + 1] + (s >> 32) as u32;
++                }
++                let mut r = [0u32; $l];
++                r.copy_from_slice(&t[..$l]);
++                reduce_once(&mut r, t[$l], p);
++                r
++            }
++        };
++    }
++    cios!(cios8, 8);
++    cios!(cios12, 12);
++
++    /// double-width product, Montgomery reduction, and the operations built on
++    /// them: a square that computes each cross product once, and a sum of two
++    /// products that reduces once (a0*b0 + a1*b1 < 2p^2 < p*R).
++    macro_rules! sos {
++        ($wide:ident, $sqr:ident, $redc:ident, $l:literal) => {
++            #[inline(always)]
++            fn $wide(a: &[u32; $l], b: &[u32; $l], t: &mut [u32; 2 * $l + 1]) {
++                for i in 0..$l {
++                    let ai = a[i] as u64;
++                    let mut carry = 0u64;
++                    for j in 0..$l {
++                        let s = t[i + j] as u64 + ai * b[j] as u64 + carry;
++                        t[i + j] = s as u32;
++                        carry = s >> 32;
++                    }
++                    t[i + $l] = carry as u32;
++                }
++            }
++
++            #[inline(always)]
++            fn $sqr(a: &[u32; $l], t: &mut [u32; 2 * $l + 1]) {
++                // cross products once
++                for i in 0..$l {
++                    let ai = a[i] as u64;
++                    let mut carry = 0u64;
++                    for j in (i + 1)..$l {
++                        let s = t[i + j] as u64 + ai * a[j] as u64 + carry;
++                        t[i + j] = s as u32;
++                        carry = s >> 32;
++                    }
++                    t[i + $l] = carry as u32;
++                }
++                // double them
++                let mut top = 0u32;
++                for k in 0..2 * $l {
++                    let v = t[k];
++                    t[k] = (v << 1) | top;
++                    top = v >> 31;
++                }
++                // add the squares on the diagonal
++                let mut carry = 0u64;
++                for i in 0..$l {
++                    let sq = a[i] as u64 * a[i] as u64;
++                    let s = t[2 * i] as u64 + (sq & 0xffff_ffff) + carry;
++                    t[2 * i] = s as u32;
++                    let s = t[2 * i + 1] as u64 + (sq >> 32) + (s >> 32);
++                    t[2 * i + 1] = s as u32;
++                    carry = s >> 32;
++                }
++                t[2 * $l] = carry as u32;
++            }
++
++            /// `t * R^-1 mod p` for t < p*R
++            #[inline(always)]
++            fn $redc(t: &mut [u32; 2 * $l + 1], p: &[u32; $l], inv: u32) -> [u32; $l] {
++                // `extra` is the carry out of row i's top limb, added at row
++                // i + 1's top limb: every row does the same fixed work
++                let mut extra = 0u64;
++                for i in 0..$l {
++                    let m = t[i].wrapping_mul(inv) as u64;
++                    let mut carry = 0u64;
++                    for j in 0..$l {
++                        let s = t[i + j] as u64 + m * p[j] as u64 + carry;
++                        t[i + j] = s as u32;
++                        carry = s >> 32;
++                    }
++                    let s = t[i + $l] as u64 + carry + extra;
++                    t[i + $l] = s as u32;
++                    extra = s >> 32;
++                }
++                let mut r = [0u32; $l];
++                r.copy_from_slice(&t[$l..2 * $l]);
++                reduce_once(&mut r, t[2 * $l] + extra as u32, p);
++                r
++            }
++        };
++    }
++    sos!(wide8, sqr8, redc8, 8);
++    sos!(wide12, sqr12, redc12, 12);
++
++    /// add `b` into `a` (same width), returning nothing: callers keep headroom
++    #[inline(always)]
++    fn add_into<const W: usize>(a: &mut [u32; W], b: &[u32; W]) {
++        let mut carry = 0u64;
++        for k in 0..W {
++            let s = a[k] as u64 + b[k] as u64 + carry;
++            a[k] = s as u32;
++            carry = s >> 32;
++        }
++    }
++
++    /// the modulus as 32-bit limbs, split once per field at compile time
++    struct Modulus32<T, const N: usize>(core::marker::PhantomData<T>);
++    impl<T: MontConfig<N>, const N: usize> Modulus32<T, N> {
++        const P: [u32; 12] = {
++            let mut o = [0u32; 12];
++            let mut i = 0;
++            while i < N && i < 6 {
++                o[2 * i] = T::MODULUS.0[i] as u32;
++                o[2 * i + 1] = (T::MODULUS.0[i] >> 32) as u32;
++                i += 1;
++            }
++            o
++        };
++    }
++
++    /// `a^2 * R^-1 mod p`, or None for the u64 path
++    #[inline(always)]
++    pub(super) fn square<T: MontConfig<N>, const N: usize>(
++        a: &Fp<MontBackend<T, N>, N>,
++    ) -> Option<[u64; N]> {
++        let inv = T::INV as u32;
++        let p = &Modulus32::<T, N>::P;
++        #[allow(unsafe_code)]
++        unsafe {
++            match N {
++                6 => {
++                    let mut t = [0u32; 25];
++                    sqr12(&core::mem::transmute_copy(&(a.0).0), &mut t);
++                    Some(core::mem::transmute_copy(&redc12(&mut t, p, inv)))
++                }
++                4 => {
++                    let p8: &[u32; 8] = &*(p.as_ptr() as *const [u32; 8]);
++                    let mut t = [0u32; 17];
++                    sqr8(&core::mem::transmute_copy(&(a.0).0), &mut t);
++                    Some(core::mem::transmute_copy(&redc8(&mut t, p8, inv)))
++                }
++                _ => None,
++            }
++        }
++    }
++
++    /// `(a0*b0 + a1*b1) * R^-1 mod p` with one reduction, or None
++    #[inline(always)]
++    pub(super) fn sum_of_two<T: MontConfig<N>, const N: usize>(
++        a: [&Fp<MontBackend<T, N>, N>; 2],
++        b: [&Fp<MontBackend<T, N>, N>; 2],
++    ) -> Option<[u64; N]> {
++        let inv = T::INV as u32;
++        let p = &Modulus32::<T, N>::P;
++        #[allow(unsafe_code)]
++        unsafe {
++            match N {
++                6 => {
++                    let (mut t, mut u) = ([0u32; 25], [0u32; 25]);
++                    wide12(&core::mem::transmute_copy(&(a[0].0).0), &core::mem::transmute_copy(&(b[0].0).0), &mut t);
++                    wide12(&core::mem::transmute_copy(&(a[1].0).0), &core::mem::transmute_copy(&(b[1].0).0), &mut u);
++                    add_into(&mut t, &u);
++                    Some(core::mem::transmute_copy(&redc12(&mut t, p, inv)))
++                }
++                4 => {
++                    let p8: &[u32; 8] = &*(p.as_ptr() as *const [u32; 8]);
++                    let (mut t, mut u) = ([0u32; 17], [0u32; 17]);
++                    wide8(&core::mem::transmute_copy(&(a[0].0).0), &core::mem::transmute_copy(&(b[0].0).0), &mut t);
++                    wide8(&core::mem::transmute_copy(&(a[1].0).0), &core::mem::transmute_copy(&(b[1].0).0), &mut u);
++                    add_into(&mut t, &u);
++                    Some(core::mem::transmute_copy(&redc8(&mut t, p8, inv)))
++                }
++                _ => None,
++            }
++        }
++    }
++
++    /// `a * b * R^-1 mod p` for 4- and 6-limb fields; None means "use the u64 path".
++    #[inline(always)]
++    pub(super) fn mul<T: MontConfig<N>, const N: usize>(
++        a: &Fp<MontBackend<T, N>, N>,
++        b: &Fp<MontBackend<T, N>, N>,
++    ) -> Option<[u64; N]> {
++        // -p^-1 mod 2^32 is the low half of -p^-1 mod 2^64
++        let inv = T::INV as u32;
++        let p = &Modulus32::<T, N>::P;
++        // wasm32 is little-endian: [u64; N] and [u32; 2N] share a layout
++        #[allow(unsafe_code)]
++        unsafe {
++            match N {
++                6 => {
++                    let r = cios12(
++                        &core::mem::transmute_copy(&(a.0).0),
++                        &core::mem::transmute_copy(&(b.0).0),
++                        p,
++                        inv,
++                    );
++                    Some(core::mem::transmute_copy(&r))
++                }
++                4 => {
++                    let p8: &[u32; 8] = &*(p.as_ptr() as *const [u32; 8]);
++                    let r = cios8(
++                        &core::mem::transmute_copy(&(a.0).0),
++                        &core::mem::transmute_copy(&(b.0).0),
++                        p8,
++                        inv,
++                    );
++                    Some(core::mem::transmute_copy(&r))
++                }
++                _ => None,
++            }
++        }
++    }
++}
++
+ pub trait MontConfig<const N: usize>: 'static + Sync + Send + Sized {
+     /// The modulus of the field.
+     const MODULUS: BigInt<N>;
+@@ -649,16 +920,36 @@
+     /// zero bit in the rest of the modulus.
+     #[inline]
+     fn mul_assign(a: &mut Fp<Self, N>, b: &Fp<Self, N>) {
++        // here, not in MontConfig: #[derive(MontConfig)] overrides those defaults
++        #[cfg(target_arch = "wasm32")]
++        if let Some(r) = mont32::mul(a, b) {
++            (a.0).0 = r;
++            return;
++        }
+         T::mul_assign(a, b)
+     }
+ 
+     fn sum_of_products<const M: usize>(a: &[Fp<Self, N>; M], b: &[Fp<Self, N>; M]) -> Fp<Self, N> {
++        #[cfg(target_arch = "wasm32")]
++        if N == 4 || N == 6 {
++            if M == 2 {
++                if let Some(r) = mont32::sum_of_two([&a[0], &a[1]], [&b[0], &b[1]]) {
++                    return Fp::new_unchecked(BigInt(r));
++                }
++            }
++            return a.iter().zip(b).map(|(a, b)| *a * b).sum();
++        }
+         T::sum_of_products(a, b)
+     }
+ 
+     #[inline]
+     #[allow(unused_braces, clippy::absurd_extreme_comparisons)]
+     fn square_in_place(a: &mut Fp<Self, N>) {
++        #[cfg(target_arch = "wasm32")]
++        if let Some(r) = mont32::square(a) {
++            (a.0).0 = r;
++            return;
++        }
+         T::square_in_place(a)
+     }
+ 

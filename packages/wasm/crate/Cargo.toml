@@ -80,3 +80,7 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(wasm_bindgen_unstable_test
 # verify against the shipped keys; see patches/ark-groth16/src/prover.rs.
 [patch.crates-io]
 ark-groth16 = { path = "patches/ark-groth16" }
+# ark-ff 0.4.2 with 32-bit-limb Montgomery mul/square/sum_of_products on
+# wasm32 only (no 64x64->128 multiply there); constant-time, same output
+# limbs as stock. See patches/ark-ff/README-WASM32.md.
+ark-ff = { path = "patches/ark-ff" }

@@ -11,6 +11,7 @@
   - `startThreads(n)` (from `@penumbrafi/wasm/init`) starts the thread pool and only runs in a dedicated worker. `authorizePlan` refuses to run in a context that started one.
   - wasm-bindgen-rayon's worker message listener is registered only in dedicated workers; it used to accept a memory pointer from any message in any context.
   - Proving: R1CS matrices cached per circuit and the five proof MSMs run concurrently (vendored ark-groth16 0.4.0); proofs are byte-identical.
+  - Field arithmetic on wasm32: 32-bit-limb Montgomery multiply, square and two-term sum of products (vendored ark-ff 0.4.2), constant time, same output limbs as stock. A send (1 spend + 2 outputs) proves about 40% faster.
 
 ## 56.0.0
 
