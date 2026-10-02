@@ -1,5 +1,14 @@
 # @penumbra-zone/ui
 
+## 22.0.3
+
+### Patch Changes
+
+- Updated dependencies [8920434]
+- Updated dependencies [1f2d5d6]
+  - @penumbrafi/types@38.0.0
+  - @penumbra-zone/perspective@61.1.2
+
 ## 22.0.2
 
 ### Patch Changes
