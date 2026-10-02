@@ -97,6 +97,19 @@ export class ViewServer {
 }
 
 /**
+ * Assemble a transaction from actions that were already built, applying the
+ * authorization data. Pairs with [`prove_actions`], which builds the actions
+ * without it.
+ * Arguments:
+ *     actions: `Vec<Actions>`
+ *     transaction_plan: `TransactionPlan`
+ *     witness_data: `WitnessData`
+ *     auth_data: `AuthorizationData`
+ * Returns: `Transaction`
+ */
+export function assemble_transaction(actions: any, transaction_plan: Uint8Array, witness_data: Uint8Array, auth_data: Uint8Array): Uint8Array;
+
+/**
  * authorize transaction (sign  transaction using  spend key)
  * Arguments:
  *     spend_key: `byte representation inner SpendKey`
@@ -118,52 +131,10 @@ export function authorize(spend_key: Uint8Array, transaction_plan: Uint8Array): 
 export function build_action(transaction_plan: Uint8Array, action_plan: Uint8Array, full_viewing_key: Uint8Array, witness_data: Uint8Array): Uint8Array;
 
 /**
- * Build (prove) every action of a transaction plan concurrently with rayon,
- * WITHOUT authorization data.
+ * Build a whole transaction: every action is proven concurrently, then the
+ * authorization data is applied.
  *
- * This is the expensive part of transaction building (one ZK proof per
- * action) and needs only the full viewing key and witness, so callers can
- * start it as soon as the plan is ready -- e.g. while the user is still
- * looking at the approval prompt. The result carries no spend authorization;
- * it must be assembled with [`build_parallel`] (which applies the
- * `AuthorizationData`) before it is a valid transaction.
- *
- * Requires the `parallel` feature and `initThreadPool()` to be called first.
- *
- * Arguments:
- *     full_viewing_key: `FullViewingKey`
- *     transaction_plan: `TransactionPlan`
- *     witness_data: `WitnessData`
- * Returns: `TransactionBody` bytes whose `actions` field holds the built
- *     actions in plan order (all other fields are unset). A proto container
- *     is used so the result survives the JSON hops between worker, offscreen
- *     document and service worker without serde/JsValue representation issues.
- */
-export function build_actions_native(full_viewing_key: Uint8Array, transaction_plan: Uint8Array, witness_data: Uint8Array): Uint8Array;
-
-/**
- * Build parallel tx –
- * building a transaction may take some time,
- * depending on CPU performance and number of
- * actions in the transaction plan.
- * Arguments:
- *     actions: `Vec<Actions>`
- *     transaction_plan: `TransactionPlan`
- *     witness_data: `WitnessData`
- *     auth_data: `AuthorizationData`
- * Returns: `Transaction`
- */
-export function build_parallel(actions: any, transaction_plan: Uint8Array, witness_data: Uint8Array, auth_data: Uint8Array): Uint8Array;
-
-/**
- * Build transaction with rayon parallel action building.
- * Requires the `parallel` feature and `initThreadPool()` to be called first.
- *
- * This builds all actions concurrently using rayon's par_iter(), which is
- * significantly faster for transactions with multiple actions (e.g., swaps,
- * multi-output sends) because ZK proof generation happens in parallel.
- *
- * Prefer [`build_actions_native`] + [`build_parallel`] when authorization
+ * Prefer [`prove_actions`] + [`assemble_transaction`] when authorization
  * arrives later than the plan (it lets proving overlap user approval).
  *
  * Arguments:
@@ -173,21 +144,7 @@ export function build_parallel(actions: any, transaction_plan: Uint8Array, witne
  *     auth_data: `AuthorizationData`
  * Returns: `Transaction`
  */
-export function build_parallel_native(full_viewing_key: Uint8Array, transaction_plan: Uint8Array, witness_data: Uint8Array, auth_data: Uint8Array): Uint8Array;
-
-/**
- * Build serial tx –
- * building a transaction may take some time,
- * depending on CPU performance and number of actions
- * in the transaction plan.
- * Arguments:
- *     full_viewing_key: `FullViewingKey`
- *     transaction_plan: `TransactionPlan`
- *     witness_data: `WitnessData`
- *     auth_data: `AuthorizationData`
- * Returns: `Transaction`
- */
-export function build_serial(full_viewing_key: Uint8Array, transaction_plan: Uint8Array, witness_data: Uint8Array, auth_data: Uint8Array): Uint8Array;
+export function build_transaction(full_viewing_key: Uint8Array, transaction_plan: Uint8Array, witness_data: Uint8Array, auth_data: Uint8Array): Uint8Array;
 
 /**
  * Compute the effect hash for a transaction plan using the full viewing key.
@@ -366,6 +323,31 @@ export function load_proving_key(key: Uint8Array, key_type: string): void;
  */
 export function plan_transaction(idb_constants: any, request: Uint8Array, full_viewing_key: Uint8Array, gas_fee_token: Uint8Array): Promise<any>;
 
+/**
+ * Build (prove) every action of a transaction plan concurrently, WITHOUT
+ * authorization data.
+ *
+ * This is the expensive part of transaction building (one ZK proof per
+ * action) and needs only the full viewing key and witness, so callers can
+ * start it as soon as the plan is ready -- e.g. while the user is still
+ * looking at the approval prompt. The result carries no spend authorization;
+ * it must be assembled with [`assemble_transaction`] (which applies the
+ * `AuthorizationData`) before it is a valid transaction.
+ *
+ * Uses the thread pool when one was started (`initThreadPool`); without one,
+ * rayon runs everything on the calling thread.
+ *
+ * Arguments:
+ *     full_viewing_key: `FullViewingKey`
+ *     transaction_plan: `TransactionPlan`
+ *     witness_data: `WitnessData`
+ * Returns: `TransactionBody` bytes whose `actions` field holds the built
+ *     actions in plan order (all other fields are unset). A proto container
+ *     is used so the result survives the JSON hops between worker, offscreen
+ *     document and service worker without serde/JsValue representation issues.
+ */
+export function prove_actions(full_viewing_key: Uint8Array, transaction_plan: Uint8Array, witness_data: Uint8Array): Uint8Array;
+
 export function sct_position(block_height: bigint, epoch_bytes: Uint8Array): bigint;
 
 /**
@@ -408,10 +390,9 @@ export interface InitOutput {
   readonly get_auction_id: (a: number, b: number) => [number, number, number, number];
   readonly get_auction_nft_metadata: (a: number, b: number, c: bigint) => [number, number, number, number];
   readonly build_action: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number, number, number];
-  readonly build_serial: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number, number, number];
-  readonly build_parallel: (a: any, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number, number];
-  readonly build_actions_native: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
-  readonly build_parallel_native: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number, number, number];
+  readonly assemble_transaction: (a: any, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number, number];
+  readonly prove_actions: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
+  readonly build_transaction: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number, number, number];
   readonly compute_position_id: (a: number, b: number) => [number, number, number, number];
   readonly get_lpnft_asset: (a: number, b: number, c: number, d: number) => [number, number, number, number];
   readonly decrypt_position_metadata: (a: number, b: number, c: number, d: number) => [number, number, number, number];
@@ -468,11 +449,11 @@ export interface InitOutput {
   readonly wbg_rayon_poolbuilder_build: (a: number) => void;
   readonly initThreadPool: (a: number) => any;
   readonly wbg_rayon_start_worker: (a: number) => void;
-  readonly wasm_bindgen__convert__closures_____invoke__h7dcf9c60e9f2743a: (a: number, b: number, c: any) => void;
-  readonly wasm_bindgen__closure__destroy__h216793dce1995a54: (a: number, b: number) => void;
   readonly wasm_bindgen__convert__closures_____invoke__h11dfe1dc9182c2f0: (a: number, b: number, c: any) => void;
   readonly wasm_bindgen__closure__destroy__h17034578121f47bb: (a: number, b: number) => void;
   readonly wasm_bindgen__convert__closures_____invoke__hc6c97ac99e9f3718: (a: number, b: number) => void;
+  readonly wasm_bindgen__convert__closures_____invoke__h7dcf9c60e9f2743a: (a: number, b: number, c: any) => void;
+  readonly wasm_bindgen__closure__destroy__h216793dce1995a54: (a: number, b: number) => void;
   readonly wasm_bindgen__convert__closures_____invoke__h46399c5042f18d2c: (a: number, b: number, c: any, d: any) => void;
   readonly memory: WebAssembly.Memory;
   readonly __wbindgen_malloc: (a: number, b: number) => number;

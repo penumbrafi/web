@@ -28,7 +28,11 @@ function waitForMsgType(target, type) {
   });
 }
 
-waitForMsgType(self, 'wasm_bindgen_worker_init').then(async ({ init, receiver }) => {
+// penumbra: only rayon worker threads (dedicated workers) accept the init message.
+(typeof DedicatedWorkerGlobalScope === 'function' && self instanceof DedicatedWorkerGlobalScope
+  ? waitForMsgType(self, 'wasm_bindgen_worker_init')
+  : new Promise(() => {})
+).then(async ({ init, receiver }) => {
   // # Note 1
   // Our JS should have been generated in
   // `[out-dir]/snippets/wasm-bindgen-rayon-[hash]/workerHelpers.js`,

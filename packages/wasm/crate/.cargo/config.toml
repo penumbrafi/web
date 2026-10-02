@@ -1,11 +1,9 @@
-# WASM build configuration for penumbra-wasm
-# Enables SIMD 128-bit instructions for better performance
+# WASM build configuration for penumbra-wasm.
 #
-# For SINGLE-THREADED builds (default):
-#   wasm-pack build --no-pack --target bundler --out-name index --out-dir ../wasm
-#
-# For MULTI-THREADED builds with rayon (requires nightly + build-std):
-#   See scripts/build-wasm-parallel.sh
+# The package's module is built with scripts/build-wasm.sh (`pnpm build:wasm`),
+# which adds atomics, bulk memory and the shared-memory maximum. A plain
+# `cargo build --target wasm32-unknown-unknown` (as `wasm-pack test` does)
+# gives a module without threads: fine for tests, never published.
 
 [target.wasm32-unknown-unknown]
 # Enable SIMD 128-bit for vectorized cryptographic operations

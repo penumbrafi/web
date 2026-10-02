@@ -1,29 +1,26 @@
 #!/bin/bash
-# Build multi-threaded WASM with rayon parallelism
+# Build the penumbra wasm module (`pnpm build:wasm`). There is one build: threads
+# (atomics + shared memory) are always on, rayon runs on a pool when the caller
+# starts one and on the calling thread otherwise.
 #
-# This script builds WASM with SharedArrayBuffer support using cargo directly,
-# then runs wasm-bindgen to generate JavaScript bindings.
+# cargo builds the module, wasm-bindgen generates the JS bindings
+# (--target web), wasm-opt optimises it.
 #
 # Requirements:
 #   - rust-src for the pinned toolchain (or TOOLCHAIN=nightly-YYYY-MM-DD)
 #   - wasm-bindgen-cli matching Cargo.lock: cargo install wasm-bindgen-cli --version <lock version>
 #   - wasm-opt (binaryen, REQUIRED)
 #
-# Browser requirements:
-#   - SharedArrayBuffer + Atomics support
-#   - Server headers:
-#     Cross-Origin-Opener-Policy: same-origin
-#     Cross-Origin-Embedder-Policy: require-corp
+# Runtime requirement: SharedArrayBuffer, i.e. a cross-origin-isolated context
+# (COOP same-origin + COEP require-corp) or Node.
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CRATE_DIR="$(dirname "$SCRIPT_DIR")"
-# Output to wasm-parallel/ to match package.json exports ("./wasm-parallel").
-# (Previously defaulted to wasm/, which silently clobbered the serial build.)
-OUT_DIR="${OUT_DIR:-${CRATE_DIR}/../wasm-parallel}"
+OUT_DIR="${OUT_DIR:-${CRATE_DIR}/../wasm}"
 # Cargo profile: speed-optimized (opt-level=3, fat LTO, 1 CGU); see Cargo.toml.
-PROFILE="${PROFILE:-release-parallel}"
+PROFILE="${PROFILE:-release-wasm}"
 WASM_BINDGEN="${WASM_BINDGEN:-wasm-bindgen}"
 WASM_OPT="${WASM_OPT:-wasm-opt}"
 # wasm-opt level. -O3 (speed), not -Oz: this build exists to make proving fast.
@@ -75,7 +72,6 @@ cargo "+$TOOLCHAIN" build \
     --lib \
     --profile "$PROFILE" \
     --target wasm32-unknown-unknown \
-    --features parallel \
     -Z build-std=panic_abort,std
 
 # Handle both crate-local and workspace-root target directories
@@ -91,8 +87,37 @@ echo "Found WASM file: $WASM_FILE ($(wc -c < "$WASM_FILE") bytes)"
 
 # Step 2: wasm-bindgen (CLI version must equal the wasm-bindgen crate in Cargo.lock)
 echo "Step 2: wasm-bindgen..."
+# Start from an empty directory: wasm-bindgen never deletes files, and a
+# leftover from an older build would be published with the package.
+rm -rf "${OUT_DIR:?}"
 mkdir -p "$OUT_DIR"
 "$WASM_BINDGEN" "$WASM_FILE" --out-dir "$OUT_DIR" --out-name index --target web
+
+# Step 2b: wasm-bindgen-rayon's worker helper registers a `message` listener on
+# `self` in EVERY context that imports the module, and on a matching message
+# hands the message's `receiver` (a pointer into wasm memory) to
+# wbg_rayon_start_worker without checking the sender. Only rayon's own worker
+# threads need it, and they are always dedicated workers; in a page any window
+# that can postMessage to it could pass an arbitrary pointer. Register it only
+# in a dedicated worker. (Also keeps Node, which has no `self`, working.)
+HELPER=$(ls "$OUT_DIR"/snippets/wasm-bindgen-rayon-*/src/workerHelpers.js)
+node - "$HELPER" <<'NODE'
+const fs = require('fs');
+const file = process.argv[2];
+const src = fs.readFileSync(file, 'utf8');
+const from = "waitForMsgType(self, 'wasm_bindgen_worker_init').then(";
+const to =
+  '// penumbra: only rayon worker threads (dedicated workers) accept the init message.\n' +
+  "(typeof DedicatedWorkerGlobalScope === 'function' && self instanceof DedicatedWorkerGlobalScope\n" +
+  "  ? waitForMsgType(self, 'wasm_bindgen_worker_init')\n" +
+  '  : new Promise(() => {})\n' +
+  ').then(';
+if (src.split(from).length !== 2) {
+  console.error('workerHelpers.js: expected exactly one init listener; wasm-bindgen-rayon changed, re-check the patch');
+  process.exit(1);
+}
+fs.writeFileSync(file, src.replace(from, to));
+NODE
 
 # Step 3: wasm-opt. Feature flags must cover everything rustc emitted, or
 # wasm-opt fails validation (threads/atomics+shared memory, simd128, etc.).
@@ -113,12 +138,12 @@ else
     echo "Step 3: SKIPPED (SKIP_WASM_OPT=1)"
 fi
 
-# npm-packlist would otherwise apply wasm-parallel/.gitignore ("*") and publish the
-# package WITHOUT the parallel build.
+# The build output is committed (CI does not have this toolchain). The empty
+# .npmignore keeps npm from ever applying a .gitignore to it.
 touch "$OUT_DIR/.npmignore"
 
 echo
-echo "Multi-threaded WASM build complete:"
+echo "WASM build complete:"
 wc -c "$OUT_DIR/index_bg.wasm" | awk '{printf "  index_bg.wasm: %s bytes (%.2f MB)\n", $1, $1/1024/1024}'
 echo
 echo "Verify before shipping: the memory import must be shared, e.g."

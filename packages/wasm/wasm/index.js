@@ -249,16 +249,16 @@ if (cachedTextEncoder) {
 
 let WASM_VECTOR_LEN = 0;
 
-function wasm_bindgen__convert__closures_____invoke__h7dcf9c60e9f2743a(arg0, arg1, arg2) {
-    wasm.wasm_bindgen__convert__closures_____invoke__h7dcf9c60e9f2743a(arg0, arg1, arg2);
-}
-
 function wasm_bindgen__convert__closures_____invoke__h11dfe1dc9182c2f0(arg0, arg1, arg2) {
     wasm.wasm_bindgen__convert__closures_____invoke__h11dfe1dc9182c2f0(arg0, arg1, arg2);
 }
 
 function wasm_bindgen__convert__closures_____invoke__hc6c97ac99e9f3718(arg0, arg1) {
     wasm.wasm_bindgen__convert__closures_____invoke__hc6c97ac99e9f3718(arg0, arg1);
+}
+
+function wasm_bindgen__convert__closures_____invoke__h7dcf9c60e9f2743a(arg0, arg1, arg2) {
+    wasm.wasm_bindgen__convert__closures_____invoke__h7dcf9c60e9f2743a(arg0, arg1, arg2);
 }
 
 function wasm_bindgen__convert__closures_____invoke__h46399c5042f18d2c(arg0, arg1, arg2, arg3) {
@@ -637,6 +637,38 @@ export class ViewServer {
 if (Symbol.dispose) ViewServer.prototype[Symbol.dispose] = ViewServer.prototype.free;
 
 /**
+ * Assemble a transaction from actions that were already built, applying the
+ * authorization data. Pairs with [`prove_actions`], which builds the actions
+ * without it.
+ * Arguments:
+ *     actions: `Vec<Actions>`
+ *     transaction_plan: `TransactionPlan`
+ *     witness_data: `WitnessData`
+ *     auth_data: `AuthorizationData`
+ * Returns: `Transaction`
+ * @param {any} actions
+ * @param {Uint8Array} transaction_plan
+ * @param {Uint8Array} witness_data
+ * @param {Uint8Array} auth_data
+ * @returns {Uint8Array}
+ */
+export function assemble_transaction(actions, transaction_plan, witness_data, auth_data) {
+    const ptr0 = passArray8ToWasm0(transaction_plan, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArray8ToWasm0(witness_data, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ptr2 = passArray8ToWasm0(auth_data, wasm.__wbindgen_malloc);
+    const len2 = WASM_VECTOR_LEN;
+    const ret = wasm.assemble_transaction(actions, ptr0, len0, ptr1, len1, ptr2, len2);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v4 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v4;
+}
+
+/**
  * authorize transaction (sign  transaction using  spend key)
  * Arguments:
  *     spend_key: `byte representation inner SpendKey`
@@ -694,89 +726,10 @@ export function build_action(transaction_plan, action_plan, full_viewing_key, wi
 }
 
 /**
- * Build (prove) every action of a transaction plan concurrently with rayon,
- * WITHOUT authorization data.
+ * Build a whole transaction: every action is proven concurrently, then the
+ * authorization data is applied.
  *
- * This is the expensive part of transaction building (one ZK proof per
- * action) and needs only the full viewing key and witness, so callers can
- * start it as soon as the plan is ready -- e.g. while the user is still
- * looking at the approval prompt. The result carries no spend authorization;
- * it must be assembled with [`build_parallel`] (which applies the
- * `AuthorizationData`) before it is a valid transaction.
- *
- * Requires the `parallel` feature and `initThreadPool()` to be called first.
- *
- * Arguments:
- *     full_viewing_key: `FullViewingKey`
- *     transaction_plan: `TransactionPlan`
- *     witness_data: `WitnessData`
- * Returns: `TransactionBody` bytes whose `actions` field holds the built
- *     actions in plan order (all other fields are unset). A proto container
- *     is used so the result survives the JSON hops between worker, offscreen
- *     document and service worker without serde/JsValue representation issues.
- * @param {Uint8Array} full_viewing_key
- * @param {Uint8Array} transaction_plan
- * @param {Uint8Array} witness_data
- * @returns {Uint8Array}
- */
-export function build_actions_native(full_viewing_key, transaction_plan, witness_data) {
-    const ptr0 = passArray8ToWasm0(full_viewing_key, wasm.__wbindgen_malloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ptr1 = passArray8ToWasm0(transaction_plan, wasm.__wbindgen_malloc);
-    const len1 = WASM_VECTOR_LEN;
-    const ptr2 = passArray8ToWasm0(witness_data, wasm.__wbindgen_malloc);
-    const len2 = WASM_VECTOR_LEN;
-    const ret = wasm.build_actions_native(ptr0, len0, ptr1, len1, ptr2, len2);
-    if (ret[3]) {
-        throw takeFromExternrefTable0(ret[2]);
-    }
-    var v4 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
-    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    return v4;
-}
-
-/**
- * Build parallel tx –
- * building a transaction may take some time,
- * depending on CPU performance and number of
- * actions in the transaction plan.
- * Arguments:
- *     actions: `Vec<Actions>`
- *     transaction_plan: `TransactionPlan`
- *     witness_data: `WitnessData`
- *     auth_data: `AuthorizationData`
- * Returns: `Transaction`
- * @param {any} actions
- * @param {Uint8Array} transaction_plan
- * @param {Uint8Array} witness_data
- * @param {Uint8Array} auth_data
- * @returns {Uint8Array}
- */
-export function build_parallel(actions, transaction_plan, witness_data, auth_data) {
-    const ptr0 = passArray8ToWasm0(transaction_plan, wasm.__wbindgen_malloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ptr1 = passArray8ToWasm0(witness_data, wasm.__wbindgen_malloc);
-    const len1 = WASM_VECTOR_LEN;
-    const ptr2 = passArray8ToWasm0(auth_data, wasm.__wbindgen_malloc);
-    const len2 = WASM_VECTOR_LEN;
-    const ret = wasm.build_parallel(actions, ptr0, len0, ptr1, len1, ptr2, len2);
-    if (ret[3]) {
-        throw takeFromExternrefTable0(ret[2]);
-    }
-    var v4 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
-    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    return v4;
-}
-
-/**
- * Build transaction with rayon parallel action building.
- * Requires the `parallel` feature and `initThreadPool()` to be called first.
- *
- * This builds all actions concurrently using rayon's par_iter(), which is
- * significantly faster for transactions with multiple actions (e.g., swaps,
- * multi-output sends) because ZK proof generation happens in parallel.
- *
- * Prefer [`build_actions_native`] + [`build_parallel`] when authorization
+ * Prefer [`prove_actions`] + [`assemble_transaction`] when authorization
  * arrives later than the plan (it lets proving overlap user approval).
  *
  * Arguments:
@@ -791,7 +744,7 @@ export function build_parallel(actions, transaction_plan, witness_data, auth_dat
  * @param {Uint8Array} auth_data
  * @returns {Uint8Array}
  */
-export function build_parallel_native(full_viewing_key, transaction_plan, witness_data, auth_data) {
+export function build_transaction(full_viewing_key, transaction_plan, witness_data, auth_data) {
     const ptr0 = passArray8ToWasm0(full_viewing_key, wasm.__wbindgen_malloc);
     const len0 = WASM_VECTOR_LEN;
     const ptr1 = passArray8ToWasm0(transaction_plan, wasm.__wbindgen_malloc);
@@ -800,42 +753,7 @@ export function build_parallel_native(full_viewing_key, transaction_plan, witnes
     const len2 = WASM_VECTOR_LEN;
     const ptr3 = passArray8ToWasm0(auth_data, wasm.__wbindgen_malloc);
     const len3 = WASM_VECTOR_LEN;
-    const ret = wasm.build_parallel_native(ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3);
-    if (ret[3]) {
-        throw takeFromExternrefTable0(ret[2]);
-    }
-    var v5 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
-    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    return v5;
-}
-
-/**
- * Build serial tx –
- * building a transaction may take some time,
- * depending on CPU performance and number of actions
- * in the transaction plan.
- * Arguments:
- *     full_viewing_key: `FullViewingKey`
- *     transaction_plan: `TransactionPlan`
- *     witness_data: `WitnessData`
- *     auth_data: `AuthorizationData`
- * Returns: `Transaction`
- * @param {Uint8Array} full_viewing_key
- * @param {Uint8Array} transaction_plan
- * @param {Uint8Array} witness_data
- * @param {Uint8Array} auth_data
- * @returns {Uint8Array}
- */
-export function build_serial(full_viewing_key, transaction_plan, witness_data, auth_data) {
-    const ptr0 = passArray8ToWasm0(full_viewing_key, wasm.__wbindgen_malloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ptr1 = passArray8ToWasm0(transaction_plan, wasm.__wbindgen_malloc);
-    const len1 = WASM_VECTOR_LEN;
-    const ptr2 = passArray8ToWasm0(witness_data, wasm.__wbindgen_malloc);
-    const len2 = WASM_VECTOR_LEN;
-    const ptr3 = passArray8ToWasm0(auth_data, wasm.__wbindgen_malloc);
-    const len3 = WASM_VECTOR_LEN;
-    const ret = wasm.build_serial(ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3);
+    const ret = wasm.build_transaction(ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3);
     if (ret[3]) {
         throw takeFromExternrefTable0(ret[2]);
     }
@@ -1306,6 +1224,49 @@ export function plan_transaction(idb_constants, request, full_viewing_key, gas_f
     const len2 = WASM_VECTOR_LEN;
     const ret = wasm.plan_transaction(idb_constants, ptr0, len0, ptr1, len1, ptr2, len2);
     return ret;
+}
+
+/**
+ * Build (prove) every action of a transaction plan concurrently, WITHOUT
+ * authorization data.
+ *
+ * This is the expensive part of transaction building (one ZK proof per
+ * action) and needs only the full viewing key and witness, so callers can
+ * start it as soon as the plan is ready -- e.g. while the user is still
+ * looking at the approval prompt. The result carries no spend authorization;
+ * it must be assembled with [`assemble_transaction`] (which applies the
+ * `AuthorizationData`) before it is a valid transaction.
+ *
+ * Uses the thread pool when one was started (`initThreadPool`); without one,
+ * rayon runs everything on the calling thread.
+ *
+ * Arguments:
+ *     full_viewing_key: `FullViewingKey`
+ *     transaction_plan: `TransactionPlan`
+ *     witness_data: `WitnessData`
+ * Returns: `TransactionBody` bytes whose `actions` field holds the built
+ *     actions in plan order (all other fields are unset). A proto container
+ *     is used so the result survives the JSON hops between worker, offscreen
+ *     document and service worker without serde/JsValue representation issues.
+ * @param {Uint8Array} full_viewing_key
+ * @param {Uint8Array} transaction_plan
+ * @param {Uint8Array} witness_data
+ * @returns {Uint8Array}
+ */
+export function prove_actions(full_viewing_key, transaction_plan, witness_data) {
+    const ptr0 = passArray8ToWasm0(full_viewing_key, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArray8ToWasm0(transaction_plan, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ptr2 = passArray8ToWasm0(witness_data, wasm.__wbindgen_malloc);
+    const len2 = WASM_VECTOR_LEN;
+    const ret = wasm.prove_actions(ptr0, len0, ptr1, len1, ptr2, len2);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v4 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v4;
 }
 
 /**

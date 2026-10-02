@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/require-await -- async on purpose: a wasm error becomes a rejected promise, as callers expect */
+import './instance.js';
 import { get_index_by_address, is_controlled_address } from '../wasm/index.js';
 import {
   Address,
@@ -5,13 +7,11 @@ import {
   FullViewingKey,
 } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys_pb';
 import { JsonValue } from '@bufbuild/protobuf';
-import { initWasm } from './init.js';
 
 export const getAddressIndexByAddress = async (
   fullViewingKey: FullViewingKey,
   address: Address,
 ): Promise<AddressIndex | undefined> => {
-  await initWasm();
   const res = get_index_by_address(fullViewingKey.toBinary(), address.toBinary()) as JsonValue;
   return res ? AddressIndex.fromJson(res) : undefined;
 };
@@ -24,6 +24,5 @@ export const isControlledAddress = async (
   if (!address) {
     return false;
   }
-  await initWasm();
   return is_controlled_address(fullViewingKey.toBinary(), address.toBinary());
 };

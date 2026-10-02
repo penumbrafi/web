@@ -1,3 +1,4 @@
+import './instance.js';
 import {
   AuctionId,
   DutchAuctionDescription,

@@ -6,13 +6,10 @@ edition = "2021"
 [profile.release]
 opt-level = "s"
 
-# Speed-optimized profile for the multi-threaded (rayon) build that runs the
-# Groth16 provers. The serial `wasm/` build keeps the size-optimized "s"
-# profile above; the parallel build is only loaded in the offscreen prover
-# worker, where proving time matters far more than a few hundred KB.
-# Used by `pnpm compile:parallel` / scripts/build-wasm-parallel.sh via
-# `--profile release-parallel`.
-[profile.release-parallel]
+# The wasm build (scripts/build-wasm.sh, `pnpm compile`): speed over size,
+# since this module runs the Groth16 provers. `release` stays for native
+# `cargo test --release`.
+[profile.release-wasm]
 inherits = "release"
 opt-level = 3
 lto = "fat"
@@ -24,9 +21,6 @@ crate-type = ["cdylib", "rlib"]
 [features]
 default = ["console_error_panic_hook"]
 mock-database = []
-# Enable rayon for parallel transaction building.
-# Requires wasm-bindgen-rayon and SharedArrayBuffer support.
-parallel = ["rayon", "wasm-bindgen-rayon"]
 
 [dependencies]
 penumbra-auction = { git = "https://github.com/penumbra-zone/penumbra.git", tag = "v2.0.4", package = "penumbra-sdk-auction", default-features = false }
@@ -66,9 +60,13 @@ wasm-bindgen-test = "0.3.43"
 bincode = "1.3.3"
 ibc-types = "0.16.0"
 
-# Optional rayon dependencies for parallel builds
-rayon = { version = "1.10", optional = true }
-wasm-bindgen-rayon = { version = "1.3", optional = true }
+# Threads. The published module is always built with atomics and shared
+# memory (scripts/build-wasm.sh); builds without atomics (`wasm-pack test`,
+# native) still work, with rayon running on the calling thread.
+rayon = "1.10"
+
+[target.'cfg(all(target_arch = "wasm32", target_feature = "atomics"))'.dependencies]
+wasm-bindgen-rayon = "1.3"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.43"

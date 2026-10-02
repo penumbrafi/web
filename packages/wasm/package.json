@@ -14,37 +14,29 @@
   },
   "scripts": {
     "build": "tsc --build --verbose",
-    "clean": "rm -rfv dist *.tsbuildinfo wasm wasm-parallel package penumbra-zone-*.tgz",
+    "build:wasm": "bash ./crate/scripts/build-wasm.sh",
+    "clean": "rm -rfv dist *.tsbuildinfo package penumbra-zone-*.tgz",
     "clean:rust": "cargo clean --manifest-path ./crate/Cargo.toml",
-    "compile": "cd crate && wasm-pack build --no-pack --target bundler --out-name index --out-dir ../wasm",
-    "compile:all": "pnpm compile && pnpm compile:parallel",
-    "compile:bundler": "cd crate && wasm-pack build --no-pack --target bundler --out-name index --out-dir ../wasm",
-    "compile:parallel": "bash ./crate/scripts/build-wasm-parallel.sh",
-    "dev:compile": "cargo watch -C ./crate --postpone -- $npm_execpath run compile",
     "dev:pack": "tsc-watch --onSuccess \"$npm_execpath pack\"",
+    "dev:wasm": "cargo watch -C ./crate --postpone -- $npm_execpath run build:wasm",
     "format:rust": "cd crate && cargo fmt --all",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "lint:rust": "cd crate && cargo fmt --all -- --check && cargo clippy -- -D warnings && cargo clippy --tests -- -D warnings",
     "lint:strict": "tsc --noEmit && eslint src --max-warnings 0",
-    "postcompile": "mkdir -p ./wasm && touch ./wasm/.npmignore",
     "test": "vitest run",
     "test:cargo": "cd crate && cargo test --release",
-    "test:wasm": "cd crate && wasm-pack test --headless --firefox -- --target wasm32-unknown-unknown --release"
+    "test:wasm": "cd crate && wasm-pack test --headless --firefox -- --target wasm32-unknown-unknown --release",
+    "verify:wasm": "bash ./crate/scripts/verify-wasm.sh"
   },
   "files": [
     "wasm",
-    "wasm-parallel",
     "dist"
   ],
   "exports": {
     "./*": {
       "types": "./dist/*.d.ts",
       "default": "./dist/*.js"
-    },
-    "./wasm-parallel": {
-      "types": "./wasm-parallel/index.d.ts",
-      "default": "./wasm-parallel/index.js"
     }
   },
   "publishConfig": {

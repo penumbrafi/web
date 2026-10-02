@@ -18,7 +18,7 @@ use penumbra_shielded_pool::fmd::Parameters;
 use penumbra_shielded_pool::{Note, Rseed};
 use penumbra_tct::{Forgotten, StateCommitment};
 use penumbra_transaction::{Action, ActionPlan, AuthorizationData, WitnessData};
-use penumbra_wasm::build::{build_action_inner, build_parallel_inner, build_serial_inner};
+use penumbra_wasm::build::{build_action_inner, assemble_transaction_inner, build_serial_inner};
 use penumbra_wasm::database::interface::Database;
 use penumbra_wasm::database::mock::{get_mock_tables, MockDb};
 use penumbra_wasm::note_record::SpendableNoteRecord;
@@ -347,7 +347,7 @@ async fn mock_build_serial_and_parallel() {
     }
 
     // Execute parallel spend transaction and generate proof.
-    let parallel_transaction = build_parallel_inner(
+    let parallel_transaction = assemble_transaction_inner(
         actions,
         transaction_plan.clone(),
         witness_data.clone(),

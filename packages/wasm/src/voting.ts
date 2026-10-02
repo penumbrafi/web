@@ -1,3 +1,4 @@
+import './instance.js';
 import { IdbConstants } from '@penumbrafi/types/indexed-db';
 import { AddressIndex, IdentityKey } from '@penumbra-zone/protobuf/penumbra/core/keys/v1/keys_pb';
 import { get_voting_notes } from '../wasm/index.js';

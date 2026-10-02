@@ -1,3 +1,4 @@
+import './instance.js';
 import { compute_position_id, decrypt_position_metadata, get_lpnft_asset } from '../wasm/index.js';
 import {
   Position,

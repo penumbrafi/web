@@ -1,3 +1,4 @@
+import './instance.js';
 import { ViewServer as WasmViewServer } from '../wasm/index.js';
 import { CompactBlock } from '@penumbra-zone/protobuf/penumbra/core/component/compact_block/v1/compact_block_pb';
 import { MerkleRoot } from '@penumbra-zone/protobuf/penumbra/crypto/tct/v1/tct_pb';

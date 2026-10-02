@@ -24,7 +24,7 @@ export npm_config_git_checks=false
 # Dependency order: types <- wasm <- services.
 PKGS=(packages/types packages/wasm packages/services)
 
-bash packages/wasm/crate/scripts/verify-wasm-parallel.sh
+bash packages/wasm/crate/scripts/verify-wasm.sh
 
 if [ "${DRY_RUN:-0}" != "1" ]; then
   who=$(npm whoami 2>/dev/null) || { echo "not logged in to npm: run \`npm login\` first" >&2; exit 1; }

@@ -1,3 +1,4 @@
+import './instance.js';
 import { Metadata } from '@penumbra-zone/protobuf/penumbra/core/asset/v1/asset_pb';
 import { customize_symbol } from '../wasm/index.js';
 

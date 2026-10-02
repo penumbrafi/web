@@ -1,112 +1,55 @@
 /**
- * WASM Module Initialization
+ * Readiness and the thread pool.
  *
- * Standard wasm (wasm/) is built with --target bundler and auto-initializes on import.
- * Parallel wasm (wasm-parallel/) is built with --target web and needs explicit init.
+ * Importing any entry point of this package already loads the wasm module
+ * (see instance.ts), so most code never needs this file. The one thing that is
+ * explicit is the thread pool: proving runs on it when it exists and on the
+ * calling thread when it does not.
  *
- * Usage:
- *   import { initWasm, initWasmWithParallel } from '@penumbrafi/wasm/init';
- *
- *   // For standard builds (no-op, wasm auto-initializes):
- *   await initWasm();
- *
- *   // For parallel builds with rayon (requires SharedArrayBuffer):
- *   await initWasmWithParallel(navigator.hardwareConcurrency);
+ *   // in the dedicated worker that proves:
+ *   import { startThreads } from '@penumbrafi/wasm/init';
+ *   await startThreads(navigator.hardwareConcurrency);
  */
+import './instance.js';
+import * as wasm from '../wasm/index.js';
 
-// Track parallel wasm initialization (standard wasm auto-inits with bundler target)
-let parallelWasmInitialized = false;
-let parallelWasmInitPromise: Promise<void> | null = null;
+let threads: Promise<void> | undefined;
 
 /**
- * Check if SharedArrayBuffer is available (required for parallel builds).
+ * Resolves once the module is ready. Kept for callers that awaited it before
+ * the module loaded itself; by the time this can be called, it is ready.
  */
-export const isParallelSupported = (): boolean => {
-  return typeof SharedArrayBuffer !== 'undefined';
+export const initWasm = (): Promise<void> => Promise.resolve();
+
+/** Whether this context has started a thread pool. */
+export const threadsStarted = (): boolean => threads !== undefined;
+
+const inDedicatedWorker = (): boolean => {
+  const scope = (globalThis as { DedicatedWorkerGlobalScope?: new () => unknown })
+    .DedicatedWorkerGlobalScope;
+  return typeof scope === 'function' && globalThis instanceof scope;
 };
 
 /**
- * Initialize the WASM module for standard (non-parallel) use.
- * With --target bundler, WASM auto-initializes on import - this is a no-op.
- * Kept for backwards compatibility.
- */
-export const initWasm = (): Promise<void> => {
-  // No-op: bundler target auto-initializes WASM on import
-  return Promise.resolve();
-};
-
-/**
- * Initialize the WASM module with rayon parallel support.
- * Requires SharedArrayBuffer to be available.
+ * Start the thread pool for this context. Call it once, from a dedicated
+ * worker, before proving.
  *
- * @param numThreads - Number of worker threads to spawn (default: navigator.hardwareConcurrency or 4)
+ * Only a dedicated worker may own the pool. While the pool runs, a caller
+ * waits for rayon and for locks shared with the pool threads (even the
+ * allocator's) with `memory.atomic.wait`, which traps on a page's main thread.
+ * A page or service worker keeps a pool-less instance, where nothing can
+ * contend and rayon runs on the calling thread.
  */
-export const initWasmWithParallel = async (
-  numThreads: number = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 4 : 4,
-): Promise<void> => {
-  if (parallelWasmInitialized) {
-    return;
+export const startThreads = (count: number): Promise<void> => {
+  if (!inDedicatedWorker()) {
+    throw new Error('startThreads must run in a dedicated worker, not a page or service worker');
   }
-  if (parallelWasmInitPromise) {
-    return parallelWasmInitPromise;
+  if (!Number.isInteger(count) || count < 1) {
+    throw new Error(`startThreads: invalid thread count ${count}`);
   }
-
-  if (!isParallelSupported()) {
-    throw new Error(
-      'SharedArrayBuffer is not available. Parallel WASM requires cross-origin isolation or Chrome extension context.',
-    );
+  if (!('initThreadPool' in wasm)) {
+    throw new Error('this @penumbrafi/wasm build has no thread support');
   }
-
-  parallelWasmInitPromise = (async () => {
-    // Dynamically import parallel WASM module
-    const parallelWasm = await import('../wasm-parallel/index.js');
-
-    // Create shared memory for rayon threads
-    // Initial: 512 pages (32MB), max: 65536 pages (4GB)
-    // Do NOT raise `initial` to "pre-fit" the ~100MB of proving keys: Rust's
-    // wasm allocator only uses pages it obtained via memory.grow, so pages
-    // present at instantiation beyond the module's static data are never
-    // handed out. Measured (node, all 6 keys): initial 4096 pages ended at
-    // 428MB vs 204MB for 512, with identical key-load time.
-    // Note: maximum must match the WASM module's declared maximum (set via --max-memory linker flag)
-    const memory = new WebAssembly.Memory({
-      initial: 512,
-      maximum: 65536,
-      shared: true,
-    });
-
-    // Initialize the parallel WASM module with shared memory
-    await parallelWasm.default({ memory });
-
-    // Initialize the rayon thread pool
-    await parallelWasm.initThreadPool(numThreads);
-
-    parallelWasmInitialized = true;
-    console.debug(`[WASM] Initialized with ${numThreads} parallel threads`);
-  })();
-
-  return parallelWasmInitPromise;
-};
-
-/**
- * Check if parallel WASM module has been initialized.
- */
-export const isWasmInitialized = (): boolean => true; // Standard wasm always auto-inits
-
-/**
- * Check if parallel WASM is initialized.
- */
-export const isParallelWasmInitialized = (): boolean => parallelWasmInitialized;
-
-/**
- * Ensure WASM is initialized, initializing with parallel support if available.
- * This is a convenience function that auto-detects the best mode.
- */
-export const ensureWasmReady = async (): Promise<boolean> => {
-  // Standard wasm auto-initializes with bundler target
-  if (isParallelSupported() && !parallelWasmInitialized) {
-    await initWasmWithParallel();
-    return true;
-  }
-  return false;
+  threads ??= (wasm.initThreadPool as (n: number) => Promise<unknown>)(count).then(() => undefined);
+  return threads;
 };

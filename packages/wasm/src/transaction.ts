@@ -1,3 +1,4 @@
+import './instance.js';
 import { transaction_perspective_and_view, transaction_summary } from '../wasm/index.js';
 import {
   Transaction,
