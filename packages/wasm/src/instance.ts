@@ -32,11 +32,14 @@ const sharedMemory = (): WebAssembly.Memory => {
   return new WebAssembly.Memory({ initial: INITIAL_PAGES, maximum: MAXIMUM_PAGES, shared: true });
 };
 
+// jsdom test environments are Node with a `window`; real browsers have neither
+// process.versions.node nor a jsdom user agent (bundlers may shim `process`).
 const isNode =
   typeof process !== 'undefined' &&
   typeof process.versions === 'object' &&
   typeof process.versions.node === 'string' &&
-  typeof window === 'undefined';
+  (typeof window === 'undefined' ||
+    (typeof navigator !== 'undefined' && navigator.userAgent.includes('jsdom')));
 
 if (isNode) {
   // Node (tests, tooling) has no fetch for file: URLs; read the bytes.
