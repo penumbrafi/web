@@ -1,5 +1,33 @@
 # @penumbra-zone/router
 
+## 71.0.0
+
+### Major Changes
+
+- 8920434: Publish under the `@penumbrafi` npm scope, from penumbrafi/web.
+
+  - `@rotko/penumbra-wasm` → `@penumbrafi/wasm` (continues the 55.x line: first release 56.0.0)
+  - `@rotko/penumbra-types` → `@penumbrafi/types` (continues 37.x: first release 38.0.0)
+  - `@rotko/penumbra-services` → `@penumbrafi/services` (continues 70.x: first release 71.0.0)
+
+  Breaking for consumers only in the import specifier: replace `@rotko/penumbra-*` (and, for services/wasm
+  internals, `@penumbra-zone/types`) with `@penumbrafi/*`. `services` and `wasm` now import `@penumbrafi/types`
+  instead of upstream `@penumbra-zone/types`. Peer dependencies on upstream `@penumbra-zone/*` packages are
+  `>=` ranges instead of the leaked `workspace:*` specifiers in `@rotko/penumbra-wasm@55.0.2`.
+  `wasm-parallel/` (rayon build) is now always shipped.
+
+### Minor Changes
+
+- 1f2d5d6: Keep the offscreen prover warm (close after 4 min idle, refcounted, consults the document's in-flight status) and prove before approval: new `build_actions_native` wasm export + `PROVE_PARALLEL` offscreen message; auth data is applied via `buildParallel` only after approval. Adds debug-level timing logs.
+
+### Patch Changes
+
+- Updated dependencies [d429c87]
+- Updated dependencies [8920434]
+- Updated dependencies [1f2d5d6]
+  - @penumbrafi/wasm@56.0.0
+  - @penumbrafi/types@38.0.0
+
 ## 69.0.0
 
 ### Patch Changes

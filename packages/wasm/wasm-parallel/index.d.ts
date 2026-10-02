@@ -468,11 +468,11 @@ export interface InitOutput {
   readonly wbg_rayon_poolbuilder_build: (a: number) => void;
   readonly initThreadPool: (a: number) => any;
   readonly wbg_rayon_start_worker: (a: number) => void;
-  readonly wasm_bindgen__convert__closures_____invoke__hc6c97ac99e9f3718: (a: number, b: number) => void;
-  readonly wasm_bindgen__closure__destroy__h17034578121f47bb: (a: number, b: number) => void;
   readonly wasm_bindgen__convert__closures_____invoke__h7dcf9c60e9f2743a: (a: number, b: number, c: any) => void;
   readonly wasm_bindgen__closure__destroy__h216793dce1995a54: (a: number, b: number) => void;
   readonly wasm_bindgen__convert__closures_____invoke__h11dfe1dc9182c2f0: (a: number, b: number, c: any) => void;
+  readonly wasm_bindgen__closure__destroy__h17034578121f47bb: (a: number, b: number) => void;
+  readonly wasm_bindgen__convert__closures_____invoke__hc6c97ac99e9f3718: (a: number, b: number) => void;
   readonly wasm_bindgen__convert__closures_____invoke__h46399c5042f18d2c: (a: number, b: number, c: any, d: any) => void;
   readonly memory: WebAssembly.Memory;
   readonly __wbindgen_malloc: (a: number, b: number) => number;
